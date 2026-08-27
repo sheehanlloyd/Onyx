@@ -1,76 +1,76 @@
-# Visual Studio Code - Open Source ("Code - OSS")
-[![Feature Requests](https://img.shields.io/github/issues/microsoft/vscode/feature-request.svg)](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
-[![Bugs](https://img.shields.io/github/issues/microsoft/vscode/bug.svg)](https://github.com/microsoft/vscode/issues?utf8=✓&q=is%3Aissue+is%3Aopen+label%3Abug)
-
-## The Repository
-
-This repository ("`Code - OSS`") is where we (Microsoft) develop the [Visual Studio Code](https://code.visualstudio.com) product together with the community. Not only do we work on code and issues here, but we also publish our [roadmap](https://github.com/microsoft/vscode/wiki/Roadmap), [monthly iteration plans](https://github.com/microsoft/vscode/wiki/Iteration-Plans), and our [endgame plans](https://github.com/microsoft/vscode/wiki/Running-the-Endgame). This source code is available to everyone under the standard [MIT license](https://github.com/microsoft/vscode/blob/main/LICENSE.txt).
-
-## Visual Studio Code
-
 <p align="center">
-  <img alt="VS Code in action" src="https://github.com/user-attachments/assets/56af271c-949d-454c-a3ea-16188c063414">
+  <img src="docs/images/onyx-icon.png" width="112" alt="Onyx icon" />
 </p>
 
-[Visual Studio Code](https://code.visualstudio.com) is a distribution of the `Code - OSS` repository with Microsoft-specific customizations released under a traditional [Microsoft product license](https://code.visualstudio.com/License/).
+<h1 align="center">Onyx</h1>
 
-[Visual Studio Code](https://code.visualstudio.com) combines the simplicity of a code editor with what developers need for their core edit-build-debug cycle. It provides comprehensive code editing, navigation, and understanding support along with lightweight debugging, a rich extensibility model, and lightweight integration with existing tools.
+<p align="center"><b>The local-first AI code editor for macOS.</b><br/>
+Every model runs on your machine. No cloud. No telemetry. No account.</p>
 
-Visual Studio Code is updated monthly with new features and bug fixes. You can download it for Windows, macOS, and Linux on the [Visual Studio Code website](https://code.visualstudio.com/Download). To get the latest releases every day, install the [Insiders build](https://code.visualstudio.com/insiders).
+<p align="center">
+  <img src="docs/images/onyx-workbench.png" alt="Onyx workbench: Onyx Dark theme, local agent chat, control plane" width="900" />
+</p>
 
-## Contributing
+Onyx is a fork of [Code - OSS](https://github.com/microsoft/vscode) whose
+**entire agent architecture is designed around local inference**. Think
+Cursor — except inference happens on your hardware through any
+OpenAI-compatible runtime (Ollama, LM Studio, llama.cpp, vLLM), a 7B model
+gets a different harness than a 70B model, and a visual control plane shows
+exactly what the agent is doing and why.
 
-There are many ways in which you can participate in this project, for example:
+## Why Onyx is different
 
-* [Submit bugs and feature requests](https://github.com/microsoft/vscode/issues), and help us verify them as they are checked in
-* Review [source code changes](https://github.com/microsoft/vscode/pulls)
-* Review the [documentation](https://github.com/microsoft/vscode-docs) and make pull requests for anything from typos to new content.
+- **Local-first is architectural, not a provider option.** One
+  OpenAI-compatible client covers every runtime; discovery finds your
+  models automatically and nothing you type leaves the machine.
+- **The harness adapts to the model.** Prompt style, tool count,
+  temperature, and context budget derive from a per-model capability
+  profile — seeded from model metadata, sharpened by measurements taken on
+  *your* hardware and by which answers *you* keep.
+- **Auto routing that actually learns.** Quick edits go to fast small
+  models, implementation and debugging to your strongest tool-callers,
+  based on measured tok/s, tool-call reliability, and accept rates.
+- **Everything is observable.** The Onyx Control Plane (`⌘⌃O`) streams
+  every routing decision, model turn, and tool call live — with pause,
+  stop, and redirect — plus a token-exact context budget, compute costs
+  (tok/s, TTFT), and an inspector that replays any past run down to the
+  exact wire prompt.
+- **Repo intelligence, no cloud index.** A symbol-aware retrieval tool
+  built on the editor's own language services (with call-graph expansion),
+  context ranking from open editors + git recency, and persistent
+  per-workspace agent memory.
+- **Trust, but verify.** After the agent edits code, Onyx diffs workspace
+  problems against the pre-run baseline and can run your project's own
+  build/test task, posting the verdict to the timeline.
+- **Local autocomplete.** Ghost text from your smallest, fastest model via
+  fill-in-the-middle, with cross-file context and latency-aware model
+  selection.
 
-If you are interested in fixing issues and contributing directly to the codebase, please see the document [How to Contribute](https://github.com/microsoft/vscode/wiki/How-to-Contribute), which covers the following:
+## Getting started
 
-* [How to build and run from source](https://github.com/microsoft/vscode/wiki/How-to-Contribute)
-* [The development workflow, including debugging and running tests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#debugging)
-* [Coding guidelines](https://github.com/microsoft/vscode/wiki/Coding-Guidelines)
-* [Submitting pull requests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests)
-* [Finding an issue to work on](https://github.com/microsoft/vscode/wiki/How-to-Contribute#where-to-contribute)
-* [Contributing to translations](https://aka.ms/vscodeloc)
+```bash
+# Requires Node 24 and a local model runtime (e.g. `brew install ollama`)
+git clone https://github.com/sheehanlloyd/cursor2.0.git onyx && cd onyx
+npm i
+npm run compile
+./scripts/code.sh
+```
 
-## Feedback
+Start Ollama (or LM Studio / llama.cpp / vLLM), open chat, and pick
+**Auto** — or any discovered model — in the model picker. The **Get Started
+with Onyx** walkthrough on the Welcome page tours the rest.
 
-* Ask a question on [Stack Overflow](https://stackoverflow.com/questions/tagged/vscode)
-* [Request a new feature](CONTRIBUTING.md)
-* Upvote [popular feature requests](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
-* [File an issue](https://github.com/microsoft/vscode/issues)
-* Connect with the extension author community on [GitHub Discussions](https://github.com/microsoft/vscode-discussions/discussions) or [Slack](https://aka.ms/vscode-dev-community)
-* Follow [@code](https://x.com/code) and let us know what you think!
+Building a distributable, signed macOS app: see [LAUNCH.md](./LAUNCH.md).
 
-See our [wiki](https://github.com/microsoft/vscode/wiki/Feedback-Channels) for a description of each of these channels and information on some other available community-driven channels.
+## Architecture
 
-## Related Projects
-
-Many of the core components and extensions to VS Code live in their own repositories on GitHub. For example, the [node debug adapter](https://github.com/microsoft/vscode-node-debug) and the [mono debug adapter](https://github.com/microsoft/vscode-mono-debug) repositories are separate from each other. For a complete list, please visit the [Related Projects](https://github.com/microsoft/vscode/wiki/Related-Projects) page on our [wiki](https://github.com/microsoft/vscode/wiki).
-
-## Bundled Extensions
-
-VS Code includes a set of built-in extensions located in the [extensions](extensions) folder, including grammars and snippets for many languages. Extensions that provide rich language support (inline suggestions, Go to Definition) for a language have the suffix `language-features`. For example, the `json` extension provides coloring for `JSON` and the `json-language-features` extension provides rich language support for `JSON`.
-
-## Development Container
-
-This repository includes a Visual Studio Code Dev Containers / GitHub Codespaces development container.
-
-* For [Dev Containers](https://aka.ms/vscode-remote/download/containers), use the **Dev Containers: Clone Repository in Container Volume...** command, which creates a Docker volume for better disk I/O on macOS and Windows.
-  * If you already have VS Code and Docker installed, you can also click [here](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/vscode) to get started. This will cause VS Code to automatically install the Dev Containers extension if needed, clone the source code into a container volume, and spin up a dev container for use.
-
-* For Codespaces, install the [GitHub Codespaces](https://marketplace.visualstudio.com/items?itemName=GitHub.codespaces) extension in VS Code, and use the **Codespaces: Create New Codespace** command.
-
-Docker / the Codespace should have at least **4 cores and 6 GB of RAM (8 GB recommended)** to run a full build. See the [development container README](.devcontainer/README.md) for more information.
-
-## Code of Conduct
-
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information, see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+The product plan, full architecture, and status live in
+[ONYX.md](./ONYX.md). The fork stays cleanly rebaseable on upstream VS
+Code: all Onyx code is additive (new directories, a built-in theme
+extension), and the handful of one-line upstream touch points are
+documented in [REBASE.md](./REBASE.md).
 
 ## License
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-Licensed under the [MIT](LICENSE.txt) license.
+MIT, like the [Code - OSS](https://github.com/microsoft/vscode) project it
+builds on. Copyright (c) Microsoft Corporation and Onyx contributors.

@@ -188,6 +188,12 @@
 	],
 	"onboardingThemes": [
 		{
+			"id": "onyx-dark",
+			"label": "Onyx Dark",
+			"themeId": "Onyx Dark",
+			"type": "dark"
+		},
+		{
 			"id": "dark-2026",
 			"label": "Dark 2026",
 			"themeId": "Dark 2026",

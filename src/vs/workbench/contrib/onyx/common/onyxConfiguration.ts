@@ -16,6 +16,7 @@ export const enum OnyxSettingId {
 	ControlPlaneAnimations = 'onyx.controlPlane.animations',
 	AutocompleteEnabled = 'onyx.autocomplete.enabled',
 	AutocompleteModel = 'onyx.autocomplete.model',
+	AutocompleteContext = 'onyx.autocomplete.context',
 	VerificationTask = 'onyx.verification.task',
 }
 
@@ -88,6 +89,12 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.MACHINE,
 			default: '',
 			markdownDescription: localize('onyx.autocomplete.model', "Model to use for inline autocomplete, as `host:port/modelId` (see *Onyx: Show Local Runtimes*). When empty, the smallest discovered model is used."),
+		},
+		[OnyxSettingId.AutocompleteContext]: {
+			type: 'boolean',
+			scope: ConfigurationScope.APPLICATION,
+			default: true,
+			description: localize('onyx.autocomplete.context', "Include short commented snippets from the most relevant other open files in inline autocomplete prompts."),
 		},
 		[OnyxSettingId.VerificationTask]: {
 			type: 'string',

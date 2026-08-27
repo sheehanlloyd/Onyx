@@ -87,7 +87,12 @@ export class OnyxContextRanker {
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
 	) { }
 
-	async rank(limit: number): Promise<IOnyxRankedFile[]> {
+	/**
+	 * Ranks workspace files by current relevance. Pass `gitRecency: false` on
+	 * latency-sensitive paths (inline autocomplete) to skip the shared-process
+	 * git round trip and rank from editor signals alone.
+	 */
+	async rank(limit: number, options?: { readonly gitRecency?: boolean }): Promise<IOnyxRankedFile[]> {
 		const folder = this._workspaceService.getWorkspace().folders[0];
 		if (!folder) {
 			return [];
@@ -117,10 +122,12 @@ export class OnyxContextRanker {
 		}
 
 		let gitRecentPaths: readonly string[] = [];
-		try {
-			gitRecentPaths = await this._runtimeService.gitRecentFiles(folder.uri.fsPath, GIT_COMMIT_LIMIT);
-		} catch {
-			// shared process unavailable: rank from editor signals alone
+		if (options?.gitRecency !== false) {
+			try {
+				gitRecentPaths = await this._runtimeService.gitRecentFiles(folder.uri.fsPath, GIT_COMMIT_LIMIT);
+			} catch {
+				// shared process unavailable: rank from editor signals alone
+			}
 		}
 
 		return mergeContextSignals({

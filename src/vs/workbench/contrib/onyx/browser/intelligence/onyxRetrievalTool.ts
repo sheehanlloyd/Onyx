@@ -7,9 +7,12 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
+import { Position } from '../../../../../editor/common/core/position.js';
 import { SymbolKind, symbolKindNames } from '../../../../../editor/common/languages.js';
+import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
+import { CallHierarchyItem, CallHierarchyProviderRegistry } from '../../../callHierarchy/common/callHierarchy.js';
 import { getWorkspaceSymbols } from '../../../search/common/search.js';
 import { ILanguageModelToolsService, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource } from '../../../chat/common/tools/languageModelToolsService.js';
 
@@ -19,6 +22,7 @@ const DEFAULT_RESULTS = 8;
 const MAX_RESULTS = 20;
 const SNIPPET_LINES = 12;
 const SNIPPET_LINE_CAP = 200;
+const MAX_CALL_EDGES = 8;
 
 /**
  * Symbol-aware retrieval for agents: resolves a name to its definitions using
@@ -34,6 +38,7 @@ export class OnyxRetrievalToolContribution extends Disposable {
 		@ILanguageModelToolsService toolsService: ILanguageModelToolsService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
 		@ILabelService private readonly _labelService: ILabelService,
+		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
 	) {
 		super();
 
@@ -51,6 +56,7 @@ export class OnyxRetrievalToolContribution extends Disposable {
 				properties: {
 					query: { type: 'string', description: 'Symbol name or prefix to search for, e.g. "AgentLoop" or "invokeTool".' },
 					maxResults: { type: 'number', description: `How many matches to return (default ${DEFAULT_RESULTS}, max ${MAX_RESULTS}).` },
+					expand: { type: 'boolean', description: 'Also report the call graph of the best match: which functions call it and which it calls, each with file and line. Use when you need to understand how a symbol is used before changing it.' },
 				},
 				required: ['query'],
 			},
@@ -68,7 +74,7 @@ export class OnyxRetrievalToolContribution extends Disposable {
 	}
 
 	private async _invoke(invocation: IToolInvocation, token: CancellationToken): Promise<IToolResult> {
-		const parameters = invocation.parameters as { query?: unknown; maxResults?: unknown };
+		const parameters = invocation.parameters as { query?: unknown; maxResults?: unknown; expand?: unknown };
 		const query = typeof parameters.query === 'string' ? parameters.query.trim() : '';
 		if (!query) {
 			return { content: [{ kind: 'text', value: 'Error: a non-empty "query" string is required.' }], toolResultError: true };
@@ -82,6 +88,7 @@ export class OnyxRetrievalToolContribution extends Disposable {
 			kind: item.symbol.kind,
 			uri: item.symbol.location.uri,
 			startLineNumber: item.symbol.location.range?.startLineNumber ?? 1,
+			startColumn: item.symbol.location.range?.startColumn ?? 1,
 			endLineNumber: item.symbol.location.range?.endLineNumber ?? 1,
 		})), limit);
 
@@ -97,11 +104,70 @@ export class OnyxRetrievalToolContribution extends Disposable {
 			const snippet = await this._snippet(match.uri, match.startLineNumber, match.endLineNumber);
 			sections.push(`${kindName} ${match.name}${container} — ${path}:${match.startLineNumber}${snippet ? `\n${snippet}` : ''}`);
 		}
+		if (parameters.expand === true) {
+			sections.push(await this._callGraph(ranked[0], token));
+		}
 
 		return {
 			content: [{ kind: 'text', value: sections.join('\n\n') }],
 			toolResultDetails: ranked.map(match => match.uri),
 		};
+	}
+
+	/**
+	 * Call-graph context for the best match: who calls it and what it calls,
+	 * from the language's call-hierarchy provider (the machinery behind the
+	 * editor's Show Call Hierarchy). Falls back to plain references when the
+	 * language has no call-hierarchy support.
+	 */
+	private async _callGraph(match: ISymbolMatch, token: CancellationToken): Promise<string> {
+		const describe = (item: CallHierarchyItem): string =>
+			`${item.name} (${this._labelService.getUriLabel(item.uri, { relative: true })}:${item.range.startLineNumber})`;
+		try {
+			const reference = await this._textModelService.createModelReference(match.uri);
+			try {
+				const model = reference.object.textEditorModel;
+				// Workspace-symbol ranges often start at the line (on `export`
+				// or `function`), but hierarchy/reference providers want the
+				// identifier itself — aim at the name within the line.
+				const lineContent = match.startLineNumber <= model.getLineCount() ? model.getLineContent(match.startLineNumber) : '';
+				// Provider names may decorate the identifier (TS reports `foo()`),
+				// so search for the bare leading identifier.
+				const identifier = match.name.match(/^[\w$]+/)?.[0] ?? match.name;
+				const nameIndex = lineContent.indexOf(identifier);
+				const position = new Position(match.startLineNumber, nameIndex >= 0 ? nameIndex + 1 : match.startColumn);
+				const [provider] = CallHierarchyProviderRegistry.ordered(model);
+				if (provider) {
+					const session = await provider.prepareCallHierarchy(model, position, token);
+					const root = session?.roots[0];
+					if (session && root) {
+						try {
+							const incoming = (await provider.provideIncomingCalls(root, token)) ?? [];
+							const outgoing = (await provider.provideOutgoingCalls(root, token)) ?? [];
+							return [
+								`Call graph of ${match.name}:`,
+								`- called by: ${incoming.length ? incoming.slice(0, MAX_CALL_EDGES).map(call => describe(call.from)).join(', ') : '(nothing in the workspace)'}`,
+								`- calls: ${outgoing.length ? outgoing.slice(0, MAX_CALL_EDGES).map(call => describe(call.to)).join(', ') : '(nothing)'}`,
+							].join('\n');
+						} finally {
+							session.dispose();
+						}
+					}
+				}
+				const [referenceProvider] = this._languageFeaturesService.referenceProvider.ordered(model);
+				if (referenceProvider) {
+					const references = (await referenceProvider.provideReferences(model, position, { includeDeclaration: false }, token)) ?? [];
+					const listed = references.slice(0, MAX_CALL_EDGES)
+						.map(location => `${this._labelService.getUriLabel(location.uri, { relative: true })}:${location.range.startLineNumber}`);
+					return `References to ${match.name} (${references.length}): ${listed.join(', ') || '(none in the workspace)'}`;
+				}
+				return `Call graph of ${match.name}: not available for this language.`;
+			} finally {
+				reference.dispose();
+			}
+		} catch {
+			return `Call graph of ${match.name}: not available.`;
+		}
 	}
 
 	/** First lines of the symbol's body, via the text model so unsaved edits are honored. */
@@ -135,6 +201,7 @@ export interface ISymbolMatch {
 	readonly kind: SymbolKind;
 	readonly uri: URI;
 	readonly startLineNumber: number;
+	readonly startColumn: number;
 	readonly endLineNumber: number;
 }
 

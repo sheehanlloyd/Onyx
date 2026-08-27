@@ -19,6 +19,8 @@ import { ChatAgentVoteDirection, IChatService } from '../../chat/common/chatServ
 import { ONYX_VENDOR } from '../common/onyxTypes.js';
 import { OnyxChatAgentContribution } from '../browser/agent/onyxChatAgent.js';
 import { OnyxInlineCompletionsContribution } from '../browser/autocomplete/onyxInlineCompletions.js';
+import { IOnyxMemoryService, OnyxMemoryService } from '../browser/intelligence/onyxMemoryService.js';
+import { OnyxMemoryToolContribution } from '../browser/intelligence/onyxMemoryTool.js';
 import { OnyxRetrievalToolContribution } from '../browser/intelligence/onyxRetrievalTool.js';
 import { OnyxBenchmark } from '../browser/benchmark/onyxBenchmark.js';
 import { IOnyxControlPlaneService, OnyxControlPlaneService } from '../browser/controlPlane/onyxControlPlaneService.js';
@@ -35,6 +37,7 @@ registerSingleton(IOnyxRouterService, OnyxRouterService, InstantiationType.Delay
 registerSingleton(IOnyxModelService, OnyxModelService, InstantiationType.Delayed);
 registerSingleton(IOnyxControlPlaneService, OnyxControlPlaneService, InstantiationType.Delayed);
 registerSingleton(IOnyxOutcomeService, OnyxOutcomeService, InstantiationType.Delayed);
+registerSingleton(IOnyxMemoryService, OnyxMemoryService, InstantiationType.Delayed);
 
 /**
  * Registers the `onyx` language model vendor and provider with the chat stack
@@ -95,6 +98,7 @@ registerWorkbenchContribution2(OnyxChatAgentContribution.ID, OnyxChatAgentContri
 registerWorkbenchContribution2(OnyxStatusBarContribution.ID, OnyxStatusBarContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxInlineCompletionsContribution.ID, OnyxInlineCompletionsContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(OnyxRetrievalToolContribution.ID, OnyxRetrievalToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxMemoryToolContribution.ID, OnyxMemoryToolContribution, WorkbenchPhase.AfterRestored);
 
 registerAction2(class BenchmarkOnyxModelsAction extends Action2 {
 	constructor() {
@@ -108,6 +112,20 @@ registerAction2(class BenchmarkOnyxModelsAction extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const instantiationService = accessor.get(IInstantiationService);
 		await instantiationService.createInstance(OnyxBenchmark).run();
+	}
+});
+
+registerAction2(class ClearOnyxMemoryAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.clearMemory',
+			title: localize2('onyx.clearMemory', "Onyx: Clear Agent Memory for This Workspace"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		accessor.get(IOnyxMemoryService).clear();
 	}
 });
 

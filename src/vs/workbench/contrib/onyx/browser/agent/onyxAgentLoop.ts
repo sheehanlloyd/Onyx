@@ -15,6 +15,7 @@ import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
 import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
+import { ONYX_MEMORY_TOOL_ID } from '../intelligence/onyxMemoryTool.js';
 import { ONYX_RETRIEVAL_TOOL_ID } from '../intelligence/onyxRetrievalTool.js';
 import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
@@ -317,9 +318,10 @@ function snapshotForJournal(turn: number, modelIdentifier: string, messages: rea
 
 /** Lower is more important; the cap keeps the tools a small model needs most. */
 function toolPriority(tool: IToolData): number {
-	if (tool.id === ONYX_RETRIEVAL_TOOL_ID) {
-		// Onyx's own retrieval tool: symbol-aware lookup is the highest-value
-		// read for an agent, so it must survive even the tightest tool cap.
+	if (tool.id === ONYX_RETRIEVAL_TOOL_ID || tool.id === ONYX_MEMORY_TOOL_ID) {
+		// Onyx's own tools are pinned: symbol-aware lookup is the highest-value
+		// read, and the memory tool is how learned facts survive the session —
+		// both must survive even the tightest small-model tool cap.
 		return 0;
 	}
 	const id = tool.id.toLowerCase();

@@ -15,6 +15,7 @@ import { IChatMarkdownContent } from '../../../chat/common/chatService/chatServi
 import { elideMiddle, historyMessageBudget } from '../../common/onyxContextCompression.js';
 import { IOnyxBudgetSlice, IOnyxModelProfile } from '../../common/onyxTypes.js';
 import { IOnyxRankedFile, OnyxContextRanker } from '../intelligence/onyxContextRanker.js';
+import { IOnyxMemoryService } from '../intelligence/onyxMemoryService.js';
 import { estimateMessageTokens, estimateTokens } from '../model/onyxOpenAITranslator.js';
 
 const MAX_ATTACHMENT_BYTES = 24 * 1024;
@@ -58,6 +59,7 @@ export class OnyxPromptBuilder {
 	constructor(
 		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
 		@IFileService private readonly _fileService: IFileService,
+		@IOnyxMemoryService private readonly _memoryService: IOnyxMemoryService,
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		this._contextRanker = instantiationService.createInstance(OnyxContextRanker);
@@ -142,14 +144,22 @@ export class OnyxPromptBuilder {
 	 * right part of the repo for a handful of tokens.
 	 */
 	private _workspaceContextSection(rankedFiles: readonly IOnyxRankedFile[], profile: IOnyxModelProfile): string {
-		if (rankedFiles.length === 0) {
-			return '';
+		const sections: string[] = [];
+		if (rankedFiles.length > 0) {
+			if (profile.promptStyle === 'compact') {
+				sections.push(`Files the user is working on (most relevant first): ${rankedFiles.map(f => f.path).join(', ')}`);
+			} else {
+				const lines = rankedFiles.map(f => `- ${f.path} (${f.reasons.join(', ')})`);
+				sections.push(`Files the user is likely working on, most relevant first:\n${lines.join('\n')}`);
+			}
 		}
-		if (profile.promptStyle === 'compact') {
-			return `Files the user is working on (most relevant first): ${rankedFiles.map(f => f.path).join(', ')}`;
+		// Newest last so the freshest facts sit closest to the request.
+		const notes = this._memoryService.getNotes();
+		if (notes.length > 0) {
+			const kept = notes.slice(profile.promptStyle === 'compact' ? -5 : -15);
+			sections.push(`Facts remembered from earlier sessions in this workspace:\n${kept.map(note => `- ${note.text}`).join('\n')}`);
 		}
-		const lines = rankedFiles.map(f => `- ${f.path} (${f.reasons.join(', ')})`);
-		return `Files the user is likely working on, most relevant first:\n${lines.join('\n')}`;
+		return sections.join('\n');
 	}
 
 	private _historyMessages(history: readonly IChatAgentHistoryEntry[], profile: IOnyxModelProfile): IChatMessage[] {

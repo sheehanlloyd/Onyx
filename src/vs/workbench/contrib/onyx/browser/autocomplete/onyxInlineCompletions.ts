@@ -6,23 +6,31 @@
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
 import { InlineCompletions, InlineCompletionsProvider } from '../../../../../editor/common/languages.js';
+import { ILanguageConfigurationService } from '../../../../../editor/common/languages/languageConfigurationRegistry.js';
 import { Position } from '../../../../../editor/common/core/position.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
+import { IModelService } from '../../../../../editor/common/services/model.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { OnyxSettingId } from '../../common/onyxConfiguration.js';
 import { IOnyxObservedStats } from '../../common/onyxTypes.js';
+import { OnyxContextRanker } from '../intelligence/onyxContextRanker.js';
 import { IOnyxKnownModel, IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 
 const MAX_PREFIX_CHARS = 4000;
 const MAX_SUFFIX_CHARS = 1500;
 const MAX_COMPLETION_LINES = 6;
+const MAX_CONTEXT_FILES = 2;
+const MAX_CONTEXT_LINES_PER_FILE = 24;
+const MAX_CONTEXT_CHARS = 1200;
 
 /**
  * Inline autocomplete from a local fill-in-the-middle model. Routing picks
@@ -50,14 +58,21 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 	readonly displayName = 'Onyx';
 	readonly debounceDelayMs = 180;
 
+	private readonly _contextRanker: OnyxContextRanker;
+
 	constructor(
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
 		@IOnyxModelService private readonly _modelService: IOnyxModelService,
 		@IOnyxProfileService private readonly _profileService: IOnyxProfileService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IModelService private readonly _textModelService: IModelService,
+		@ILanguageConfigurationService private readonly _languageConfigurationService: ILanguageConfigurationService,
+		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
 		@ILogService private readonly _logService: ILogService,
+		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super();
+		this._contextRanker = instantiationService.createInstance(OnyxContextRanker);
 	}
 
 	async provideInlineCompletions(model: ITextModel, position: Position, _context: unknown, token: CancellationToken): Promise<InlineCompletions | undefined> {
@@ -76,6 +91,11 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 			return undefined;
 		}
 
+		const contextHeader = await this._contextHeader(model);
+		if (token.isCancellationRequested) {
+			return undefined;
+		}
+
 		const operationId = generateUuid();
 		const cancelListener = token.onCancellationRequested(() => this._runtimeService.cancel(operationId));
 		const startedAt = Date.now();
@@ -84,7 +104,7 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 				baseUrl: target.discovered.baseUrl,
 				apiKey: target.apiKey,
 				model: target.discovered.id,
-				prompt: prefix,
+				prompt: contextHeader + prefix,
 				suffix,
 				maxTokens: 96,
 				stop: ['\n\n\n'],
@@ -118,6 +138,43 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 		// completions hold no resources
 	}
 
+	/**
+	 * Task-aware context for the FIM prompt: the top-ranked *other* open files
+	 * (already-loaded text models only — this runs on every completion, so no
+	 * disk or git round trips), rendered as line comments the model can read
+	 * but is unlikely to echo. Empty when disabled or the language has no
+	 * line-comment syntax.
+	 */
+	private async _contextHeader(model: ITextModel): Promise<string> {
+		if (this._configurationService.getValue<boolean>(OnyxSettingId.AutocompleteContext) === false) {
+			return '';
+		}
+		const lineComment = this._languageConfigurationService.getLanguageConfiguration(model.getLanguageId()).comments?.lineCommentToken;
+		const folder = this._workspaceService.getWorkspace().folders[0];
+		if (!lineComment || !folder) {
+			return '';
+		}
+		const ranked = await this._contextRanker.rank(MAX_CONTEXT_FILES + 2, { gitRecency: false });
+		const sections: { path: string; content: string }[] = [];
+		for (const file of ranked) {
+			if (sections.length >= MAX_CONTEXT_FILES) {
+				break;
+			}
+			const uri = URI.joinPath(folder.uri, file.path);
+			if (uri.toString() === model.uri.toString()) {
+				continue;
+			}
+			const other = this._textModelService.getModel(uri);
+			if (!other) {
+				continue; // only files already open — never load from disk here
+			}
+			const lineCount = Math.min(other.getLineCount(), MAX_CONTEXT_LINES_PER_FILE);
+			const content = other.getValueInRange(new Range(1, 1, lineCount, other.getLineMaxColumn(lineCount)));
+			sections.push({ path: file.path, content });
+		}
+		return buildFimContextHeader(sections, lineComment, MAX_CONTEXT_CHARS);
+	}
+
 	private _pickModel(): IOnyxKnownModel | undefined {
 		const models = this._modelService.getKnownModels();
 		if (models.length === 0) {
@@ -132,6 +189,33 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 		}
 		return pickFimModel(models, key => this._profileService.getStats(key));
 	}
+}
+
+/**
+ * Renders cross-file context as a commented block prepended to the FIM
+ * prefix. Every line is commented so the model treats it as background, and
+ * the whole block is capped so context can never crowd out the actual prefix.
+ */
+export function buildFimContextHeader(sections: readonly { readonly path: string; readonly content: string }[], lineComment: string, maxChars: number): string {
+	const lines: string[] = [];
+	let used = 0;
+	for (const section of sections) {
+		const header = `${lineComment} Context from ${section.path}:`;
+		if (used + header.length > maxChars) {
+			break;
+		}
+		lines.push(header);
+		used += header.length;
+		for (const raw of section.content.split('\n')) {
+			const line = `${lineComment} ${raw}`;
+			if (used + line.length > maxChars) {
+				break;
+			}
+			lines.push(line);
+			used += line.length;
+		}
+	}
+	return lines.length ? `${lines.join('\n')}\n\n` : '';
 }
 
 /** How many completions a model must have served before its measured latency outranks size. */

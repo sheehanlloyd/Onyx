@@ -7,6 +7,8 @@ const MODELS = [
 	{ id: 'mock-coder:32b', family: 'mock-coder', parameter_size: '32.8B', quantization_level: 'Q4_K_M', context_length: 32768 },
 ];
 
+let lastCompletionRequest;
+
 const server = http.createServer((req, res) => {
 	const url = new URL(req.url, 'http://localhost');
 	console.log(`${req.method} ${url.pathname}`);
@@ -28,10 +30,15 @@ const server = http.createServer((req, res) => {
 	}
 	if (req.method === 'POST' && url.pathname === '/v1/completions') {
 		return readBody(req).then(body => {
+			lastCompletionRequest = body;
 			setTimeout(() => json(res, {
 				choices: [{ text: `_mockCompletion(a, b);` }],
 			}), 100);
 		});
+	}
+	// Test-only introspection: the exact body of the most recent FIM request.
+	if (req.method === 'GET' && url.pathname === '/debug/last-completion') {
+		return json(res, lastCompletionRequest ?? {});
 	}
 	res.writeHead(404); res.end();
 });
@@ -56,14 +63,21 @@ async function streamCompletion(res, body) {
 	const lastUser = [...(body.messages ?? [])].reverse().find(m => m.role === 'user');
 	const hasToolResult = (body.messages ?? []).some(m => m.role === 'tool');
 	const wantsSymbols = body.tools?.length && /SYMTEST\s+(\w+)/.test(lastUser?.content ?? '') && !hasToolResult;
-	const wantsTool = wantsSymbols || (body.tools?.length && /TOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult);
+	const wantsMemory = body.tools?.length && /MEMTEST\s+(.+)/.test(lastUser?.content ?? '') && !hasToolResult;
+	const wantsTool = wantsSymbols || wantsMemory || (body.tools?.length && /TOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult);
 
 	await sleep(120); // simulated TTFT
 	if (wantsTool) {
 		const tool = wantsSymbols
 			? (body.tools.find(t => /repoSymbols/i.test(t.function.name)) ?? body.tools[0])
-			: (body.tools.find(t => /todo|task/i.test(t.function.name)) ?? body.tools[0]);
-		const args = wantsSymbols ? JSON.stringify({ query: /SYMTEST\s+(\w+)/.exec(lastUser.content)[1] }) : '{}';
+			: wantsMemory
+				? (body.tools.find(t => /remember|memory/i.test(t.function.name)) ?? body.tools[0])
+				: (body.tools.find(t => /todo|task/i.test(t.function.name)) ?? body.tools[0]);
+		const args = wantsSymbols
+			? JSON.stringify({ query: /SYMTEST\s+(\w+)/.exec(lastUser.content)[1], ...(/EXPAND/.test(lastUser.content) ? { expand: true } : {}) })
+			: wantsMemory
+				? JSON.stringify({ note: /MEMTEST\s+(.+)/.exec(lastUser.content)[1] })
+				: '{}';
 		send({ ...chunk({ tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: tool.function.name, arguments: '' } }] }) });
 		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: args } }] }) });
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });

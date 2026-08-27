@@ -1,0 +1,15 @@
+{
+  "displayName": "Onyx Theme & Onboarding",
+  "description": "The Onyx visual identity: the Onyx Dark color theme and the getting-started walkthrough for local AI features.",
+  "themeLabelDark": "Onyx Dark",
+  "walkthrough.title": "Get Started with Onyx",
+  "walkthrough.description": "Local models, an adaptive agent, and a control plane that shows you everything.",
+  "walkthrough.runtime.title": "Connect a local runtime",
+  "walkthrough.runtime.description": "Onyx runs every AI feature against models on your own machine — no cloud, no telemetry.\n[Show Local Runtimes](command:onyx.showLocalRuntimes)",
+  "walkthrough.auto.title": "Chat with Auto routing",
+  "walkthrough.auto.description": "Ask the Onyx agent anything. The Auto model routes each request to the best local model for the job — and learns from how you use it.\n[Open Chat](command:workbench.action.chat.open)",
+  "walkthrough.controlPlane.title": "Open the Control Plane",
+  "walkthrough.controlPlane.description": "Watch every agent step live, inspect exactly what the model was sent, and see what it costs in compute.\n[Open Onyx Control Plane](command:onyx.openControlPlane)",
+  "walkthrough.verification.title": "Benchmark and verify",
+  "walkthrough.verification.description": "Benchmark your models to sharpen routing, and let Onyx run your project's checks after the agent edits code.\n[Benchmark Local Models](command:onyx.benchmarkModels)"
+}

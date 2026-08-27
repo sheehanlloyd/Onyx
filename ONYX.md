@@ -37,8 +37,10 @@ exactly what the agent is doing, what it costs in compute, and why.
 │  routing/onyxRouterService        ← task classifier + learned model picking    │
 │  agent/onyxChatAgent + AgentLoop  ← core default agent, multi-turn tool loop   │
 │  agent/onyxPromptBuilder          ← profile-adaptive prompts, token accounting │
-│  intelligence/onyxRetrievalTool   ← repoSymbols tool over workspace symbols    │
+│  intelligence/onyxRetrievalTool   ← repoSymbols tool + call-graph expansion    │
 │  intelligence/onyxContextRanker   ← open editors ⊕ history ⊕ git recency       │
+│  intelligence/onyxMemoryService   ← persistent per-workspace agent memory      │
+│  autocomplete/onyxInlineCompletions ← FIM ghost text + cross-file context      │
 │  verification/onyxTaskVerification← post-run build/test checks → timeline      │
 │  controlPlane/*                   ← live runs, budget, compute views + gates   │
 └────────────────────────────────┬───────────────────────────────────────────────┘
@@ -113,13 +115,28 @@ Integration points consumed (imports only, never patched):
       workspace's default build/test task (or a named task) runs after any
       tool-using run and its pass/fail verdict + duration land on the
       timeline (not awaited — responses never wait on a build)
+- [x] Task-aware autocomplete context: FIM prompts carry short commented
+      snippets from the most relevant *other open* files (editor-signal
+      ranking only — no disk or git I/O on the completion path)
+- [x] Call-graph expansion on `repoSymbols` (`expand: true`): callers and
+      callees of the best match via the language's call-hierarchy provider,
+      with a plain-references fallback
+- [x] Persistent per-workspace agent memory: a pinned `remember` tool
+      stores durable facts (deduplicated, capped, machine-local); every
+      later prompt in the workspace carries them; `Onyx: Clear Agent
+      Memory` wipes them
+- [x] Onyx visual identity: `extensions/theme-onyx` ships the Onyx Dark
+      theme (near-black chrome, violet/teal accents, full token +
+      semantic colors) as the product default, plus the "Get Started with
+      Onyx" walkthrough on the Welcome page
+- [x] Distribution: `LAUNCH.md` documents the notarized-DMG channel
+      (build → Developer ID signing → notarization → DMG) with the
+      pre-flight checklist
 
 ### Next
 
-- [ ] Task-aware autocomplete context (feed ranked-file context into FIM
-      prompts, not just the agent prompt)
-- [ ] Call-graph context assembly (references/implementations expansion on
-      top of `repoSymbols`)
+- [ ] Co-change mining and embedding-free similarity for context ranking
+- [ ] An Onyx Light theme companion
 
 ### Roadmap
 

@@ -72,7 +72,7 @@ suite('OnyxRepoIntelligence', () => {
 	suite('rankSymbolMatches', () => {
 
 		const symbol = (name: string, kind: SymbolKind, path: string, line = 1): ISymbolMatch =>
-			({ name, containerName: undefined, kind, uri: URI.file(path), startLineNumber: line, endLineNumber: line + 5 });
+			({ name, containerName: undefined, kind, uri: URI.file(path), startLineNumber: line, startColumn: 1, endLineNumber: line + 5 });
 
 		test('exact beats prefix beats substring beats fuzzy', () => {
 			const ranked = rankSymbolMatches('run', [

@@ -1,0 +1,59 @@
+{
+  "name": "theme-onyx",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "1.0.0",
+  "publisher": "onyx",
+  "license": "MIT",
+  "engines": {
+    "vscode": "*"
+  },
+  "categories": ["Themes"],
+  "contributes": {
+    "themes": [
+      {
+        "id": "Onyx Dark",
+        "label": "%themeLabelDark%",
+        "uiTheme": "vs-dark",
+        "path": "./themes/onyx-dark-color-theme.json"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "onyxWelcome",
+        "title": "%walkthrough.title%",
+        "description": "%walkthrough.description%",
+        "steps": [
+          {
+            "id": "onyx.runtime",
+            "title": "%walkthrough.runtime.title%",
+            "description": "%walkthrough.runtime.description%",
+            "media": { "markdown": "media/runtime.md" }
+          },
+          {
+            "id": "onyx.auto",
+            "title": "%walkthrough.auto.title%",
+            "description": "%walkthrough.auto.description%",
+            "media": { "markdown": "media/auto.md" }
+          },
+          {
+            "id": "onyx.controlPlane",
+            "title": "%walkthrough.controlPlane.title%",
+            "description": "%walkthrough.controlPlane.description%",
+            "media": { "markdown": "media/control-plane.md" }
+          },
+          {
+            "id": "onyx.verification",
+            "title": "%walkthrough.verification.title%",
+            "description": "%walkthrough.verification.description%",
+            "media": { "markdown": "media/verification.md" }
+          }
+        ]
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sheehanlloyd/cursor2.0.git"
+  }
+}
