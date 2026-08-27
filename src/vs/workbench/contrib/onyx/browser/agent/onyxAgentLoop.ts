@@ -9,6 +9,7 @@ import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
+import { IMarkerService, MarkerSeverity } from '../../../../../platform/markers/common/markers.js';
 import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePart, ILanguageModelChatMetadata, ILanguageModelsService } from '../../../chat/common/languageModels.js';
 import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
@@ -47,6 +48,7 @@ export class OnyxAgentLoop {
 		@IOnyxRouterService private readonly _routerService: IOnyxRouterService,
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IMarkerService private readonly _markerService: IMarkerService,
 		@ILogService private readonly _logService: ILogService,
 	) { }
 
@@ -100,6 +102,9 @@ export class OnyxAgentLoop {
 		run.setContextBudget(built.budget);
 		const messages: IChatMessage[] = built.messages;
 
+		const errorsBefore = this._countWorkspaceErrors();
+		let anyToolRan = false;
+
 		const maxTurns = profile.promptStyle === 'compact' ? 8 : 16;
 		for (let turn = 0; turn < maxTurns && !token.isCancellationRequested; turn++) {
 			run.setTurnCount(turn + 1);
@@ -131,6 +136,7 @@ export class OnyxAgentLoop {
 			}
 
 			if (toolUses.length === 0) {
+				this._reportVerification(run, errorsBefore, anyToolRan);
 				run.complete('completed');
 				return {};
 			}
@@ -139,6 +145,7 @@ export class OnyxAgentLoop {
 				if (token.isCancellationRequested) {
 					break;
 				}
+				anyToolRan = true;
 				const resultText = await this._invokeTool(request, toolUse, toolIdsByName, run, token);
 				messages.push({
 					role: ChatMessageRole.User,
@@ -159,6 +166,31 @@ export class OnyxAgentLoop {
 
 		run.complete(token.isCancellationRequested ? 'cancelled' : 'completed');
 		return token.isCancellationRequested ? {} : { errorDetails: { message: `Stopped after the maximum of ${profile.promptStyle === 'compact' ? 8 : 16} agent turns.`, responseIsIncomplete: true } };
+	}
+
+	private _countWorkspaceErrors(): number {
+		return this._markerService.read({ severities: MarkerSeverity.Error }).length;
+	}
+
+	/**
+	 * Verification-lite: after a run that changed things, compare the
+	 * workspace's error markers against the pre-run baseline and put the
+	 * verdict on the timeline. Honest and local — no claims beyond what the
+	 * language services actually report.
+	 */
+	private _reportVerification(run: ReturnType<IOnyxControlPlaneService['beginRun']>, errorsBefore: number, anyToolRan: boolean): void {
+		if (!anyToolRan) {
+			return;
+		}
+		const errorsAfter = this._countWorkspaceErrors();
+		const delta = errorsAfter - errorsBefore;
+		run.activity({
+			kind: 'note',
+			label: delta > 0
+				? `Verification: ${delta} new problem${delta === 1 ? '' : 's'} (${errorsAfter} total)`
+				: `Verification: no new problems (${errorsAfter} total)`,
+			ok: delta <= 0,
+		});
 	}
 
 	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, run: ReturnType<IOnyxControlPlaneService['beginRun']>, token: CancellationToken): Promise<string> {

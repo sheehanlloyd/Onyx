@@ -71,19 +71,27 @@ Integration points consumed (imports only, never patched):
       tool/result entries with reasons), pause / stop / redirect gates,
       Context Budget breakdown, Compute panel (tok/s, TTFT, live state)
 - [x] `Onyx: Show Local Runtimes` command; `Open Onyx Control Plane` (⌘⌃O)
+- [x] Run journal persisted per workspace (index + JSONL per run, 200-run cap);
+      control plane history survives reloads
+- [x] Inspector view: replay any past run down to the exact wire prompt each
+      turn sent (messages, tool list, routing)
+- [x] Accept/reject learning: chat votes and kept/copied code feed per-model
+      accept rates, which shift routing
+- [x] `Onyx: Benchmark Local Models`: measured tok/s, TTFT and tool-call
+      compliance per model, recorded into routing profiles
+- [x] Status bar presence with live in-flight tok/s
+- [x] Local FIM inline autocomplete (`/v1/completions` with suffix) from the
+      smallest discovered model; ghost text items carry an explicit empty
+      range at the cursor (the engine's default word-range drops FIM output)
+- [x] Verification-lite: after any run that used tools, the workspace error
+      markers are compared against the pre-run baseline and the verdict is
+      posted to the run's timeline
 
-### In progress / next (Phase 1 completion)
+### Next (Phase 1 polish)
 
-- [ ] Persist run journals to disk (workspaceStorageHome/onyx/journal/,
-      index + JSONL per run, cap ~200) so the control plane survives reload
-- [ ] Wire-request snapshots per turn + Inspector view (true replay: exact
-      prompt, tools, params, response for any past run)
-- [ ] Accept/reject learning: subscribe IChatService.onDidPerformUserAction →
-      profile acceptRate → routing shifts
-- [ ] `Onyx: Benchmark Local Models` — run a standard prompt battery against
-      every discovered model, record real tok/s / TTFT / tool-call accuracy
-      into profiles (routing then uses *measured* evidence)
-- [ ] Status bar item: current model + live tok/s
+- [ ] Record FIM latency into profiles; task-aware autocomplete context
+- [ ] Timeline virtualization for very long runs (currently full re-render)
+- [ ] App icon set (resources/darwin/*.icns still stock)
 
 ### Roadmap
 
