@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { execFile } from 'child_process';
 import { Emitter } from '../../../base/common/event.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
@@ -20,6 +21,7 @@ const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = 
 const PROBE_TIMEOUT_MS = 1500;
 const WATCH_INTERVAL_MS = 30_000;
 const COMPLETION_TIMEOUT_MS = 15_000;
+const GIT_RECENT_CACHE_MS = 60_000;
 
 interface IOpenAIModelList {
 	readonly data?: readonly { readonly id: string }[];
@@ -65,6 +67,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 
 	private readonly _operations = new Map<string, AbortController>();
 	private readonly _modelDetailCache = new Map<string, Partial<IOnyxDiscoveredModel>>();
+	private readonly _gitRecentCache = new Map<string, { at: number; files: readonly string[] }>();
 	private _lastDiscovered: readonly IOnyxEndpoint[] = [];
 	private _watchedBaseUrls: readonly string[] = [];
 	private _watchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -194,6 +197,31 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 
 	async cancel(operationId: string): Promise<void> {
 		this._operations.get(operationId)?.abort();
+	}
+
+	async gitRecentFiles(repoPath: string, maxCommits: number): Promise<readonly string[]> {
+		const cached = this._gitRecentCache.get(repoPath);
+		if (cached && Date.now() - cached.at < GIT_RECENT_CACHE_MS) {
+			return cached.files;
+		}
+		const files = await new Promise<readonly string[]>(resolve => {
+			execFile('git', ['-C', repoPath, 'log', '--name-only', '--pretty=format:', '--diff-filter=ACMR', '-n', String(Math.max(1, Math.min(maxCommits, 100)))], { timeout: 5000, maxBuffer: 1024 * 1024 }, (error, stdout) => {
+				if (error) {
+					resolve([]);
+					return;
+				}
+				const seen = new Set<string>();
+				for (const line of stdout.split('\n')) {
+					const file = line.trim();
+					if (file) {
+						seen.add(file);
+					}
+				}
+				resolve([...seen]);
+			});
+		});
+		this._gitRecentCache.set(repoPath, { at: Date.now(), files });
+		return files;
 	}
 
 	private async _pumpSse(operationId: string, body: ReadableStream<Uint8Array>): Promise<void> {

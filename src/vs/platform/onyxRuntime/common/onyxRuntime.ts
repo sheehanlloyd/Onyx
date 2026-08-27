@@ -135,4 +135,12 @@ export interface IOnyxRuntimeService {
 	completeText(operationId: string, params: IOnyxCompletionParams): Promise<string | undefined>;
 
 	cancel(operationId: string): Promise<void>;
+
+	/**
+	 * Workspace-relative paths of files touched by the most recent commits of
+	 * the git repository at `repoPath`, most recent first, de-duplicated.
+	 * Returns an empty list when git is unavailable or the path is not a
+	 * repository. Runs here because the renderer cannot spawn processes.
+	 */
+	gitRecentFiles(repoPath: string, maxCommits: number): Promise<readonly string[]>;
 }

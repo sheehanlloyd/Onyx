@@ -16,7 +16,9 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { OnyxSettingId } from '../../common/onyxConfiguration.js';
+import { IOnyxObservedStats } from '../../common/onyxTypes.js';
 import { IOnyxKnownModel, IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
+import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 
 const MAX_PREFIX_CHARS = 4000;
 const MAX_SUFFIX_CHARS = 1500;
@@ -51,6 +53,7 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 	constructor(
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
 		@IOnyxModelService private readonly _modelService: IOnyxModelService,
+		@IOnyxProfileService private readonly _profileService: IOnyxProfileService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
 	) {
@@ -75,6 +78,7 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 
 		const operationId = generateUuid();
 		const cancelListener = token.onCancellationRequested(() => this._runtimeService.cancel(operationId));
+		const startedAt = Date.now();
 		try {
 			const text = await this._runtimeService.completeText(operationId, {
 				baseUrl: target.discovered.baseUrl,
@@ -85,6 +89,11 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 				maxTokens: 96,
 				stop: ['\n\n\n'],
 			});
+			if (!token.isCancellationRequested && text) {
+				// Cancelled requests would skew the number low (they abort early),
+				// so only completed round trips feed the latency profile.
+				this._profileService.reportFimMeasurement(target.key, Date.now() - startedAt);
+			}
 			if (token.isCancellationRequested || !text) {
 				this._logService.trace(`[onyx.autocomplete] no completion (cancelled=${token.isCancellationRequested})`);
 				return undefined;
@@ -121,9 +130,30 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 				return match;
 			}
 		}
-		// Smallest model wins: ghost text is latency-bound.
-		return [...models].sort((a, b) => (a.profile.parameterB ?? 999) - (b.profile.parameterB ?? 999))[0];
+		return pickFimModel(models, key => this._profileService.getStats(key));
 	}
+}
+
+/** How many completions a model must have served before its measured latency outranks size. */
+const FIM_LATENCY_MIN_SAMPLES = 5;
+
+/**
+ * Ghost text is latency-bound, so the smallest model is the default guess —
+ * but once models have actually served completions on this machine, the
+ * measured end-to-end latency is the better signal and wins.
+ */
+export function pickFimModel(models: readonly IOnyxKnownModel[], statsFor: (modelKey: string) => IOnyxObservedStats | undefined): IOnyxKnownModel | undefined {
+	if (models.length === 0) {
+		return undefined;
+	}
+	const measured = models
+		.map(model => ({ model, stats: statsFor(model.key) }))
+		.filter(entry => !!entry.stats && entry.stats.fimSampleCount >= FIM_LATENCY_MIN_SAMPLES && entry.stats.fimLatencyMs > 0);
+	if (measured.length > 0) {
+		measured.sort((a, b) => a.stats!.fimLatencyMs - b.stats!.fimLatencyMs);
+		return measured[0].model;
+	}
+	return [...models].sort((a, b) => (a.profile.parameterB ?? 999) - (b.profile.parameterB ?? 999))[0];
 }
 
 /** Trim runaway generations: cap the line count and drop trailing partial noise. */

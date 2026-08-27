@@ -14,6 +14,9 @@ import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePa
 import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
+import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
+import { ONYX_RETRIEVAL_TOOL_ID } from '../intelligence/onyxRetrievalTool.js';
+import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
@@ -147,9 +150,11 @@ export class OnyxAgentLoop {
 				}
 				anyToolRan = true;
 				const resultText = await this._invokeTool(request, toolUse, toolIdsByName, run, token);
+				// Small models drown in raw tool output; keep head and tail
+				// (signatures and errors) and mark the elided middle.
 				messages.push({
 					role: ChatMessageRole.User,
-					content: [{ type: 'tool_result', toolCallId: toolUse.toolCallId, value: [{ type: 'text', value: resultText }] }],
+					content: [{ type: 'tool_result', toolCallId: toolUse.toolCallId, value: [{ type: 'text', value: elideMiddle(resultText, toolResultBudget(profile.promptStyle)) }] }],
 				});
 			}
 
@@ -191,6 +196,14 @@ export class OnyxAgentLoop {
 				: `Verification: no new problems (${errorsAfter} total)`,
 			ok: delta <= 0,
 		});
+
+		// Project checks (Phase 4 slice): run the workspace's configured
+		// build/test task and post the verdict when it finishes. Deliberately
+		// not awaited — the chat response must not wait for a build.
+		const taskVerification = this._instantiationService.createInstance(OnyxTaskVerification);
+		if (taskVerification.enabled) {
+			taskVerification.run(run).catch(err => this._logService.warn('[onyx] project checks failed', err));
+		}
 	}
 
 	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, run: ReturnType<IOnyxControlPlaneService['beginRun']>, token: CancellationToken): Promise<string> {
@@ -304,6 +317,11 @@ function snapshotForJournal(turn: number, modelIdentifier: string, messages: rea
 
 /** Lower is more important; the cap keeps the tools a small model needs most. */
 function toolPriority(tool: IToolData): number {
+	if (tool.id === ONYX_RETRIEVAL_TOOL_ID) {
+		// Onyx's own retrieval tool: symbol-aware lookup is the highest-value
+		// read for an agent, so it must survive even the tightest tool cap.
+		return 0;
+	}
 	const id = tool.id.toLowerCase();
 	if (/edit|apply|replace/.test(id)) { return 0; }
 	if (/read|open/.test(id)) { return 1; }

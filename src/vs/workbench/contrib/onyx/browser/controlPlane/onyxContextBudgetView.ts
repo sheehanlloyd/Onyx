@@ -28,6 +28,7 @@ const SLICE_COLORS: Record<IOnyxBudgetSlice['category'], string> = {
 	attachments: 'var(--vscode-onyx-ok)',
 	toolSchemas: 'var(--vscode-onyx-warn)',
 	toolResults: 'color-mix(in srgb, var(--vscode-onyx-error) 70%, transparent)',
+	workspace: 'color-mix(in srgb, var(--vscode-onyx-ok) 55%, var(--vscode-foreground) 20%)',
 };
 
 /**
@@ -113,6 +114,7 @@ function categoryLabel(category: IOnyxBudgetSlice['category']): string {
 		case 'attachments': return localize('onyx.budget.attachments', "Attachments");
 		case 'toolSchemas': return localize('onyx.budget.toolSchemas', "Tool definitions");
 		case 'toolResults': return localize('onyx.budget.toolResults', "Tool results");
+		case 'workspace': return localize('onyx.budget.workspace', "Workspace context");
 	}
 }
 

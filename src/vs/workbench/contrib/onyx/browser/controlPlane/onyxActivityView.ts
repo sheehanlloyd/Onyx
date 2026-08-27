@@ -23,6 +23,25 @@ import { IOnyxActivityEntry, IOnyxControlPlaneService, IOnyxLiveRun } from './on
 const $ = DOM.$;
 
 /**
+ * Cap on timeline entries kept in the DOM per run. Long runs can journal
+ * thousands of steps; older ones collapse behind a "earlier steps" button
+ * instead of being rendered (and re-rendered) on every new entry.
+ */
+const MAX_VISIBLE_ENTRIES = 150;
+
+interface IRenderedRun {
+	readonly element: HTMLElement;
+	readonly timeline: HTMLElement | undefined;
+	readonly earlierButton: HTMLButtonElement | undefined;
+	/** How many activity entries have been rendered into the timeline so far. */
+	renderedCount: number;
+	/** How many older entries are collapsed behind the "earlier steps" button. */
+	hiddenCount: number;
+	/** Everything that forces a structural rebuild when it changes. */
+	readonly signature: string;
+}
+
+/**
  * The heart of the control plane: every agent run as a live, inspectable
  * timeline — what the agent did, in which order, and why — with pause, stop
  * and redirect controls wired straight into the loop's gates.
@@ -33,6 +52,8 @@ export class OnyxActivityViewPane extends ViewPane {
 
 	private _content: HTMLElement | undefined;
 	private readonly _expandedRuns = new Set<string>();
+	private readonly _showAllRuns = new Set<string>();
+	private readonly _renderedRuns = new Map<string, IRenderedRun>();
 
 	constructor(
 		options: IViewletViewOptions,
@@ -72,7 +93,15 @@ export class OnyxActivityViewPane extends ViewPane {
 		if (!content) {
 			return;
 		}
+
+		// Fast path: same runs in the same structural state, only new activity
+		// entries appended. Long runs then cost O(new entries), not O(all).
+		if (this._tryIncrementalUpdate(runs, selected)) {
+			return;
+		}
+
 		DOM.clearNode(content);
+		this._renderedRuns.clear();
 
 		if (runs.length === 0) {
 			const empty = DOM.append(content, $('.onyx-empty'));
@@ -84,6 +113,58 @@ export class OnyxActivityViewPane extends ViewPane {
 		for (const run of runs) {
 			this._renderRun(content, run, run === selected);
 		}
+	}
+
+	private _tryIncrementalUpdate(runs: readonly IOnyxLiveRun[], selected: IOnyxLiveRun | undefined): boolean {
+		if (runs.length === 0 || runs.length !== this._renderedRuns.size) {
+			return false;
+		}
+		for (const run of runs) {
+			const rendered = this._renderedRuns.get(run.runId);
+			if (!rendered || rendered.signature !== this._signature(run, run === selected)) {
+				return false;
+			}
+		}
+		for (const run of runs) {
+			const rendered = this._renderedRuns.get(run.runId)!;
+			if (!rendered.timeline) {
+				continue; // collapsed: entry count is not part of the signature
+			}
+			const entries = run.activity.get();
+			for (let i = rendered.renderedCount + rendered.hiddenCount; i < entries.length; i++) {
+				this._renderEntry(rendered.timeline, entries[i]);
+				rendered.renderedCount++;
+			}
+			this._trimTimeline(run, rendered);
+		}
+		return true;
+	}
+
+	/** Keeps the DOM bounded while a run is live-appending: oldest entries move behind the "earlier steps" button. */
+	private _trimTimeline(run: IOnyxLiveRun, rendered: IRenderedRun): void {
+		if (!rendered.timeline || this._showAllRuns.has(run.runId)) {
+			return;
+		}
+		while (rendered.renderedCount > MAX_VISIBLE_ENTRIES) {
+			// Children are [earlier-steps button, entry, entry, ...], so the
+			// oldest rendered entry is always at index 1.
+			const first = rendered.timeline.children.item(1);
+			if (!first) {
+				break;
+			}
+			first.remove();
+			rendered.renderedCount--;
+			rendered.hiddenCount++;
+		}
+		if (rendered.hiddenCount > 0 && rendered.earlierButton) {
+			rendered.earlierButton.textContent = localize('onyx.activity.earlier', "{0} earlier steps", rendered.hiddenCount);
+			rendered.earlierButton.style.display = '';
+		}
+	}
+
+	private _signature(run: IOnyxLiveRun, isSelected: boolean): string {
+		const expanded = this._expandedRuns.has(run.runId) || run.status.get() === 'running' || run.status.get() === 'paused';
+		return `${run.status.get()}|${expanded}|${isSelected}|${this._showAllRuns.has(run.runId)}`;
 	}
 
 	private _renderRun(parent: HTMLElement, run: IOnyxLiveRun, isSelected: boolean): void {
@@ -121,13 +202,29 @@ export class OnyxActivityViewPane extends ViewPane {
 		});
 
 		const expanded = this._expandedRuns.has(run.runId) || status === 'running' || status === 'paused';
+		let timeline: HTMLElement | undefined;
+		let earlierButton: HTMLButtonElement | undefined;
+		let renderedCount = 0;
+		let hiddenCount = 0;
 		if (expanded) {
 			const body = DOM.append(runElement, $('.onyx-run-body'));
-			const timeline = DOM.append(body, $('.onyx-timeline'));
-			for (const entry of run.activity.get()) {
+			timeline = DOM.append(body, $('.onyx-timeline'));
+			const entries = run.activity.get();
+			hiddenCount = this._showAllRuns.has(run.runId) ? 0 : Math.max(0, entries.length - MAX_VISIBLE_ENTRIES);
+			earlierButton = DOM.append(timeline, $('button.onyx-timeline-earlier')) as HTMLButtonElement;
+			earlierButton.textContent = localize('onyx.activity.earlier', "{0} earlier steps", hiddenCount);
+			earlierButton.style.display = hiddenCount > 0 ? '' : 'none';
+			earlierButton.addEventListener('click', event => {
+				event.stopPropagation();
+				this._showAllRuns.add(run.runId);
+				this._rerender();
+			});
+			for (const entry of entries.slice(hiddenCount)) {
 				this._renderEntry(timeline, entry);
+				renderedCount++;
 			}
 		}
+		this._renderedRuns.set(run.runId, { element: runElement, timeline, earlierButton, renderedCount, hiddenCount, signature: this._signature(run, isSelected) });
 	}
 
 	private _renderEntry(timeline: HTMLElement, entry: IOnyxActivityEntry): void {

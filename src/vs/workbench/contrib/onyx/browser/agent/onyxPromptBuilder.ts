@@ -7,11 +7,14 @@ import { isMacintosh, isWindows } from '../../../../../base/common/platform.js';
 import { basename } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ChatMessageRole, IChatMessage } from '../../../chat/common/languageModels.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest } from '../../../chat/common/participants/chatAgents.js';
 import { IChatMarkdownContent } from '../../../chat/common/chatService/chatService.js';
+import { elideMiddle, historyMessageBudget } from '../../common/onyxContextCompression.js';
 import { IOnyxBudgetSlice, IOnyxModelProfile } from '../../common/onyxTypes.js';
+import { IOnyxRankedFile, OnyxContextRanker } from '../intelligence/onyxContextRanker.js';
 import { estimateMessageTokens, estimateTokens } from '../model/onyxOpenAITranslator.js';
 
 const MAX_ATTACHMENT_BYTES = 24 * 1024;
@@ -23,6 +26,25 @@ export interface IBuiltPrompt {
 }
 
 /**
+ * Keeps the newest history messages that fit the available token budget,
+ * dropping oldest-first. Newest turns carry the most relevant state; the
+ * system prompt and current request are never eviction candidates.
+ */
+export function evictOldestHistory(historyMessages: readonly IChatMessage[], availableTokens: number): { kept: IChatMessage[]; historyTokens: number } {
+	const kept: IChatMessage[] = [];
+	let historyTokens = 0;
+	for (let i = historyMessages.length - 1; i >= 0; i--) {
+		const tokens = estimateMessageTokens(historyMessages[i]);
+		if (historyTokens + tokens > availableTokens) {
+			break;
+		}
+		historyTokens += tokens;
+		kept.unshift(historyMessages[i]);
+	}
+	return { kept, historyTokens };
+}
+
+/**
  * Assembles the conversation for one agent turn, adapted to the target model's
  * profile: compact instructions for small models, a fuller harness for large
  * ones. Every category's token cost is measured so the control plane can show
@@ -31,46 +53,46 @@ export interface IBuiltPrompt {
  */
 export class OnyxPromptBuilder {
 
+	private readonly _contextRanker: OnyxContextRanker;
+
 	constructor(
 		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
 		@IFileService private readonly _fileService: IFileService,
-	) { }
+		@IInstantiationService instantiationService: IInstantiationService,
+	) {
+		this._contextRanker = instantiationService.createInstance(OnyxContextRanker);
+	}
 
 	async build(request: IChatAgentRequest, history: readonly IChatAgentHistoryEntry[], profile: IOnyxModelProfile, toolNames: readonly string[]): Promise<IBuiltPrompt> {
+		const rankedFiles = await this._rankedFiles(profile);
+		const workspaceContext = this._workspaceContextSection(rankedFiles, profile);
 		const system: IChatMessage = {
 			role: ChatMessageRole.System,
-			content: [{ type: 'text', value: this._systemPrompt(profile, toolNames) }],
+			content: [{ type: 'text', value: workspaceContext ? `${this._systemPrompt(profile, toolNames)}\n${workspaceContext}` : this._systemPrompt(profile, toolNames) }],
 		};
 
-		const historyMessages = this._historyMessages(history);
+		const historyMessages = this._historyMessages(history, profile);
 		const attachmentText = await this._attachmentText(request);
 		const userMessage: IChatMessage = {
 			role: ChatMessageRole.User,
 			content: [{ type: 'text', value: attachmentText ? `${attachmentText}\n\n${request.message}` : request.message }],
 		};
 
-		const systemTokens = estimateMessageTokens(system);
+		const workspaceTokens = estimateTokens(workspaceContext);
+		const systemTokens = estimateMessageTokens(system) - workspaceTokens;
 		const attachmentTokens = estimateTokens(attachmentText);
 		const userTokens = estimateMessageTokens(userMessage) - attachmentTokens;
 
 		// Evict oldest history first until everything fits in 85% of the window,
 		// leaving the rest for tool results and the response.
-		const available = Math.floor(profile.contextLength * 0.85) - systemTokens - attachmentTokens - userTokens;
-		const kept: IChatMessage[] = [];
-		let historyTokens = 0;
-		for (let i = historyMessages.length - 1; i >= 0; i--) {
-			const tokens = estimateMessageTokens(historyMessages[i]);
-			if (historyTokens + tokens > available) {
-				break;
-			}
-			historyTokens += tokens;
-			kept.unshift(historyMessages[i]);
-		}
+		const available = Math.floor(profile.contextLength * 0.85) - systemTokens - workspaceTokens - attachmentTokens - userTokens;
+		const { kept, historyTokens } = evictOldestHistory(historyMessages, available);
 
 		return {
 			messages: [system, ...kept, userMessage],
 			budget: [
 				{ category: 'system', tokens: systemTokens },
+				{ category: 'workspace', tokens: workspaceTokens },
 				{ category: 'history', tokens: historyTokens },
 				{ category: 'attachments', tokens: attachmentTokens },
 				{ category: 'toolSchemas', tokens: toolNames.length * 60 },
@@ -106,18 +128,43 @@ export class OnyxPromptBuilder {
 		].join('\n');
 	}
 
-	private _historyMessages(history: readonly IChatAgentHistoryEntry[]): IChatMessage[] {
+	private async _rankedFiles(profile: IOnyxModelProfile): Promise<IOnyxRankedFile[]> {
+		try {
+			return await this._contextRanker.rank(profile.promptStyle === 'compact' ? 5 : 10);
+		} catch {
+			return [];
+		}
+	}
+
+	/**
+	 * A compact "where the user is working" section: the top-ranked workspace
+	 * files with why they rank. Grounds the model's first tool calls in the
+	 * right part of the repo for a handful of tokens.
+	 */
+	private _workspaceContextSection(rankedFiles: readonly IOnyxRankedFile[], profile: IOnyxModelProfile): string {
+		if (rankedFiles.length === 0) {
+			return '';
+		}
+		if (profile.promptStyle === 'compact') {
+			return `Files the user is working on (most relevant first): ${rankedFiles.map(f => f.path).join(', ')}`;
+		}
+		const lines = rankedFiles.map(f => `- ${f.path} (${f.reasons.join(', ')})`);
+		return `Files the user is likely working on, most relevant first:\n${lines.join('\n')}`;
+	}
+
+	private _historyMessages(history: readonly IChatAgentHistoryEntry[], profile: IOnyxModelProfile): IChatMessage[] {
+		const budget = historyMessageBudget(profile.promptStyle);
 		const messages: IChatMessage[] = [];
 		for (const entry of history) {
 			if (entry.request.message) {
-				messages.push({ role: ChatMessageRole.User, content: [{ type: 'text', value: entry.request.message }] });
+				messages.push({ role: ChatMessageRole.User, content: [{ type: 'text', value: elideMiddle(entry.request.message, budget) }] });
 			}
 			const responseText = entry.response
 				.filter((part): part is IChatMarkdownContent => part.kind === 'markdownContent')
 				.map(part => part.content.value)
 				.join('');
 			if (responseText) {
-				messages.push({ role: ChatMessageRole.Assistant, content: [{ type: 'text', value: responseText }] });
+				messages.push({ role: ChatMessageRole.Assistant, content: [{ type: 'text', value: elideMiddle(responseText, budget) }] });
 			}
 		}
 		return messages;

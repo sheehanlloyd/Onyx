@@ -16,6 +16,7 @@ export const enum OnyxSettingId {
 	ControlPlaneAnimations = 'onyx.controlPlane.animations',
 	AutocompleteEnabled = 'onyx.autocomplete.enabled',
 	AutocompleteModel = 'onyx.autocomplete.model',
+	VerificationTask = 'onyx.verification.task',
 }
 
 export interface IOnyxEndpointSetting {
@@ -87,6 +88,12 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.MACHINE,
 			default: '',
 			markdownDescription: localize('onyx.autocomplete.model', "Model to use for inline autocomplete, as `host:port/modelId` (see *Onyx: Show Local Runtimes*). When empty, the smallest discovered model is used."),
+		},
+		[OnyxSettingId.VerificationTask]: {
+			type: 'string',
+			scope: ConfigurationScope.RESOURCE,
+			default: '',
+			markdownDescription: localize('onyx.verification.task', "Project check to run after an Onyx agent run that used tools, with the pass/fail verdict posted to the run's timeline. Use `build` or `test` for the workspace's default build or test task, any other value for a task with that name, or leave empty to disable."),
 		},
 	},
 });

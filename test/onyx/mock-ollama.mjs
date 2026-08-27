@@ -55,13 +55,17 @@ async function streamCompletion(res, body) {
 	const chunk = delta => ({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason: null }] });
 	const lastUser = [...(body.messages ?? [])].reverse().find(m => m.role === 'user');
 	const hasToolResult = (body.messages ?? []).some(m => m.role === 'tool');
-	const wantsTool = body.tools?.length && /TOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult;
+	const wantsSymbols = body.tools?.length && /SYMTEST\s+(\w+)/.test(lastUser?.content ?? '') && !hasToolResult;
+	const wantsTool = wantsSymbols || (body.tools?.length && /TOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult);
 
 	await sleep(120); // simulated TTFT
 	if (wantsTool) {
-		const tool = body.tools.find(t => /todo|task/i.test(t.function.name)) ?? body.tools[0];
+		const tool = wantsSymbols
+			? (body.tools.find(t => /repoSymbols/i.test(t.function.name)) ?? body.tools[0])
+			: (body.tools.find(t => /todo|task/i.test(t.function.name)) ?? body.tools[0]);
+		const args = wantsSymbols ? JSON.stringify({ query: /SYMTEST\s+(\w+)/.exec(lastUser.content)[1] }) : '{}';
 		send({ ...chunk({ tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: tool.function.name, arguments: '' } }] }) });
-		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: '{}' } }] }) });
+		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: args } }] }) });
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
 	} else {
 		const text = `Hello from ${body.model}! ${hasToolResult ? 'Tool result received; task complete. ' : ''}Streaming ${body.tools?.length ?? 0} tools were offered. All inference is local.`;

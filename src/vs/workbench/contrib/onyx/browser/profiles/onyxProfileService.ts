@@ -29,6 +29,8 @@ export interface IOnyxProfileService {
 	reportMeasurement(measurement: IOnyxRequestMeasurement): void;
 	/** Records the user's verdict on a response (kept edits / thumbs up = accepted). */
 	reportOutcome(modelKey: string, accepted: boolean): void;
+	/** Records the end-to-end latency of one inline (FIM) completion. */
+	reportFimMeasurement(modelKey: string, latencyMs: number): void;
 	setOverride(modelKey: string, patch: Partial<IOnyxModelProfile>): void;
 }
 
@@ -45,6 +47,8 @@ interface IMutableStats {
 	toolCallParseFailureRate: number;
 	acceptRate: number;
 	acceptSampleCount: number;
+	fimLatencyMs: number;
+	fimSampleCount: number;
 }
 
 export class OnyxProfileService extends Disposable implements IOnyxProfileService {
@@ -62,7 +66,8 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
-		this._stats = new Map(Object.entries(this._storageService.getObject<Record<string, IMutableStats>>(STATS_STORAGE_KEY, StorageScope.APPLICATION, {})));
+		this._stats = new Map(Object.entries(this._storageService.getObject<Record<string, Partial<IMutableStats>>>(STATS_STORAGE_KEY, StorageScope.APPLICATION, {}))
+			.map(([key, stored]) => [key, { ...emptyStats(), ...stored }]));
 		this._overrides = new Map(Object.entries(this._storageService.getObject<Record<string, Partial<IOnyxModelProfile>>>(OVERRIDES_STORAGE_KEY, StorageScope.APPLICATION, {})));
 		this._persistScheduler = this._register(new RunOnceScheduler(() => this._persist(), 5000));
 	}
@@ -113,6 +118,13 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		this._didChange();
 	}
 
+	reportFimMeasurement(modelKey: string, latencyMs: number): void {
+		const stats = this._getOrCreateStats(modelKey);
+		stats.fimSampleCount++;
+		stats.fimLatencyMs = ema(stats.fimLatencyMs, latencyMs);
+		this._didChange();
+	}
+
 	setOverride(modelKey: string, patch: Partial<IOnyxModelProfile>): void {
 		this._overrides.set(modelKey, { ...this._overrides.get(modelKey), ...patch });
 		this._didChange();
@@ -121,7 +133,7 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 	private _getOrCreateStats(modelKey: string): IMutableStats {
 		let stats = this._stats.get(modelKey);
 		if (!stats) {
-			stats = { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0 };
+			stats = emptyStats();
 			this._stats.set(modelKey, stats);
 		}
 		return stats;
@@ -136,6 +148,10 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		this._storageService.store(STATS_STORAGE_KEY, JSON.stringify(Object.fromEntries(this._stats)), StorageScope.APPLICATION, StorageTarget.MACHINE);
 		this._storageService.store(OVERRIDES_STORAGE_KEY, JSON.stringify(Object.fromEntries(this._overrides)), StorageScope.APPLICATION, StorageTarget.MACHINE);
 	}
+}
+
+function emptyStats(): IMutableStats {
+	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0 };
 }
 
 function ema(previous: number, sample: number): number {

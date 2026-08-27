@@ -19,6 +19,7 @@ import { ChatAgentVoteDirection, IChatService } from '../../chat/common/chatServ
 import { ONYX_VENDOR } from '../common/onyxTypes.js';
 import { OnyxChatAgentContribution } from '../browser/agent/onyxChatAgent.js';
 import { OnyxInlineCompletionsContribution } from '../browser/autocomplete/onyxInlineCompletions.js';
+import { OnyxRetrievalToolContribution } from '../browser/intelligence/onyxRetrievalTool.js';
 import { OnyxBenchmark } from '../browser/benchmark/onyxBenchmark.js';
 import { IOnyxControlPlaneService, OnyxControlPlaneService } from '../browser/controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService, OnyxModelService } from '../browser/model/onyxLanguageModelProvider.js';
@@ -93,6 +94,7 @@ registerWorkbenchContribution2(OnyxModelsContribution.ID, OnyxModelsContribution
 registerWorkbenchContribution2(OnyxChatAgentContribution.ID, OnyxChatAgentContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxStatusBarContribution.ID, OnyxStatusBarContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxInlineCompletionsContribution.ID, OnyxInlineCompletionsContribution, WorkbenchPhase.Eventually);
+registerWorkbenchContribution2(OnyxRetrievalToolContribution.ID, OnyxRetrievalToolContribution, WorkbenchPhase.AfterRestored);
 
 registerAction2(class BenchmarkOnyxModelsAction extends Action2 {
 	constructor() {

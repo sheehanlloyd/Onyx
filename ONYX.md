@@ -37,6 +37,9 @@ exactly what the agent is doing, what it costs in compute, and why.
 │  routing/onyxRouterService        ← task classifier + learned model picking    │
 │  agent/onyxChatAgent + AgentLoop  ← core default agent, multi-turn tool loop   │
 │  agent/onyxPromptBuilder          ← profile-adaptive prompts, token accounting │
+│  intelligence/onyxRetrievalTool   ← repoSymbols tool over workspace symbols    │
+│  intelligence/onyxContextRanker   ← open editors ⊕ history ⊕ git recency       │
+│  verification/onyxTaskVerification← post-run build/test checks → timeline      │
 │  controlPlane/*                   ← live runs, budget, compute views + gates   │
 └────────────────────────────────┬───────────────────────────────────────────────┘
                                  │ ProxyChannel 'onyxRuntime' (operationId-correlated)
@@ -45,6 +48,7 @@ exactly what the agent is doing, what it costs in compute, and why.
 │  discovery: probe :11434/:1234/:8080/:8000 + configured URLs,                 │
 │             /v1/models + Ollama /api/tags + /api/show, 30s watcher            │
 │  inference: streaming SSE POST /v1/chat/completions, AbortController cancel   │
+│  repo:      gitRecentFiles via `git log` (renderer cannot spawn processes)    │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -86,26 +90,48 @@ Integration points consumed (imports only, never patched):
 - [x] Verification-lite: after any run that used tools, the workspace error
       markers are compared against the pre-run baseline and the verdict is
       posted to the run's timeline
+- [x] FIM latency measured per completion into profile stats (EMA); once a
+      model has ≥5 measured completions, measured latency picks the
+      autocomplete model instead of the parameter-count guess
+- [x] Timeline renders incrementally (append-only fast path) with a
+      150-entry DOM cap per run; older steps collapse behind an
+      "earlier steps" expander
+- [x] Onyx app icon set (canvas-rendered faceted gem, packed via iconutil
+      into resources/darwin/code.icns)
+- [x] `repoSymbols` language-model tool (ILanguageModelToolsService):
+      symbol-aware retrieval over the workspace symbol providers with
+      deterministic ranking (exact > prefix > substring, definitions first)
+      and per-match source snippets; pinned to survive small-model tool caps
+- [x] Context ranking: open editors ⊕ editor history ⊕ git commit recency
+      (shared-process `gitRecentFiles`) merged into a deterministic score;
+      every agent prompt carries a "files the user is working on" section
+      and the budget view shows it as its own slice
+- [x] Context compression for small models: history messages and tool
+      results elided head-and-tail with explicit markers, budgets derived
+      from the profile's prompt style
+- [x] Project checks after agent edits (`onyx.verification.task`): the
+      workspace's default build/test task (or a named task) runs after any
+      tool-using run and its pass/fail verdict + duration land on the
+      timeline (not awaited — responses never wait on a build)
 
-### Next (Phase 1 polish)
+### Next
 
-- [ ] Record FIM latency into profiles; task-aware autocomplete context
-- [ ] Timeline virtualization for very long runs (currently full re-render)
-- [ ] App icon set (resources/darwin/*.icns still stock)
+- [ ] Task-aware autocomplete context (feed ranked-file context into FIM
+      prompts, not just the agent prompt)
+- [ ] Call-graph context assembly (references/implementations expansion on
+      top of `repoSymbols`)
 
 ### Roadmap
 
-- **Phase 2 — Repo intelligence:** Tree-sitter/LSP-backed retrieval (symbol
-  units, not line ranges), call-graph context assembly, learned context
-  ranking (embedding similarity + open tabs + git recency + co-change),
-  context compression for small models.
+- **Phase 2 — Repo intelligence (partially shipped, see Done):** call-graph
+  context assembly, co-change mining, embedding-free similarity signals.
 - **Phase 3 — Model management:** model library with one-click install
   (Ollama pull), Apple-Silicon-aware recommendations (unified memory →
   quantization/context tradeoffs), on-your-repo benchmark suites feeding the
   router, speculative-decoding configuration.
-- **Phase 4 — Verification & isolation:** automatic compile/lint/test after
-  agent edits with verdict UI, change risk analysis, git-worktree-per-agent
-  parallel runs, adversarial reviewer agent, tournament mode.
+- **Phase 4 — Verification & isolation (first slice shipped, see Done):**
+  change risk analysis, git-worktree-per-agent parallel runs, adversarial
+  reviewer agent, tournament mode.
 - **Phase 5 — Polish & depth:** FIM autocomplete on a dedicated small model
   with agent-task-aware context, persistent repo/developer memory (local),
   offline docs mirror, idle-compute background review, energy/thermal-aware

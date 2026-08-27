@@ -43,6 +43,9 @@ export interface IOnyxObservedStats {
 	readonly acceptRate: number;
 	/** How many accept/reject verdicts back the accept rate. */
 	readonly acceptSampleCount: number;
+	/** EMA of end-to-end inline-completion latency, and how many completions back it. */
+	readonly fimLatencyMs: number;
+	readonly fimSampleCount: number;
 }
 
 /** One event in a run's journal. */
@@ -74,6 +77,6 @@ export interface IOnyxRequestRecord extends IOnyxRunSummary {
 
 /** One slice of the context-budget breakdown for an in-flight request. */
 export interface IOnyxBudgetSlice {
-	readonly category: 'system' | 'history' | 'attachments' | 'toolSchemas' | 'toolResults';
+	readonly category: 'system' | 'history' | 'attachments' | 'toolSchemas' | 'toolResults' | 'workspace';
 	readonly tokens: number;
 }
