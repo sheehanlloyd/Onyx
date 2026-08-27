@@ -1,0 +1,314 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ---- shared ---- */
+
+.onyx-view {
+	height: 100%;
+	overflow-y: auto;
+	padding: 8px 12px 12px;
+	font-size: 12px;
+	color: var(--vscode-foreground);
+}
+
+.onyx-empty {
+	padding: 28px 16px;
+	text-align: center;
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	line-height: 1.6;
+}
+
+.onyx-empty .codicon {
+	display: block;
+	margin: 0 auto 8px;
+	font-size: 24px;
+	color: var(--vscode-onyx-accent);
+	opacity: 0.7;
+}
+
+/* ---- activity view ---- */
+
+.onyx-run {
+	margin-bottom: 8px;
+	border: 1px solid var(--vscode-widget-border, transparent);
+	border-radius: 6px;
+	background: var(--vscode-editorWidget-background);
+	overflow: hidden;
+	transition: border-color 180ms ease-out, box-shadow 240ms ease-out;
+}
+
+.onyx-run.selected {
+	border-color: color-mix(in srgb, var(--vscode-onyx-accent) 55%, transparent);
+}
+
+.onyx-run.running {
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-onyx-accent) 35%, transparent), 0 0 14px var(--vscode-onyx-glow);
+}
+
+.onyx-run-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 10px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.onyx-run-header:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.onyx-run-status {
+	width: 8px;
+	height: 8px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: var(--vscode-descriptionForeground);
+}
+
+.onyx-run.running .onyx-run-status {
+	background: var(--vscode-onyx-accent);
+}
+
+.monaco-enable-motion .onyx-run.running .onyx-run-status {
+	animation: onyx-pulse 1.6s ease-in-out infinite;
+}
+
+.onyx-run.paused .onyx-run-status {
+	background: var(--vscode-onyx-warn);
+}
+
+.onyx-run.completed .onyx-run-status {
+	background: var(--vscode-onyx-ok);
+}
+
+.onyx-run.failed .onyx-run-status,
+.onyx-run.cancelled .onyx-run-status {
+	background: var(--vscode-onyx-error);
+}
+
+.onyx-run-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-weight: 500;
+}
+
+.onyx-chip {
+	flex-shrink: 0;
+	padding: 1px 7px;
+	border-radius: 9px;
+	font-size: 10px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--vscode-onyx-accent);
+	background: var(--vscode-onyx-accentSoft);
+}
+
+.onyx-run-actions {
+	display: flex;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+.onyx-icon-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--vscode-icon-foreground);
+	cursor: pointer;
+	padding: 0;
+}
+
+.onyx-icon-button:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+	color: var(--vscode-onyx-accent);
+}
+
+.onyx-run-body {
+	padding: 2px 10px 8px;
+	border-top: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.onyx-timeline {
+	position: relative;
+	margin: 4px 0 0;
+	padding-left: 16px;
+}
+
+.onyx-timeline::before {
+	content: '';
+	position: absolute;
+	left: 3px;
+	top: 6px;
+	bottom: 6px;
+	width: 1px;
+	background: linear-gradient(to bottom, color-mix(in srgb, var(--vscode-onyx-accent) 50%, transparent), color-mix(in srgb, var(--vscode-onyx-accent) 8%, transparent));
+}
+
+.onyx-timeline-entry {
+	position: relative;
+	padding: 3px 0;
+	line-height: 1.5;
+}
+
+.monaco-enable-motion .onyx-timeline-entry {
+	animation: onyx-slide-in 200ms ease-out;
+}
+
+.onyx-timeline-entry::before {
+	content: '';
+	position: absolute;
+	left: -15px;
+	top: 9px;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--vscode-onyx-accent);
+}
+
+.onyx-timeline-entry.ok::before {
+	background: var(--vscode-onyx-ok);
+}
+
+.onyx-timeline-entry.error::before {
+	background: var(--vscode-onyx-error);
+}
+
+.onyx-timeline-label {
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+}
+
+.onyx-timeline-kind {
+	margin-right: 6px;
+	font-size: 10px;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-timeline-reason {
+	display: block;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+/* ---- context budget view ---- */
+
+.onyx-budget-total {
+	margin-bottom: 6px;
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-budget-bar {
+	display: flex;
+	height: 14px;
+	border-radius: 7px;
+	overflow: hidden;
+	background: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.onyx-budget-slice {
+	height: 100%;
+	min-width: 2px;
+	transition: width 320ms ease-out;
+}
+
+.onyx-budget-legend {
+	margin-top: 10px;
+	display: grid;
+	grid-template-columns: 12px 1fr auto;
+	gap: 4px 8px;
+	align-items: center;
+	font-size: 11px;
+}
+
+.onyx-budget-swatch {
+	width: 10px;
+	height: 10px;
+	border-radius: 3px;
+}
+
+.onyx-budget-tokens {
+	font-family: var(--monaco-monospace-font);
+	color: var(--vscode-descriptionForeground);
+}
+
+/* ---- compute view ---- */
+
+.onyx-compute-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+
+.onyx-stat {
+	padding: 10px 12px;
+	border-radius: 6px;
+	background: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-widget-border, transparent);
+	transition: box-shadow 240ms ease-out;
+}
+
+.onyx-stat.live {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-onyx-accent) 30%, transparent), 0 0 12px var(--vscode-onyx-glow);
+}
+
+.onyx-stat-label {
+	font-size: 10px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: 4px;
+}
+
+.onyx-stat-value {
+	font-family: var(--monaco-monospace-font);
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+}
+
+.onyx-stat-value .unit {
+	font-size: 10px;
+	font-weight: 400;
+	color: var(--vscode-descriptionForeground);
+	margin-left: 3px;
+}
+
+.onyx-compute-model {
+	grid-column: 1 / -1;
+}
+
+.onyx-compute-model .onyx-stat-value {
+	font-size: 12px;
+	word-break: break-all;
+}
+
+/* ---- animations ---- */
+
+@keyframes onyx-pulse {
+	0%, 100% { box-shadow: 0 0 0 0 var(--vscode-onyx-glow); opacity: 1; }
+	50% { box-shadow: 0 0 0 5px transparent; opacity: 0.65; }
+}
+
+@keyframes onyx-slide-in {
+	from { opacity: 0; transform: translateY(3px); }
+	to { opacity: 1; transform: translateY(0); }
+}

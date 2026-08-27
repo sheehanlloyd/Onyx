@@ -627,6 +627,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/onyx",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/processExplorer",
 			"project": "vscode-workbench"
 		},

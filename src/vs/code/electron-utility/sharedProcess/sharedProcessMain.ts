@@ -148,6 +148,8 @@ import { PlaywrightChannel } from '../../../platform/browserView/node/playwright
 import { AgentNetworkFilterService } from '../../../platform/networkFilter/common/networkFilterService.js';
 import { ILocalGitService } from '../../../platform/git/common/localGitService.js';
 import { LocalGitService } from '../../../platform/git/node/localGitService.js';
+import { IOnyxRuntimeService } from '../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { OnyxRuntimeService } from '../../../platform/onyxRuntime/node/onyxRuntimeService.js';
 
 class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 
@@ -422,6 +424,9 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		// Local Git
 		services.set(ILocalGitService, new SyncDescriptor(LocalGitService, undefined, false /* proxied to other processes */));
 
+		// Onyx Local Runtimes
+		services.set(IOnyxRuntimeService, new SyncDescriptor(OnyxRuntimeService, undefined, false /* proxied to other processes */));
+
 		// SSH Remote Agent Host
 		services.set(ISSHRemoteAgentHostMainService, new SyncDescriptor(SSHRemoteAgentHostMainService, undefined, true));
 
@@ -512,6 +517,10 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		// Local Git
 		const localGitChannel = ProxyChannel.fromService(accessor.get(ILocalGitService), this._store);
 		this.server.registerChannel('localGit', localGitChannel);
+
+		// Onyx Local Runtimes
+		const onyxRuntimeChannel = ProxyChannel.fromService(accessor.get(IOnyxRuntimeService), this._store);
+		this.server.registerChannel('onyxRuntime', onyxRuntimeChannel);
 
 		// SSH Remote Agent Host
 		const sshRemoteAgentHostChannel = ProxyChannel.fromService(accessor.get(ISSHRemoteAgentHostMainService), this._store);
