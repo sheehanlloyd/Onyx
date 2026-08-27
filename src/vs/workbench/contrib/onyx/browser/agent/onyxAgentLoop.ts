@@ -104,6 +104,7 @@ export class OnyxAgentLoop {
 		for (let turn = 0; turn < maxTurns && !token.isCancellationRequested; turn++) {
 			run.setTurnCount(turn + 1);
 			run.activity({ kind: 'turn', label: `Model turn ${turn + 1}` });
+			run.snapshot(snapshotForJournal(turn + 1, modelIdentifier, messages, tools));
 
 			const response = await this._languageModelsService.sendChatRequest(modelIdentifier, undefined, messages, { tools }, token);
 			let assistantText = '';
@@ -234,6 +235,39 @@ export class OnyxAgentLoop {
 		}
 		return DEFAULT_PROFILE;
 	}
+}
+
+const MAX_SNAPSHOT_CHARS = 64 * 1024;
+
+/**
+ * A journal-ready view of exactly what a turn sent to the model: the resolved
+ * identifier, every message (tool results included), and the exposed tool
+ * names. Oversized message content is truncated so a runaway turn can't bloat
+ * the journal.
+ */
+function snapshotForJournal(turn: number, modelIdentifier: string, messages: readonly IChatMessage[], tools: readonly IRequestTool[]): unknown {
+	let remaining = MAX_SNAPSHOT_CHARS;
+	const clip = (value: string): string => {
+		const clipped = value.length > remaining ? `${value.slice(0, Math.max(0, remaining))}… [truncated]` : value;
+		remaining = Math.max(0, remaining - clipped.length);
+		return clipped;
+	};
+	return {
+		turn,
+		model: modelIdentifier,
+		tools: tools.map(t => t.name),
+		messages: messages.map(message => ({
+			role: message.role,
+			content: message.content.map(part => {
+				switch (part.type) {
+					case 'text': return { type: 'text', value: clip(part.value) };
+					case 'tool_use': return { type: 'tool_use', name: part.name, parameters: part.parameters };
+					case 'tool_result': return { type: 'tool_result', toolCallId: part.toolCallId, value: clip(part.value.map(v => v.type === 'text' ? v.value : '').join('')) };
+					default: return { type: part.type };
+				}
+			}),
+		})),
+	};
 }
 
 /** Lower is more important; the cap keeps the tools a small model needs most. */

@@ -16,6 +16,7 @@ import { Extensions as ViewExtensions, IViewContainersRegistry, IViewsRegistry, 
 import { OnyxActivityViewPane } from './onyxActivityView.js';
 import { OnyxComputeViewPane } from './onyxComputeView.js';
 import { OnyxContextBudgetViewPane } from './onyxContextBudgetView.js';
+import { OnyxInspectorViewPane } from './onyxInspectorView.js';
 
 export const ONYX_CONTROL_PLANE_CONTAINER_ID = 'workbench.panel.onyxControlPlane';
 
@@ -67,5 +68,16 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([
 		canMoveView: true,
 		order: 3,
 		weight: 20,
+	},
+	{
+		id: OnyxInspectorViewPane.ID,
+		name: localize2('onyx.inspector.name', "Inspector"),
+		containerIcon: onyxViewIcon,
+		ctorDescriptor: new SyncDescriptor(OnyxInspectorViewPane),
+		canToggleVisibility: true,
+		canMoveView: true,
+		collapsed: true,
+		order: 4,
+		weight: 30,
 	},
 ], container);

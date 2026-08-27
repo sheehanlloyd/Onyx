@@ -9,16 +9,20 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSharedProcessRemoteService } from '../../../../platform/ipc/electron-browser/services.js';
 import { IOnyxRuntimeService } from '../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { ILanguageModelsService } from '../../chat/common/languageModels.js';
+import { ChatAgentVoteDirection, IChatService } from '../../chat/common/chatService/chatService.js';
 import { ONYX_VENDOR } from '../common/onyxTypes.js';
 import { OnyxChatAgentContribution } from '../browser/agent/onyxChatAgent.js';
+import { OnyxBenchmark } from '../browser/benchmark/onyxBenchmark.js';
 import { IOnyxControlPlaneService, OnyxControlPlaneService } from '../browser/controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService, OnyxModelService } from '../browser/model/onyxLanguageModelProvider.js';
+import { IOnyxOutcomeService, OnyxOutcomeService } from '../browser/outcomes/onyxOutcomeService.js';
+import { OnyxStatusBarContribution } from '../browser/onyxStatusBar.js';
 import { IOnyxProfileService, OnyxProfileService } from '../browser/profiles/onyxProfileService.js';
 import { IOnyxRouterService, OnyxRouterService } from '../browser/routing/onyxRouterService.js';
 
@@ -28,6 +32,7 @@ registerSingleton(IOnyxProfileService, OnyxProfileService, InstantiationType.Del
 registerSingleton(IOnyxRouterService, OnyxRouterService, InstantiationType.Delayed);
 registerSingleton(IOnyxModelService, OnyxModelService, InstantiationType.Delayed);
 registerSingleton(IOnyxControlPlaneService, OnyxControlPlaneService, InstantiationType.Delayed);
+registerSingleton(IOnyxOutcomeService, OnyxOutcomeService, InstantiationType.Delayed);
 
 /**
  * Registers the `onyx` language model vendor and provider with the chat stack
@@ -42,6 +47,9 @@ class OnyxModelsContribution extends Disposable {
 		@IOnyxModelService onyxModelService: IOnyxModelService,
 		@IOnyxProfileService onyxProfileService: IOnyxProfileService,
 		@IOnyxControlPlaneService onyxControlPlaneService: IOnyxControlPlaneService,
+		@IChatService chatService: IChatService,
+		// Constructed here so it journals runs from the very first request.
+		@IOnyxOutcomeService _onyxOutcomeService: IOnyxOutcomeService,
 	) {
 		super();
 
@@ -61,12 +69,43 @@ class OnyxModelsContribution extends Disposable {
 			});
 		}));
 
+		// The learning loop's outcome signal: votes and kept code count as
+		// accept/reject evidence for the model that served the request.
+		this._register(chatService.onDidPerformUserAction(event => {
+			const run = onyxControlPlaneService.runs.get().find(r => r.requestId === event.requestId);
+			if (!run || !run.modelKey.startsWith(`${ONYX_VENDOR}:`)) {
+				return;
+			}
+			const modelKey = run.modelKey.slice(ONYX_VENDOR.length + 1);
+			if (event.action.kind === 'vote') {
+				onyxProfileService.reportOutcome(modelKey, event.action.direction === ChatAgentVoteDirection.Up);
+			} else if (event.action.kind === 'insert' || event.action.kind === 'apply' || event.action.kind === 'copy') {
+				onyxProfileService.reportOutcome(modelKey, true);
+			}
+		}));
+
 		onyxModelService.refresh();
 	}
 }
 
 registerWorkbenchContribution2(OnyxModelsContribution.ID, OnyxModelsContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxChatAgentContribution.ID, OnyxChatAgentContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxStatusBarContribution.ID, OnyxStatusBarContribution, WorkbenchPhase.AfterRestored);
+
+registerAction2(class BenchmarkOnyxModelsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.benchmarkModels',
+			title: localize2('onyx.benchmarkModels', "Onyx: Benchmark Local Models"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const instantiationService = accessor.get(IInstantiationService);
+		await instantiationService.createInstance(OnyxBenchmark).run();
+	}
+});
 
 registerAction2(class ShowOnyxRuntimesAction extends Action2 {
 	constructor() {

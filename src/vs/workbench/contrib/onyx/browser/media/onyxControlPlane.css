@@ -301,6 +301,70 @@
 	word-break: break-all;
 }
 
+/* ---- inspector view ---- */
+
+.onyx-inspector-meta {
+	flex-shrink: 0;
+	font-family: var(--monaco-monospace-font);
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-inspector-snapshot {
+	margin: 8px 0;
+	padding: 8px;
+	border-radius: 6px;
+	background: var(--vscode-textCodeBlock-background);
+}
+
+.onyx-inspector-snapshot-header {
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--vscode-onyx-accent);
+	margin-bottom: 4px;
+}
+
+.onyx-inspector-tools {
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: 6px;
+	word-break: break-word;
+}
+
+.onyx-inspector-message {
+	margin: 6px 0;
+}
+
+.onyx-inspector-role {
+	display: inline-block;
+	margin-bottom: 2px;
+	font-size: 10px;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-inspector-pre {
+	margin: 0;
+	padding: 4px 6px;
+	border-left: 2px solid color-mix(in srgb, var(--vscode-onyx-accent) 40%, transparent);
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+	line-height: 1.45;
+	white-space: pre-wrap;
+	word-break: break-word;
+	color: var(--vscode-foreground);
+	max-height: 200px;
+	overflow-y: auto;
+}
+
+.onyx-inspector-none {
+	padding: 6px 0;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
 /* ---- animations ---- */
 
 @keyframes onyx-pulse {

@@ -49,6 +49,8 @@ export interface IOnyxLiveRun {
 export interface IOnyxRunHandle {
 	readonly runId: string;
 	activity(entry: Omit<IOnyxActivityEntry, 'at'>): void;
+	/** Records journal-only data (e.g. the exact wire request) without adding a visible timeline entry. */
+	snapshot(data: unknown): void;
 	setContextBudget(slices: readonly IOnyxBudgetSlice[]): void;
 	setTurnCount(count: number): void;
 	/**
@@ -161,6 +163,9 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 				const full = { ...entry, at: Date.now() };
 				run.activityObs.set([...run.activityObs.get(), full], undefined);
 				service._onDidRecordEvent.fire({ runId, event: { t: full.at - run.startedAt, kind: entryKindToEventKind(full.kind), data: full } });
+			},
+			snapshot(data) {
+				service._onDidRecordEvent.fire({ runId, event: { t: Date.now() - run.startedAt, kind: 'promptSnapshot', data } });
 			},
 			setContextBudget(slices) {
 				run.contextBudgetObs.set(slices, undefined);
