@@ -7,7 +7,7 @@ import { Emitter } from '../../../base/common/event.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { ILogService } from '../../log/common/log.js';
-import { IOnyxChatParams, IOnyxDiscoveredModel, IOnyxEndpoint, IOnyxRuntimeService, IOnyxStreamEvent, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCompletionParams, IOnyxDiscoveredModel, IOnyxEndpoint, IOnyxRuntimeService, IOnyxStreamEvent, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -19,6 +19,7 @@ const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = 
 
 const PROBE_TIMEOUT_MS = 1500;
 const WATCH_INTERVAL_MS = 30_000;
+const COMPLETION_TIMEOUT_MS = 15_000;
 
 interface IOpenAIModelList {
 	readonly data?: readonly { readonly id: string }[];
@@ -152,6 +153,41 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				this._onDidStream.fire({ operationId, kind: 'done', finishReason: 'cancelled' });
 			}
 		} finally {
+			this._operations.delete(operationId);
+		}
+	}
+
+	async completeText(operationId: string, params: IOnyxCompletionParams): Promise<string | undefined> {
+		const controller = new AbortController();
+		this._operations.set(operationId, controller);
+		const timeout = setTimeout(() => controller.abort(), COMPLETION_TIMEOUT_MS);
+		try {
+			const response = await fetch(`${normalizeBaseUrl(params.baseUrl)}/completions`, {
+				method: 'POST',
+				signal: controller.signal,
+				headers: {
+					'Content-Type': 'application/json',
+					...(params.apiKey ? { 'Authorization': `Bearer ${params.apiKey}` } : {}),
+				},
+				body: JSON.stringify({
+					model: params.model,
+					prompt: params.prompt,
+					...(params.suffix ? { suffix: params.suffix } : {}),
+					max_tokens: params.maxTokens,
+					temperature: 0,
+					...(params.stop?.length ? { stop: params.stop } : {}),
+					stream: false,
+				}),
+			});
+			if (!response.ok) {
+				return undefined;
+			}
+			const body = await response.json() as { choices?: { text?: string }[] };
+			return body.choices?.[0]?.text ?? undefined;
+		} catch {
+			return undefined;
+		} finally {
+			clearTimeout(timeout);
 			this._operations.delete(operationId);
 		}
 	}

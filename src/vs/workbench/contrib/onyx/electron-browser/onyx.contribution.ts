@@ -18,6 +18,7 @@ import { ILanguageModelsService } from '../../chat/common/languageModels.js';
 import { ChatAgentVoteDirection, IChatService } from '../../chat/common/chatService/chatService.js';
 import { ONYX_VENDOR } from '../common/onyxTypes.js';
 import { OnyxChatAgentContribution } from '../browser/agent/onyxChatAgent.js';
+import { OnyxInlineCompletionsContribution } from '../browser/autocomplete/onyxInlineCompletions.js';
 import { OnyxBenchmark } from '../browser/benchmark/onyxBenchmark.js';
 import { IOnyxControlPlaneService, OnyxControlPlaneService } from '../browser/controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService, OnyxModelService } from '../browser/model/onyxLanguageModelProvider.js';
@@ -91,6 +92,7 @@ class OnyxModelsContribution extends Disposable {
 registerWorkbenchContribution2(OnyxModelsContribution.ID, OnyxModelsContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxChatAgentContribution.ID, OnyxChatAgentContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxStatusBarContribution.ID, OnyxStatusBarContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxInlineCompletionsContribution.ID, OnyxInlineCompletionsContribution, WorkbenchPhase.Eventually);
 
 registerAction2(class BenchmarkOnyxModelsAction extends Action2 {
 	constructor() {

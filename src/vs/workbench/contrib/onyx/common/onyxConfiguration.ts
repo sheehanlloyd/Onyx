@@ -14,6 +14,8 @@ export const enum OnyxSettingId {
 	DiscoveryEnabled = 'onyx.discovery.enabled',
 	RoutingMode = 'onyx.routing.mode',
 	ControlPlaneAnimations = 'onyx.controlPlane.animations',
+	AutocompleteEnabled = 'onyx.autocomplete.enabled',
+	AutocompleteModel = 'onyx.autocomplete.model',
 }
 
 export interface IOnyxEndpointSetting {
@@ -73,6 +75,18 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.APPLICATION,
 			default: true,
 			description: localize('onyx.controlPlane.animations', "Enable animations in the Onyx control plane views."),
+		},
+		[OnyxSettingId.AutocompleteEnabled]: {
+			type: 'boolean',
+			scope: ConfigurationScope.APPLICATION,
+			default: true,
+			description: localize('onyx.autocomplete.enabled', "Enable Onyx inline autocomplete from a local fill-in-the-middle model."),
+		},
+		[OnyxSettingId.AutocompleteModel]: {
+			type: 'string',
+			scope: ConfigurationScope.MACHINE,
+			default: '',
+			markdownDescription: localize('onyx.autocomplete.model', "Model to use for inline autocomplete, as `host:port/modelId` (see *Onyx: Show Local Runtimes*). When empty, the smallest discovered model is used."),
 		},
 	},
 });

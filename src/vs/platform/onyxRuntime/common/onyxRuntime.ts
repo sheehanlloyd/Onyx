@@ -75,6 +75,18 @@ export interface IOnyxChatParams {
 	readonly maxTokens?: number;
 }
 
+export interface IOnyxCompletionParams {
+	readonly baseUrl: string;
+	readonly apiKey?: string;
+	readonly model: string;
+	/** Text before the cursor. */
+	readonly prompt: string;
+	/** Text after the cursor; sent as the OpenAI `suffix` for fill-in-the-middle models. */
+	readonly suffix?: string;
+	readonly maxTokens: number;
+	readonly stop?: readonly string[];
+}
+
 export type IOnyxStreamEvent =
 	| { readonly operationId: string; readonly kind: 'delta'; readonly text: string }
 	| { readonly operationId: string; readonly kind: 'toolCallDelta'; readonly index: number; readonly id?: string; readonly name?: string; readonly argumentsDelta?: string }
@@ -114,6 +126,13 @@ export interface IOnyxRuntimeService {
 	 * (successfully or not); deltas, usage and errors arrive on {@link onDidStream}.
 	 */
 	startChatCompletion(operationId: string, params: IOnyxChatParams): Promise<void>;
+
+	/**
+	 * Non-streaming fill-in-the-middle completion (`/v1/completions` with
+	 * prompt + suffix), used for inline autocomplete. Returns the completion
+	 * text, or undefined on any failure — autocomplete never surfaces errors.
+	 */
+	completeText(operationId: string, params: IOnyxCompletionParams): Promise<string | undefined>;
 
 	cancel(operationId: string): Promise<void>;
 }

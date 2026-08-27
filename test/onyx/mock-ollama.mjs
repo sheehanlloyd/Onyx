@@ -26,6 +26,13 @@ const server = http.createServer((req, res) => {
 	if (req.method === 'POST' && url.pathname === '/v1/chat/completions') {
 		return readBody(req).then(body => streamCompletion(res, body));
 	}
+	if (req.method === 'POST' && url.pathname === '/v1/completions') {
+		return readBody(req).then(body => {
+			setTimeout(() => json(res, {
+				choices: [{ text: `_mockCompletion(a, b);` }],
+			}), 100);
+		});
+	}
 	res.writeHead(404); res.end();
 });
 
