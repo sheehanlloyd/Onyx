@@ -18,6 +18,7 @@ import { IThemeService } from '../../../../../platform/theme/common/themeService
 import { ViewPane } from '../../../../browser/parts/views/viewPane.js';
 import { IViewletViewOptions } from '../../../../browser/parts/views/viewsViewlet.js';
 import { IViewDescriptorService } from '../../../../common/views.js';
+import { diffRuns, IOnyxRunDiffSection } from '../../common/onyxRunDiff.js';
 import { IOnyxRequestRecord, IOnyxRunSummary } from '../../common/onyxTypes.js';
 import { IOnyxOutcomeService } from '../outcomes/onyxOutcomeService.js';
 import { renderOnyxEmptyState } from './onyxEmptyState.js';
@@ -35,6 +36,9 @@ export class OnyxInspectorViewPane extends ViewPane {
 
 	private _content: HTMLElement | undefined;
 	private _openRunId: string | undefined;
+	/** First run picked for comparison; the next pick renders the diff. */
+	private _compareAnchorId: string | undefined;
+	private _diffPair: [string, string] | undefined;
 	private readonly _emptyStateDisposables = this._register(new DisposableStore());
 
 	constructor(
@@ -68,11 +72,20 @@ export class OnyxInspectorViewPane extends ViewPane {
 		}
 		const runs = await this._outcomeService.listRuns();
 		const open = this._openRunId ? await this._outcomeService.readRun(this._openRunId) : undefined;
+		const diffPair = this._diffPair;
+		const diffRecords = diffPair
+			? await Promise.all([this._outcomeService.readRun(diffPair[0]), this._outcomeService.readRun(diffPair[1])])
+			: undefined;
 		if (!this._content) {
 			return;
 		}
 		DOM.clearNode(content);
 		this._emptyStateDisposables.clear();
+
+		if (diffRecords && diffRecords[0] && diffRecords[1]) {
+			this._renderDiff(content, diffRecords[0], diffRecords[1]);
+			return;
+		}
 
 		if (runs.length === 0) {
 			renderOnyxEmptyState(content, {
@@ -101,6 +114,26 @@ export class OnyxInspectorViewPane extends ViewPane {
 		const chip = DOM.append(header, $('.onyx-chip'));
 		chip.textContent = run.task;
 
+		const compare = DOM.append(header, $('button.onyx-icon-button.codicon.codicon-git-compare')) as HTMLButtonElement;
+		compare.classList.toggle('checked', this._compareAnchorId === run.runId);
+		compare.title = this._compareAnchorId === undefined
+			? localize('onyx.inspector.compare', "Compare this run with another")
+			: this._compareAnchorId === run.runId
+				? localize('onyx.inspector.compareCancel', "Cancel comparison")
+				: localize('onyx.inspector.compareWith', "Compare with the marked run");
+		compare.addEventListener('click', event => {
+			event.stopPropagation();
+			if (this._compareAnchorId === undefined) {
+				this._compareAnchorId = run.runId;
+			} else if (this._compareAnchorId === run.runId) {
+				this._compareAnchorId = undefined;
+			} else {
+				this._diffPair = [this._compareAnchorId, run.runId];
+				this._compareAnchorId = undefined;
+			}
+			this._refresh();
+		});
+
 		header.addEventListener('click', () => {
 			this._openRunId = this._openRunId === run.runId ? undefined : run.runId;
 			this._refresh();
@@ -116,6 +149,55 @@ export class OnyxInspectorViewPane extends ViewPane {
 			if (!detail.events.some(e => e.kind === 'promptSnapshot')) {
 				const none = DOM.append(body, $('.onyx-inspector-none'));
 				none.textContent = localize('onyx.inspector.noSnapshots', "No prompt snapshots were journaled for this run.");
+			}
+		}
+	}
+
+	private _renderDiff(parent: HTMLElement, first: IOnyxRequestRecord, second: IOnyxRequestRecord): void {
+		// Older run on the left so reading order matches time.
+		const [left, right] = first.startedAt <= second.startedAt ? [first, second] : [second, first];
+		const container = DOM.append(parent, $('.onyx-run-diff'));
+
+		const toolbar = DOM.append(container, $('.onyx-run-diff-toolbar'));
+		const back = DOM.append(toolbar, $('button.onyx-icon-button.codicon.codicon-arrow-left')) as HTMLButtonElement;
+		back.title = localize('onyx.inspector.diffBack', "Back to the run list");
+		back.addEventListener('click', () => {
+			this._diffPair = undefined;
+			this._refresh();
+		});
+		const heading = DOM.append(toolbar, $('span.onyx-run-diff-title'));
+		heading.textContent = localize('onyx.inspector.diffTitle', "Comparing two runs");
+
+		const columns = DOM.append(container, $('.onyx-run-diff-columns'));
+		DOM.append(columns, $('span')).textContent = `${left.title} · ${new Date(left.startedAt).toLocaleTimeString()}`;
+		DOM.append(columns, $('span')).textContent = `${right.title} · ${new Date(right.startedAt).toLocaleTimeString()}`;
+
+		for (const section of diffRuns(left, right)) {
+			this._renderDiffSection(container, section);
+		}
+	}
+
+	private _renderDiffSection(parent: HTMLElement, section: IOnyxRunDiffSection): void {
+		if (section.kind === 'elision') {
+			const elision = DOM.append(parent, $('.onyx-run-diff-elision'));
+			elision.textContent = localize('onyx.inspector.diffElision', "· {0} identical turns ·", section.turns);
+			return;
+		}
+		const block = DOM.append(parent, $('.onyx-run-diff-section'));
+		const header = DOM.append(block, $('.onyx-run-diff-section-header'));
+		header.textContent = section.kind === 'turn'
+			? localize('onyx.inspector.diffTurn', "Turn {0}", section.turn)
+			: section.kind === 'outcome'
+				? localize('onyx.inspector.diffOutcome', "Outcome")
+				: localize('onyx.inspector.diffMeta', "Request");
+		for (const row of section.rows) {
+			const rowElement = DOM.append(block, $('.onyx-run-diff-row'));
+			rowElement.classList.toggle('changed', row.changed);
+			DOM.append(rowElement, $('span.onyx-run-diff-label')).textContent = row.label;
+			const cells = DOM.append(rowElement, $('.onyx-run-diff-cells'));
+			for (const value of [row.left, row.right]) {
+				const cell = DOM.append(cells, $('pre.onyx-run-diff-cell'));
+				cell.textContent = value ?? '—';
 			}
 		}
 	}
