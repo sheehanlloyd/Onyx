@@ -1,0 +1,65 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* The inline edit surface: one calm input row under the selection, and hunk
+   tints that read as "proposed", never as an alarm. */
+
+.onyx-inline-edit {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size20);
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+}
+
+.onyx-inline-edit-row {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+	border: 1px solid color-mix(in srgb, var(--vscode-onyx-accent) 45%, transparent);
+	border-radius: var(--vscode-cornerRadius-medium);
+	background: var(--vscode-editorWidget-background);
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+}
+
+.onyx-inline-edit-row:focus-within {
+	border-color: var(--vscode-onyx-accent);
+	box-shadow: 0 0 8px var(--vscode-onyx-glow);
+}
+
+.onyx-inline-edit-gem {
+	color: var(--vscode-onyx-accent);
+	font-size: var(--vscode-codiconFontSize-compact);
+}
+
+.onyx-inline-edit-input {
+	flex: 1;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: var(--vscode-input-foreground);
+	font-size: var(--vscode-fontSize-body2);
+	font-family: inherit;
+}
+
+.onyx-inline-edit-input::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+.onyx-inline-edit-status {
+	font-size: var(--vscode-fontSize-caption1);
+	color: var(--vscode-descriptionForeground);
+	padding-left: var(--vscode-spacing-size80);
+	min-height: 1.4em;
+}
+
+/* Proposed hunks: a quiet accent wash; deletions carry a warning-tinted edge. */
+.monaco-editor .onyx-inline-hunk {
+	background: color-mix(in srgb, var(--vscode-onyx-accent) 12%, transparent);
+	border-left: 2px solid var(--vscode-onyx-accent);
+}
+
+.monaco-editor .onyx-inline-hunk-deletion {
+	border-top: 1px dashed var(--vscode-onyx-warn);
+}
