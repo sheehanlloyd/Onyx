@@ -50,6 +50,14 @@ export interface IOnyxObservedStats {
 	/** EMA of end-to-end inline-completion latency, and how many completions back it. */
 	readonly fimLatencyMs: number;
 	readonly fimSampleCount: number;
+	/** First-token EMAs split by whether the model was already resident. */
+	readonly ttftColdMs: number;
+	readonly ttftColdSamples: number;
+	readonly ttftWarmMs: number;
+	readonly ttftWarmSamples: number;
+	/** Grammar-constrained turns attempted, and how many failed to produce a valid envelope. */
+	readonly constrainedTurns: number;
+	readonly constrainedFailures: number;
 }
 
 /** One event in a run's journal. */

@@ -18,6 +18,13 @@ import { IOnyxRankedFile, OnyxContextRanker } from '../intelligence/onyxContextR
 import { IOnyxMemoryService } from '../intelligence/onyxMemoryService.js';
 import { estimateMessageTokens, estimateTokens } from '../model/onyxOpenAITranslator.js';
 
+/** Rough characters per token for the estimator Onyx uses everywhere. */
+const CHARS_PER_TOKEN = 4;
+/** Room always left for the model's own answer, in tokens. */
+const RESPONSE_HEADROOM_TOKENS = 512;
+/** However tight the window, the user's own words get at least this much. */
+const MIN_USER_MESSAGE_TOKENS = 256;
+
 const MAX_ATTACHMENT_BYTES = 24 * 1024;
 const MAX_ATTACHMENTS = 6;
 
@@ -68,21 +75,37 @@ export class OnyxPromptBuilder {
 	async build(request: IChatAgentRequest, history: readonly IChatAgentHistoryEntry[], profile: IOnyxModelProfile, toolNames: readonly string[]): Promise<IBuiltPrompt> {
 		const rankedFiles = await this._rankedFiles(profile);
 		const workspaceContext = this._workspaceContextSection(rankedFiles, profile);
+		// KV-cache-aware layout: the system prompt is deterministic for a given
+		// (profile, tool set), history is append-only, and everything volatile —
+		// ranked files, remembered facts, attachments — rides at the tail with
+		// the newest user message. A local runtime can then reuse the cached
+		// prefix across turns instead of re-processing the whole prompt.
 		const system: IChatMessage = {
 			role: ChatMessageRole.System,
-			content: [{ type: 'text', value: workspaceContext ? `${this._systemPrompt(profile, toolNames)}\n${workspaceContext}` : this._systemPrompt(profile, toolNames) }],
+			content: [{ type: 'text', value: this._systemPrompt(profile, toolNames) }],
 		};
 
 		const historyMessages = this._historyMessages(history, profile);
 		const attachmentText = await this._attachmentText(request);
+		const contextMessage: IChatMessage | undefined = workspaceContext ? {
+			role: ChatMessageRole.User,
+			content: [{ type: 'text', value: `[Workspace context — background, not a request]\n${workspaceContext}` }],
+		} : undefined;
+		const systemTokens = estimateMessageTokens(system);
+		const workspaceTokens = contextMessage ? estimateMessageTokens(contextMessage) : 0;
+		// One oversized request (a pasted file, a giant stack trace) must not
+		// blow past the window on its own: history eviction cannot help when the
+		// newest message is the problem, so it is elided head-and-tail with an
+		// explicit marker rather than sent whole and rejected by the runtime.
+		const userBudget = Math.max(MIN_USER_MESSAGE_TOKENS, Math.floor(profile.contextLength * 0.85) - systemTokens - workspaceTokens - RESPONSE_HEADROOM_TOKENS);
+		const rawUserText = attachmentText ? `${attachmentText}\n\n${request.message}` : request.message;
+		const userText = elideMiddle(rawUserText, userBudget * CHARS_PER_TOKEN);
 		const userMessage: IChatMessage = {
 			role: ChatMessageRole.User,
-			content: [{ type: 'text', value: attachmentText ? `${attachmentText}\n\n${request.message}` : request.message }],
+			content: [{ type: 'text', value: userText }],
 		};
 
-		const workspaceTokens = estimateTokens(workspaceContext);
-		const systemTokens = estimateMessageTokens(system) - workspaceTokens;
-		const attachmentTokens = estimateTokens(attachmentText);
+		const attachmentTokens = Math.min(estimateTokens(attachmentText), estimateMessageTokens(userMessage));
 		const userTokens = estimateMessageTokens(userMessage) - attachmentTokens;
 
 		// Evict oldest history first until everything fits in 85% of the window,
@@ -91,7 +114,7 @@ export class OnyxPromptBuilder {
 		const { kept, historyTokens } = evictOldestHistory(historyMessages, available);
 
 		return {
-			messages: [system, ...kept, userMessage],
+			messages: contextMessage ? [system, ...kept, contextMessage, userMessage] : [system, ...kept, userMessage],
 			budget: [
 				{ category: 'system', tokens: systemTokens },
 				{ category: 'workspace', tokens: workspaceTokens },

@@ -10,20 +10,28 @@ import { generateUuid } from '../../../../../base/common/uuid.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../../platform/markers/common/markers.js';
+import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePart, ILanguageModelChatMetadata, ILanguageModelsService } from '../../../chat/common/languageModels.js';
 import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
 import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
+import { buildToolEnvelopeFormat, parseToolEnvelope, toolEnvelopeInstruction } from '../../common/onyxConstrainedToolCalls.js';
 import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
 import { ONYX_MEMORY_TOOL_ID } from '../intelligence/onyxMemoryTool.js';
 import { ONYX_RETRIEVAL_TOOL_ID } from '../intelligence/onyxRetrievalTool.js';
 import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
+import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
+import { qualifyWorkspacePath } from '../../common/onyxWorkspacePaths.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
+import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
+import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxRouterService } from '../routing/onyxRouterService.js';
 import { estimateTokens, IRequestTool } from '../model/onyxOpenAITranslator.js';
+import { IOnyxPromptCacheService } from './onyxPromptCache.js';
 import { OnyxPromptBuilder } from './onyxPromptBuilder.js';
 
 /** Fallback profile when the request targets a non-Onyx model, whose harness we don't manage. */
@@ -54,6 +62,11 @@ export class OnyxAgentLoop {
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IMarkerService private readonly _markerService: IMarkerService,
+		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
+		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
+		@IOnyxProfileService private readonly _profileService: IOnyxProfileService,
+		@IOnyxPromptCacheService private readonly _promptCacheService: IOnyxPromptCacheService,
+		@IOnyxProjectConfigService private readonly _projectConfigService: IOnyxProjectConfigService,
 		@ILogService private readonly _logService: ILogService,
 	) { }
 
@@ -107,12 +120,26 @@ export class OnyxAgentLoop {
 		run: ReturnType<IOnyxControlPlaneService['beginRun']>,
 	): Promise<IChatAgentResult> {
 		const { tools, toolIdsByName } = this._selectTools(request, metadata, profile);
-		run.activity({ kind: 'route', label: modelIdentifier, reason: `${tools.length} tools exposed, ${profile.promptStyle} prompt` });
+
+		// Grammar-constrained tool calling: when this model keeps mangling the
+		// tool_calls channel but its runtime can enforce a JSON schema, every
+		// turn is constrained to the tool/answer envelope — a constrained turn
+		// can be wrong, but it cannot be malformed.
+		const modelKey = modelIdentifier.startsWith(`${ONYX_VENDOR}:`) ? modelIdentifier.slice(ONYX_VENDOR.length + 1) : modelIdentifier;
+		const constrained = tools.length > 0
+			&& profile.toolCallQuality < 0.75
+			&& this._onyxModelService.getKnownModel(modelKey)?.discovered.supportsJsonSchema === true;
+		run.activity({ kind: 'route', label: modelIdentifier, reason: `${tools.length} tools exposed, ${profile.promptStyle} prompt${constrained ? ', constrained decoding' : ''}` });
 
 		const promptBuilder = this._instantiationService.createInstance(OnyxPromptBuilder);
 		const built = await promptBuilder.build(request, history, profile, tools.map(t => t.name));
 		run.setContextBudget(built.budget);
 		const messages: IChatMessage[] = built.messages;
+		if (constrained) {
+			// After the main system prompt, before any history: the envelope
+			// instruction must match the schema the runtime will enforce.
+			messages.splice(1, 0, { role: ChatMessageRole.System, content: [{ type: 'text', value: toolEnvelopeInstruction() }] });
+		}
 
 		const errorsBefore = this._countWorkspaceErrors();
 		let anyToolRan = false;
@@ -122,15 +149,24 @@ export class OnyxAgentLoop {
 			run.setTurnCount(turn + 1);
 			run.activity({ kind: 'turn', label: `Model turn ${turn + 1}` });
 			run.snapshot(snapshotForJournal(turn + 1, modelIdentifier, messages, tools));
+			this._promptCacheService.notePrompt(request.sessionResource.toString(), messages);
 
-			const response = await this._languageModelsService.sendChatRequest(modelIdentifier, undefined, messages, { tools }, token);
+			const requestOptions = constrained
+				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools) } }
+				: { tools };
+			const response = await this._languageModelsService.sendChatRequest(modelIdentifier, undefined, messages, requestOptions, token);
 			const toolUses: IChatResponseToolUsePart[] = [];
 			// Text streams through here rather than straight to the transcript so
 			// a tool call the model wrote as prose can be recognized and executed
-			// instead of shown to the user as raw JSON.
+			// instead of shown to the user as raw JSON. Constrained turns stream
+			// nothing: the whole turn is one envelope, parsed when complete.
 			const textStream = new OnyxAssistantTextStream(
 				tools.map(tool => tool.name),
-				text => progress([{ kind: 'markdownContent', content: new MarkdownString(text) }]),
+				text => {
+					if (!constrained) {
+						progress([{ kind: 'markdownContent', content: new MarkdownString(text) }]);
+					}
+				},
 			);
 			for await (const part of response.stream) {
 				for (const item of Array.isArray(part) ? part : [part]) {
@@ -143,7 +179,28 @@ export class OnyxAgentLoop {
 			}
 			await response.result;
 
-			const { text: assistantText, toolCall: textToolCall } = textStream.finish();
+			let { text: assistantText, toolCall: textToolCall } = textStream.finish();
+			if (constrained && toolUses.length === 0) {
+				const envelope = parseToolEnvelope(assistantText, tools.map(tool => tool.name));
+				this._profileService.reportConstrainedOutcome(modelKey, envelope.kind !== 'invalid');
+				if (envelope.kind === 'tool') {
+					assistantText = '';
+					textToolCall = undefined;
+					toolUses.push({ type: 'tool_use', name: envelope.name, toolCallId: `onyx_constrained_${turn}`, parameters: envelope.parameters });
+				} else if (envelope.kind === 'answer') {
+					assistantText = envelope.text;
+					textToolCall = undefined;
+					if (assistantText) {
+						progress([{ kind: 'markdownContent', content: new MarkdownString(assistantText) }]);
+					}
+				} else {
+					// Degrade honestly: show what the model said instead of guessing.
+					run.activity({ kind: 'note', label: 'Constrained turn did not match the envelope', ok: false });
+					if (assistantText) {
+						progress([{ kind: 'markdownContent', content: new MarkdownString(assistantText) }]);
+					}
+				}
+			}
 			if (textToolCall && toolUses.length === 0) {
 				run.activity({ kind: 'note', label: `Repaired a tool call the model wrote as text`, reason: textToolCall.name });
 				toolUses.push({ type: 'tool_use', name: textToolCall.name, toolCallId: `onyx_text_call_${turn}`, parameters: textToolCall.parameters });
@@ -224,6 +281,37 @@ export class OnyxAgentLoop {
 		if (taskVerification.enabled) {
 			taskVerification.run(run).catch(err => this._logService.warn('[onyx] project checks failed', err));
 		}
+
+		// Risk badges for whatever the run left uncommitted, so the user knows
+		// how carefully to read the diff before accepting it. Not awaited: the
+		// response must not wait on git or the language services.
+		this._reportChangeRisk(run).catch(err => this._logService.warn('[onyx] change-risk annotation failed', err));
+	}
+
+	private async _reportChangeRisk(run: ReturnType<IOnyxControlPlaneService['beginRun']>): Promise<void> {
+		const folders = this._workspaceService.getWorkspace().folders;
+		const folderRefs = folders.map(f => ({ name: f.name, index: f.index }));
+		const collector = this._instantiationService.createInstance(OnyxChangeRiskCollector);
+		const badges: { path: string; level: string; reason: string; score: number }[] = [];
+		for (const folder of folders) {
+			const diff = await this._runtimeService.gitDiff(folder.uri.fsPath, 'head', 200_000);
+			if (!diff.text.trim()) {
+				continue;
+			}
+			for (const risk of await collector.collect(folder, diff.text)) {
+				badges.push({ ...risk, path: qualifyWorkspacePath(folderRefs, folder.index, risk.path) });
+			}
+		}
+		// A calm cap: the riskiest few files, never a wall of badges.
+		for (const badge of badges.sort((a, b) => b.score - a.score).slice(0, 5)) {
+			run.activity({
+				kind: 'note',
+				label: `${badge.path} · ${badge.level} risk`,
+				reason: badge.reason,
+				ok: badge.level === 'low' ? true : undefined,
+				location: { path: badge.path, line: 1 },
+			});
+		}
 	}
 
 	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, run: ReturnType<IOnyxControlPlaneService['beginRun']>, token: CancellationToken): Promise<string> {
@@ -253,8 +341,10 @@ export class OnyxAgentLoop {
 
 	private _selectTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined, profile: IOnyxModelProfile): { tools: IRequestTool[]; toolIdsByName: Map<string, string> } {
 		const enabled = request.userSelectedTools;
+		const disabledByProject = new Set(this._projectConfigService.resolved.get().config.disabledTools ?? []);
 		const all = [...this._toolsService.getTools(metadata)]
 			.filter(tool => !enabled || enabled[tool.id] !== false)
+			.filter(tool => !disabledByProject.has(tool.id) && !disabledByProject.has(tool.toolReferenceName ?? ''))
 			.filter(tool => !!tool.modelDescription);
 		all.sort((a, b) => toolPriority(a) - toolPriority(b));
 

@@ -32,6 +32,10 @@ export interface IOnyxProfileService {
 	/** Records the end-to-end latency of one inline (FIM) completion. */
 	reportFimMeasurement(modelKey: string, latencyMs: number): void;
 	setOverride(modelKey: string, patch: Partial<IOnyxModelProfile>): void;
+	/** Records whether one grammar-constrained turn produced a valid envelope. */
+	reportConstrainedOutcome(modelKey: string, ok: boolean): void;
+	/** Everything measured and overridden, for the diagnostics bundle. */
+	exportAll(): { stats: Record<string, IOnyxObservedStats>; overrides: Record<string, Partial<IOnyxModelProfile>> };
 }
 
 const STATS_STORAGE_KEY = 'onyx.profiles.stats';
@@ -49,6 +53,12 @@ interface IMutableStats {
 	acceptSampleCount: number;
 	fimLatencyMs: number;
 	fimSampleCount: number;
+	ttftColdMs: number;
+	ttftColdSamples: number;
+	ttftWarmMs: number;
+	ttftWarmSamples: number;
+	constrainedTurns: number;
+	constrainedFailures: number;
 }
 
 export class OnyxProfileService extends Disposable implements IOnyxProfileService {
@@ -95,6 +105,13 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		return stats ? { ...stats } : undefined;
 	}
 
+	exportAll(): { stats: Record<string, IOnyxObservedStats>; overrides: Record<string, Partial<IOnyxModelProfile>> } {
+		return {
+			stats: Object.fromEntries([...this._stats.entries()].map(([key, stats]) => [key, { ...stats }])),
+			overrides: Object.fromEntries([...this._overrides.entries()].map(([key, override]) => [key, { ...override }])),
+		};
+	}
+
 	reportMeasurement(measurement: IOnyxRequestMeasurement): void {
 		const stats = this._getOrCreateStats(measurement.modelKey);
 		stats.sampleCount++;
@@ -103,6 +120,15 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		}
 		if (measurement.timeToFirstTokenMs !== undefined) {
 			stats.timeToFirstTokenMs = ema(stats.timeToFirstTokenMs, measurement.timeToFirstTokenMs);
+			// Cold and warm first tokens are different phenomena (weight loading
+			// vs prompt processing); a merged EMA would blur both numbers.
+			if (measurement.wasCold === true) {
+				stats.ttftColdSamples++;
+				stats.ttftColdMs = ema(stats.ttftColdMs, measurement.timeToFirstTokenMs);
+			} else if (measurement.wasCold === false) {
+				stats.ttftWarmSamples++;
+				stats.ttftWarmMs = ema(stats.ttftWarmMs, measurement.timeToFirstTokenMs);
+			}
 		}
 		if (measurement.toolCallCount + measurement.toolCallParseFailures > 0) {
 			const failureShare = measurement.toolCallParseFailures / (measurement.toolCallCount + measurement.toolCallParseFailures);
@@ -115,6 +141,15 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		const stats = this._getOrCreateStats(modelKey);
 		stats.acceptSampleCount++;
 		stats.acceptRate = ema(stats.acceptRate === 0 && stats.acceptSampleCount === 1 ? (accepted ? 1 : 0) : stats.acceptRate, accepted ? 1 : 0);
+		this._didChange();
+	}
+
+	reportConstrainedOutcome(modelKey: string, ok: boolean): void {
+		const stats = this._getOrCreateStats(modelKey);
+		stats.constrainedTurns++;
+		if (!ok) {
+			stats.constrainedFailures++;
+		}
 		this._didChange();
 	}
 
@@ -151,7 +186,7 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 }
 
 function emptyStats(): IMutableStats {
-	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0 };
+	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0 };
 }
 
 function ema(previous: number, sample: number): number {

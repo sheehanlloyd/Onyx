@@ -17,12 +17,22 @@ import { nullExtensionDescription } from '../../../../services/extensions/common
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IChatMessage, IChatResponsePart, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse } from '../../../chat/common/languageModels.js';
 import { getOnyxEndpointSettings, OnyxSettingId } from '../../common/onyxConfiguration.js';
+import { humanizeRuntimeError } from '../../common/onyxRuntimeErrors.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxRouterService } from '../routing/onyxRouterService.js';
 import { estimateMessageTokens, estimateTokens, IRequestTool, ToolCallAccumulator, toWireMessages, toWireTools } from './onyxOpenAITranslator.js';
 
 export const IOnyxModelService = createDecorator<IOnyxModelService>('onyxModelService');
+
+/** Residency hint sent to runtimes that honor `keep_alive` (Ollama). */
+const KEEP_ALIVE = '30m';
+/** Fallback residency when holding this model with the other warm ones would not fit in memory. */
+const SHORT_KEEP_ALIVE = '5m';
+/** A model used within this window is assumed still resident — must not exceed {@link KEEP_ALIVE}. */
+const RESIDENCY_WINDOW_MS = 25 * 60 * 1000;
+/** Rough resident size of a Q4-quantized model, in GB per billion parameters. */
+const GB_PER_BILLION = 0.75;
 
 /** A model Onyx can serve requests with: its runtime metadata plus the effective harness profile. */
 export interface IOnyxKnownModel {
@@ -47,6 +57,8 @@ export interface IOnyxRequestMeasurement {
 	readonly toolCallParseFailures: number;
 	readonly finishReason: string | undefined;
 	readonly errorMessage?: string;
+	/** Whether the model had to be loaded for this request (no recent use). */
+	readonly wasCold: boolean;
 }
 
 export interface IOnyxModelService extends ILanguageModelChatProvider {
@@ -57,6 +69,12 @@ export interface IOnyxModelService extends ILanguageModelChatProvider {
 	getKnownModels(): readonly IOnyxKnownModel[];
 	getKnownModel(key: string): IOnyxKnownModel | undefined;
 	refresh(): Promise<void>;
+	/** Whether the model was used recently enough that its weights should still be resident. */
+	isWarm(modelKey: string): boolean;
+	/** Loads a model's weights ahead of use. Fire-and-forget. */
+	warmUp(modelKey: string): Promise<void>;
+	/** Fires when a request starts against a cold model and again when its first token arrives. */
+	readonly onDidChangeLoading: Event<{ readonly modelKey: string; readonly loading: boolean }>;
 }
 
 export class OnyxModelService extends Disposable implements IOnyxModelService {
@@ -72,6 +90,13 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 
 	private _models = new Map<string, IOnyxKnownModel>();
 	private _refreshing: Promise<void> | undefined;
+
+	private readonly _onDidChangeLoading = this._register(new Emitter<{ modelKey: string; loading: boolean }>());
+	readonly onDidChangeLoading = this._onDidChangeLoading.event;
+
+	/** Last time a request against each model finished — the residency clock. */
+	private readonly _lastUsedAt = new Map<string, number>();
+	private _totalMemoryGb: number | undefined;
 
 	constructor(
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
@@ -215,10 +240,53 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		};
 	}
 
+	isWarm(modelKey: string): boolean {
+		const lastUsed = this._lastUsedAt.get(modelKey);
+		return lastUsed !== undefined && Date.now() - lastUsed < RESIDENCY_WINDOW_MS;
+	}
+
+	/**
+	 * Long residency only while the warm set fits comfortably in unified
+	 * memory; otherwise a short keep_alive lets the runtime evict soon. The
+	 * machine profile is fetched once — total memory does not change.
+	 */
+	private _keepAliveFor(model: IOnyxKnownModel): string {
+		if (this._totalMemoryGb === undefined) {
+			this._totalMemoryGb = 16;
+			this._runtimeService.getMachineProfile()
+				.then(profile => { this._totalMemoryGb = Math.max(8, Math.round(profile.totalMemoryBytes / (1024 ** 3))); })
+				.catch(() => { /* keep the conservative default */ });
+		}
+		const budgetGb = this._totalMemoryGb * 0.6;
+		let residentGb = (model.profile.parameterB ?? 8) * GB_PER_BILLION;
+		for (const [key, lastUsed] of this._lastUsedAt) {
+			if (key !== model.key && Date.now() - lastUsed < RESIDENCY_WINDOW_MS) {
+				residentGb += (this._models.get(key)?.profile.parameterB ?? 0) * GB_PER_BILLION;
+			}
+		}
+		return residentGb <= budgetGb ? KEEP_ALIVE : SHORT_KEEP_ALIVE;
+	}
+
+	async warmUp(modelKey: string): Promise<void> {
+		const model = this._models.get(modelKey);
+		if (!model || model.discovered.runtime !== 'ollama' || this.isWarm(modelKey)) {
+			return;
+		}
+		this._logService.trace(`[onyx] warming up ${modelKey}`);
+		await this._runtimeService.warmUpModel(model.discovered.baseUrl, model.discovered.id, this._keepAliveFor(model));
+		this._lastUsedAt.set(modelKey, Date.now());
+	}
+
 	async sendChatRequest(modelId: string, messages: IChatMessage[], _from: ExtensionIdentifier | undefined, options: ILanguageModelChatRequestOptions, token: CancellationToken): Promise<ILanguageModelChatResponse> {
 		const model = this._resolveModel(modelId, messages);
 		if (!model) {
 			throw new Error(`Onyx model not found: ${modelId}`);
+		}
+		const wasCold = !this.isWarm(model.key);
+		if (wasCold) {
+			// The compute view swaps "generating" for "loading model" until the
+			// first token proves the weights are in memory.
+			this._onDidChangeLoading.fire({ modelKey: model.key, loading: true });
 		}
 
 		const tools = (options.tools as IRequestTool[] | undefined) ?? [];
@@ -241,12 +309,18 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				}
 				switch (event.kind) {
 					case 'delta':
-						firstTokenAt ??= Date.now();
+						if (firstTokenAt === undefined) {
+							firstTokenAt = Date.now();
+							this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
+						}
 						streamedChars += event.text.length;
 						source.emitOne({ type: 'text', value: event.text });
 						break;
 					case 'toolCallDelta':
-						firstTokenAt ??= Date.now();
+						if (firstTokenAt === undefined) {
+							firstTokenAt = Date.now();
+							this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
+						}
 						accumulator.append(event.index, event.id, event.name, event.argumentsDelta);
 						break;
 					case 'usage':
@@ -260,14 +334,18 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 							source.emitOne(toolParts);
 						}
 						source.resolve();
-						this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: event.finishReason });
+						this._lastUsedAt.set(model.key, Date.now());
+						this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: event.finishReason, wasCold });
 						resolve();
 						break;
 					}
 					case 'error': {
-						const error = new Error(event.message);
+						// Transport failures reach the user as sentences, not as
+						// undici's `terminated` / `ECONNREFUSED`.
+						const error = new Error(humanizeRuntimeError(event.message, model.discovered.id));
 						source.reject(error);
-						this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: 'error', errorMessage: event.message });
+						this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
+						this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: 'error', errorMessage: event.message, wasCold });
 						reject(error);
 						break;
 					}
@@ -285,6 +363,10 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				messages: toWireMessages(messages),
 				tools: tools.length ? toWireTools(tools.slice(0, model.profile.maxTools)) : undefined,
 				temperature: model.profile.temperature,
+				// Residency: ask Ollama to hold the weights between requests, so
+				// the next request pays prompt-processing, not model loading.
+				keepAlive: model.discovered.runtime === 'ollama' ? this._keepAliveFor(model) : undefined,
+				responseFormat: options.modelOptions?.['responseFormat'],
 			}).catch(reject);
 		}).finally(() => store.dispose());
 
@@ -302,7 +384,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		return this._instantiationService.invokeFunction(accessor => accessor.get(IOnyxRouterService).pickModel(messages, this.getKnownModels()));
 	}
 
-	private _measure(model: IOnyxKnownModel, requestedModelId: string, raw: { startedAt: number; firstTokenAt: number | undefined; promptTokens: number | undefined; completionTokens: number | undefined; streamedChars: number; toolCallCount: number; parseFailures: number; finishReason: string | undefined; errorMessage?: string }): void {
+	private _measure(model: IOnyxKnownModel, requestedModelId: string, raw: { startedAt: number; firstTokenAt: number | undefined; promptTokens: number | undefined; completionTokens: number | undefined; streamedChars: number; toolCallCount: number; parseFailures: number; finishReason: string | undefined; errorMessage?: string; wasCold: boolean }): void {
 		const generationMs = raw.firstTokenAt !== undefined ? Date.now() - raw.firstTokenAt : undefined;
 		const completionTokenEstimate = raw.completionTokens ?? estimateTokens(' '.repeat(raw.streamedChars));
 		this._onDidMeasureRequest.fire({
@@ -317,6 +399,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 			toolCallParseFailures: raw.parseFailures,
 			finishReason: raw.finishReason,
 			errorMessage: raw.errorMessage,
+			wasCold: raw.wasCold,
 		});
 	}
 
