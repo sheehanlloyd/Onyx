@@ -10,7 +10,16 @@ import { buildCoChangeIndex, coChangedWith } from '../../common/onyxCoChange.js'
 import { addOutcome, addSample, emptyLedgerEntry, formatCount, mergeLedgers, summarize } from '../../common/onyxLedger.js';
 import { fitModel, formatSize, ONYX_MODEL_CATALOG, recommendForMachine, toGigabytes } from '../../common/onyxModelCatalog.js';
 import { buildExplainPrompt, buildFixPrompt } from '../../common/onyxQuickActions.js';
+import { buildPicks } from '../../browser/models/onyxModelLibrary.js';
 import { extractJsonObject, parseReviewFindings } from '../../common/onyxReview.js';
+import { diffRuns } from '../../common/onyxRunDiff.js';
+import { extractDiffSignals, scoreChangeRisk } from '../../common/onyxChangeRisk.js';
+import { buildToolEnvelopeFormat, parseToolEnvelope } from '../../common/onyxConstrainedToolCalls.js';
+import { redactJournalContent } from '../../common/onyxDiagnostics.js';
+import { buildHubEntries } from '../../common/onyxHub.js';
+import { buildComparisonDocument, decideTournamentConcurrency } from '../../common/onyxTournament.js';
+import { humanizeRuntimeError } from '../../common/onyxRuntimeErrors.js';
+import { crc32, createStoredZip } from '../../common/onyxZip.js';
 import { couldBeToolEnvelope, OnyxAssistantTextStream, parseTextToolCall } from '../../common/onyxTextToolCalls.js';
 
 suite('OnyxWorkflows', () => {
@@ -130,6 +139,250 @@ suite('OnyxWorkflows', () => {
 			const ids = new Set(ONYX_MODEL_CATALOG.map(m => m.id));
 			const missing = [8, 16, 36, 64].flatMap(gb => recommendForMachine(gb).recommended).filter(id => !ids.has(id));
 			assert.deepStrictEqual(missing, []);
+		});
+
+		test('installed models outside the catalog still appear in the library', () => {
+			const discovered = [
+				{ id: 'qwen2.5-coder:7b', baseUrl: 'http://localhost:11434/v1', runtime: 'ollama' as const },
+				{ id: 'my-finetune:latest', baseUrl: 'http://localhost:11434/v1', runtime: 'ollama' as const, parameterB: 3, quantization: 'Q4_K_M' },
+			];
+			const picks = buildPicks(discovered, 24, recommendForMachine(24).recommended);
+			const labels = picks.map(pick => (pick as { type?: string }).type === 'separator' ? `— ${pick.label}` : (pick as { label: string }).label);
+			assert.deepStrictEqual(
+				{
+					firstGroup: labels[0],
+					installed: labels.slice(1, 3),
+					uncataloguedDescription: (picks[2] as { description?: string }).description,
+				},
+				{
+					firstGroup: '— Installed',
+					installed: ['$(check) Qwen2.5 Coder 7B', '$(check) my-finetune:latest'],
+					uncataloguedDescription: '3B parameters · Q4_K_M',
+				});
+		});
+	});
+
+	suite('runtime errors', () => {
+
+		test('transport failures become sentences a person can act on', () => {
+			assert.deepStrictEqual([
+				humanizeRuntimeError('terminated', 'qwen:7b').startsWith('The local runtime stopped responding mid-answer (qwen:7b)'),
+				humanizeRuntimeError('fetch failed').startsWith('Could not reach the local runtime'),
+				humanizeRuntimeError('ETIMEDOUT').startsWith('The local runtime took too long'),
+				humanizeRuntimeError('400: this model maximum context length is 8192').startsWith('This request is longer than'),
+				humanizeRuntimeError('404 model not found').startsWith('The runtime does not have that model loaded'),
+				humanizeRuntimeError('llama runtime: out of memory').startsWith('The runtime ran out of memory'),
+				// Anything unrecognized passes through: inventing a cause is worse.
+				humanizeRuntimeError('something entirely novel'),
+			], [true, true, true, true, true, true, 'something entirely novel']);
+		});
+	});
+
+	suite('tournament', () => {
+
+		test('concurrency scales with memory and never exceeds the cap', () => {
+			assert.deepStrictEqual([
+				decideTournamentConcurrency(8, [3, 3]),
+				decideTournamentConcurrency(24, [5, 5, 5]),
+				decideTournamentConcurrency(128, [5, 5]),
+				decideTournamentConcurrency(16, []),
+				decideTournamentConcurrency(4, [20]),
+			], [1, 2, 4, 1, 1]);
+		});
+
+		test('the comparison document carries stats, diffs and failures', () => {
+			const document = buildComparisonDocument('add null check', [
+				{ modelKey: 'a/7b', durationMs: 2100, tokensPerSecond: 42, diffText: 'diff --git a/x b/x\n--- a/x\n+++ b/x\n@@\n-old\n+new\n+more', changedFiles: ['src/x.ts'] },
+				{ modelKey: 'b/3b', durationMs: 900, tokensPerSecond: undefined, diffText: '', changedFiles: [], failed: 'the reply was not a usable edit' },
+			]);
+			assert.deepStrictEqual({
+				title: document.startsWith('# Onyx tournament — "add null check"'),
+				stats: document.includes('2.1s · 42 tok/s · +2 −1 in src/x.ts'),
+				fenced: document.includes('```diff'),
+				failure: document.includes('_No usable edit: the reply was not a usable edit_'),
+			}, { title: true, stats: true, fenced: true, failure: true });
+		});
+	});
+
+	suite('constrained tool calls', () => {
+
+		const tools = [{ name: 'repoSymbols' }, { name: 'remember' }];
+
+		test('the schema names every tool and both actions', () => {
+			const format = buildToolEnvelopeFormat(tools) as { type: string; json_schema: { schema: { properties: { action: { enum: string[] }; tool: { enum: string[] } } } } };
+			assert.deepStrictEqual(
+				{ type: format.type, actions: format.json_schema.schema.properties.action.enum, tools: format.json_schema.schema.properties.tool.enum },
+				{ type: 'json_schema', actions: ['tool', 'answer'], tools: ['repoSymbols', 'remember'] });
+		});
+
+		test('parses tool, answer, prose-wrapped and invalid envelopes', () => {
+			const names = tools.map(tool => tool.name);
+			assert.deepStrictEqual([
+				parseToolEnvelope('{"action":"tool","tool":"repoSymbols","arguments":{"query":"x"}}', names),
+				parseToolEnvelope('{"action":"answer","answer":"done"}', names),
+				parseToolEnvelope('Sure! {"action":"tool","tool":"remember","arguments":{"note":"a \\"b\\" {c}"}} there', names),
+				parseToolEnvelope('{"action":"tool","tool":"madeUp","arguments":{}}', names),
+				parseToolEnvelope('no json here', names),
+			], [
+				{ kind: 'tool', name: 'repoSymbols', parameters: { query: 'x' } },
+				{ kind: 'answer', text: 'done' },
+				{ kind: 'tool', name: 'remember', parameters: { note: 'a "b" {c}' } },
+				{ kind: 'invalid', raw: '{"action":"tool","tool":"madeUp","arguments":{}}' },
+				{ kind: 'invalid', raw: 'no json here' },
+			]);
+		});
+	});
+
+	suite('diagnostics', () => {
+
+		test('stored zip has the right structure and checksums', () => {
+			const data = new TextEncoder().encode('hello onyx');
+			const zip = createStoredZip([{ path: 'a/b.txt', data }]);
+			const u32 = (offset: number) => zip[offset] | (zip[offset + 1] << 8) | (zip[offset + 2] << 16) | ((zip[offset + 3] << 24) >>> 0);
+			const eocdOffset = zip.length - 22;
+			assert.deepStrictEqual(
+				{
+					localSig: u32(0) >>> 0,
+					crc: (u32(14) >>> 0).toString(16),
+					nameLength: zip[26],
+					eocdSig: u32(eocdOffset) >>> 0,
+					entryCount: zip[eocdOffset + 10],
+					crcMatches: (crc32(data) >>> 0) === (u32(14) >>> 0),
+				},
+				{ localSig: 0x04034B50, crc: (crc32(data) >>> 0).toString(16), nameLength: 7, eocdSig: 0x06054B50, entryCount: 1, crcMatches: true });
+		});
+
+		test('redaction strips prompt text and steering but keeps structure', () => {
+			const journal = [
+				JSON.stringify({ t: 0, kind: 'promptSnapshot', data: { turn: 1, model: 'm', tools: ['repoSymbols'], messages: [{ role: 0, content: [{ type: 'text', value: 'secret prompt' }] }] } }),
+				JSON.stringify({ t: 1, kind: 'note', data: { kind: 'steer', label: 'User redirected the agent', reason: 'private instruction' } }),
+				JSON.stringify({ t: 2, kind: 'toolCall', data: { kind: 'toolCall', label: 'repoSymbols' } }),
+				'not json',
+			].join('\n');
+			const redacted = redactJournalContent(journal).split('\n').map(line => { try { return JSON.parse(line); } catch { return line; } });
+			assert.deepStrictEqual([
+				(redacted[0] as { data: { messages: { content: { value: string }[] }[] } }).data.messages[0].content[0].value,
+				(redacted[0] as { data: { tools: string[] } }).data.tools,
+				(redacted[1] as { data: { reason: string } }).data.reason,
+				(redacted[2] as { data: { label: string } }).data.label,
+				redacted[3],
+			], ['[redacted 13 chars]', ['repoSymbols'], '[redacted 19 chars]', 'repoSymbols', 'not json']);
+		});
+	});
+
+	suite('hub', () => {
+
+		test('live state lands in the descriptions', () => {
+			const entries = buildHubEntries({
+				modelsReady: 2, endpointCount: 1, currentModelKey: 'localhost:11434/q7b', inFlight: false,
+				tokensPerSecond: 42.4, sessionRequests: 9, runsToday: 3, memoryFacts: 2, pinnedFiles: 1,
+			});
+			const byId = new Map(entries.map(entry => [entry.id, entry]));
+			assert.deepStrictEqual([
+				byId.get('chat')?.description,
+				byId.get('controlPlane')?.description,
+				byId.get('pin')?.description,
+				entries.filter(entry => entry.group).map(entry => entry.group),
+			], [
+				'2 models on 1 runtime(s)',
+				'3 runs today · last: localhost:11434/q7b · 42 tok/s',
+				'1 file pinned',
+				['Do', 'Observe', 'Tune'],
+			]);
+		});
+	});
+
+	suite('change risk', () => {
+
+		const baseSignals = {
+			path: 'src/api.ts', changedLines: 5, churnCommits: 0, windowCommits: 100,
+			coChangePartners: 0, referenceCount: undefined, hasNearbyTest: true, touchesErrorHandling: false,
+		};
+
+		test('signals accumulate into levels with plain reasons', () => {
+			assert.deepStrictEqual([
+				scoreChangeRisk(baseSignals),
+				scoreChangeRisk({ ...baseSignals, changedLines: 120, hasNearbyTest: false }),
+				scoreChangeRisk({ ...baseSignals, churnCommits: 30, changedLines: 200, touchesErrorHandling: true, hasNearbyTest: false, referenceCount: 40 }),
+			].map(risk => [risk.level, risk.reason]), [
+				['low', 'small change in a quiet, tested file'],
+				['moderate', 'a large change, no nearby test'],
+				['elevated', 'changes often, widely referenced'],
+			]);
+		});
+
+		test('diff signals: path, size, error handling', () => {
+			const diff = [
+				'diff --git a/src/api.ts b/src/api.ts',
+				'--- a/src/api.ts',
+				'+++ b/src/api.ts',
+				'@@ -1,3 +1,4 @@',
+				'+try {',
+				'+\tconnect();',
+				'-legacy();',
+				'+} catch (err) { report(err); }',
+			].join('\n');
+			assert.deepStrictEqual(extractDiffSignals(diff), { path: 'src/api.ts', changedLines: 4, touchesErrorHandling: true });
+		});
+
+		test('missing tests alone never raise risk', () => {
+			const risk = scoreChangeRisk({ ...baseSignals, hasNearbyTest: false });
+			assert.deepStrictEqual([risk.level, risk.reason], ['low', 'small change in a quiet, tested file']);
+		});
+	});
+
+	suite('run diff', () => {
+
+		const record = (runId: string, model: string, events: { kind: string; data: unknown }[]) => ({
+			runId, startedAt: 0, title: `req ${runId}`, task: 'implement' as const, modelKey: model,
+			status: 'completed' as const, turnCount: 0, toolCallCount: 0,
+			events: events.map((event, index) => ({ t: index, kind: event.kind as 'note', data: event.data })),
+		});
+		const snapshot = (turn: number, model: string, tools: string[], messages: string[]) => ({
+			kind: 'promptSnapshot',
+			data: { turn, model, tools, messages: messages.map(value => ({ role: 1, content: [{ type: 'text', value }] })) },
+		});
+
+		test('aligns by turn, marks changes, elides identical stretches', () => {
+			const left = record('a', 'onyx:small', [
+				{ kind: 'note', data: { kind: 'route', label: 'small', reason: 'compact' } },
+				snapshot(1, 'onyx:small', ['repoSymbols'], ['hi']),
+				snapshot(2, 'onyx:small', ['repoSymbols'], ['hi', 'same']),
+				snapshot(3, 'onyx:small', ['repoSymbols'], ['hi', 'same', 'same2']),
+				{ kind: 'toolCall', data: { label: 'repoSymbols' } },
+				{ kind: 'outcome', data: { status: 'completed' } },
+			]);
+			const right = record('b', 'onyx:big', [
+				{ kind: 'note', data: { kind: 'route', label: 'big', reason: 'debug' } },
+				snapshot(1, 'onyx:big', ['repoSymbols'], ['hi']),
+				snapshot(2, 'onyx:big', ['repoSymbols'], ['hi', 'same']),
+				snapshot(3, 'onyx:big', ['repoSymbols'], ['hi', 'same', 'different']),
+				{ kind: 'toolCall', data: { label: 'repoSymbols' } },
+				{ kind: 'outcome', data: { status: 'failed' } },
+			]);
+			const sections = diffRuns(left, right);
+			assert.deepStrictEqual(sections.map(section => section.kind), ['meta', 'turn', 'turn', 'turn', 'outcome']);
+			// Every turn differs on model here, so nothing elides — but message
+			// changes only mark the turn where the new message actually differs.
+			const turn3 = sections[3];
+			assert.ok(turn3.kind === 'turn');
+			assert.deepStrictEqual(
+				turn3.rows.map(row => [row.label, row.changed]),
+				[['model', true], ['tools', false], ['new messages', true], ['tool activity', false]]);
+			const outcome = sections[4];
+			assert.ok(outcome.kind === 'outcome');
+			assert.deepStrictEqual(outcome.rows[0], { label: 'outcome', left: 'completed', right: 'failed', changed: true });
+		});
+
+		test('identical turns collapse into one elision marker', () => {
+			const events = [
+				snapshot(1, 'onyx:m', [], ['a']),
+				snapshot(2, 'onyx:m', [], ['a', 'b']),
+				snapshot(3, 'onyx:m', [], ['a', 'b', 'c']),
+				{ kind: 'outcome', data: { status: 'completed' } },
+			];
+			const sections = diffRuns(record('a', 'onyx:m', [...events]), record('b', 'onyx:m', [...events]));
+			assert.deepStrictEqual(sections.map(section => section.kind === 'elision' ? `elision:${section.turns}` : section.kind), ['meta', 'elision:3', 'outcome']);
 		});
 	});
 

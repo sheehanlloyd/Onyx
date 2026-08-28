@@ -18,7 +18,7 @@ function model(key: string, parameterB: number | undefined): IOnyxKnownModel {
 }
 
 function stats(fimLatencyMs: number, fimSampleCount: number): IOnyxObservedStats {
-	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs, fimSampleCount };
+	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs, fimSampleCount, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0 };
 }
 
 suite('OnyxAutocomplete', () => {

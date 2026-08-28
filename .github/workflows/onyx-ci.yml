@@ -48,7 +48,21 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
+      # node_modules is the slowest step by far and only changes with the lockfile.
+      - name: Cache node_modules
+        id: cache-node-modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            build/node_modules
+            extensions/*/node_modules
+            remote/node_modules
+            remote/web/node_modules
+          key: onyx-node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', '.nvmrc') }}
+
       - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: npm ci
         env:
           GIT_LFS_SKIP_SMUDGE: '1'
@@ -60,7 +74,7 @@ jobs:
         run: npm run valid-layers-check
 
       - name: Lint Onyx sources
-        run: npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx
+        run: npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx
 
       - name: Stylelint
         run: npm run stylelint
@@ -72,3 +86,22 @@ jobs:
         run: ./scripts/test.sh --grep Onyx
         env:
           DISPLAY: ':10'
+
+      # The full end-to-end run: the mock runtime plus a real workbench under
+      # Xvfb. It drives chat, tools, autocomplete, the model library, commit
+      # messages, review and both code actions, asserting on the run journal.
+      - name: Onyx end-to-end
+        run: node test/onyx/run-e2e.mts
+        env:
+          DISPLAY: ':10'
+
+      - name: Upload end-to-end diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: onyx-e2e-logs
+          path: |
+            /tmp/onyx-e2e-*/**/*.log
+            /tmp/onyx-e2e-*/user-data/User/workspaceStorage/**/onyx/journal/**
+          if-no-files-found: ignore
+          retention-days: 7

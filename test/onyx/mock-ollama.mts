@@ -124,9 +124,12 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
 	} else {
 		const text = answerFor(system, body, hasToolResult);
+		// ONYX_MOCK_WORD_DELAY_MS slows the stream so resilience tests have a
+		// real mid-stream window to interrupt.
+		const wordDelay = Number(process.env.ONYX_MOCK_WORD_DELAY_MS ?? 5);
 		for (const word of text.split(' ')) {
 			send(chunk({ content: word + ' ' }));
-			await sleep(5);
+			await sleep(wordDelay);
 		}
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
 	}
@@ -138,6 +141,14 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 function answerFor(system: string, body: any, hasToolResult: boolean) {
 	if (/You write git commit messages/.test(system)) {
 		return 'Add discount helper\n\n- introduces applyDiscount';
+	}
+	if (/edit blocks in exactly this format/.test(system)) {
+		// Inline edit: replace the selection's first non-empty line, so the
+		// E2E can assert a deterministic hunk.
+		const user = [...(body.messages ?? [])].reverse().find((m: any) => m.role === 'user')?.content ?? '';
+		const selection = /Selected code:\n([\s\S]*?)\n\nInstruction:/.exec(user)?.[1] ?? '';
+		const firstLine = selection.split('\n').find((line: string) => line.trim().length > 0) ?? '';
+		return `<<<<<<< SEARCH\n${firstLine}\n=======\n${firstLine} // edited-by-mock\n>>>>>>> REPLACE`;
 	}
 	if (/skeptical senior reviewer/.test(system)) {
 		return JSON.stringify({ findings: [{ file: 'src/report.ts', line: 9, severity: 'high', title: 'Unchecked index access', detail: 'lines[0] is read without a length check.' }] });

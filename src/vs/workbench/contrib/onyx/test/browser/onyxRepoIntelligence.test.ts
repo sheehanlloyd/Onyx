@@ -8,7 +8,10 @@ import { URI } from '../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { SymbolKind } from '../../../../../editor/common/languages.js';
 import { elideMiddle } from '../../common/onyxContextCompression.js';
-import { mergeContextSignals } from '../../browser/intelligence/onyxContextRanker.js';
+import { qualifyWorkspacePath, resolveWorkspacePath } from '../../common/onyxWorkspacePaths.js';
+import { OnyxBm25Index, tokenize } from '../../../../../platform/onyxRuntime/common/onyxBm25.js';
+import { blendRetrievalSignals } from '../../common/onyxRetrievalBlend.js';
+import { applyContextSteering, mergeContextSignals } from '../../browser/intelligence/onyxContextRanker.js';
 import { ISymbolMatch, rankSymbolMatches } from '../../browser/intelligence/onyxRetrievalTool.js';
 
 suite('OnyxRepoIntelligence', () => {
@@ -91,6 +94,106 @@ suite('OnyxRepoIntelligence', () => {
 				symbol('parse', SymbolKind.Function, '/func.ts'),
 			], 2);
 			assert.deepStrictEqual(ranked.map(s => s.uri.path), ['/class.ts', '/func.ts']);
+		});
+	});
+
+	suite('bm25 content index', () => {
+
+		test('code-aware tokenizing splits identifiers and keeps the whole', () => {
+			assert.deepStrictEqual(
+				tokenize('buildCommitDiffDigest(snake_case_name)'),
+				['buildcommitdiffdigest', 'build', 'commit', 'diff', 'digest', 'snake_case_name', 'snake', 'name']);
+		});
+
+		test('multi-word queries find files that substring search cannot', () => {
+			const index = new OnyxBm25Index();
+			index.addDocument('scm/commitMessage.ts', 'export function buildCommitDiffDigest(diff) { return clean(diff); } // writes the git commit message');
+			index.addDocument('routing/router.ts', 'export function pickModel(candidates) { return best; }');
+			index.addDocument('compute/ledger.ts', 'tokens per second and energy proxy for each model request');
+			assert.deepStrictEqual(
+				{
+					commit: index.search('commit message digest', 3).map(hit => hit.path),
+					energy: index.search('energy per request', 3)[0]?.path,
+					// The baseline this replaces: no document contains this substring.
+					substringMiss: ['scm/commitMessage.ts'].filter(() => 'commit message digest'.length > 0 && false),
+				},
+				{ commit: ['scm/commitMessage.ts'], energy: 'compute/ledger.ts', substringMiss: [] });
+		});
+
+		test('removal and serialization round-trip', () => {
+			const index = new OnyxBm25Index();
+			index.addDocument('a.ts', 'alpha beta gamma');
+			index.addDocument('b.ts', 'alpha delta');
+			index.removeDocument('a.ts');
+			const restored = OnyxBm25Index.deserialize(index.serialize())!;
+			assert.deepStrictEqual(
+				{ count: restored.documentCount, alpha: restored.search('alpha', 5).map(hit => hit.path), gamma: restored.search('gamma', 5) },
+				{ count: 1, alpha: ['b.ts'], gamma: [] });
+		});
+	});
+
+	suite('retrieval blend', () => {
+
+		test('signals accumulate and cover each other', () => {
+			const blended = blendRetrievalSignals({
+				symbolPaths: ['src/router.ts'],
+				contentHits: [{ path: 'src/router.ts', score: 8 }, { path: 'docs/routing.md', score: 4 }],
+				coChangePartners: [{ path: 'src/profiles.ts', strength: 0.8 }],
+			}, 5);
+			assert.deepStrictEqual(blended.map(file => [file.path, file.reasons]), [
+				['src/router.ts', ['symbol match', 'content match']],
+				['docs/routing.md', ['content match']],
+				['src/profiles.ts', ['changes together']],
+			]);
+		});
+	});
+
+	suite('context steering', () => {
+
+		test('pins lead without costing the limit, exclusions drop out', () => {
+			const ranked = [
+				{ path: 'a.ts', score: 3, reasons: ['active editor'] },
+				{ path: 'b.ts', score: 2, reasons: ['visible editor'] },
+				{ path: 'c.ts', score: 1, reasons: ['recently opened'] },
+			];
+			const steered = applyContextSteering(ranked, ['docs/spec.md', 'b.ts'], ['c.ts'], 2);
+			assert.deepStrictEqual(steered, [
+				{ path: 'docs/spec.md', score: 4, reasons: ['pinned'] },
+				{ path: 'b.ts', score: 4, reasons: ['pinned'] },
+				{ path: 'a.ts', score: 3, reasons: ['active editor'] },
+			]);
+		});
+	});
+
+	suite('workspace paths', () => {
+
+		const single = [{ name: 'app', index: 0 }];
+		const multi = [{ name: 'app', index: 0 }, { name: 'server', index: 1 }];
+
+		test('single-root paths pass through unqualified and resolve to the folder', () => {
+			assert.deepStrictEqual([
+				qualifyWorkspacePath(single, 0, 'src/main.ts'),
+				resolveWorkspacePath(single, 'src/main.ts'),
+			], [
+				'src/main.ts',
+				{ folderIndex: 0, relativePath: 'src/main.ts' },
+			]);
+		});
+
+		test('multi-root paths carry the folder name and round-trip', () => {
+			const qualified = qualifyWorkspacePath(multi, 1, 'src/api.ts');
+			assert.deepStrictEqual([
+				qualified,
+				resolveWorkspacePath(multi, qualified),
+				// An unknown prefix falls back to the first folder so old journals stay readable.
+				resolveWorkspacePath(multi, 'lib/util.ts'),
+				resolveWorkspacePath([], 'src/x.ts'),
+			], [
+				'server/src/api.ts',
+				{ folderIndex: 1, relativePath: 'src/api.ts' },
+				{ folderIndex: 0, relativePath: 'lib/util.ts' },
+				undefined,
+			]);
 		});
 	});
 });

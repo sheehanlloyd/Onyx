@@ -34,6 +34,9 @@ Prompt markers steer it:
 | `SYMTEST <name>` | calls `repoSymbols` with that query (add `EXPAND` for the call graph) |
 | `MEMTEST <text>` | calls the `remember` tool with that note |
 
+`ONYX_MOCK_WORD_DELAY_MS` slows the streamed answer (default 5ms per word) so
+resilience tests have a real mid-stream window to interrupt.
+
 It also recognizes Onyx's commit-message and review system prompts and answers
 in the shape those flows parse, so both features can be driven without a model.
 
@@ -50,12 +53,22 @@ npm run compile                    # the runner runs the app, it does not build 
 node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 ```
 
-It creates a throwaway workspace and user-data dir, launches Code OSS with
-remote debugging, completes onboarding, sends `TOOLTEST` / `SYMTEST … EXPAND` /
-`MEMTEST`, and then checks that the journal shows the tool loop running, the
-call graph coming back, the workspace-context and agent-memory sections landing
-in later prompts, and post-run verification reporting a verdict.
+It creates a throwaway git workspace and user-data dir, launches Code OSS with
+remote debugging, completes onboarding, and then drives every user-facing flow,
+asserting on the run journal (24 checks):
 
-It needs `@playwright/cli` (a devDependency) and is intentionally kept out of
-CI: it wants a windowing system and a full build. CI runs the type check, the
-layer check, ESLint and the unit tests — see `.github/workflows/onyx-ci.yml`.
+- chat with the tool loop, `repoSymbols` with call-graph expansion, and the
+  `remember` tool, plus the workspace-context and agent-memory sections landing
+  in later prompts and post-run verification reporting a verdict
+- inline (FIM) autocomplete, including the cross-file context header
+- **Fix with Onyx** and **Explain with Onyx** routing into chat runs
+- the model library quick pick, including installed models outside the catalog
+- commit-message generation from a staged diff
+- **⌘I inline edit**: the widget, an applied hunk, and undoing that hunk
+  restoring the original line verbatim
+- `Onyx: Review My Changes`, its replayable prompt snapshot and a `file:line`
+  finding
+
+It needs `@playwright/cli` (a devDependency). CI runs it under Xvfb after the
+unit tests and uploads the journals on failure — see
+`.github/workflows/onyx-ci.yml`.
