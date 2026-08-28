@@ -692,7 +692,14 @@ function prepareCopilotRipgrepShimTask(platform: string, arch: string, destinati
 		const appNodeModulesDir = path.join(appBase, 'node_modules.asar.unpacked');
 
 		const builtInCopilotExtensionDir = path.join(appBase, 'extensions', 'copilot');
-		prepareBuiltInCopilotRipgrepShim(platform, arch, builtInCopilotExtensionDir, appNodeModulesDir);
+		try {
+			prepareBuiltInCopilotRipgrepShim(platform, arch, builtInCopilotExtensionDir, appNodeModulesDir);
+		} catch (err) {
+			// Onyx does not ship or use the Copilot CLI SDK, so a missing shim is
+			// a degraded built-in extension, not a broken product build. Upstream
+			// throws here because that SDK is part of what it ships.
+			console.warn(`[prepareCopilotRipgrepShimTask] skipped: ${err instanceof Error ? err.message : err}`);
+		}
 	};
 }
 

@@ -36,6 +36,18 @@ export function getOnyxEndpointSettings(configurationService: IConfigurationServ
 	return Array.isArray(raw) ? raw.filter(e => typeof e?.baseUrl === 'string' && e.baseUrl.length > 0) : [];
 }
 
+/**
+ * Onyx has no account, so the chat stack's account-oriented chrome has nothing
+ * to offer here. Overriding the shipped defaults (rather than patching the
+ * upstream UI) keeps this a settings decision the user can still reverse.
+ */
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerDefaultConfigurations([{
+	overrides: {
+		// The title bar's "Sign In" pill: signing in buys nothing in a local-only product.
+		'chat.titleBar.signIn.enabled': false,
+	},
+}]);
+
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
 	...workbenchConfigurationNodeBase,
 	properties: {

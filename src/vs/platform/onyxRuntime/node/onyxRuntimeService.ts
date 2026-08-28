@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { execFile } from 'child_process';
+import * as os from 'os';
 import { Emitter } from '../../../base/common/event.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { ILogService } from '../../log/common/log.js';
-import { IOnyxChatParams, IOnyxCompletionParams, IOnyxDiscoveredModel, IOnyxEndpoint, IOnyxRuntimeService, IOnyxStreamEvent, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -65,9 +66,13 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	private readonly _onDidStream = this._register(new Emitter<IOnyxStreamEvent>());
 	readonly onDidStream = this._onDidStream.event;
 
+	private readonly _onDidPullProgress = this._register(new Emitter<IOnyxPullProgress>());
+	readonly onDidPullProgress = this._onDidPullProgress.event;
+
 	private readonly _operations = new Map<string, AbortController>();
 	private readonly _modelDetailCache = new Map<string, Partial<IOnyxDiscoveredModel>>();
 	private readonly _gitRecentCache = new Map<string, { at: number; files: readonly string[] }>();
+	private readonly _gitGroupsCache = new Map<string, { at: number; groups: readonly (readonly string[])[] }>();
 	private _lastDiscovered: readonly IOnyxEndpoint[] = [];
 	private _watchedBaseUrls: readonly string[] = [];
 	private _watchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -222,6 +227,131 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		});
 		this._gitRecentCache.set(repoPath, { at: Date.now(), files });
 		return files;
+	}
+
+	async gitCommitFileGroups(repoPath: string, maxCommits: number): Promise<readonly (readonly string[])[]> {
+		// Co-change is a property of history, not of the last minute, and this
+		// runs on the prompt path — so it is cached as aggressively as recency.
+		const cacheKey = `${repoPath}|${maxCommits}`;
+		const cached = this._gitGroupsCache.get(cacheKey);
+		if (cached && Date.now() - cached.at < GIT_RECENT_CACHE_MS) {
+			return cached.groups;
+		}
+		// A record separator between commits is the only reliable way to tell
+		// "changed together" apart from "changed recently" in one git call.
+		const stdout = await this._git(repoPath, ['log', '--name-only', '--pretty=format:%x1e', '--diff-filter=ACMR', '-n', String(clamp(maxCommits, 1, 200))]);
+		const groups: string[][] = [];
+		for (const block of stdout.split('\u001e')) {
+			const files = block.split('\n').map(line => line.trim()).filter(Boolean);
+			if (files.length > 0) {
+				groups.push(files);
+			}
+		}
+		this._gitGroupsCache.set(cacheKey, { at: Date.now(), groups });
+		return groups;
+	}
+
+	async gitDiff(repoPath: string, staged: boolean, maxChars: number): Promise<IOnyxDiff> {
+		const selector = staged ? ['--cached'] : [];
+		const base = ['diff', '--no-color', '--no-ext-diff', ...selector];
+		const [text, names] = await Promise.all([
+			this._git(repoPath, [...base, '-U3'], 8 * 1024 * 1024),
+			this._git(repoPath, [...base, '--name-only']),
+		]);
+		const files = names.split('\n').map(line => line.trim()).filter(Boolean);
+		const limit = Math.max(0, maxChars);
+		return { text: text.length > limit ? text.slice(0, limit) : text, files, truncated: text.length > limit };
+	}
+
+	async getMachineProfile(): Promise<IOnyxMachineProfile> {
+		const cpus = os.cpus();
+		return {
+			totalMemoryBytes: os.totalmem(),
+			freeMemoryBytes: os.freemem(),
+			cpuModel: cpus[0]?.model ?? 'unknown',
+			cpuCount: cpus.length,
+			arch: os.arch(),
+			platform: os.platform(),
+		};
+	}
+
+	async pullModel(operationId: string, baseUrl: string, model: string): Promise<void> {
+		const controller = new AbortController();
+		this._operations.set(operationId, controller);
+		try {
+			const response = await fetch(`${ollamaRootUrl(normalizeBaseUrl(baseUrl))}/api/pull`, {
+				method: 'POST',
+				signal: controller.signal,
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ model, stream: true }),
+			});
+			if (!response.ok || !response.body) {
+				this._onDidPullProgress.fire({ operationId, status: `${response.status} ${response.statusText}`, done: true, error: `${response.status} ${response.statusText}` });
+				return;
+			}
+			await this._pumpPull(operationId, response.body);
+		} catch (err) {
+			const message = controller.signal.aborted ? 'cancelled' : (err instanceof Error ? err.message : String(err));
+			this._onDidPullProgress.fire({ operationId, status: message, done: true, error: controller.signal.aborted ? undefined : message });
+		} finally {
+			this._operations.delete(operationId);
+		}
+	}
+
+	/** Ollama's pull API streams one JSON object per line, not SSE. */
+	private async _pumpPull(operationId: string, body: ReadableStream<Uint8Array>): Promise<void> {
+		const decoder = new TextDecoder();
+		const reader = body.getReader();
+		let buffered = '';
+		let lastEmit = 0;
+		try {
+			for (;;) {
+				const { done, value } = await reader.read();
+				if (done) {
+					break;
+				}
+				buffered += decoder.decode(value, { stream: true });
+				let newlineIndex;
+				let latest: { status?: string; completed?: number; total?: number; error?: string } | undefined;
+				while ((newlineIndex = buffered.indexOf('\n')) >= 0) {
+					const line = buffered.slice(0, newlineIndex).trim();
+					buffered = buffered.slice(newlineIndex + 1);
+					if (!line) {
+						continue;
+					}
+					try {
+						latest = JSON.parse(line);
+					} catch {
+						this._logService.trace('[onyxRuntime] skipping malformed pull payload', truncate(line, 200));
+					}
+				}
+				// Ollama emits a line per chunk; throttling keeps IPC sane on a
+				// multi-gigabyte download without losing the final state.
+				const now = Date.now();
+				if (latest && (now - lastEmit > 250)) {
+					lastEmit = now;
+					this._onDidPullProgress.fire({
+						operationId,
+						status: latest.error ?? latest.status ?? 'downloading',
+						completedBytes: latest.completed,
+						totalBytes: latest.total,
+						done: false,
+						error: latest.error,
+					});
+				}
+			}
+			this._onDidPullProgress.fire({ operationId, status: 'success', done: true });
+		} finally {
+			reader.releaseLock();
+		}
+	}
+
+	private _git(repoPath: string, args: readonly string[], maxBuffer = 1024 * 1024): Promise<string> {
+		return new Promise<string>(resolve => {
+			execFile('git', ['-C', repoPath, ...args], { timeout: 10_000, maxBuffer }, (error, stdout) => {
+				resolve(error ? '' : stdout);
+			});
+		});
 	}
 
 	private async _pumpSse(operationId: string, body: ReadableStream<Uint8Array>): Promise<void> {
@@ -405,6 +535,10 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 			this._scheduleWatch();
 		}, WATCH_INTERVAL_MS);
 	}
+}
+
+function clamp(value: number, min: number, max: number): number {
+	return Math.max(min, Math.min(value, max));
 }
 
 function truncate(text: string, maxLength: number): string {

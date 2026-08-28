@@ -5,11 +5,37 @@
 <h1 align="center">Onyx</h1>
 
 <p align="center"><b>The local-first AI code editor for macOS.</b><br/>
-Every model runs on your machine. No cloud. No telemetry. No account.</p>
+Every model runs on your machine. No cloud. No telemetry. No account —
+there is nothing to sign in to.</p>
 
 <p align="center">
   <img src="docs/images/onyx-workbench.png" alt="Onyx workbench: Onyx Dark theme, local agent chat, control plane" width="900" />
 </p>
+
+<p align="center">
+  <img src="docs/images/onyx-onboarding.png" alt="Onyx first run: Connect a Local Runtime, with live runtime detection" width="720" />
+</p>
+<p align="center"><i>First run. There is no account step — the only thing to set up is a model on your machine.</i></p>
+
+<p align="center">
+  <img src="docs/images/onyx-control-plane.png" alt="The Onyx control plane: an adversarial review run with file:line findings" width="900" />
+</p>
+<p align="center"><i>The control plane: every step the agent took, why it took it, and where the findings live.</i></p>
+
+<p align="center">
+  <img src="docs/images/onyx-model-library.png" alt="The Onyx model library, sized against this Mac's unified memory" width="900" />
+</p>
+<p align="center"><i>The model library reads this Mac's unified memory and recommends accordingly.</i></p>
+
+<p align="center">
+  <img src="docs/images/onyx-compute.png" alt="The Onyx compute dashboard: per-model tokens, throughput and B·s" width="900" />
+</p>
+<p align="center"><i>Compute spent, per model, for this session and all time.</i></p>
+
+<p align="center">
+  <img src="docs/images/onyx-light.png" alt="Onyx Light: the same accent language on warm paper" width="900" />
+</p>
+<p align="center"><i>Onyx Light — the same violet and teal, on warm paper.</i></p>
 
 Onyx is a fork of [Code - OSS](https://github.com/microsoft/vscode) whose
 **entire agent architecture is designed around local inference**. Think
@@ -45,6 +71,22 @@ exactly what the agent is doing and why.
 - **Local autocomplete.** Ghost text from your smallest, fastest model via
   fill-in-the-middle, with cross-file context and latency-aware model
   selection.
+- **A model library that knows your Mac.** `Onyx: Manage Models` reads
+  unified memory and tells you which models actually fit — with the
+  quantization and context window to run them at — then pulls them with
+  one click and live progress.
+- **Compute is the local bill.** A per-model ledger for this session and
+  all time: requests, tokens, average tok/s and time-to-first-token,
+  accept rate, and a `B·s` energy proxy — billions of parameters held for
+  seconds of generation.
+- **Local commit messages and local review.** Generate a commit message
+  from the staged diff without leaving the SCM input, and run
+  `Onyx: Review My Changes` to put your working tree past an adversarial
+  reviewer whose findings land on the timeline as clickable `file:line`
+  links. The reviewer reports; it never edits.
+- **Two commands in the editor.** **Fix with Onyx** on a diagnostic and
+  **Explain with Onyx** on a selection, both routed through the normal
+  chat surface with the right range attached.
 
 ## Getting started
 
@@ -61,6 +103,16 @@ Start Ollama (or LM Studio / llama.cpp / vLLM), open chat, and pick
 with Onyx** walkthrough on the Welcome page tours the rest.
 
 Building a distributable, signed macOS app: see [LAUNCH.md](./LAUNCH.md).
+
+## Testing
+
+```bash
+./scripts/test.sh --grep Onyx      # unit tests for the pure logic
+node test/onyx/mock-ollama.mts     # an OpenAI-compatible mock, no model needed
+node test/onyx/run-e2e.mts         # drives the workbench, asserts on the run journal
+```
+
+See [test/onyx/README.md](./test/onyx/README.md) for the mock's prompt markers.
 
 ## Architecture
 

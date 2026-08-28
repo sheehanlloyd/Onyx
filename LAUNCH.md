@@ -28,8 +28,9 @@ What makes the build Onyx (all checked in):
 - `product.json` — nameShort/nameLong `Onyx`, bundle id `com.onyx.editor`,
   `.onyx` data folder, `onyx` URL protocol, telemetry removed
 - `resources/darwin/code.icns` — the Onyx app icon (faceted gem)
-- `extensions/theme-onyx/` — Onyx Dark theme + Get Started walkthrough;
-  the default dark theme is pinned in `workbenchThemeService.ts`
+- `extensions/theme-onyx/` — Onyx Dark and Onyx Light themes + the featured
+  Get Started walkthrough; the default dark theme is pinned in
+  `workbenchThemeService.ts`
 - everything under `src/vs/platform/onyxRuntime/` and
   `src/vs/workbench/contrib/onyx/`
 
@@ -66,11 +67,19 @@ hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
 ## Pre-flight checklist
 
 - [ ] `npm run typecheck-client`, `npm run valid-layers-check`, eslint on
-      the two Onyx directories, `./scripts/test.sh --grep Onyx` all green
-- [ ] Fresh-profile launch: Onyx Dark by default, Onyx icon in the Dock,
-      "Get Started with Onyx" walkthrough on the Welcome page
+      the two Onyx directories, `npm run stylelint`, and
+      `./scripts/test.sh --grep Onyx` all green
+- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtime
+- [ ] Fresh-profile launch: onboarding opens on **Connect a Local Runtime**
+      (not a sign-in), Onyx Dark preselected, Onyx icon in the Dock,
+      "Get Started with Onyx" featured on the Welcome page
+- [ ] Nothing on a fresh profile mentions another vendor's assistant, and
+      no "Sign In" pill appears in the title bar
 - [ ] With a local runtime up: models in the picker, streaming chat,
-      control plane live, ghost-text autocomplete
-- [ ] With no runtime: graceful "no local model available" message, no
-      errors in the console
+      control plane live, ghost-text autocomplete, `Onyx: Manage Models`
+      shows this machine's memory tier
+- [ ] With no runtime: the designed "No local model yet" state in chat and
+      the control plane, no errors in the console
+- [ ] Both themes: Onyx Dark and Onyx Light render the control plane, chat
+      and the empty states correctly
 - [ ] `REBASE.md` still lists every upstream file touched

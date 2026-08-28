@@ -1,0 +1,74 @@
+name: Onyx CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  onyx:
+    name: Typecheck, layers, lint, Onyx unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NPM_ARCH: x64
+      VSCODE_ARCH: x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Only the bundled Copilot test fixtures are in LFS and nothing here reads them.
+          lfs: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup system services
+        run: |
+          set -e
+          # Chromium's namespace sandbox needs unprivileged user namespaces, which
+          # Ubuntu 24.04 restricts by default; the unit tests run in Electron.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          ./build/azure-pipelines/linux/apt-retry.sh sudo apt-get update
+          ./build/azure-pipelines/linux/apt-retry.sh sudo apt-get install -y pkg-config \
+            xvfb \
+            libgtk-3-0 \
+            libxkbfile-dev \
+            libkrb5-dev \
+            libsecret-1-dev \
+            libgbm1 \
+            rpm
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GIT_LFS_SKIP_SMUDGE: '1'
+
+      - name: Type check
+        run: npm run typecheck-client
+
+      - name: Layer check
+        run: npm run valid-layers-check
+
+      - name: Lint Onyx sources
+        run: npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx
+
+      - name: Stylelint
+        run: npm run stylelint
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Onyx unit tests
+        run: ./scripts/test.sh --grep Onyx
+        env:
+          DISPLAY: ':10'

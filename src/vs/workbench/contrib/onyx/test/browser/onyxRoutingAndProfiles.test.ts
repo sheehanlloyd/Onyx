@@ -104,7 +104,7 @@ suite('OnyxRoutingAndProfiles', () => {
 			const model = discovered('m', 32);
 			const before = service.getProfile('k', model);
 			for (let i = 0; i < 6; i++) {
-				service.reportMeasurement({ modelKey: 'k', requestedModelId: 'm', timeToFirstTokenMs: 100, tokensPerSecond: 50, toolCallCount: 0, toolCallParseFailures: 2, promptTokens: 100, completionTokens: 50, finishReason: 'stop' });
+				service.reportMeasurement({ modelKey: 'k', requestedModelId: 'm', timeToFirstTokenMs: 100, tokensPerSecond: 50, generationMs: 1000, toolCallCount: 0, toolCallParseFailures: 2, promptTokens: 100, completionTokens: 50, finishReason: 'stop' });
 			}
 			const after = service.getProfile('k', model);
 			assert.ok(after.toolCallQuality < before.toolCallQuality);

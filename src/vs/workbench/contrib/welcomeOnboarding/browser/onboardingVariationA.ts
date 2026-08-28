@@ -35,6 +35,7 @@ import { ITelemetryService } from '../../../../platform/telemetry/common/telemet
 import { InstallChatEvent, InstallChatClassification, ChatSetupStrategy } from '../../chat/browser/chatSetup/chatSetup.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import {
 	OnboardingStepId,
 	ONBOARDING_STEPS,
@@ -48,6 +49,7 @@ import {
 	parseGheInstanceInput,
 } from '../common/onboardingTypes.js';
 import { IOnboardingService } from '../common/onboardingService.js';
+import { renderOnyxRuntimeOnboardingStep } from '../../onyx/browser/onboarding/onyxRuntimeStep.js';
 
 type OnboardingStepViewClassification = {
 	owner: 'cwebster-99';
@@ -146,6 +148,7 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
+		@IClipboardService private readonly clipboardService: IClipboardService,
 	) {
 		super();
 
@@ -404,6 +407,9 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 			case OnboardingStepId.SignIn:
 				this._renderSignInStep(this.contentEl);
 				break;
+			case OnboardingStepId.LocalRuntime:
+				renderOnyxRuntimeOnboardingStep(this.contentEl, this.commandService, this.clipboardService, this.stepDisposables);
+				break;
 			case OnboardingStepId.Personalize:
 				this._renderPersonalizeStep(this.contentEl);
 				break;
@@ -427,7 +433,7 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 			this.backButton.style.display = (this.currentStepIndex === 0 && !showEnterpriseBack) ? 'none' : '';
 		}
 		if (this.nextButton) {
-			if (this.currentStepIndex === 0) {
+			if (this.currentStepIndex === 0 && this.steps[0] === OnboardingStepId.SignIn) {
 				if (this._userSignedIn) {
 					this.nextButton.className = 'onboarding-a-btn onboarding-a-btn-primary';
 					this.nextButton.textContent = localize('onboarding.continue', "Continue");
@@ -445,7 +451,7 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 			}
 		}
 		if (this.footerLeft) {
-			if (this._isLastStep()) {
+			if (this._isLastStep() && this.steps.includes(OnboardingStepId.SignIn)) {
 				// Show sign-in nudge in footer
 				if (!this._footerSignInBtn && !this._userSignedIn) {
 					this._footerSignInBtn = append(this.footerLeft, $<HTMLButtonElement>('button.onboarding-a-signin-nudge-btn'));
@@ -902,7 +908,7 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 			this._createKbd(localize('onboarding.personalize.tip.shift', "Shift")),
 			'+',
 			this._createKbd(localize('onboarding.personalize.tip.p', "P")),
-			localize('onboarding.personalize.tip.suffix', " to access all VS Code commands."),
+			localize('onboarding.personalize.tip.suffix', " to access every command."),
 		);
 	}
 

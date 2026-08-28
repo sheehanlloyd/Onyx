@@ -8,36 +8,100 @@
 .onyx-view {
 	height: 100%;
 	overflow-y: auto;
-	padding: 8px 12px 12px;
-	font-size: 12px;
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120) var(--vscode-spacing-size120);
+	font-size: var(--vscode-fontSize-label1);
 	color: var(--vscode-foreground);
 }
 
+/* Resting state: one headline leads, everything else supports it. */
+
 .onyx-empty {
-	padding: 28px 16px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size240) var(--vscode-spacing-size160);
 	text-align: center;
-	color: var(--vscode-descriptionForeground);
-	font-size: 12px;
-	line-height: 1.6;
 }
 
-.onyx-empty .codicon {
-	display: block;
-	margin: 0 auto 8px;
-	font-size: 24px;
+.onyx-empty-mark {
 	color: var(--vscode-onyx-accent);
-	opacity: 0.7;
+	opacity: 0.85;
+}
+
+.onyx-empty-headline {
+	font-size: var(--vscode-fontSize-heading3);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	color: var(--vscode-foreground);
+}
+
+.onyx-empty-body {
+	max-width: 320px;
+	font-size: var(--vscode-fontSize-body2);
+	line-height: 1.6;
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-empty-command {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size40);
+	width: 100%;
+	max-width: 320px;
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size40) var(--vscode-spacing-size40) var(--vscode-spacing-size100);
+	border-radius: var(--vscode-cornerRadius-small);
+	background: var(--vscode-textCodeBlock-background);
+	text-align: left;
+}
+
+.onyx-empty-command code {
+	flex: 1;
+	min-width: 0;
+	overflow-x: auto;
+	font-family: var(--monaco-monospace-font);
+	font-size: var(--vscode-fontSize-label2);
+	white-space: nowrap;
+}
+
+.onyx-empty-copy {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: none;
+	border-radius: var(--vscode-cornerRadius-small);
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-codiconFontSize-compact);
+	cursor: pointer;
+}
+
+.onyx-empty-copy:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+	color: var(--vscode-foreground);
+}
+
+.onyx-empty-copy:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
 }
 
 /* ---- activity view ---- */
 
 .onyx-run {
-	margin-bottom: 8px;
+	margin-bottom: var(--vscode-spacing-size80);
 	border: 1px solid var(--vscode-widget-border, transparent);
-	border-radius: 6px;
+	border-radius: var(--vscode-cornerRadius-medium);
 	background: var(--vscode-editorWidget-background);
 	overflow: hidden;
 	transition: border-color 180ms ease-out, box-shadow 240ms ease-out;
+}
+
+.monaco-workbench.monaco-reduce-motion .onyx-run {
+	transition: none;
 }
 
 .onyx-run.selected {
@@ -45,14 +109,14 @@
 }
 
 .onyx-run.running {
-	box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-onyx-accent) 35%, transparent), 0 0 14px var(--vscode-onyx-glow);
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-onyx-accent) 35%, transparent), 0 0 16px var(--vscode-onyx-glow);
 }
 
 .onyx-run-header {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 7px 10px;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size100);
 	cursor: pointer;
 	user-select: none;
 }
@@ -65,7 +129,7 @@
 	width: 8px;
 	height: 8px;
 	flex-shrink: 0;
-	border-radius: 50%;
+	border-radius: var(--vscode-cornerRadius-circle);
 	background: var(--vscode-descriptionForeground);
 }
 
@@ -96,14 +160,14 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	font-weight: 500;
+	font-weight: var(--vscode-fontWeight-semiBold);
 }
 
 .onyx-chip {
 	flex-shrink: 0;
-	padding: 1px 7px;
-	border-radius: 9px;
-	font-size: 10px;
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size80);
+	border-radius: var(--vscode-cornerRadius-circle);
+	font-size: var(--vscode-fontSize-label3);
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
 	color: var(--vscode-onyx-accent);
@@ -112,7 +176,7 @@
 
 .onyx-run-actions {
 	display: flex;
-	gap: 2px;
+	gap: var(--vscode-spacing-size20);
 	flex-shrink: 0;
 }
 
@@ -123,9 +187,10 @@
 	width: 20px;
 	height: 20px;
 	border: none;
-	border-radius: 4px;
+	border-radius: var(--vscode-cornerRadius-small);
 	background: transparent;
 	color: var(--vscode-icon-foreground);
+	font-size: var(--vscode-codiconFontSize-compact);
 	cursor: pointer;
 	padding: 0;
 }
@@ -135,21 +200,26 @@
 	color: var(--vscode-onyx-accent);
 }
 
+.onyx-icon-button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
 .onyx-run-body {
-	padding: 2px 10px 8px;
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size100) var(--vscode-spacing-size80);
 	border-top: 1px solid var(--vscode-widget-border, transparent);
 }
 
 .onyx-timeline {
 	position: relative;
-	margin: 4px 0 0;
-	padding-left: 16px;
+	margin: var(--vscode-spacing-size40) 0 0;
+	padding-left: var(--vscode-spacing-size160);
 }
 
 .onyx-timeline::before {
 	content: '';
 	position: absolute;
-	left: 3px;
+	left: 4px;
 	top: 6px;
 	bottom: 6px;
 	width: 1px;
@@ -158,22 +228,23 @@
 
 .onyx-timeline-entry {
 	position: relative;
-	padding: 3px 0;
+	padding: var(--vscode-spacing-size40) 0;
 	line-height: 1.5;
 }
 
+/* Guides the eye to the step that just arrived; nothing else moves. */
 .monaco-enable-motion .onyx-timeline-entry {
-	animation: onyx-slide-in 200ms ease-out;
+	animation: onyx-slide-in 160ms ease-out;
 }
 
 .onyx-timeline-entry::before {
 	content: '';
 	position: absolute;
-	left: -15px;
+	left: -14px;
 	top: 9px;
-	width: 5px;
-	height: 5px;
-	border-radius: 50%;
+	width: 6px;
+	height: 6px;
+	border-radius: var(--vscode-cornerRadius-circle);
 	background: var(--vscode-onyx-accent);
 }
 
@@ -186,13 +257,12 @@
 }
 
 .onyx-timeline-label {
-	font-family: var(--monaco-monospace-font);
-	font-size: 11px;
+	font-size: var(--vscode-fontSize-body2);
 }
 
 .onyx-timeline-kind {
-	margin-right: 6px;
-	font-size: 10px;
+	margin-right: var(--vscode-spacing-size60);
+	font-size: var(--vscode-fontSize-label3);
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	color: var(--vscode-descriptionForeground);
@@ -200,20 +270,33 @@
 
 .onyx-timeline-reason {
 	display: block;
-	font-size: 11px;
+	font-size: var(--vscode-fontSize-body2);
 	color: var(--vscode-descriptionForeground);
 	white-space: pre-wrap;
 	word-break: break-word;
 }
 
-.onyx-timeline-earlier {
-	display: block;
-	margin: 0 0 4px;
-	padding: 1px 0;
+.onyx-timeline-link {
 	border: none;
 	background: none;
-	font-family: var(--monaco-monospace-font);
-	font-size: 10px;
+	padding: 0;
+	font: inherit;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	text-align: left;
+}
+
+.onyx-timeline-link:hover {
+	text-decoration: underline;
+}
+
+.onyx-timeline-earlier {
+	display: block;
+	margin: 0 0 var(--vscode-spacing-size40);
+	padding: var(--vscode-spacing-size20) 0;
+	border: none;
+	background: none;
+	font-size: var(--vscode-fontSize-label3);
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	color: var(--vscode-descriptionForeground);
@@ -224,19 +307,33 @@
 	color: var(--vscode-foreground);
 }
 
+/* ---- section headings shared by budget / compute ---- */
+
+.onyx-section-label {
+	margin: var(--vscode-spacing-size160) 0 var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-label3);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-section-label:first-child {
+	margin-top: 0;
+}
+
 /* ---- context budget view ---- */
 
 .onyx-budget-total {
-	margin-bottom: 6px;
-	font-family: var(--monaco-monospace-font);
-	font-size: 11px;
+	margin-bottom: var(--vscode-spacing-size60);
+	font-size: var(--vscode-fontSize-body2);
 	color: var(--vscode-descriptionForeground);
 }
 
 .onyx-budget-bar {
 	display: flex;
-	height: 14px;
-	border-radius: 7px;
+	height: 12px;
+	border-radius: var(--vscode-cornerRadius-circle);
 	overflow: hidden;
 	background: var(--vscode-editorWidget-background);
 	border: 1px solid var(--vscode-widget-border, transparent);
@@ -248,23 +345,27 @@
 	transition: width 320ms ease-out;
 }
 
+.monaco-workbench.monaco-reduce-motion .onyx-budget-slice {
+	transition: none;
+}
+
 .onyx-budget-legend {
-	margin-top: 10px;
+	margin-top: var(--vscode-spacing-size100);
 	display: grid;
 	grid-template-columns: 12px 1fr auto;
-	gap: 4px 8px;
+	gap: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
 	align-items: center;
-	font-size: 11px;
+	font-size: var(--vscode-fontSize-body2);
 }
 
 .onyx-budget-swatch {
 	width: 10px;
 	height: 10px;
-	border-radius: 3px;
+	border-radius: var(--vscode-cornerRadius-xSmall);
 }
 
 .onyx-budget-tokens {
-	font-family: var(--monaco-monospace-font);
+	font-variant-numeric: tabular-nums;
 	color: var(--vscode-descriptionForeground);
 }
 
@@ -273,15 +374,19 @@
 .onyx-compute-grid {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	gap: 8px;
+	gap: var(--vscode-spacing-size80);
 }
 
 .onyx-stat {
-	padding: 10px 12px;
-	border-radius: 6px;
+	padding: var(--vscode-spacing-size100) var(--vscode-spacing-size120);
+	border-radius: var(--vscode-cornerRadius-medium);
 	background: var(--vscode-editorWidget-background);
 	border: 1px solid var(--vscode-widget-border, transparent);
 	transition: box-shadow 240ms ease-out;
+}
+
+.monaco-workbench.monaco-reduce-motion .onyx-stat {
+	transition: none;
 }
 
 .onyx-stat.live {
@@ -289,25 +394,25 @@
 }
 
 .onyx-stat-label {
-	font-size: 10px;
+	font-size: var(--vscode-fontSize-label3);
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
 	color: var(--vscode-descriptionForeground);
-	margin-bottom: 4px;
+	margin-bottom: var(--vscode-spacing-size40);
 }
 
 .onyx-stat-value {
-	font-family: var(--monaco-monospace-font);
-	font-size: 16px;
-	font-weight: 600;
+	font-size: var(--vscode-fontSize-heading2);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	font-variant-numeric: tabular-nums;
 	color: var(--vscode-foreground);
 }
 
 .onyx-stat-value .unit {
-	font-size: 10px;
-	font-weight: 400;
+	font-size: var(--vscode-fontSize-label3);
+	font-weight: var(--vscode-fontWeight-regular);
 	color: var(--vscode-descriptionForeground);
-	margin-left: 3px;
+	margin-left: var(--vscode-spacing-size40);
 }
 
 .onyx-compute-model {
@@ -315,49 +420,121 @@
 }
 
 .onyx-compute-model .onyx-stat-value {
-	font-size: 12px;
+	font-family: var(--monaco-monospace-font);
+	font-size: var(--vscode-fontSize-label1);
+	font-weight: var(--vscode-fontWeight-regular);
 	word-break: break-all;
+}
+
+/* Ledger: per-model totals for this session and all time. */
+
+.onyx-ledger {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size40);
+}
+
+.onyx-ledger-row {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: var(--vscode-spacing-size20) var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size100);
+	border-radius: var(--vscode-cornerRadius-medium);
+	background: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.onyx-ledger-model {
+	font-family: var(--monaco-monospace-font);
+	font-size: var(--vscode-fontSize-label2);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.onyx-ledger-headline {
+	font-size: var(--vscode-fontSize-label2);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	font-variant-numeric: tabular-nums;
+	color: var(--vscode-onyx-accent);
+	white-space: nowrap;
+}
+
+.onyx-ledger-detail {
+	grid-column: 1 / -1;
+	font-size: var(--vscode-fontSize-label3);
+	font-variant-numeric: tabular-nums;
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-ledger-toggle {
+	display: inline-flex;
+	gap: var(--vscode-spacing-size20);
+	margin-bottom: var(--vscode-spacing-size80);
+	padding: 2px;
+	border-radius: var(--vscode-cornerRadius-circle);
+	background: var(--vscode-editorWidget-background);
+}
+
+.onyx-ledger-toggle button {
+	border: none;
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size100);
+	border-radius: var(--vscode-cornerRadius-circle);
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label3);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	cursor: pointer;
+}
+
+.onyx-ledger-toggle button.checked {
+	background: var(--vscode-onyx-accentSoft);
+	color: var(--vscode-onyx-accent);
+}
+
+.onyx-ledger-toggle button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
 }
 
 /* ---- inspector view ---- */
 
 .onyx-inspector-meta {
 	flex-shrink: 0;
-	font-family: var(--monaco-monospace-font);
-	font-size: 10px;
+	font-size: var(--vscode-fontSize-label3);
 	color: var(--vscode-descriptionForeground);
 }
 
 .onyx-inspector-snapshot {
-	margin: 8px 0;
-	padding: 8px;
-	border-radius: 6px;
+	margin: var(--vscode-spacing-size80) 0;
+	padding: var(--vscode-spacing-size80);
+	border-radius: var(--vscode-cornerRadius-medium);
 	background: var(--vscode-textCodeBlock-background);
 }
 
 .onyx-inspector-snapshot-header {
-	font-family: var(--monaco-monospace-font);
-	font-size: 11px;
-	font-weight: 600;
+	font-size: var(--vscode-fontSize-label2);
+	font-weight: var(--vscode-fontWeight-semiBold);
 	color: var(--vscode-onyx-accent);
-	margin-bottom: 4px;
+	margin-bottom: var(--vscode-spacing-size40);
 }
 
 .onyx-inspector-tools {
-	font-size: 10px;
+	font-size: var(--vscode-fontSize-label3);
 	color: var(--vscode-descriptionForeground);
-	margin-bottom: 6px;
+	margin-bottom: var(--vscode-spacing-size60);
 	word-break: break-word;
 }
 
 .onyx-inspector-message {
-	margin: 6px 0;
+	margin: var(--vscode-spacing-size60) 0;
 }
 
 .onyx-inspector-role {
 	display: inline-block;
-	margin-bottom: 2px;
-	font-size: 10px;
+	margin-bottom: var(--vscode-spacing-size20);
+	font-size: var(--vscode-fontSize-label3);
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	color: var(--vscode-descriptionForeground);
@@ -365,10 +542,10 @@
 
 .onyx-inspector-pre {
 	margin: 0;
-	padding: 4px 6px;
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size60);
 	border-left: 2px solid color-mix(in srgb, var(--vscode-onyx-accent) 40%, transparent);
 	font-family: var(--monaco-monospace-font);
-	font-size: 11px;
+	font-size: var(--vscode-fontSize-body2);
 	line-height: 1.45;
 	white-space: pre-wrap;
 	word-break: break-word;
@@ -378,8 +555,8 @@
 }
 
 .onyx-inspector-none {
-	padding: 6px 0;
-	font-size: 11px;
+	padding: var(--vscode-spacing-size60) 0;
+	font-size: var(--vscode-fontSize-body2);
 	color: var(--vscode-descriptionForeground);
 }
 

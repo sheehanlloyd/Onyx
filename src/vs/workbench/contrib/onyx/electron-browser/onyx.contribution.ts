@@ -7,11 +7,14 @@ import '../common/onyxConfiguration.js';
 import '../browser/controlPlane/onyxControlPlane.contribution.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize, localize2 } from '../../../../nls.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSharedProcessRemoteService } from '../../../../platform/ipc/electron-browser/services.js';
 import { IOnyxRuntimeService } from '../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { ILanguageModelsService } from '../../chat/common/languageModels.js';
@@ -23,9 +26,16 @@ import { IOnyxMemoryService, OnyxMemoryService } from '../browser/intelligence/o
 import { OnyxMemoryToolContribution } from '../browser/intelligence/onyxMemoryTool.js';
 import { OnyxRetrievalToolContribution } from '../browser/intelligence/onyxRetrievalTool.js';
 import { OnyxBenchmark } from '../browser/benchmark/onyxBenchmark.js';
+import { IOnyxDetectedRuntime, ONYX_DETECT_RUNTIMES_COMMAND_ID } from '../browser/onboarding/onyxRuntimeStep.js';
 import { IOnyxControlPlaneService, OnyxControlPlaneService } from '../browser/controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService, OnyxModelService } from '../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxOutcomeService, OnyxOutcomeService } from '../browser/outcomes/onyxOutcomeService.js';
+import { OnyxChatWelcomeContribution } from '../browser/onyxChatWelcome.js';
+import { OnyxCodeActionsContribution } from '../browser/editor/onyxCodeActions.js';
+import { IOnyxLedgerService, OnyxLedgerService } from '../browser/compute/onyxLedgerService.js';
+import { OnyxModelLibrary } from '../browser/models/onyxModelLibrary.js';
+import { OnyxReviewChanges } from '../browser/review/onyxReviewChanges.js';
+import { OnyxCommitMessageGenerator } from '../browser/scm/onyxCommitMessage.js';
 import { OnyxStatusBarContribution } from '../browser/onyxStatusBar.js';
 import { IOnyxProfileService, OnyxProfileService } from '../browser/profiles/onyxProfileService.js';
 import { IOnyxRouterService, OnyxRouterService } from '../browser/routing/onyxRouterService.js';
@@ -38,6 +48,7 @@ registerSingleton(IOnyxModelService, OnyxModelService, InstantiationType.Delayed
 registerSingleton(IOnyxControlPlaneService, OnyxControlPlaneService, InstantiationType.Delayed);
 registerSingleton(IOnyxOutcomeService, OnyxOutcomeService, InstantiationType.Delayed);
 registerSingleton(IOnyxMemoryService, OnyxMemoryService, InstantiationType.Delayed);
+registerSingleton(IOnyxLedgerService, OnyxLedgerService, InstantiationType.Delayed);
 
 /**
  * Registers the `onyx` language model vendor and provider with the chat stack
@@ -52,6 +63,8 @@ class OnyxModelsContribution extends Disposable {
 		@IOnyxModelService onyxModelService: IOnyxModelService,
 		@IOnyxProfileService onyxProfileService: IOnyxProfileService,
 		@IOnyxControlPlaneService onyxControlPlaneService: IOnyxControlPlaneService,
+		// Constructed here so the compute ledger sees every request from the first one.
+		@IOnyxLedgerService onyxLedgerService: IOnyxLedgerService,
 		@IChatService chatService: IChatService,
 		// Constructed here so it journals runs from the very first request.
 		@IOnyxOutcomeService _onyxOutcomeService: IOnyxOutcomeService,
@@ -83,9 +96,12 @@ class OnyxModelsContribution extends Disposable {
 			}
 			const modelKey = run.modelKey.slice(ONYX_VENDOR.length + 1);
 			if (event.action.kind === 'vote') {
-				onyxProfileService.reportOutcome(modelKey, event.action.direction === ChatAgentVoteDirection.Up);
+				const accepted = event.action.direction === ChatAgentVoteDirection.Up;
+				onyxProfileService.reportOutcome(modelKey, accepted);
+				onyxLedgerService.reportOutcome(modelKey, accepted);
 			} else if (event.action.kind === 'insert' || event.action.kind === 'apply' || event.action.kind === 'copy') {
 				onyxProfileService.reportOutcome(modelKey, true);
+				onyxLedgerService.reportOutcome(modelKey, true);
 			}
 		}));
 
@@ -99,6 +115,8 @@ registerWorkbenchContribution2(OnyxStatusBarContribution.ID, OnyxStatusBarContri
 registerWorkbenchContribution2(OnyxInlineCompletionsContribution.ID, OnyxInlineCompletionsContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(OnyxRetrievalToolContribution.ID, OnyxRetrievalToolContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxMemoryToolContribution.ID, OnyxMemoryToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxChatWelcomeContribution.ID, OnyxChatWelcomeContribution, WorkbenchPhase.BlockRestore);
+registerWorkbenchContribution2(OnyxCodeActionsContribution.ID, OnyxCodeActionsContribution, WorkbenchPhase.Eventually);
 
 registerAction2(class BenchmarkOnyxModelsAction extends Action2 {
 	constructor() {
@@ -126,6 +144,54 @@ registerAction2(class ClearOnyxMemoryAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		accessor.get(IOnyxMemoryService).clear();
+	}
+});
+
+registerAction2(class ManageOnyxModelsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.manageModels',
+			title: localize2('onyx.manageModels', "Onyx: Manage Models"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IInstantiationService).createInstance(OnyxModelLibrary).show();
+	}
+});
+
+registerAction2(class ReviewChangesWithOnyxAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.reviewChanges',
+			title: localize2('onyx.reviewChanges', "Onyx: Review My Changes"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IInstantiationService).createInstance(OnyxReviewChanges).run();
+	}
+});
+
+registerAction2(class GenerateCommitMessageAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.generateCommitMessage',
+			title: localize2('onyx.generateCommitMessage', "Onyx: Generate Commit Message"),
+			icon: Codicon.sparkle,
+			f1: true,
+			menu: {
+				id: MenuId.SCMInputBox,
+				when: ContextKeyExpr.equals('scmProvider', 'git'),
+				group: 'inline',
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IInstantiationService).createInstance(OnyxCommitMessageGenerator).generate(undefined);
 	}
 });
 
@@ -158,5 +224,26 @@ registerAction2(class ShowOnyxRuntimesAction extends Action2 {
 				`tools: ${model.discovered.supportsTools === undefined ? 'unknown' : model.discovered.supportsTools}`,
 			].filter(Boolean).join(' · '),
 		})), { placeHolder: localize('onyx.runtimesPlaceholder', "Discovered local models") });
+	}
+});
+
+/**
+ * Onboarding (and any other browser-layer surface that must stay free of
+ * Electron dependencies) asks for the current runtime picture through this
+ * command rather than importing the shared-process service directly.
+ */
+CommandsRegistry.registerCommand(ONYX_DETECT_RUNTIMES_COMMAND_ID, async (accessor): Promise<readonly IOnyxDetectedRuntime[]> => {
+	const runtimeService = accessor.get(IOnyxRuntimeService);
+	try {
+		const endpoints = await runtimeService.discoverRuntimes([]);
+		return endpoints
+			.filter(endpoint => endpoint.models.length > 0)
+			.map(endpoint => ({
+				displayName: endpoint.displayName,
+				host: new URL(endpoint.baseUrl).host,
+				modelCount: endpoint.models.length,
+			}));
+	} catch {
+		return [];
 	}
 });

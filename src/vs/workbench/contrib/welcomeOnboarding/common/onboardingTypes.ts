@@ -11,6 +11,8 @@ import { IProductOnboardingTheme } from '../../../../base/common/product.js';
  */
 export const enum OnboardingStepId {
 	SignIn = 'onboarding.signIn',
+	/** Onyx: local inference replaces account sign-in as the first thing to set up. */
+	LocalRuntime = 'onboarding.localRuntime',
 	Personalize = 'onboarding.personalize',
 	AiPreference = 'onboarding.aiPreference',
 }
@@ -22,6 +24,8 @@ export function getOnboardingStepTitle(stepId: OnboardingStepId): string {
 	switch (stepId) {
 		case OnboardingStepId.SignIn:
 			return localize('onboarding.step.signIn', "Sign In");
+		case OnboardingStepId.LocalRuntime:
+			return localize('onboarding.step.localRuntime', "Connect a Local Runtime");
 		case OnboardingStepId.Personalize:
 			return localize('onboarding.step.personalize', "Make It Yours");
 		case OnboardingStepId.AiPreference:
@@ -36,6 +40,8 @@ export function getOnboardingStepSubtitle(stepId: OnboardingStepId): string {
 	switch (stepId) {
 		case OnboardingStepId.SignIn:
 			return localize('onboarding.step.signIn.subtitle', "Sync settings, unlock AI features, and connect to GitHub");
+		case OnboardingStepId.LocalRuntime:
+			return localize('onboarding.step.localRuntime.subtitle', "Every model Onyx uses runs on this machine — there is no account to create");
 		case OnboardingStepId.Personalize:
 			return localize('onboarding.step.personalize.subtitle', "Choose your theme and keyboard mapping");
 		case OnboardingStepId.AiPreference:
@@ -47,7 +53,7 @@ export function getOnboardingStepSubtitle(stepId: OnboardingStepId): string {
  * Ordered step IDs for the onboarding flow.
  */
 export const ONBOARDING_STEPS: readonly OnboardingStepId[] = [
-	OnboardingStepId.SignIn,
+	OnboardingStepId.LocalRuntime,
 	OnboardingStepId.Personalize,
 ];
 

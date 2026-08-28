@@ -6,6 +6,7 @@
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
+import { Schemas } from '../../../../../base/common/network.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
 import { InlineCompletions, InlineCompletionsProvider } from '../../../../../editor/common/languages.js';
@@ -24,6 +25,14 @@ import { IOnyxObservedStats } from '../../common/onyxTypes.js';
 import { OnyxContextRanker } from '../intelligence/onyxContextRanker.js';
 import { IOnyxKnownModel, IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
+
+/**
+ * Ghost text belongs in documents the user is editing. The provider is
+ * registered for every language, so embedded Monaco editors that happen to
+ * share a language (the chat input, rename boxes, settings widgets) would
+ * otherwise get completions too.
+ */
+const COMPLETABLE_SCHEMES: readonly string[] = [Schemas.file, Schemas.untitled, Schemas.vscodeRemote, Schemas.vscodeNotebookCell];
 
 const MAX_PREFIX_CHARS = 4000;
 const MAX_SUFFIX_CHARS = 1500;
@@ -77,6 +86,9 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 
 	async provideInlineCompletions(model: ITextModel, position: Position, _context: unknown, token: CancellationToken): Promise<InlineCompletions | undefined> {
 		if (this._configurationService.getValue<boolean>(OnyxSettingId.AutocompleteEnabled) === false) {
+			return undefined;
+		}
+		if (!COMPLETABLE_SCHEMES.includes(model.uri.scheme)) {
 			return undefined;
 		}
 		const target = this._pickModel();

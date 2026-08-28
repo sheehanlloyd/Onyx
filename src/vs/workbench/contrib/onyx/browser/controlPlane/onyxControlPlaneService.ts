@@ -29,6 +29,12 @@ export interface IOnyxActivityEntry {
 	/** Why the agent did this — routing reasons, tool intent, etc. */
 	readonly reason?: string;
 	readonly ok?: boolean;
+	/**
+	 * Where in the workspace this entry points, if anywhere. Stored as a
+	 * workspace-relative path (not a URI) so it survives the run journal and
+	 * still resolves after the workspace moves.
+	 */
+	readonly location?: { readonly path: string; readonly line: number };
 }
 
 export interface IOnyxLiveRun {

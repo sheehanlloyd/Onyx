@@ -4,10 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../../base/browser/dom.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../../base/common/observable.js';
 import { localize } from '../../../../../nls.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -18,6 +20,7 @@ import { ViewPane } from '../../../../browser/parts/views/viewPane.js';
 import { IViewletViewOptions } from '../../../../browser/parts/views/viewsViewlet.js';
 import { IViewDescriptorService } from '../../../../common/views.js';
 import { IOnyxBudgetSlice } from '../../common/onyxTypes.js';
+import { renderOnyxEmptyState } from './onyxEmptyState.js';
 import { IOnyxControlPlaneService } from './onyxControlPlaneService.js';
 
 const $ = DOM.$;
@@ -40,6 +43,7 @@ export class OnyxContextBudgetViewPane extends ViewPane {
 	static readonly ID = 'workbench.view.onyx.contextBudget';
 
 	private _content: HTMLElement | undefined;
+	private readonly _emptyStateDisposables = this._register(new DisposableStore());
 
 	constructor(
 		options: IViewletViewOptions,
@@ -53,6 +57,7 @@ export class OnyxContextBudgetViewPane extends ViewPane {
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -74,12 +79,14 @@ export class OnyxContextBudgetViewPane extends ViewPane {
 			return;
 		}
 		DOM.clearNode(content);
+		this._emptyStateDisposables.clear();
 
 		const nonEmpty = slices.filter(s => s.tokens > 0);
 		if (nonEmpty.length === 0) {
-			const empty = DOM.append(content, $('.onyx-empty'));
-			DOM.append(empty, $('span.codicon.codicon-layers'));
-			empty.appendChild(document.createTextNode(localize('onyx.budget.empty', "The context breakdown of the selected run appears here: exactly what the model was sent, token by token.")));
+			renderOnyxEmptyState(content, {
+				headline: localize('onyx.budget.empty.headline', "No context to show"),
+				body: localize('onyx.budget.empty', "The breakdown of the selected run appears here: exactly what the model was sent, token by token."),
+			}, this._clipboardService, this._emptyStateDisposables);
 			return;
 		}
 

@@ -4,10 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../../base/browser/dom.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../../base/common/observable.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -15,9 +18,13 @@ import { IKeybindingService } from '../../../../../platform/keybinding/common/ke
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
+import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ViewPane } from '../../../../browser/parts/views/viewPane.js';
 import { IViewletViewOptions } from '../../../../browser/parts/views/viewsViewlet.js';
 import { IViewDescriptorService } from '../../../../common/views.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
+import { onyxNoRuntimeState, renderOnyxEmptyState } from './onyxEmptyState.js';
 import { IOnyxActivityEntry, IOnyxControlPlaneService, IOnyxLiveRun } from './onyxControlPlaneService.js';
 
 const $ = DOM.$;
@@ -54,6 +61,7 @@ export class OnyxActivityViewPane extends ViewPane {
 	private readonly _expandedRuns = new Set<string>();
 	private readonly _showAllRuns = new Set<string>();
 	private readonly _renderedRuns = new Map<string, IRenderedRun>();
+	private readonly _emptyStateDisposables = this._register(new DisposableStore());
 
 	constructor(
 		options: IViewletViewOptions,
@@ -68,6 +76,10 @@ export class OnyxActivityViewPane extends ViewPane {
 		@IHoverService hoverService: IHoverService,
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
+		@IOnyxModelService private readonly _onyxModelService: IOnyxModelService,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
+		@IEditorService private readonly _editorService: IEditorService,
+		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -102,11 +114,17 @@ export class OnyxActivityViewPane extends ViewPane {
 
 		DOM.clearNode(content);
 		this._renderedRuns.clear();
+		this._emptyStateDisposables.clear();
 
 		if (runs.length === 0) {
-			const empty = DOM.append(content, $('.onyx-empty'));
-			DOM.append(empty, $('span.codicon.codicon-pulse'));
-			empty.appendChild(document.createTextNode(localize('onyx.activity.empty', "No agent runs yet. Ask the Onyx agent something in chat and every step will show up here — live, with reasons.")));
+			// Two very different silences: nothing to run on, or nothing run yet.
+			const state = this._onyxModelService.getKnownModels().length === 0
+				? onyxNoRuntimeState()
+				: {
+					headline: localize('onyx.activity.empty.headline', "Nothing has run yet"),
+					body: localize('onyx.activity.empty', "Ask the Onyx agent something in chat. Every step it takes shows up here — live, with the reason behind it."),
+				};
+			renderOnyxEmptyState(content, state, this._clipboardService, this._emptyStateDisposables);
 			return;
 		}
 
@@ -242,6 +260,14 @@ export class OnyxActivityViewPane extends ViewPane {
 			const reason = DOM.append(element, $('span.onyx-timeline-reason'));
 			reason.textContent = entry.reason;
 		}
+		if (entry.location) {
+			const link = DOM.append(element, $('button.onyx-timeline-link')) as HTMLButtonElement;
+			link.textContent = `${entry.location.path}:${entry.location.line}`;
+			link.addEventListener('click', event => {
+				event.stopPropagation();
+				this._openLocation(entry.location!);
+			});
+		}
 	}
 
 	private _iconButton(parent: HTMLElement, codicon: string, title: string, onClick: () => void): void {
@@ -250,6 +276,17 @@ export class OnyxActivityViewPane extends ViewPane {
 		button.addEventListener('click', event => {
 			event.stopPropagation();
 			onClick();
+		});
+	}
+
+	private _openLocation(location: { path: string; line: number }): void {
+		const folder = this._workspaceService.getWorkspace().folders[0];
+		if (!folder) {
+			return;
+		}
+		this._editorService.openEditor({
+			resource: URI.joinPath(folder.uri, location.path),
+			options: { selection: { startLineNumber: location.line, startColumn: 1 }, pinned: true },
 		});
 	}
 

@@ -39,6 +39,8 @@ export interface IOnyxRequestMeasurement {
 	readonly requestedModelId: string;
 	readonly timeToFirstTokenMs: number | undefined;
 	readonly tokensPerSecond: number | undefined;
+	/** Wall-clock spent generating (first token → done). The local cost of the request. */
+	readonly generationMs: number | undefined;
 	readonly promptTokens: number | undefined;
 	readonly completionTokens: number | undefined;
 	readonly toolCallCount: number;
@@ -308,6 +310,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 			requestedModelId,
 			timeToFirstTokenMs: raw.firstTokenAt !== undefined ? raw.firstTokenAt - raw.startedAt : undefined,
 			tokensPerSecond: generationMs && generationMs > 0 ? (completionTokenEstimate / (generationMs / 1000)) : undefined,
+			generationMs,
 			promptTokens: raw.promptTokens,
 			completionTokens: raw.completionTokens,
 			toolCallCount: raw.toolCallCount,

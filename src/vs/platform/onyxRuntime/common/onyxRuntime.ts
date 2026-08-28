@@ -87,6 +87,38 @@ export interface IOnyxCompletionParams {
 	readonly stop?: readonly string[];
 }
 
+/** What this Mac can actually run, as read from the OS in the shared process. */
+export interface IOnyxMachineProfile {
+	/** Total (unified, on Apple Silicon) system memory in bytes. */
+	readonly totalMemoryBytes: number;
+	readonly freeMemoryBytes: number;
+	readonly cpuModel: string;
+	readonly cpuCount: number;
+	/** `arm64` on Apple Silicon. */
+	readonly arch: string;
+	readonly platform: string;
+}
+
+/** Progress of an `ollama pull`, normalized from the runtime's NDJSON stream. */
+export interface IOnyxPullProgress {
+	readonly operationId: string;
+	readonly status: string;
+	readonly completedBytes?: number;
+	readonly totalBytes?: number;
+	readonly done: boolean;
+	readonly error?: string;
+}
+
+/** A slice of a repository diff, capped so it can be put in a prompt. */
+export interface IOnyxDiff {
+	/** The diff text, already truncated to the requested budget. */
+	readonly text: string;
+	/** Paths touched, in the order git reported them (not truncated). */
+	readonly files: readonly string[];
+	/** Whether {@link text} was cut short. */
+	readonly truncated: boolean;
+}
+
 export type IOnyxStreamEvent =
 	| { readonly operationId: string; readonly kind: 'delta'; readonly text: string }
 	| { readonly operationId: string; readonly kind: 'toolCallDelta'; readonly index: number; readonly id?: string; readonly name?: string; readonly argumentsDelta?: string }
@@ -110,6 +142,9 @@ export interface IOnyxRuntimeService {
 
 	/** Streaming events for in-flight chat completions started via {@link startChatCompletion}. */
 	readonly onDidStream: Event<IOnyxStreamEvent>;
+
+	/** Progress events for downloads started via {@link pullModel}. */
+	readonly onDidPullProgress: Event<IOnyxPullProgress>;
 
 	/**
 	 * Probes the well-known local runtime ports plus the given base URLs and
@@ -143,4 +178,28 @@ export interface IOnyxRuntimeService {
 	 * repository. Runs here because the renderer cannot spawn processes.
 	 */
 	gitRecentFiles(repoPath: string, maxCommits: number): Promise<readonly string[]>;
+
+	/**
+	 * Per-commit file groups for the most recent commits, oldest entry last.
+	 * Feeds co-change mining: files that keep changing together are related in
+	 * ways no import graph shows.
+	 */
+	gitCommitFileGroups(repoPath: string, maxCommits: number): Promise<readonly (readonly string[])[]>;
+
+	/**
+	 * The staged (`--cached`) or working-tree diff of the repository at
+	 * `repoPath`, capped at `maxChars`. Returns empty text when git is
+	 * unavailable or there is nothing to diff.
+	 */
+	gitDiff(repoPath: string, staged: boolean, maxChars: number): Promise<IOnyxDiff>;
+
+	/** What this machine can run — used to size model recommendations. */
+	getMachineProfile(): Promise<IOnyxMachineProfile>;
+
+	/**
+	 * Downloads a model through the Ollama native API at `baseUrl`. Progress
+	 * arrives on {@link onDidPullProgress}; the promise resolves when the pull
+	 * finishes or fails. Cancel with {@link cancel}.
+	 */
+	pullModel(operationId: string, baseUrl: string, model: string): Promise<void>;
 }

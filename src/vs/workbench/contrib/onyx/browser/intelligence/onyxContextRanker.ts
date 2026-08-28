@@ -10,6 +10,7 @@ import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IHistoryService } from '../../../../services/history/common/history.js';
+import { buildCoChangeIndex, coChangedWith, IOnyxCoChangedFile } from '../../common/onyxCoChange.js';
 
 /** One workspace file with the evidence for why it is currently relevant. */
 export interface IOnyxRankedFile {
@@ -27,10 +28,15 @@ export interface IOnyxContextSignals {
 	readonly historyPaths: readonly string[];
 	/** Most recently committed first. */
 	readonly gitRecentPaths: readonly string[];
+	/** Files history says change alongside the active file, strongest first. */
+	readonly coChangedPaths?: readonly IOnyxCoChangedFile[];
 }
 
 const HISTORY_LIMIT = 20;
 const GIT_COMMIT_LIMIT = 30;
+/** Co-change needs a longer window than recency: coupling shows up over months, not over the last few commits. */
+const CO_CHANGE_COMMIT_LIMIT = 150;
+const CO_CHANGE_LIMIT = 5;
 
 /**
  * Merges the signals into one deterministic ranking. Weights express how
@@ -65,6 +71,14 @@ export function mergeContextSignals(signals: IOnyxContextSignals, limit: number)
 	signals.gitRecentPaths.forEach((path, index) => {
 		add(path, 1 * Math.pow(0.9, index), 'recently committed');
 	});
+	// Weighted below the editor signals but above bare git recency: a file that
+	// keeps changing with the one you are in is a better guess than a file that
+	// merely changed lately.
+	for (const partner of signals.coChangedPaths ?? []) {
+		if (partner.path !== signals.activePath) {
+			add(partner.path, 1.6 * partner.strength, `changes with ${signals.activePath ?? 'the active file'}`);
+		}
+	}
 
 	return [...scores.entries()]
 		.map(([path, { score, reasons }]) => ({ path, score, reasons: [...new Set(reasons)] }))
@@ -121,20 +135,28 @@ export class OnyxContextRanker {
 			}
 		}
 
+		const activePath = toRelative(this._editorService.activeEditor?.resource);
+
 		let gitRecentPaths: readonly string[] = [];
+		let coChangedPaths: readonly IOnyxCoChangedFile[] = [];
 		if (options?.gitRecency !== false) {
 			try {
 				gitRecentPaths = await this._runtimeService.gitRecentFiles(folder.uri.fsPath, GIT_COMMIT_LIMIT);
+				if (activePath) {
+					const groups = await this._runtimeService.gitCommitFileGroups(folder.uri.fsPath, CO_CHANGE_COMMIT_LIMIT);
+					coChangedPaths = coChangedWith(buildCoChangeIndex(groups), activePath, CO_CHANGE_LIMIT);
+				}
 			} catch {
 				// shared process unavailable: rank from editor signals alone
 			}
 		}
 
 		return mergeContextSignals({
-			activePath: toRelative(this._editorService.activeEditor?.resource),
+			activePath,
 			visiblePaths,
 			historyPaths,
 			gitRecentPaths,
+			coChangedPaths,
 		}, limit);
 	}
 }

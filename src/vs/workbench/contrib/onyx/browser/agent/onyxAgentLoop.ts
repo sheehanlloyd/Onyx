@@ -15,6 +15,7 @@ import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
 import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
+import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
 import { ONYX_MEMORY_TOOL_ID } from '../intelligence/onyxMemoryTool.js';
 import { ONYX_RETRIEVAL_TOOL_ID } from '../intelligence/onyxRetrievalTool.js';
 import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
@@ -57,6 +58,13 @@ export class OnyxAgentLoop {
 	) { }
 
 	async run(request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: readonly IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatAgentResult> {
+		// The chat stack only caches a vendor's models once something has asked
+		// for them — usually the model picker. On a cold window nothing has, and
+		// the request would fail with "provider is not registered" before any
+		// inference happened. Resolving here makes the first chat of a fresh
+		// install behave like every one after it.
+		await this._languageModelsService.selectLanguageModels({ vendor: ONYX_VENDOR });
+
 		const modelIdentifier = this._resolveModelIdentifier(request);
 		if (!modelIdentifier) {
 			return { errorDetails: { message: 'No local model available. Start a local runtime (Ollama, LM Studio, llama.cpp, vLLM) or configure onyx.endpoints, then try again.' } };
@@ -116,19 +124,30 @@ export class OnyxAgentLoop {
 			run.snapshot(snapshotForJournal(turn + 1, modelIdentifier, messages, tools));
 
 			const response = await this._languageModelsService.sendChatRequest(modelIdentifier, undefined, messages, { tools }, token);
-			let assistantText = '';
 			const toolUses: IChatResponseToolUsePart[] = [];
+			// Text streams through here rather than straight to the transcript so
+			// a tool call the model wrote as prose can be recognized and executed
+			// instead of shown to the user as raw JSON.
+			const textStream = new OnyxAssistantTextStream(
+				tools.map(tool => tool.name),
+				text => progress([{ kind: 'markdownContent', content: new MarkdownString(text) }]),
+			);
 			for await (const part of response.stream) {
 				for (const item of Array.isArray(part) ? part : [part]) {
 					if (item.type === 'text') {
-						assistantText += item.value;
-						progress([{ kind: 'markdownContent', content: new MarkdownString(item.value) }]);
+						textStream.append(item.value);
 					} else if (item.type === 'tool_use') {
 						toolUses.push(item);
 					}
 				}
 			}
 			await response.result;
+
+			const { text: assistantText, toolCall: textToolCall } = textStream.finish();
+			if (textToolCall && toolUses.length === 0) {
+				run.activity({ kind: 'note', label: `Repaired a tool call the model wrote as text`, reason: textToolCall.name });
+				toolUses.push({ type: 'tool_use', name: textToolCall.name, toolCallId: `onyx_text_call_${turn}`, parameters: textToolCall.parameters });
+			}
 
 			const assistantParts: IChatMessagePart[] = [];
 			if (assistantText) {

@@ -16,12 +16,19 @@
         "label": "%themeLabelDark%",
         "uiTheme": "vs-dark",
         "path": "./themes/onyx-dark-color-theme.json"
+      },
+      {
+        "id": "Onyx Light",
+        "label": "%themeLabelLight%",
+        "uiTheme": "vs",
+        "path": "./themes/onyx-light-color-theme.json"
       }
     ],
     "walkthroughs": [
       {
         "id": "onyxWelcome",
         "title": "%walkthrough.title%",
+        "featuredFor": ["**/*"],
         "description": "%walkthrough.description%",
         "steps": [
           {
@@ -40,7 +47,35 @@
             "id": "onyx.controlPlane",
             "title": "%walkthrough.controlPlane.title%",
             "description": "%walkthrough.controlPlane.description%",
-            "media": { "markdown": "media/control-plane.md" }
+            "media": {
+              "image": {
+                "dark": "media/control-plane-dark.png",
+                "light": "media/control-plane-light.png",
+                "hc": "media/control-plane-dark.png",
+                "hcLight": "media/control-plane-light.png"
+              },
+              "altText": "The Onyx control plane showing an agent run: routing, model turns, tool calls and the verification verdict"
+            }
+          },
+          {
+            "id": "onyx.models",
+            "title": "%walkthrough.models.title%",
+            "description": "%walkthrough.models.description%",
+            "media": {
+              "image": {
+                "dark": "media/models-dark.png",
+                "light": "media/models-light.png",
+                "hc": "media/models-dark.png",
+                "hcLight": "media/models-light.png"
+              },
+              "altText": "The Onyx model library listing installed and recommended models against this machine's unified memory"
+            }
+          },
+          {
+            "id": "onyx.review",
+            "title": "%walkthrough.review.title%",
+            "description": "%walkthrough.review.description%",
+            "media": { "markdown": "media/review.md" }
           },
           {
             "id": "onyx.verification",

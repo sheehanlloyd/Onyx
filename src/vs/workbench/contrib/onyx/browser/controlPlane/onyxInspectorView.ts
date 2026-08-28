@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../../base/browser/dom.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { localize } from '../../../../../nls.js';
+import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
@@ -18,6 +20,7 @@ import { IViewletViewOptions } from '../../../../browser/parts/views/viewsViewle
 import { IViewDescriptorService } from '../../../../common/views.js';
 import { IOnyxRequestRecord, IOnyxRunSummary } from '../../common/onyxTypes.js';
 import { IOnyxOutcomeService } from '../outcomes/onyxOutcomeService.js';
+import { renderOnyxEmptyState } from './onyxEmptyState.js';
 
 const $ = DOM.$;
 
@@ -32,6 +35,7 @@ export class OnyxInspectorViewPane extends ViewPane {
 
 	private _content: HTMLElement | undefined;
 	private _openRunId: string | undefined;
+	private readonly _emptyStateDisposables = this._register(new DisposableStore());
 
 	constructor(
 		options: IViewletViewOptions,
@@ -45,6 +49,7 @@ export class OnyxInspectorViewPane extends ViewPane {
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@IOnyxOutcomeService private readonly _outcomeService: IOnyxOutcomeService,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 		this._register(this._outcomeService.onDidChangeRuns(() => this._refresh()));
@@ -67,11 +72,13 @@ export class OnyxInspectorViewPane extends ViewPane {
 			return;
 		}
 		DOM.clearNode(content);
+		this._emptyStateDisposables.clear();
 
 		if (runs.length === 0) {
-			const empty = DOM.append(content, $('.onyx-empty'));
-			DOM.append(empty, $('span.codicon.codicon-history'));
-			empty.appendChild(document.createTextNode(localize('onyx.inspector.empty', "Past runs are journaled here per workspace. Open one to replay the exact prompt, tools and results every turn sent to the model.")));
+			renderOnyxEmptyState(content, {
+				headline: localize('onyx.inspector.empty.headline', "No journaled runs"),
+				body: localize('onyx.inspector.empty', "Past runs are journaled here per workspace. Open one to replay the exact prompt, tools and results every turn sent to the model."),
+			}, this._clipboardService, this._emptyStateDisposables);
 			return;
 		}
 

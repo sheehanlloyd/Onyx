@@ -212,6 +212,12 @@
 			"type": "dark"
 		},
 		{
+			"id": "onyx-light",
+			"label": "Onyx Light",
+			"themeId": "Onyx Light",
+			"type": "light"
+		},
+		{
 			"id": "light-2026",
 			"label": "Light 2026",
 			"themeId": "Light 2026",

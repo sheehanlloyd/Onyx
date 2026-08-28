@@ -8,8 +8,12 @@ export const ONYX_VENDOR = 'onyx';
 /** Identifier of the synthetic routing model shown as "Onyx: Auto" in the model picker. */
 export const ONYX_AUTO_MODEL_ID = 'auto';
 
-/** What kind of work a request is, as classified by the router. */
-export type OnyxTaskKind = 'quick-edit' | 'implement' | 'debug' | 'plan' | 'chat';
+/**
+ * What kind of work a request is. The first five are what the router
+ * classifies chat requests into; `review` is set explicitly by the review flow,
+ * which knows its own shape and does not need guessing.
+ */
+export type OnyxTaskKind = 'quick-edit' | 'implement' | 'debug' | 'plan' | 'chat' | 'review';
 
 /** How the harness should shape prompts and tool exposure for a model. */
 export type OnyxPromptStyle = 'compact' | 'full';

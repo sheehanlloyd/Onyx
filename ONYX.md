@@ -38,10 +38,16 @@ exactly what the agent is doing, what it costs in compute, and why.
 │  agent/onyxChatAgent + AgentLoop  ← core default agent, multi-turn tool loop   │
 │  agent/onyxPromptBuilder          ← profile-adaptive prompts, token accounting │
 │  intelligence/onyxRetrievalTool   ← repoSymbols tool + call-graph expansion    │
-│  intelligence/onyxContextRanker   ← open editors ⊕ history ⊕ git recency       │
+│  intelligence/onyxContextRanker   ← editors ⊕ history ⊕ git recency ⊕ co-change│
 │  intelligence/onyxMemoryService   ← persistent per-workspace agent memory      │
 │  autocomplete/onyxInlineCompletions ← FIM ghost text + cross-file context      │
 │  verification/onyxTaskVerification← post-run build/test checks → timeline      │
+│  models/onyxModelLibrary          ← catalog + RAM-aware advice + one-click pull│
+│  scm/onyxCommitMessage            ← staged diff → local model → SCM input      │
+│  review/onyxReviewChanges         ← adversarial review → timeline + file:line  │
+│  editor/onyxCodeActions           ← "Fix with Onyx" / "Explain with Onyx"      │
+│  compute/onyxLedgerService        ← per-model session ⊕ all-time compute spend │
+│  onboarding/onyxRuntimeStep       ← the first-run "connect a runtime" step     │
 │  controlPlane/*                   ← live runs, budget, compute views + gates   │
 └────────────────────────────────┬───────────────────────────────────────────────┘
                                  │ ProxyChannel 'onyxRuntime' (operationId-correlated)
@@ -50,7 +56,10 @@ exactly what the agent is doing, what it costs in compute, and why.
 │  discovery: probe :11434/:1234/:8080/:8000 + configured URLs,                 │
 │             /v1/models + Ollama /api/tags + /api/show, 30s watcher            │
 │  inference: streaming SSE POST /v1/chat/completions, AbortController cancel   │
-│  repo:      gitRecentFiles via `git log` (renderer cannot spawn processes)    │
+│  repo:      gitRecentFiles / gitCommitFileGroups / gitDiff via `git`          │
+│             (the renderer cannot spawn processes), 60s cached                 │
+│  machine:   unified memory, CPU, arch — sizes the model recommendations       │
+│  models:    `ollama pull` with normalized NDJSON progress                     │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -132,27 +141,61 @@ Integration points consumed (imports only, never patched):
 - [x] Distribution: `LAUNCH.md` documents the notarized-DMG channel
       (build → Developer ID signing → notarization → DMG) with the
       pre-flight checklist
+- [x] De-branded first run: onboarding step 1 is **Connect a Local Runtime**
+      (live runtime detection, three copyable commands), the title bar's
+      "Sign In" pill is off by a registered settings default, the featured
+      walkthrough is Onyx's, and the hosted-AI setup steps are gone. A fresh
+      install never mentions another vendor's assistant or asks for an account
+- [x] Onyx Light: a companion theme in the same violet/teal accent language on
+      warm paper tones, with its own onboarding tile and preview
+- [x] Designed resting states: a shared "no local model yet" empty state
+      (Onyx mark, plain-language body, copyable install commands) in chat and
+      across the control plane, replacing raw connection errors
+- [x] Model Library (`Onyx: Manage Models`): installed models plus a curated
+      catalog, sized against this Mac's unified memory (fit is `comfortable` /
+      `tight` / `needs more memory`, with per-tier quantization and context
+      advice) and one-click `ollama pull` with live progress
+- [x] Local commit messages: an SCM input action that turns the staged diff
+      into a commit message with a local model (deterministic prompt, diff
+      capped and elided per file, model scaffolding stripped)
+- [x] `Onyx: Review My Changes`: the working-tree diff through an adversarial
+      reviewer prompt; findings land on the control-plane timeline with
+      clickable `file:line` links. Report only — it never edits
+- [x] Editor quick actions: **Fix with Onyx** on a diagnostic and **Explain
+      with Onyx** on a selection, both routed through the normal chat surface
+      with the relevant range attached
+- [x] Compute dashboard: per-model requests, tokens, average tok/s and TTFT,
+      accept rate and a `B·s` energy proxy (billions of parameters × seconds
+      held), for this session and all time
+- [x] Co-change mining: per-commit file groups from `git log` become a
+      "changes together" index that boosts the active file's historical
+      partners in context ranking
+- [x] End-to-end harness: `test/onyx/run-e2e.mts` launches the workbench
+      against the mock runtime and asserts on the run journal; `.github/
+      workflows/onyx-ci.yml` runs typecheck, layers, ESLint, stylelint and the
+      Onyx unit tests on every push
 
 ### Next
 
-- [ ] Co-change mining and embedding-free similarity for context ranking
-- [ ] An Onyx Light theme companion
+- [ ] Embedding-free similarity signals for context ranking
+- [ ] Git-worktree-per-agent parallel runs and tournament mode
+- [ ] Speculative decoding configuration and on-your-repo benchmark suites
 
 ### Roadmap
 
-- **Phase 2 — Repo intelligence (partially shipped, see Done):** call-graph
-  context assembly, co-change mining, embedding-free similarity signals.
-- **Phase 3 — Model management:** model library with one-click install
-  (Ollama pull), Apple-Silicon-aware recommendations (unified memory →
-  quantization/context tradeoffs), on-your-repo benchmark suites feeding the
-  router, speculative-decoding configuration.
-- **Phase 4 — Verification & isolation (first slice shipped, see Done):**
-  change risk analysis, git-worktree-per-agent parallel runs, adversarial
-  reviewer agent, tournament mode.
-- **Phase 5 — Polish & depth:** FIM autocomplete on a dedicated small model
-  with agent-task-aware context, persistent repo/developer memory (local),
-  offline docs mirror, idle-compute background review, energy/thermal-aware
-  scheduling.
+- **Phase 2 — Repo intelligence (mostly shipped, see Done):** call-graph
+  context assembly and co-change mining are in. Still open: embedding-free
+  similarity signals.
+- **Phase 3 — Model management (shipped, see Done):** the model library,
+  Apple-Silicon-aware recommendations. Still open: on-your-repo benchmark
+  suites feeding the router, speculative-decoding configuration.
+- **Phase 4 — Verification & isolation (two slices shipped, see Done):**
+  project checks and the adversarial reviewer. Still open: change risk
+  analysis, git-worktree-per-agent parallel runs, tournament mode.
+- **Phase 5 — Polish & depth (mostly shipped, see Done):** FIM autocomplete on
+  a dedicated small model with task-aware context, persistent local memory,
+  and the compute ledger are in. Still open: offline docs mirror,
+  idle-compute background review, energy/thermal-aware scheduling.
 
 ## Development
 
@@ -163,11 +206,18 @@ npm i
 npm run transpile-client        # ~3s incremental compile
 VSCODE_SKIP_PRELAUNCH=1 ./scripts/code.sh <workspace>
 # verify
-npm run typecheck-client && npm run valid-layers-check
+npm run typecheck-client && npm run valid-layers-check && npm run stylelint
 npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx
 ```
 
-To test without a real model runtime, run a mock server on :11434 implementing
-`/v1/models`, `/api/tags`, `/api/show`, and streaming `/v1/chat/completions`
-(SSE). A prompt containing `TOOLTEST` should make it emit a tool call to
-exercise the agent loop. See `test/onyx/mock-ollama.mjs`.
+CI runs those gates plus the Onyx unit tests on every push —
+[.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.yml).
+
+To test without a real model runtime, use the mock server and the end-to-end
+runner — both documented in [test/onyx/README.md](./test/onyx/README.md):
+
+```bash
+node test/onyx/mock-ollama.mts     # OpenAI-compatible mock on :11434
+./scripts/test.sh --grep Onyx      # unit tests for the pure logic
+node test/onyx/run-e2e.mts         # drives the real workbench, asserts on the journal
+```
