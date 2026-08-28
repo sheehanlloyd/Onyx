@@ -19,6 +19,8 @@ export interface IOnyxComputeState {
 	readonly tokensPerSecond: number | undefined;
 	readonly timeToFirstTokenMs: number | undefined;
 	readonly inFlight: boolean;
+	/** A cold model is being loaded; cleared by the first streamed token. */
+	readonly loadingModel?: boolean;
 }
 
 /** One entry in a run's activity timeline, as shown in the control plane. */
