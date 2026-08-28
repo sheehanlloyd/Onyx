@@ -2269,7 +2269,11 @@ export default defineConfig(
 	},
 	{
 		files: [
-			'test/**/*.ts'
+			'test/**/*.ts',
+			// Onyx's harness scripts are .mts (test/package.json is commonjs, so
+			// a .ts there cannot use import syntax); without this glob they were
+			// never linted at all.
+			'test/**/*.mts'
 		],
 		languageOptions: {
 			parser: tseslint.parser,
@@ -2280,6 +2284,16 @@ export default defineConfig(
 		rules: {
 			'local/code-import-patterns': [
 				'warn',
+				{
+					// The Onyx mock runtime and end-to-end driver: node built-ins
+					// and dev dependencies only — they must never import product code.
+					'target': 'test/onyx/**',
+					'restrictions': [
+						'node:*',
+						'@playwright/*',
+						'*' // node modules
+					]
+				},
 				{
 					'target': 'test/smoke/**',
 					'restrictions': [
