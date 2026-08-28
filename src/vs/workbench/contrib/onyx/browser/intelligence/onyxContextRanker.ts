@@ -11,6 +11,9 @@ import { IWorkspaceContextService } from '../../../../../platform/workspace/comm
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IHistoryService } from '../../../../services/history/common/history.js';
 import { buildCoChangeIndex, coChangedWith, IOnyxCoChangedFile } from '../../common/onyxCoChange.js';
+import { qualifyWorkspacePath, resolveWorkspacePath } from '../../common/onyxWorkspacePaths.js';
+import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
+import { IOnyxPinService } from './onyxPinService.js';
 
 /** One workspace file with the evidence for why it is currently relevant. */
 export interface IOnyxRankedFile {
@@ -87,6 +90,35 @@ export function mergeContextSignals(signals: IOnyxContextSignals, limit: number)
 }
 
 /**
+ * Applies the user's explicit steering to an automatic ranking: excluded
+ * files drop out, pinned files lead with a score above everything ranked —
+ * and pins never count against the caller's limit, because "always in the
+ * prompt" is the whole promise of a pin.
+ */
+export function applyContextSteering(ranked: readonly IOnyxRankedFile[], pins: readonly string[], exclusions: readonly string[], limit: number): IOnyxRankedFile[] {
+	const excluded = new Set(exclusions);
+	const pinnedSet = new Set(pins);
+	const kept = ranked.filter(file => !excluded.has(file.path) && !pinnedSet.has(file.path)).slice(0, limit);
+	const topScore = ranked[0]?.score ?? 0;
+	const pinned = pins.map(path => ({ path, score: topScore + 1, reasons: ['pinned'] }));
+	return [...pinned, ...kept];
+}
+
+/** Round-robins several recency-ordered lists into one, preserving each list's order. */
+function interleave(lists: readonly (readonly string[])[]): string[] {
+	const result: string[] = [];
+	const longest = Math.max(0, ...lists.map(list => list.length));
+	for (let i = 0; i < longest; i++) {
+		for (const list of lists) {
+			if (i < list.length) {
+				result.push(list[i]);
+			}
+		}
+	}
+	return result;
+}
+
+/**
  * Collects "where is the user working" evidence from the live workbench —
  * open editors, editor history, and the git log via the shared process — and
  * turns it into a ranked file list for the prompt builder. Everything is
@@ -99,6 +131,8 @@ export class OnyxContextRanker {
 		@IHistoryService private readonly _historyService: IHistoryService,
 		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
+		@IOnyxPinService private readonly _pinService: IOnyxPinService,
+		@IOnyxProjectConfigService private readonly _projectConfigService: IOnyxProjectConfigService,
 	) { }
 
 	/**
@@ -107,17 +141,28 @@ export class OnyxContextRanker {
 	 * git round trip and rank from editor signals alone.
 	 */
 	async rank(limit: number, options?: { readonly gitRecency?: boolean }): Promise<IOnyxRankedFile[]> {
-		const folder = this._workspaceService.getWorkspace().folders[0];
-		if (!folder) {
+		const folders = this._workspaceService.getWorkspace().folders;
+		if (folders.length === 0) {
 			return [];
 		}
+		const folderRefs = folders.map(f => ({ name: f.name, index: f.index }));
 
+		// Multi-root: paths are qualified with their folder name so every root
+		// participates in one ranking and the strings still resolve back.
 		const toRelative = (resource: URI | undefined): string | undefined => {
-			if (!resource || resource.scheme !== Schemas.file || isEqual(resource, folder.uri)) {
+			if (!resource || resource.scheme !== Schemas.file) {
 				return undefined;
 			}
-			const folderPath = folder.uri.fsPath.endsWith('/') ? folder.uri.fsPath : `${folder.uri.fsPath}/`;
-			return resource.fsPath.startsWith(folderPath) ? resource.fsPath.slice(folderPath.length) : undefined;
+			for (const folder of folders) {
+				if (isEqual(resource, folder.uri)) {
+					return undefined;
+				}
+				const folderPath = folder.uri.fsPath.endsWith('/') ? folder.uri.fsPath : `${folder.uri.fsPath}/`;
+				if (resource.fsPath.startsWith(folderPath)) {
+					return qualifyWorkspacePath(folderRefs, folder.index, resource.fsPath.slice(folderPath.length));
+				}
+			}
+			return undefined;
 		};
 
 		const visiblePaths: string[] = [];
@@ -141,22 +186,36 @@ export class OnyxContextRanker {
 		let coChangedPaths: readonly IOnyxCoChangedFile[] = [];
 		if (options?.gitRecency !== false) {
 			try {
-				gitRecentPaths = await this._runtimeService.gitRecentFiles(folder.uri.fsPath, GIT_COMMIT_LIMIT);
+				const perFolder = await Promise.all(folders.map(async folder => {
+					const recent = await this._runtimeService.gitRecentFiles(folder.uri.fsPath, GIT_COMMIT_LIMIT);
+					return recent.map(path => qualifyWorkspacePath(folderRefs, folder.index, path));
+				}));
+				// Interleave the roots so one busy repository cannot crowd the
+				// others out of the decayed recency scores.
+				gitRecentPaths = interleave(perFolder);
 				if (activePath) {
-					const groups = await this._runtimeService.gitCommitFileGroups(folder.uri.fsPath, CO_CHANGE_COMMIT_LIMIT);
-					coChangedPaths = coChangedWith(buildCoChangeIndex(groups), activePath, CO_CHANGE_LIMIT);
+					const active = resolveWorkspacePath(folderRefs, activePath);
+					const activeFolder = active ? folders.find(f => f.index === active.folderIndex) : undefined;
+					if (active && activeFolder) {
+						const groups = await this._runtimeService.gitCommitFileGroups(activeFolder.uri.fsPath, CO_CHANGE_COMMIT_LIMIT);
+						coChangedPaths = coChangedWith(buildCoChangeIndex(groups), active.relativePath, CO_CHANGE_LIMIT)
+							.map(partner => ({ ...partner, path: qualifyWorkspacePath(folderRefs, activeFolder.index, partner.path) }));
+					}
 				}
 			} catch {
 				// shared process unavailable: rank from editor signals alone
 			}
 		}
 
-		return mergeContextSignals({
+		const ranked = mergeContextSignals({
 			activePath,
 			visiblePaths,
 			historyPaths,
 			gitRecentPaths,
 			coChangedPaths,
 		}, limit);
+		const projectPins = this._projectConfigService.resolved.get().config.contextPins ?? [];
+		const pins = [...new Set([...projectPins, ...this._pinService.pins.get()])];
+		return applyContextSteering(ranked, pins, this._pinService.exclusions.get(), limit);
 	}
 }

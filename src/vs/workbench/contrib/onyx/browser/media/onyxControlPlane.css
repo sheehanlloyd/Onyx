@@ -371,9 +371,11 @@
 
 /* ---- compute view ---- */
 
+/* Model spans the full row; the three vitals below share one balanced row so
+   no tile is ever orphaned on its own line. */
 .onyx-compute-grid {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: repeat(3, 1fr);
 	gap: var(--vscode-spacing-size80);
 }
 
@@ -560,6 +562,200 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+/* The energy downshift note: informative, never alarming. */
+.onyx-compute-energy {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size40);
+	margin-top: var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-caption1);
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-compute-energy > .codicon {
+	font-size: var(--vscode-codiconFontSize-compact);
+	color: var(--vscode-onyx-warn);
+	margin-top: 1px;
+}
+
+/* ---- context steering (pins + eviction) ---- */
+
+.onyx-budget-steering {
+	margin-top: var(--vscode-spacing-size100);
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size40);
+}
+
+.onyx-budget-steering-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: var(--vscode-fontSize-caption1);
+	font-weight: var(--vscode-fontWeight-semibold);
+	color: var(--vscode-descriptionForeground);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.onyx-budget-files {
+	display: flex;
+	flex-direction: column;
+}
+
+.onyx-budget-file {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size40);
+	padding: var(--vscode-spacing-size20) 0;
+	font-size: var(--vscode-fontSize-caption1);
+}
+
+.onyx-budget-file > .codicon {
+	font-size: var(--vscode-codiconFontSize-compact);
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-budget-file.pinned > .codicon {
+	color: var(--vscode-onyx-accent);
+}
+
+.onyx-budget-file-path {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.onyx-budget-file .onyx-icon-button {
+	opacity: 0;
+}
+
+.onyx-budget-file:hover .onyx-icon-button,
+.onyx-budget-file .onyx-icon-button:focus-visible {
+	opacity: 1;
+}
+
+.onyx-budget-estimate {
+	font-size: var(--vscode-fontSize-caption1);
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-budget-excluded {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--vscode-spacing-size40);
+	font-size: var(--vscode-fontSize-caption1);
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-budget-excluded-chip {
+	border: 1px solid var(--vscode-widget-border, transparent);
+	border-radius: var(--vscode-cornerRadius-small);
+	background: var(--vscode-editorWidget-background);
+	color: var(--vscode-descriptionForeground);
+	padding: 0 var(--vscode-spacing-size40);
+	cursor: pointer;
+	text-decoration: line-through;
+}
+
+.onyx-budget-excluded-chip:hover {
+	color: var(--vscode-foreground);
+	text-decoration: none;
+}
+
+/* ---- run diff (inspector compare) ---- */
+
+.onyx-icon-button.checked {
+	color: var(--vscode-onyx-accent);
+	background: var(--vscode-onyx-accentSoft);
+}
+
+.onyx-run-diff {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size80);
+}
+
+.onyx-run-diff-toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+}
+
+.onyx-run-diff-title {
+	font-size: var(--vscode-fontSize-body2);
+	font-weight: var(--vscode-fontWeight-semibold);
+}
+
+.onyx-run-diff-columns {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--vscode-spacing-size60);
+	font-size: var(--vscode-fontSize-caption1);
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-run-diff-section {
+	border: 1px solid var(--vscode-widget-border, transparent);
+	border-radius: var(--vscode-cornerRadius-medium);
+	background: var(--vscode-editorWidget-background);
+	padding: var(--vscode-spacing-size60) var(--vscode-spacing-size80);
+}
+
+.onyx-run-diff-section-header {
+	font-size: var(--vscode-fontSize-caption1);
+	font-weight: var(--vscode-fontWeight-semibold);
+	color: var(--vscode-descriptionForeground);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-bottom: var(--vscode-spacing-size40);
+}
+
+.onyx-run-diff-row {
+	padding: var(--vscode-spacing-size40) 0;
+}
+
+/* Changed rows carry the view; unchanged rows recede. */
+.onyx-run-diff-row:not(.changed) {
+	opacity: 0.6;
+}
+
+.onyx-run-diff-row.changed .onyx-run-diff-cells {
+	border-left: 2px solid var(--vscode-onyx-accent);
+	padding-left: var(--vscode-spacing-size60);
+}
+
+.onyx-run-diff-label {
+	font-size: var(--vscode-fontSize-caption1);
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-run-diff-cells {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--vscode-spacing-size60);
+	margin-top: var(--vscode-spacing-size20);
+}
+
+.onyx-run-diff-cell {
+	margin: 0;
+	font-family: var(--monaco-monospace-font);
+	font-size: var(--vscode-fontSize-caption1);
+	white-space: pre-wrap;
+	word-break: break-word;
+	max-height: 160px;
+	overflow-y: auto;
+}
+
+.onyx-run-diff-elision {
+	text-align: center;
+	font-size: var(--vscode-fontSize-caption1);
+	color: var(--vscode-descriptionForeground);
+	padding: var(--vscode-spacing-size20) 0;
+}
+
 /* ---- animations ---- */
 
 @keyframes onyx-pulse {
@@ -570,4 +766,50 @@
 @keyframes onyx-slide-in {
 	from { opacity: 0; transform: translateY(3px); }
 	to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- virtualized timeline (very long runs) ---- */
+
+.onyx-virtual-timeline {
+	overflow-y: auto;
+	border: 1px solid var(--vscode-widget-border, transparent);
+	border-radius: var(--vscode-cornerRadius-medium);
+	background: var(--vscode-editorWidget-background);
+}
+
+.onyx-virtual-timeline-spacer {
+	position: relative;
+}
+
+.onyx-virtual-timeline-window {
+	position: absolute;
+	inset-inline: 0;
+	top: 0;
+}
+
+.onyx-virtual-timeline-row {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size40);
+	padding: 0 var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-caption1);
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+.onyx-virtual-timeline-row.linked {
+	cursor: pointer;
+}
+
+.onyx-virtual-timeline-row.linked:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.onyx-virtual-timeline-row.error .onyx-virtual-timeline-text {
+	color: var(--vscode-onyx-error);
+}
+
+.onyx-virtual-timeline-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
 }

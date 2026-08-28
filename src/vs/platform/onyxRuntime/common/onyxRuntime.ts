@@ -39,6 +39,12 @@ export interface IOnyxDiscoveredModel {
 	readonly supportsTools?: boolean;
 	/** Whether the runtime declares vision support for this model. */
 	readonly supportsVision?: boolean;
+	/**
+	 * Whether the serving runtime supports constrained decoding via OpenAI
+	 * `response_format: json_schema` (Ollama, llama.cpp, vLLM, LM Studio do;
+	 * unknown runtimes are assumed not to).
+	 */
+	readonly supportsJsonSchema?: boolean;
 }
 
 /** OpenAI chat-completions wire shapes. Kept loose on purpose: they mirror the JSON we send/receive. */
@@ -73,6 +79,10 @@ export interface IOnyxChatParams {
 	readonly tools?: readonly IOnyxWireTool[];
 	readonly temperature?: number;
 	readonly maxTokens?: number;
+	/** Residency hint (e.g. `30m`), sent as Ollama's `keep_alive`. Only set for runtimes that honor it. */
+	readonly keepAlive?: string;
+	/** OpenAI `response_format` payload for constrained decoding, verbatim. */
+	readonly responseFormat?: unknown;
 }
 
 export interface IOnyxCompletionParams {
@@ -85,6 +95,8 @@ export interface IOnyxCompletionParams {
 	readonly suffix?: string;
 	readonly maxTokens: number;
 	readonly stop?: readonly string[];
+	/** Residency hint (e.g. `30m`), sent as Ollama's `keep_alive`. Only set for runtimes that honor it. */
+	readonly keepAlive?: string;
 }
 
 /** What this Mac can actually run, as read from the OS in the shared process. */
@@ -107,6 +119,18 @@ export interface IOnyxPullProgress {
 	readonly totalBytes?: number;
 	readonly done: boolean;
 	readonly error?: string;
+}
+
+/** Which slice of the repository's uncommitted state to diff. */
+export type OnyxDiffMode = 'unstaged' | 'staged' | 'head';
+
+/** What the machine reports about its power situation. */
+export interface IOnyxPowerState {
+	readonly onBattery: boolean;
+	/** 'serious' when the OS reports CPU speed limiting; 'unknown' when it reports nothing. */
+	readonly thermal: 'nominal' | 'serious' | 'unknown';
+	/** CPU speed limit in percent when the OS reports one (macOS `pmset -g therm`). */
+	readonly cpuSpeedLimit: number | undefined;
 }
 
 /** A slice of a repository diff, capped so it can be put in a prompt. */
@@ -187,14 +211,61 @@ export interface IOnyxRuntimeService {
 	gitCommitFileGroups(repoPath: string, maxCommits: number): Promise<readonly (readonly string[])[]>;
 
 	/**
-	 * The staged (`--cached`) or working-tree diff of the repository at
-	 * `repoPath`, capped at `maxChars`. Returns empty text when git is
-	 * unavailable or there is nothing to diff.
+	 * A diff of the repository at `repoPath`, capped at `maxChars`:
+	 * `'staged'` is the index (`--cached`), `'unstaged'` the working tree
+	 * against the index, and `'head'` everything uncommitted (staged and
+	 * unstaged, `git diff HEAD`). Returns empty text when git is unavailable
+	 * or there is nothing to diff.
 	 */
-	gitDiff(repoPath: string, staged: boolean, maxChars: number): Promise<IOnyxDiff>;
+	gitDiff(repoPath: string, mode: OnyxDiffMode, maxChars: number): Promise<IOnyxDiff>;
 
 	/** What this machine can run — used to size model recommendations. */
 	getMachineProfile(): Promise<IOnyxMachineProfile>;
+
+	/**
+	 * Power source and thermal pressure (macOS `pmset`; other platforms
+	 * report "plugged in, unknown"). Drives energy-aware routing downshifts.
+	 */
+	getPowerState(): Promise<IOnyxPowerState>;
+
+	/**
+	 * Loads a model into the runtime ahead of use (a one-token completion
+	 * with a residency hint). Fire-and-forget: failure means a cold start,
+	 * nothing worse.
+	 */
+	warmUpModel(baseUrl: string, model: string, keepAlive: string): Promise<void>;
+
+	/**
+	 * Ensures the embedding-free BM25 index for the workspace root exists
+	 * (loading the persisted copy at `persistPath` or building fresh) and
+	 * returns its stats.
+	 */
+	ensureWorkspaceIndex(rootPath: string, persistPath: string): Promise<{ files: number; buildMs: number; truncated: boolean }>;
+
+	/** Searches the workspace index; empty until {@link ensureWorkspaceIndex} has run. */
+	searchWorkspaceIndex(rootPath: string, persistPath: string, query: string, limit: number): Promise<readonly { path: string; score: number }[]>;
+
+	/** Re-indexes changed files (workspace-relative paths); deleted files drop out. */
+	updateWorkspaceIndex(rootPath: string, persistPath: string, changedFiles: readonly string[]): Promise<void>;
+
+	/**
+	 * Creates a detached git worktree of the repository's HEAD for tournament
+	 * isolation. Leftover `onyx-tournament-*` worktrees from crashed sessions
+	 * are pruned on the first call.
+	 */
+	worktreeCreate(repoPath: string, id: string): Promise<{ readonly worktreePath: string }>;
+
+	/** Writes one file inside a tournament worktree (path is repo-relative). */
+	worktreeWriteFile(worktreePath: string, relativePath: string, content: string): Promise<void>;
+
+	/** The worktree's diff against HEAD — what this contestant actually changed. */
+	worktreeDiff(worktreePath: string): Promise<IOnyxDiff>;
+
+	/** Removes a tournament worktree and its registration. Safe to call twice. */
+	worktreeRemove(repoPath: string, worktreePath: string): Promise<void>;
+
+	/** Applies a unified diff to the real working tree (`git apply`). Throws when it does not apply. */
+	applyDiff(repoPath: string, diffText: string): Promise<void>;
 
 	/**
 	 * Downloads a model through the Ollama native API at `baseUrl`. Progress

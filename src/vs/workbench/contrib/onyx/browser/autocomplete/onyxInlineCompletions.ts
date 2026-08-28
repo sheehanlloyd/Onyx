@@ -21,7 +21,9 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { OnyxSettingId } from '../../common/onyxConfiguration.js';
+import { IOnyxEnergyService } from '../compute/onyxEnergyService.js';
 import { IOnyxObservedStats } from '../../common/onyxTypes.js';
+import { resolveWorkspacePath } from '../../common/onyxWorkspacePaths.js';
 import { OnyxContextRanker } from '../intelligence/onyxContextRanker.js';
 import { IOnyxKnownModel, IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
@@ -65,7 +67,11 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 
 	readonly groupId = 'onyx';
 	readonly displayName = 'Onyx';
-	readonly debounceDelayMs = 180;
+
+	/** Base debounce plus whatever the energy policy adds on battery / heat. */
+	get debounceDelayMs(): number {
+		return 180 + this._energyService.decision.get().autocompleteExtraDebounceMs;
+	}
 
 	private readonly _contextRanker: OnyxContextRanker;
 
@@ -73,6 +79,7 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
 		@IOnyxModelService private readonly _modelService: IOnyxModelService,
 		@IOnyxProfileService private readonly _profileService: IOnyxProfileService,
+		@IOnyxEnergyService private readonly _energyService: IOnyxEnergyService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IModelService private readonly _textModelService: IModelService,
 		@ILanguageConfigurationService private readonly _languageConfigurationService: ILanguageConfigurationService,
@@ -86,6 +93,11 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 
 	async provideInlineCompletions(model: ITextModel, position: Position, _context: unknown, token: CancellationToken): Promise<InlineCompletions | undefined> {
 		if (this._configurationService.getValue<boolean>(OnyxSettingId.AutocompleteEnabled) === false) {
+			return undefined;
+		}
+		if (!this._energyService.decision.get().autocompleteEnabled) {
+			// The energy policy switched ghost text off (e.g. efficiency mode on
+			// battery); the Compute view carries the explanation.
 			return undefined;
 		}
 		if (!COMPLETABLE_SCHEMES.includes(model.uri.scheme)) {
@@ -120,6 +132,8 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 				suffix,
 				maxTokens: 96,
 				stop: ['\n\n\n'],
+				// The autocomplete model fires constantly; keep it resident.
+				keepAlive: target.discovered.runtime === 'ollama' ? '30m' : undefined,
 			});
 			if (!token.isCancellationRequested && text) {
 				// Cancelled requests would skew the number low (they abort early),
@@ -162,17 +176,23 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 			return '';
 		}
 		const lineComment = this._languageConfigurationService.getLanguageConfiguration(model.getLanguageId()).comments?.lineCommentToken;
-		const folder = this._workspaceService.getWorkspace().folders[0];
-		if (!lineComment || !folder) {
+		const folders = this._workspaceService.getWorkspace().folders;
+		if (!lineComment || folders.length === 0) {
 			return '';
 		}
+		const folderRefs = folders.map(f => ({ name: f.name, index: f.index }));
 		const ranked = await this._contextRanker.rank(MAX_CONTEXT_FILES + 2, { gitRecency: false });
 		const sections: { path: string; content: string }[] = [];
 		for (const file of ranked) {
 			if (sections.length >= MAX_CONTEXT_FILES) {
 				break;
 			}
-			const uri = URI.joinPath(folder.uri, file.path);
+			const resolved = resolveWorkspacePath(folderRefs, file.path);
+			const resolvedFolder = resolved ? folders.find(f => f.index === resolved.folderIndex) : undefined;
+			if (!resolved || !resolvedFolder) {
+				continue;
+			}
+			const uri = URI.joinPath(resolvedFolder.uri, resolved.relativePath);
 			if (uri.toString() === model.uri.toString()) {
 				continue;
 			}

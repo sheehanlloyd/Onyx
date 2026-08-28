@@ -6,7 +6,22 @@
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { ChatMessageRole, IChatMessage } from '../../../chat/common/languageModels.js';
 import { ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
+import { IOnyxControlPlaneService, IOnyxRunHandle } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
+
+/** Optional control-plane wiring for a one-shot request. */
+export interface IOnyxOneShotOptions {
+	readonly onDelta?: (text: string) => void;
+	/**
+	 * When set, the request is journaled like an agent turn: the exact wire
+	 * prompt lands on the run as a replayable snapshot, and the Compute view
+	 * shows the request as in flight while it streams.
+	 */
+	readonly run?: IOnyxRunHandle;
+	readonly controlPlane?: IOnyxControlPlaneService;
+	/** Full model identifier (`onyx:<key>`) to bypass routing — tournament runs race specific models. */
+	readonly modelIdentifier?: string;
+}
 
 /**
  * A single non-agentic request to a local model, streamed. Used by the small
@@ -19,23 +34,43 @@ export async function runOneShot(
 	system: string,
 	user: string,
 	token: CancellationToken,
-	onDelta?: (text: string) => void,
+	options?: IOnyxOneShotOptions,
 ): Promise<string> {
 	const messages: IChatMessage[] = [
 		{ role: ChatMessageRole.System, content: [{ type: 'text', value: system }] },
 		{ role: ChatMessageRole.User, content: [{ type: 'text', value: user }] },
 	];
 
-	const response = await modelService.sendChatRequest(`${ONYX_VENDOR}:${ONYX_AUTO_MODEL_ID}`, messages, undefined, {}, token);
-	let text = '';
-	for await (const part of response.stream) {
-		for (const one of Array.isArray(part) ? part : [part]) {
-			if (one.type === 'text') {
-				text += one.value;
-				onDelta?.(one.value);
+	const requestedModel = options?.modelIdentifier ?? `${ONYX_VENDOR}:${ONYX_AUTO_MODEL_ID}`;
+	// The same turn + snapshot shape the agent loop journals, so the Inspector
+	// can replay a review or commit-message run exactly like a chat run.
+	options?.run?.activity({ kind: 'turn', label: 'Model turn 1' });
+	options?.run?.snapshot({
+		turn: 1,
+		model: requestedModel,
+		tools: [],
+		messages: messages.map(message => ({
+			role: message.role,
+			content: message.content.map(part => part.type === 'text' ? { type: 'text', value: part.value } : { type: part.type }),
+		})),
+	});
+	options?.run?.setTurnCount(1);
+	options?.controlPlane?.updateCompute({ inFlight: true });
+
+	try {
+		const response = await modelService.sendChatRequest(requestedModel, messages, undefined, {}, token);
+		let text = '';
+		for await (const part of response.stream) {
+			for (const one of Array.isArray(part) ? part : [part]) {
+				if (one.type === 'text') {
+					text += one.value;
+					options?.onDelta?.(one.value);
+				}
 			}
 		}
+		await response.result;
+		return text;
+	} finally {
+		options?.controlPlane?.updateCompute({ inFlight: false });
 	}
-	await response.result;
-	return text;
 }

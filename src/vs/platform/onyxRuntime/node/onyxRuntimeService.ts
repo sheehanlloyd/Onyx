@@ -4,12 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { execFile } from 'child_process';
+import * as fs from 'fs';
 import * as os from 'os';
+import { join } from '../../../base/common/path.js';
 import { Emitter } from '../../../base/common/event.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { ILogService } from '../../log/common/log.js';
-import { IOnyxChatParams, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
+import { IOnyxChatParams, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -90,6 +93,9 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		for (const controller of this._operations.values()) {
 			controller.abort();
 		}
+		for (const indexer of this._indexers.values()) {
+			indexer.dispose();
+		}
 		super.dispose();
 	}
 
@@ -144,6 +150,8 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					...(params.tools?.length ? { tools: params.tools } : {}),
 					...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
 					...(params.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
+					...(params.keepAlive ? { keep_alive: params.keepAlive } : {}),
+					...(params.responseFormat ? { response_format: params.responseFormat } : {}),
 				}),
 			});
 
@@ -184,6 +192,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					max_tokens: params.maxTokens,
 					temperature: 0,
 					...(params.stop?.length ? { stop: params.stop } : {}),
+					...(params.keepAlive ? { keep_alive: params.keepAlive } : {}),
 					stream: false,
 				}),
 			});
@@ -251,8 +260,8 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		return groups;
 	}
 
-	async gitDiff(repoPath: string, staged: boolean, maxChars: number): Promise<IOnyxDiff> {
-		const selector = staged ? ['--cached'] : [];
+	async gitDiff(repoPath: string, mode: OnyxDiffMode, maxChars: number): Promise<IOnyxDiff> {
+		const selector = mode === 'staged' ? ['--cached'] : mode === 'head' ? ['HEAD'] : [];
 		const base = ['diff', '--no-color', '--no-ext-diff', ...selector];
 		const [text, names] = await Promise.all([
 			this._git(repoPath, [...base, '-U3'], 8 * 1024 * 1024),
@@ -261,6 +270,139 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		const files = names.split('\n').map(line => line.trim()).filter(Boolean);
 		const limit = Math.max(0, maxChars);
 		return { text: text.length > limit ? text.slice(0, limit) : text, files, truncated: text.length > limit };
+	}
+
+	private readonly _indexers = new Map<string, OnyxWorkspaceIndexer>();
+
+	private _indexer(rootPath: string, persistPath: string): OnyxWorkspaceIndexer {
+		let indexer = this._indexers.get(rootPath);
+		if (!indexer) {
+			indexer = new OnyxWorkspaceIndexer(rootPath, persistPath);
+			this._indexers.set(rootPath, indexer);
+		}
+		return indexer;
+	}
+
+	async ensureWorkspaceIndex(rootPath: string, persistPath: string): Promise<{ files: number; buildMs: number; truncated: boolean }> {
+		return this._indexer(rootPath, persistPath).ensure();
+	}
+
+	async searchWorkspaceIndex(rootPath: string, persistPath: string, query: string, limit: number): Promise<readonly { path: string; score: number }[]> {
+		return this._indexer(rootPath, persistPath).search(query, limit);
+	}
+
+	async updateWorkspaceIndex(rootPath: string, persistPath: string, changedFiles: readonly string[]): Promise<void> {
+		return this._indexer(rootPath, persistPath).update(changedFiles);
+	}
+
+	private _worktreesPruned = false;
+
+	async worktreeCreate(repoPath: string, id: string): Promise<{ worktreePath: string }> {
+		if (!this._worktreesPruned) {
+			this._worktreesPruned = true;
+			await this._pruneTournamentWorktrees(repoPath);
+		}
+		const worktreePath = join(os.tmpdir(), `onyx-tournament-${id}`);
+		await this._git(repoPath, ['worktree', 'add', '--detach', worktreePath, 'HEAD']);
+		return { worktreePath };
+	}
+
+	async worktreeWriteFile(worktreePath: string, relativePath: string, content: string): Promise<void> {
+		// The relative path must stay inside the worktree — this API writes
+		// tournament candidates, not arbitrary files.
+		const target = join(worktreePath, relativePath);
+		if (!target.startsWith(worktreePath)) {
+			throw new Error(`refusing to write outside the worktree: ${relativePath}`);
+		}
+		await fs.promises.writeFile(target, content, 'utf8');
+	}
+
+	async worktreeDiff(worktreePath: string): Promise<IOnyxDiff> {
+		const base = ['diff', '--no-color', '--no-ext-diff', 'HEAD'];
+		const [text, names] = await Promise.all([
+			this._git(worktreePath, [...base, '-U3'], 8 * 1024 * 1024),
+			this._git(worktreePath, [...base, '--name-only']),
+		]);
+		const files = names.split('\n').map(line => line.trim()).filter(Boolean);
+		return { text, files, truncated: false };
+	}
+
+	async worktreeRemove(repoPath: string, worktreePath: string): Promise<void> {
+		try {
+			await this._git(repoPath, ['worktree', 'remove', '--force', worktreePath]);
+		} catch {
+			// already gone or busy; pruning sweeps stragglers
+		}
+		try {
+			await this._git(repoPath, ['worktree', 'prune']);
+		} catch {
+			// best effort
+		}
+	}
+
+	async applyDiff(repoPath: string, diffText: string): Promise<void> {
+		// `git apply` reads the patch from a file: stdin plumbing through
+		// execFile is not worth the fragility for a local temp write.
+		const patchPath = join(os.tmpdir(), `onyx-apply-${Date.now()}.patch`);
+		await fs.promises.writeFile(patchPath, diffText, 'utf8');
+		try {
+			await this._git(repoPath, ['apply', '--whitespace=nowarn', patchPath]);
+		} finally {
+			await fs.promises.rm(patchPath, { force: true });
+		}
+	}
+
+	/** Sweeps worktrees a crashed session left behind. */
+	private async _pruneTournamentWorktrees(repoPath: string): Promise<void> {
+		try {
+			const list = await this._git(repoPath, ['worktree', 'list', '--porcelain']);
+			const leftovers = list.split('\n')
+				.filter(line => line.startsWith('worktree ') && line.includes('onyx-tournament-'))
+				.map(line => line.slice('worktree '.length).trim());
+			for (const leftover of leftovers) {
+				await this.worktreeRemove(repoPath, leftover);
+				await fs.promises.rm(leftover, { recursive: true, force: true }).catch(() => { });
+			}
+		} catch {
+			// no worktrees, or an older git: nothing to sweep
+		}
+	}
+
+	async warmUpModel(baseUrl: string, model: string, keepAlive: string): Promise<void> {
+		// A one-token completion forces the runtime to load the weights and,
+		// where keep_alive is honored, hold them. Failures are irrelevant: the
+		// worst case is the cold start the warm-up was trying to avoid.
+		try {
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 120_000);
+			await fetch(`${normalizeBaseUrl(baseUrl)}/completions`, {
+				method: 'POST',
+				signal: controller.signal,
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ model, prompt: ' ', max_tokens: 1, keep_alive: keepAlive, stream: false }),
+			}).finally(() => clearTimeout(timeout));
+		} catch {
+			// see above
+		}
+	}
+
+	async getPowerState(): Promise<IOnyxPowerState> {
+		if (os.platform() !== 'darwin') {
+			// Power-aware scheduling is a macOS feature for now; elsewhere the
+			// policy sees "plugged in, nominal" and never downshifts.
+			return { onBattery: false, thermal: 'unknown', cpuSpeedLimit: undefined };
+		}
+		const run = (args: readonly string[]) => new Promise<string>(resolve => {
+			execFile('pmset', args, { timeout: 3000 }, (error, stdout) => resolve(error ? '' : stdout));
+		});
+		const [batt, therm] = await Promise.all([run(['-g', 'batt']), run(['-g', 'therm'])]);
+		const onBattery = /'Battery Power'/.test(batt);
+		const speedMatch = therm.match(/CPU_Speed_Limit\s*=\s*(?<limit>\d+)/);
+		const cpuSpeedLimit = speedMatch?.groups?.limit ? Number(speedMatch.groups.limit) : undefined;
+		const thermal = cpuSpeedLimit !== undefined
+			? (cpuSpeedLimit < 100 ? 'serious' : 'nominal')
+			: /No thermal warning level/.test(therm) ? 'nominal' : 'unknown';
+		return { onBattery, thermal, cpuSpeedLimit };
 	}
 
 	async getMachineProfile(): Promise<IOnyxMachineProfile> {
@@ -460,6 +602,9 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				contextLength: detail?.contextLength,
 				supportsTools: detail?.supportsTools,
 				supportsVision: detail?.supportsVision,
+				// The four known runtimes all accept OpenAI `response_format:
+				// json_schema`; an unidentified server cannot be assumed to.
+				supportsJsonSchema: runtime !== 'generic',
 			});
 		}
 		return models;

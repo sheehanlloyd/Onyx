@@ -8,7 +8,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { localize } from '../../../../../nls.js';
 import { INotificationService, Severity } from '../../../../../platform/notification/common/notification.js';
-import { IOnyxEndpoint, IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxDiscoveredModel, IOnyxEndpoint, IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IProgressService, ProgressLocation } from '../../../../../platform/progress/common/progress.js';
 import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../../platform/quickinput/common/quickInput.js';
 import { formatSize, fitModel, IOnyxCatalogModel, ONYX_MODEL_CATALOG, recommendForMachine, toGigabytes } from '../../common/onyxModelCatalog.js';
@@ -41,9 +41,9 @@ export class OnyxModelLibrary {
 		]);
 		const memoryGb = toGigabytes(machine.totalMemoryBytes);
 		const tier = recommendForMachine(memoryGb);
-		const installed = new Set(this._modelService.getKnownModels().map(model => model.discovered.id));
+		const discovered = this._modelService.getKnownModels().map(model => model.discovered);
 
-		const picks = buildPicks(installed, memoryGb, tier.recommended);
+		const picks = buildPicks(discovered, memoryGb, tier.recommended);
 		const selected = await this._quickInputService.pick<IModelPickItem>(picks, {
 			title: localize('onyx.models.title', "Onyx model library"),
 			placeHolder: localize('onyx.models.placeholder', "{0} unified memory · {1} — {2}", `${memoryGb} GB`, tier.label, tier.guidance),
@@ -51,7 +51,7 @@ export class OnyxModelLibrary {
 			matchOnDetail: true,
 		});
 
-		if (!selected?.catalogModel || installed.has(selected.catalogModel.id)) {
+		if (!selected?.catalogModel || discovered.some(model => model.id === selected.catalogModel!.id)) {
 			return;
 		}
 		await this._install(selected.catalogModel, endpoints);
@@ -113,18 +113,25 @@ export class OnyxModelLibrary {
 /**
  * Groups the catalog into what is already here, what this machine should run
  * next, and what it cannot run — so the list answers "what should I do?"
- * rather than listing every model with equal weight.
+ * rather than listing every model with equal weight. Installed models that are
+ * not in the curated catalog still appear: what is actually on the machine is
+ * the one section that must never be incomplete.
  */
-export function buildPicks(installed: ReadonlySet<string>, memoryGb: number, recommended: readonly string[]): (IModelPickItem | IQuickPickSeparator)[] {
+export function buildPicks(discovered: readonly IOnyxDiscoveredModel[], memoryGb: number, recommended: readonly string[]): (IModelPickItem | IQuickPickSeparator)[] {
 	const picks: (IModelPickItem | IQuickPickSeparator)[] = [];
+	const installed = new Set(discovered.map(model => model.id));
 	const installedModels = ONYX_MODEL_CATALOG.filter(model => installed.has(model.id));
+	const uncatalogued = discovered.filter(model => !ONYX_MODEL_CATALOG.some(entry => entry.id === model.id));
 	const others = ONYX_MODEL_CATALOG.filter(model => !installed.has(model.id));
 	const isRecommended = (model: IOnyxCatalogModel) => recommended.includes(model.id);
 
-	if (installedModels.length) {
+	if (installedModels.length || uncatalogued.length) {
 		picks.push({ type: 'separator', label: localize('onyx.models.installedGroup', "Installed") });
 		for (const model of installedModels) {
 			picks.push(toPick(model, memoryGb, true, isRecommended(model)));
+		}
+		for (const model of uncatalogued) {
+			picks.push(toDiscoveredPick(model));
 		}
 	}
 
@@ -162,6 +169,20 @@ function toPick(model: IOnyxCatalogModel, memoryGb: number, isInstalled: boolean
 		description: badges,
 		detail: isInstalled ? localize('onyx.models.alreadyInstalled', "Installed — {0}", model.note) : model.note,
 		catalogModel: model,
+	};
+}
+
+/** An installed model outside the curated catalog, described from discovery metadata alone. */
+function toDiscoveredPick(model: IOnyxDiscoveredModel): IModelPickItem {
+	const badges = [
+		model.parameterB !== undefined ? localize('onyx.models.params', "{0}B parameters", model.parameterB) : undefined,
+		model.quantization,
+		model.contextLength !== undefined ? localize('onyx.models.context', "{0}K context", Math.round(model.contextLength / 1024)) : undefined,
+	].filter(Boolean).join(' · ');
+	return {
+		label: `$(check) ${model.id}`,
+		description: badges,
+		detail: localize('onyx.models.discoveredDetail', "Installed on {0}", model.baseUrl),
 	};
 }
 

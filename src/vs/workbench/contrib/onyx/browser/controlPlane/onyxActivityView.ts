@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../../base/browser/dom.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import * as aria from '../../../../../base/browser/ui/aria/aria.js';
+import { DisposableMap, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
@@ -23,6 +24,8 @@ import { ViewPane } from '../../../../browser/parts/views/viewPane.js';
 import { IViewletViewOptions } from '../../../../browser/parts/views/viewsViewlet.js';
 import { IViewDescriptorService } from '../../../../common/views.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { resolveWorkspacePath } from '../../common/onyxWorkspacePaths.js';
+import { OnyxVirtualTimeline } from './onyxVirtualTimeline.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 import { onyxNoRuntimeState, renderOnyxEmptyState } from './onyxEmptyState.js';
 import { IOnyxActivityEntry, IOnyxControlPlaneService, IOnyxLiveRun } from './onyxControlPlaneService.js';
@@ -40,6 +43,8 @@ interface IRenderedRun {
 	readonly element: HTMLElement;
 	readonly timeline: HTMLElement | undefined;
 	readonly earlierButton: HTMLButtonElement | undefined;
+	/** Windowed rendering when the user expanded a very long run. */
+	readonly virtualTimeline: OnyxVirtualTimeline | undefined;
 	/** How many activity entries have been rendered into the timeline so far. */
 	renderedCount: number;
 	/** How many older entries are collapsed behind the "earlier steps" button. */
@@ -62,6 +67,7 @@ export class OnyxActivityViewPane extends ViewPane {
 	private readonly _showAllRuns = new Set<string>();
 	private readonly _renderedRuns = new Map<string, IRenderedRun>();
 	private readonly _emptyStateDisposables = this._register(new DisposableStore());
+	private readonly _virtualTimelines = this._register(new DisposableMap<string, OnyxVirtualTimeline>());
 
 	constructor(
 		options: IViewletViewOptions,
@@ -114,6 +120,7 @@ export class OnyxActivityViewPane extends ViewPane {
 
 		DOM.clearNode(content);
 		this._renderedRuns.clear();
+		this._virtualTimelines.clearAndDisposeAll();
 		this._emptyStateDisposables.clear();
 
 		if (runs.length === 0) {
@@ -145,6 +152,15 @@ export class OnyxActivityViewPane extends ViewPane {
 		}
 		for (const run of runs) {
 			const rendered = this._renderedRuns.get(run.runId)!;
+			if (rendered.virtualTimeline) {
+				// Windowed mode: hand the full list over; the window re-renders itself.
+				const entries = run.activity.get();
+				if (entries.length !== rendered.renderedCount) {
+					rendered.virtualTimeline.setEntries(entries);
+					rendered.renderedCount = entries.length;
+				}
+				continue;
+			}
 			if (!rendered.timeline) {
 				continue; // collapsed: entry count is not part of the signature
 			}
@@ -152,6 +168,9 @@ export class OnyxActivityViewPane extends ViewPane {
 			for (let i = rendered.renderedCount + rendered.hiddenCount; i < entries.length; i++) {
 				this._renderEntry(rendered.timeline, entries[i]);
 				rendered.renderedCount++;
+				// Screen readers cannot watch a timeline grow: each new step is
+				// announced politely, so it never interrupts the user's own work.
+				this._announce(entries[i]);
 			}
 			this._trimTimeline(run, rendered);
 		}
@@ -222,13 +241,24 @@ export class OnyxActivityViewPane extends ViewPane {
 		const expanded = this._expandedRuns.has(run.runId) || status === 'running' || status === 'paused';
 		let timeline: HTMLElement | undefined;
 		let earlierButton: HTMLButtonElement | undefined;
+		let virtualTimeline: OnyxVirtualTimeline | undefined;
 		let renderedCount = 0;
 		let hiddenCount = 0;
-		if (expanded) {
+		if (expanded && this._showAllRuns.has(run.runId)) {
+			// The whole history was requested: window it instead of building
+			// thousands of nodes — 5,000 steps must scroll, not stall.
+			const body = DOM.append(runElement, $('.onyx-run-body'));
+			const entries = run.activity.get();
+			virtualTimeline = new OnyxVirtualTimeline(body, location => this._openLocation(location));
+			this._virtualTimelines.set(run.runId, virtualTimeline);
+			virtualTimeline.setEntries(entries);
+			virtualTimeline.scrollToEnd();
+			renderedCount = entries.length;
+		} else if (expanded) {
 			const body = DOM.append(runElement, $('.onyx-run-body'));
 			timeline = DOM.append(body, $('.onyx-timeline'));
 			const entries = run.activity.get();
-			hiddenCount = this._showAllRuns.has(run.runId) ? 0 : Math.max(0, entries.length - MAX_VISIBLE_ENTRIES);
+			hiddenCount = Math.max(0, entries.length - MAX_VISIBLE_ENTRIES);
 			earlierButton = DOM.append(timeline, $('button.onyx-timeline-earlier')) as HTMLButtonElement;
 			earlierButton.textContent = localize('onyx.activity.earlier', "{0} earlier steps", hiddenCount);
 			earlierButton.style.display = hiddenCount > 0 ? '' : 'none';
@@ -242,7 +272,17 @@ export class OnyxActivityViewPane extends ViewPane {
 				renderedCount++;
 			}
 		}
-		this._renderedRuns.set(run.runId, { element: runElement, timeline, earlierButton, renderedCount, hiddenCount, signature: this._signature(run, isSelected) });
+		this._renderedRuns.set(run.runId, { element: runElement, timeline, earlierButton, virtualTimeline, renderedCount, hiddenCount, signature: this._signature(run, isSelected) });
+	}
+
+	/** Politely announces one agent step; failures are worth interrupting for. */
+	private _announce(entry: IOnyxActivityEntry): void {
+		const message = entry.reason ? `${entry.label} — ${entry.reason}` : entry.label;
+		if (entry.ok === false) {
+			aria.alert(message);
+		} else {
+			aria.status(message);
+		}
 	}
 
 	private _renderEntry(timeline: HTMLElement, entry: IOnyxActivityEntry): void {
@@ -280,12 +320,14 @@ export class OnyxActivityViewPane extends ViewPane {
 	}
 
 	private _openLocation(location: { path: string; line: number }): void {
-		const folder = this._workspaceService.getWorkspace().folders[0];
-		if (!folder) {
+		const folders = this._workspaceService.getWorkspace().folders;
+		const resolved = resolveWorkspacePath(folders.map(f => ({ name: f.name, index: f.index })), location.path);
+		const folder = resolved ? folders.find(f => f.index === resolved.folderIndex) : undefined;
+		if (!resolved || !folder) {
 			return;
 		}
 		this._editorService.openEditor({
-			resource: URI.joinPath(folder.uri, location.path),
+			resource: URI.joinPath(folder.uri, resolved.relativePath),
 			options: { selection: { startLineNumber: location.line, startColumn: 1 }, pinned: true },
 		});
 	}
