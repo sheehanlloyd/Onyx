@@ -18,6 +18,8 @@ export const enum OnyxSettingId {
 	AutocompleteModel = 'onyx.autocomplete.model',
 	AutocompleteContext = 'onyx.autocomplete.context',
 	VerificationTask = 'onyx.verification.task',
+	EnergyPolicy = 'onyx.energy.policy',
+	BackgroundReview = 'onyx.review.background',
 }
 
 export interface IOnyxEndpointSetting {
@@ -113,6 +115,24 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.RESOURCE,
 			default: '',
 			markdownDescription: localize('onyx.verification.task', "Project check to run after an Onyx agent run that used tools, with the pass/fail verdict posted to the run's timeline. Use `build` or `test` for the workspace's default build or test task, any other value for a task with that name, or leave empty to disable."),
+		},
+		[OnyxSettingId.BackgroundReview]: {
+			type: 'boolean',
+			scope: ConfigurationScope.RESOURCE,
+			default: false,
+			description: localize('onyx.review.background', "When the machine is idle, plugged in and thermally comfortable, quietly review uncommitted changes with a local model and file findings in the Problems panel under the \"onyx\" source. Any activity cancels the review instantly."),
+		},
+		[OnyxSettingId.EnergyPolicy]: {
+			type: 'string',
+			scope: ConfigurationScope.APPLICATION,
+			enum: ['balanced', 'performance', 'efficiency'],
+			default: 'balanced',
+			enumDescriptions: [
+				localize('onyx.energy.balanced', "Route to smaller models and complete less often on battery or under thermal pressure."),
+				localize('onyx.energy.performance', "Always use the best model for the job, regardless of power source or temperature."),
+				localize('onyx.energy.efficiency', "Prefer the smallest capable models everywhere; on battery, inline autocomplete turns off."),
+			],
+			description: localize('onyx.energy.policy', "How Onyx trades model quality against battery and heat. The Compute view explains any downshift in plain language."),
 		},
 	},
 });

@@ -9,6 +9,7 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { ITaskService } from '../../../tasks/common/taskService.js';
 import { Task, TaskGroup } from '../../../tasks/common/tasks.js';
 import { OnyxSettingId } from '../../common/onyxConfiguration.js';
+import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
 import { IOnyxRunHandle } from '../controlPlane/onyxControlPlaneService.js';
 
 /**
@@ -23,12 +24,20 @@ export class OnyxTaskVerification {
 	constructor(
 		@ITaskService private readonly _taskService: ITaskService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IOnyxProjectConfigService private readonly _projectConfigService: IOnyxProjectConfigService,
 		@ILogService private readonly _logService: ILogService,
 	) { }
 
-	/** Whether a check task is configured for the active workspace. */
+	/** Whether a check task is configured for the active workspace (user setting, else .onyx/config.json). */
 	get enabled(): boolean {
-		return !!this._configurationService.getValue<string>(OnyxSettingId.VerificationTask);
+		return !!this._configuredTask();
+	}
+
+	private _configuredTask(): string {
+		// The user's setting outranks the repository's default.
+		return this._configurationService.getValue<string>(OnyxSettingId.VerificationTask)
+			|| this._projectConfigService.resolved.get().config.verificationTask
+			|| '';
 	}
 
 	/**
@@ -37,7 +46,7 @@ export class OnyxTaskVerification {
 	 * verdict lands on the (already completed) run when the task finishes.
 	 */
 	async run(handle: IOnyxRunHandle): Promise<void> {
-		const configured = this._configurationService.getValue<string>(OnyxSettingId.VerificationTask);
+		const configured = this._configuredTask();
 		if (!configured) {
 			return;
 		}
