@@ -74,7 +74,9 @@ export const enum AccessibilityVerbositySettingId {
 	Survey = 'accessibility.verbosity.survey',
 	Automations = 'accessibility.verbosity.automations',
 	BrowserElementCommenting = 'accessibility.verbosity.browserElementCommenting',
-	ChatPetAchievements = 'accessibility.verbosity.chatPetAchievements'
+	ChatPetAchievements = 'accessibility.verbosity.chatPetAchievements',
+	OnyxControlPlane = 'accessibility.verbosity.onyxControlPlane',
+	OnyxInlineEdit = 'accessibility.verbosity.onyxInlineEdit'
 }
 
 const baseVerbosityProperty: IConfigurationPropertySchema = {
@@ -203,6 +205,14 @@ const configuration: IConfigurationNode = {
 			markdownDescription: localize('terminal.integrated.accessibleView.closeOnKeyPress', "On keypress, close the Accessible View and focus the element from which it was invoked."),
 			type: 'boolean',
 			default: true
+		},
+		[AccessibilityVerbositySettingId.OnyxControlPlane]: {
+			description: localize('verbosity.onyxControlPlane', 'Provide information about how to access the Onyx control plane accessibility help menu when a control plane view is focused.'),
+			...baseVerbosityProperty
+		},
+		[AccessibilityVerbositySettingId.OnyxInlineEdit]: {
+			description: localize('verbosity.onyxInlineEdit', 'Provide information about how to access the Onyx inline edit accessibility help menu when the inline edit input is focused.'),
+			...baseVerbosityProperty
 		},
 		[AccessibilityVerbositySettingId.SourceControl]: {
 			description: localize('verbosity.scm', 'Provide information about how to access the source control accessibility help menu when the input is focused.'),

@@ -46,6 +46,8 @@ export const enum AccessibleViewProviderId {
 	WebviewFindHelp = 'webviewFindHelp',
 	OutputFindHelp = 'outputFindHelp',
 	ChatFindHelp = 'chatFindHelp',
+	OnyxControlPlane = 'onyxControlPlane',
+	OnyxInlineEdit = 'onyxInlineEdit',
 	ProblemsFilterHelp = 'problemsFilterHelp',
 	SessionsChat = 'sessionsChat',
 	SessionsChanges = 'sessionsChanges',

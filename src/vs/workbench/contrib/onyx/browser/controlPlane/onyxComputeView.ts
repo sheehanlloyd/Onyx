@@ -18,7 +18,10 @@ import { ViewPane } from '../../../../browser/parts/views/viewPane.js';
 import { IViewletViewOptions } from '../../../../browser/parts/views/viewsViewlet.js';
 import { IViewDescriptorService } from '../../../../common/views.js';
 import { formatCount, IOnyxLedgerEntry, summarize } from '../../common/onyxLedger.js';
+import { IOnyxEnergyService } from '../compute/onyxEnergyService.js';
 import { IOnyxLedgerService } from '../compute/onyxLedgerService.js';
+import { IOnyxPromptCacheService } from '../agent/onyxPromptCache.js';
+import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxComputeState, IOnyxControlPlaneService } from './onyxControlPlaneService.js';
 
 const $ = DOM.$;
@@ -50,6 +53,9 @@ export class OnyxComputeViewPane extends ViewPane {
 		@IHoverService hoverService: IHoverService,
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
 		@IOnyxLedgerService private readonly _ledgerService: IOnyxLedgerService,
+		@IOnyxEnergyService private readonly _energyService: IOnyxEnergyService,
+		@IOnyxProfileService private readonly _profileService: IOnyxProfileService,
+		@IOnyxPromptCacheService private readonly _promptCacheService: IOnyxPromptCacheService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -59,6 +65,9 @@ export class OnyxComputeViewPane extends ViewPane {
 		this._content = DOM.append(container, $('.onyx-view'));
 
 		this._register(autorun(reader => {
+			this._energyService.decision.read(reader);
+			this._promptCacheService.lastReuse.read(reader);
+			this._promptCacheService.ttftByReuse.read(reader);
 			this._render(
 				this._controlPlaneService.compute.read(reader),
 				this._ledgerService.session.read(reader),
@@ -94,9 +103,58 @@ export class OnyxComputeViewPane extends ViewPane {
 
 		this._stat(grid,
 			localize('onyx.compute.state', "State"),
-			state.inFlight ? localize('onyx.compute.generating', "generating") : localize('onyx.compute.idle', "idle"),
+			state.loadingModel && state.inFlight
+				? localize('onyx.compute.loading', "loading model")
+				: state.inFlight ? localize('onyx.compute.generating', "generating") : localize('onyx.compute.idle', "idle"),
 			undefined,
 			state.inFlight);
+
+		// Cold vs warm first token, once both have been measured: the local
+		// answer to "why was that one slow?".
+		const stats = state.modelKey ? this._profileService.getStats(state.modelKey) : undefined;
+		if (stats && stats.ttftColdSamples > 0 && stats.ttftWarmSamples > 0) {
+			const split = DOM.append(content, $('.onyx-compute-energy'));
+			const icon = DOM.append(split, $('span.codicon.codicon-history'));
+			icon.ariaHidden = 'true';
+			const text = DOM.append(split, $('span'));
+			text.textContent = localize('onyx.compute.ttftSplit', "first token: {0}s warm · {1}s cold start", (stats.ttftWarmMs / 1000).toFixed(2), (stats.ttftColdMs / 1000).toFixed(2));
+		}
+
+		// The prompt cache readout: how much of the last prompt a runtime could
+		// serve from its KV cache, and what that reuse buys in first-token time.
+		const reuse = this._promptCacheService.lastReuse.get();
+		if (reuse && reuse.totalTokens > 0) {
+			const ttft = this._promptCacheService.ttftByReuse.get();
+			const split = ttft.highSamples > 0 && ttft.lowSamples > 0
+				? localize('onyx.compute.cacheSplit', " · first token {0}s cached vs {1}s cold", (ttft.highReuseMs / 1000).toFixed(2), (ttft.lowReuseMs / 1000).toFixed(2))
+				: '';
+			const note = DOM.append(content, $('.onyx-compute-energy'));
+			const icon = DOM.append(note, $('span.codicon.codicon-database'));
+			icon.ariaHidden = 'true';
+			const text = DOM.append(note, $('span'));
+			text.textContent = localize('onyx.compute.promptCache', "prompt cache: {0} of {1} tokens reusable ({2}%){3}", reuse.reusedTokens, reuse.totalTokens, reuse.percent, split);
+		}
+
+		// Constrained decoding's measurable win: parse failures with vs without.
+		if (stats && stats.constrainedTurns > 0) {
+			const constrainedRate = Math.round((stats.constrainedFailures / stats.constrainedTurns) * 100);
+			const freeFormRate = Math.round(stats.toolCallParseFailureRate * 100);
+			const note = DOM.append(content, $('.onyx-compute-energy'));
+			const icon = DOM.append(note, $('span.codicon.codicon-symbol-ruler'));
+			icon.ariaHidden = 'true';
+			const text = DOM.append(note, $('span'));
+			text.textContent = localize('onyx.compute.constrained', "tool calls: {0}% malformed free-form · {1}% constrained ({2} turns)", freeFormRate, constrainedRate, stats.constrainedTurns);
+		}
+
+		// The energy story, in one calm sentence — only when something changed.
+		const energy = this._energyService.decision.get();
+		if (energy.downshifted && energy.reason) {
+			const note = DOM.append(content, $('.onyx-compute-energy'));
+			const icon = DOM.append(note, $('span.codicon.codicon-flame'));
+			icon.ariaHidden = 'true';
+			const text = DOM.append(note, $('span'));
+			text.textContent = energy.reason;
+		}
 
 		this._sectionLabel(content, localize('onyx.compute.ledger', "Compute spent"));
 		this._renderScopeToggle(content);

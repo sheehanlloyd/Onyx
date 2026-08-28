@@ -147,7 +147,16 @@ export class OnyxOutcomeService extends Disposable implements IOnyxOutcomeServic
 		}
 		try {
 			const content = await this._fileService.readFile(joinPath(this._journalRoot(), 'index.json'));
-			this._index = JSON.parse(content.value.toString());
+			const parsed = JSON.parse(content.value.toString());
+			// A corrupt index can still be valid JSON (a truncated write leaving
+			// `{}`), so shape is checked, not just parseability: a bad index
+			// costs the run history, never a broken control plane.
+			this._index = Array.isArray(parsed)
+				? parsed.filter((entry): entry is IOnyxRunSummary => !!entry && typeof entry === 'object' && typeof (entry as IOnyxRunSummary).runId === 'string')
+				: [];
+			if (!Array.isArray(parsed)) {
+				this._logService.warn('[onyx] run journal index was not an array; starting a fresh history');
+			}
 		} catch {
 			this._index = [];
 		}
