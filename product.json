@@ -200,9 +200,9 @@
 			"type": "dark"
 		},
 		{
-			"id": "hc-dark",
-			"label": "Dark High Contrast",
-			"themeId": "Default High Contrast",
+			"id": "onyx-dark-hc",
+			"label": "Onyx Dark High Contrast",
+			"themeId": "Onyx Dark High Contrast",
 			"type": "hcDark"
 		},
 		{
@@ -224,9 +224,9 @@
 			"type": "light"
 		},
 		{
-			"id": "hc-light",
-			"label": "Light High Contrast",
-			"themeId": "Default High Contrast Light",
+			"id": "onyx-light-hc",
+			"label": "Onyx Light High Contrast",
+			"themeId": "Onyx Light High Contrast",
 			"type": "hcLight"
 		},
 		{

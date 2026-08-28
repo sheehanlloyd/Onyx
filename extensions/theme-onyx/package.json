@@ -22,6 +22,18 @@
         "label": "%themeLabelLight%",
         "uiTheme": "vs",
         "path": "./themes/onyx-light-color-theme.json"
+      },
+      {
+        "id": "Onyx Dark High Contrast",
+        "label": "%themeLabelDarkHC%",
+        "uiTheme": "hc-black",
+        "path": "./themes/onyx-dark-hc-color-theme.json"
+      },
+      {
+        "id": "Onyx Light High Contrast",
+        "label": "%themeLabelLightHC%",
+        "uiTheme": "hc-light",
+        "path": "./themes/onyx-light-hc-color-theme.json"
       }
     ],
     "walkthroughs": [

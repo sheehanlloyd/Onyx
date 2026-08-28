@@ -41,8 +41,8 @@ export enum ThemeSettings {
 export namespace ThemeSettingDefaults {
 	export const COLOR_THEME_DARK = 'Onyx Dark';
 	export const COLOR_THEME_LIGHT = 'Light 2026';
-	export const COLOR_THEME_HC_DARK = 'Default High Contrast';
-	export const COLOR_THEME_HC_LIGHT = 'Default High Contrast Light';
+	export const COLOR_THEME_HC_DARK = 'Onyx Dark High Contrast';
+	export const COLOR_THEME_HC_LIGHT = 'Onyx Light High Contrast';
 
 	export const FILE_ICON_THEME = 'vs-seti';
 	export const PRODUCT_ICON_THEME = 'Default';

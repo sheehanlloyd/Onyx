@@ -3,6 +3,8 @@
   "description": "The Onyx visual identity: the Onyx Dark and Onyx Light color themes and the getting-started walkthrough for local AI features.",
   "themeLabelDark": "Onyx Dark",
   "themeLabelLight": "Onyx Light",
+  "themeLabelDarkHC": "Onyx Dark High Contrast",
+  "themeLabelLightHC": "Onyx Light High Contrast",
   "walkthrough.title": "Get Started with Onyx",
   "walkthrough.description": "Local models, an adaptive agent, and a control plane that shows you everything.",
   "walkthrough.runtime.title": "Connect a local runtime",

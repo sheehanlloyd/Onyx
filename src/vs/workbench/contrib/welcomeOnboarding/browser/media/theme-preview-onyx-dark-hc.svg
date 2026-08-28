@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 82" fill="none">
+	<rect width="280" height="82" rx="4" fill="#000000" stroke="#8A70C9"/>
+	<rect width="22" height="82" fill="#000000"/>
+	<line x1="22" y1="0" x2="22" y2="82" stroke="#8A70C9"/>
+	<rect x="5" y="5" width="12" height="12" rx="2" fill="#FFFFFF" opacity="0.7"/>
+	<rect x="5" y="21" width="12" height="12" rx="2" fill="#FFFFFF" opacity="0.7"/>
+	<rect x="5" y="37" width="12" height="12" rx="2" fill="#FFFFFF" opacity="0.7"/>
+	<rect x="22" y="0" width="258" height="18" fill="#000000"/>
+	<line x1="22" y1="18" x2="280" y2="18" stroke="#8A70C9"/>
+	<text x="30" y="12" font-family="monospace" font-size="7" fill="#FFFFFF">index.ts</text>
+	<line x1="30" y1="16" x2="64" y2="16" stroke="#B79CFF" stroke-width="1.5"/>
+	<text x="70" y="12" font-family="monospace" font-size="7" fill="#D0D0DC">app.ts</text>
+	<text x="28" y="32" font-family="monospace" font-size="9"><tspan fill="#C9B4FF">function </tspan><tspan fill="#D4C5FF">greet</tspan><tspan fill="#FFFFFF">() {</tspan></text>
+	<text x="39" y="45" font-family="monospace" font-size="9"><tspan fill="#A3D98F">// hello</tspan></text>
+	<text x="39" y="58" font-family="monospace" font-size="9"><tspan fill="#C9B4FF">return </tspan><tspan fill="#8FE6CC">"Hi"</tspan></text>
+	<text x="28" y="71" font-family="monospace" font-size="9" fill="#FFFFFF">}</text>
+</svg>
