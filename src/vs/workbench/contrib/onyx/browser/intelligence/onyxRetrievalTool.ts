@@ -15,6 +15,13 @@ import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { CallHierarchyItem, CallHierarchyProviderRegistry } from '../../../callHierarchy/common/callHierarchy.js';
 import { getWorkspaceSymbols } from '../../../search/common/search.js';
 import { ILanguageModelToolsService, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource } from '../../../chat/common/tools/languageModelToolsService.js';
+import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
+import { buildCoChangeIndex, coChangedWith } from '../../common/onyxCoChange.js';
+import { blendRetrievalSignals } from '../../common/onyxRetrievalBlend.js';
+import { qualifyWorkspacePath, resolveWorkspacePath } from '../../common/onyxWorkspacePaths.js';
+import { bm25PersistPath } from './onyxWorkspaceIndex.js';
 
 export const ONYX_RETRIEVAL_TOOL_ID = 'onyx_repoSymbols';
 
@@ -39,6 +46,9 @@ export class OnyxRetrievalToolContribution extends Disposable {
 		@ITextModelService private readonly _textModelService: ITextModelService,
 		@ILabelService private readonly _labelService: ILabelService,
 		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
+		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
+		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
 	) {
 		super();
 
@@ -92,8 +102,16 @@ export class OnyxRetrievalToolContribution extends Disposable {
 			endLineNumber: item.symbol.location.range?.endLineNumber ?? 1,
 		})), limit);
 
+		const blendedSection = await this._blendedFiles(query, ranked.map(match => this._labelService.getUriLabel(match.uri, { relative: true })));
+
 		if (ranked.length === 0) {
-			return { content: [{ kind: 'text', value: `No workspace symbols match "${query}". Try a shorter prefix, or a text search instead.` }] };
+			return {
+				content: [{
+					kind: 'text', value: blendedSection
+						? `No workspace symbols match "${query}", but these files match by content:\n${blendedSection}`
+						: `No workspace symbols match "${query}". Try a shorter prefix, or a text search instead.`
+				}]
+			};
 		}
 
 		const sections: string[] = [`${ranked.length} symbol(s) matching "${query}":`];
@@ -107,11 +125,57 @@ export class OnyxRetrievalToolContribution extends Disposable {
 		if (parameters.expand === true) {
 			sections.push(await this._callGraph(ranked[0], token));
 		}
+		if (blendedSection) {
+			sections.push(`Files most relevant to "${query}" (symbols ⊕ content ⊕ co-change):\n${blendedSection}`);
+		}
 
 		return {
 			content: [{ kind: 'text', value: sections.join('\n\n') }],
 			toolResultDetails: ranked.map(match => match.uri),
 		};
+	}
+
+	/**
+	 * The blended file ranking: symbol hits ⊕ BM25 content hits from the
+	 * shared-process index ⊕ historical co-change partners of the best
+	 * symbol file. Empty string when no signal produced anything (e.g. the
+	 * index has not been built yet).
+	 */
+	private async _blendedFiles(query: string, symbolPaths: readonly string[]): Promise<string> {
+		const folders = this._workspaceService.getWorkspace().folders.filter(folder => folder.uri.scheme === 'file');
+		if (folders.length === 0) {
+			return '';
+		}
+		const folderRefs = folders.map(f => ({ name: f.name, index: f.index }));
+		const contentHits: { path: string; score: number }[] = [];
+		let coChangePartners: { path: string; strength: number }[] = [];
+		for (const folder of folders) {
+			try {
+				const hits = await this._runtimeService.searchWorkspaceIndex(folder.uri.fsPath, bm25PersistPath(this._environmentService, this._workspaceService, folder).fsPath, query, 8);
+				contentHits.push(...hits.map(hit => ({ path: qualifyWorkspacePath(folderRefs, folder.index, hit.path), score: hit.score })));
+			} catch {
+				// index unavailable: symbols and history still blend
+			}
+		}
+		const topSymbolPath = symbolPaths[0];
+		if (topSymbolPath) {
+			try {
+				const resolved = resolveWorkspacePath(folderRefs, topSymbolPath);
+				const folder = resolved ? folders.find(f => f.index === resolved.folderIndex) : undefined;
+				if (resolved && folder) {
+					const groups = await this._runtimeService.gitCommitFileGroups(folder.uri.fsPath, 150);
+					coChangePartners = coChangedWith(buildCoChangeIndex(groups), resolved.relativePath, 5)
+						.map(partner => ({ path: qualifyWorkspacePath(folderRefs, folder.index, partner.path), strength: partner.strength }));
+				}
+			} catch {
+				// no git history: blend without it
+			}
+		}
+		const blended = blendRetrievalSignals({ symbolPaths, contentHits, coChangePartners }, 8);
+		if (blended.length === 0) {
+			return '';
+		}
+		return blended.map(file => `- ${file.path} (${file.reasons.join(', ')})`).join('\n');
 	}
 
 	/**

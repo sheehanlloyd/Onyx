@@ -8,6 +8,9 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { ChatMessageRole, IChatMessage } from '../../../chat/common/languageModels.js';
+import { capCandidatesByParameter } from '../../common/onyxEnergyPolicy.js';
+import { IOnyxEnergyService } from '../compute/onyxEnergyService.js';
+import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
 import { OnyxTaskKind } from '../../common/onyxTypes.js';
 import { IOnyxKnownModel } from '../model/onyxLanguageModelProvider.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
@@ -44,6 +47,8 @@ export class OnyxRouterService extends Disposable implements IOnyxRouterService 
 
 	constructor(
 		@IOnyxProfileService private readonly _profileService: IOnyxProfileService,
+		@IOnyxEnergyService private readonly _energyService: IOnyxEnergyService,
+		@IOnyxProjectConfigService private readonly _projectConfigService: IOnyxProjectConfigService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
@@ -76,11 +81,28 @@ export class OnyxRouterService extends Disposable implements IOnyxRouterService 
 			return undefined;
 		}
 		const task = this.classify(messages);
-		const scored = candidates.map(model => this._score(task, model));
+		// A model pinned for this task in .onyx/config.json wins outright: the
+		// repository knows its own workloads better than a generic scorer.
+		const pinnedId = this._projectConfigService.resolved.get().config.models?.[task];
+		if (pinnedId) {
+			const pinned = candidates.find(model => model.key === pinnedId || model.discovered.id === pinnedId);
+			if (pinned) {
+				const reasons = [`pinned for ${task} in .onyx/config.json`];
+				this._onDidRoute.fire({ task, modelKey: pinned.key, reasons });
+				return pinned;
+			}
+		}
+		// Energy-aware downshift: on battery or under thermal pressure the
+		// candidate pool shrinks before scoring, and the reason is surfaced
+		// with the routing decision so the control plane can explain it.
+		const decision = this._energyService.decision.get();
+		const pool = capCandidatesByParameter(candidates.map(model => ({ parameterB: model.profile.parameterB, model })), decision.maxParameterB).map(entry => entry.model);
+		const scored = pool.map(model => this._score(task, model));
 		scored.sort((a, b) => b.score - a.score);
 		const winner = scored[0];
-		this._logService.debug(`[onyx] routed ${task} -> ${winner.model.key} (${winner.reasons.join('; ')})`);
-		this._onDidRoute.fire({ task, modelKey: winner.model.key, reasons: winner.reasons });
+		const reasons = decision.downshifted && pool.length < candidates.length ? [...winner.reasons, decision.reason] : winner.reasons;
+		this._logService.debug(`[onyx] routed ${task} -> ${winner.model.key} (${reasons.join('; ')})`);
+		this._onDidRoute.fire({ task, modelKey: winner.model.key, reasons });
 		return winner.model;
 	}
 
