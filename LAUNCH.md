@@ -66,20 +66,29 @@ hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
 
 ## Pre-flight checklist
 
-- [ ] `npm run typecheck-client`, `npm run valid-layers-check`, eslint on
-      the two Onyx directories, `npm run stylelint`, and
-      `./scripts/test.sh --grep Onyx` all green
-- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtime
+- [ ] `npm run typecheck-client`, `npm run valid-layers-check`,
+      `npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx`,
+      `npm run stylelint`, and `./scripts/test.sh --grep Onyx` all green
+- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtime (24 checks)
+- [ ] The full unit suite (`./scripts/test.sh`) is at zero failures
 - [ ] Fresh-profile launch: onboarding opens on **Connect a Local Runtime**
       (not a sign-in), Onyx Dark preselected, Onyx icon in the Dock,
       "Get Started with Onyx" featured on the Welcome page
-- [ ] Nothing on a fresh profile mentions another vendor's assistant, and
-      no "Sign In" pill appears in the title bar
-- [ ] With a local runtime up: models in the picker, streaming chat,
-      control plane live, ghost-text autocomplete, `Onyx: Manage Models`
-      shows this machine's memory tier
-- [ ] With no runtime: the designed "No local model yet" state in chat and
-      the control plane, no errors in the console
-- [ ] Both themes: Onyx Dark and Onyx Light render the control plane, chat
-      and the empty states correctly
-- [ ] `REBASE.md` still lists every upstream file touched
+- [ ] Nothing on a fresh profile mentions another vendor's assistant: no
+      "Sign In" pill, and **no GitHub Copilot entry under Extensions →
+      Built-in** (the packaged build excludes it; a dev launch still shows it)
+- [ ] With a local runtime up: models in the picker, streaming chat, control
+      plane live, ghost-text autocomplete, ⌘I inline edit applies reviewable
+      hunks, `Onyx: Manage Models` shows this machine's memory tier
+- [ ] The Onyx Hub (⌘⌃H) opens and every row shows live state
+- [ ] `Onyx: Run in Parallel` races models in worktrees and leaves none behind
+      (`git worktree list` shows only the repository itself afterwards)
+- [ ] `Onyx: Export Diagnostics` writes a readable zip and the redaction
+      checkbox is unchecked by default
+- [ ] With no runtime: the designed "No local model yet" state in chat and the
+      control plane, no errors in the console; killing the runtime mid-answer
+      shows a plain-language message, never `terminated`
+- [ ] All four themes — Onyx Dark, Onyx Light, and both high-contrast variants —
+      render the control plane, chat, inline edit and the empty states correctly
+- [ ] `REBASE.md` still lists every upstream file touched, and its merge-drill
+      section names the last upstream commit tested

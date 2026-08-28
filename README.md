@@ -9,6 +9,11 @@ Every model runs on your machine. No cloud. No telemetry. No account —
 there is nothing to sign in to.</p>
 
 <p align="center">
+  <img src="docs/images/onyx-demo.gif" alt="Onyx in use: first run with live runtime detection, an inline edit reviewed hunk by hunk, and an adversarial review with file:line findings — all against models running on this Mac" width="900" />
+</p>
+<p align="center"><i>Recorded from the real product against real local models — no cloud, no cuts.</i></p>
+
+<p align="center">
   <img src="docs/images/onyx-workbench.png" alt="Onyx workbench: Onyx Dark theme, local agent chat, control plane" width="900" />
 </p>
 
@@ -87,6 +92,39 @@ exactly what the agent is doing and why.
 - **Two commands in the editor.** **Fix with Onyx** on a diagnostic and
   **Explain with Onyx** on a selection, both routed through the normal
   chat surface with the right range attached.
+- **Inline edit that survives small models (`⌘I`).** Select code, say what
+  to change, and the edit streams back as reviewable hunks: `⌘⏎` keeps
+  one, `⌘⌫` restores the original lines, `F7` walks them. Local models
+  mangle unified diffs, so Onyx asks for SEARCH/REPLACE blocks and repairs
+  what comes back — echoed markers, missing dividers, whitespace drift,
+  truncated output. When nothing usable can be parsed, your file is left
+  exactly as it was and the widget says so.
+- **Tournament mode.** `Onyx: Run in Parallel` races one instruction across
+  several local models, each in its own `git worktree` so nothing collides.
+  Compare the diffs side by side, pick a winner — it is applied to your
+  tree, the rest are discarded, and the pick teaches the router.
+- **Constrained decoding where the runtime supports it.** Models that keep
+  mangling tool calls get their turns constrained to a JSON schema, and the
+  Compute view shows the malformed-call rate free-form versus constrained.
+- **Prompt-cache-aware prompting.** A stable system prefix, append-only
+  history and volatile context last, with a live readout of how many prompt
+  tokens the runtime could reuse and what that buys in first-token latency.
+- **Battery and heat are inputs.** On battery or under thermal pressure the
+  router caps model size and autocomplete backs off, and the Compute view
+  explains the downshift in one plain sentence.
+- **Semantic search without embeddings.** An incremental BM25 index over
+  your workspace, blended with symbol matches and co-change history — it
+  finds "commit message digest" in the file that defines
+  `buildCommitDiffDigest`, which substring search never will.
+- **Risk badges before you accept.** Each changed file is scored on churn,
+  coupling, call-graph fan-in, hunk size and test proximity, and shown as a
+  calm one-line reason — never a wall of red.
+- **A configuration your repository can check in.** `.onyx/config.json`
+  pins models per task kind, the verification task, context pins, a review
+  severity threshold and disabled tools — schema-backed, and always
+  outranked by your own settings.
+- **Everything in one place (`⌘⌃H`).** The Onyx Hub fronts every command
+  with live state: models ready, runs today, which model is resident.
 
 ## Getting started
 

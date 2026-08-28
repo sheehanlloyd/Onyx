@@ -46,6 +46,12 @@ exactly what the agent is doing, what it costs in compute, and why.
 │  scm/onyxCommitMessage            ← staged diff → local model → SCM input      │
 │  review/onyxReviewChanges         ← adversarial review → timeline + file:line  │
 │  editor/onyxCodeActions           ← "Fix with Onyx" / "Explain with Onyx"      │
+│  editor/onyxInlineEditController  ← ⌘I inline edit + per-hunk accept/reject   │
+│  tournament/onyxTournament        ← N models, N git worktrees, pick a winner  │
+│  config/onyxProjectConfigService  ← .onyx/config.json, merged under settings  │
+│  diagnostics/onyxDiagnosticsExport← redactable zip of journals + profiles     │
+│  compute/onyxEnergyService        ← power/thermal state → routing downshift   │
+│  agent/onyxPromptCache            ← KV-prefix reuse measurement per session   │
 │  compute/onyxLedgerService        ← per-model session ⊕ all-time compute spend │
 │  onboarding/onyxRuntimeStep       ← the first-run "connect a runtime" step     │
 │  controlPlane/*                   ← live runs, budget, compute views + gates   │
@@ -53,6 +59,9 @@ exactly what the agent is doing, what it costs in compute, and why.
                                  │ ProxyChannel 'onyxRuntime' (operationId-correlated)
 ┌────────────────────────────────▼──────────────────────────────────────────────┐
 │ src/vs/platform/onyxRuntime/  (shared process, Node)                          │
+│  index:    incremental BM25 over the workspace, persisted per root, capped    │
+│  worktree: detached git worktrees for tournament isolation + crash pruning    │
+│  power:    pmset power source and thermal pressure (macOS)                    │
 │  discovery: probe :11434/:1234/:8080/:8000 + configured URLs,                 │
 │             /v1/models + Ollama /api/tags + /api/show, 30s watcher            │
 │  inference: streaming SSE POST /v1/chat/completions, AbortController cancel   │
@@ -170,6 +179,61 @@ Integration points consumed (imports only, never patched):
 - [x] Co-change mining: per-commit file groups from `git log` become a
       "changes together" index that boosts the active file's historical
       partners in context ranking
+- [x] Inline edit (⌘I): select code, state an instruction, and a local model's
+      SEARCH/REPLACE edit streams in as reviewable hunks — ⌘⏎ keeps one, ⌘⌫
+      restores the original lines, F7 walks them. An unparseable reply changes
+      nothing and says so
+- [x] Tournament mode (`Onyx: Run in Parallel`): one instruction raced across
+      several local models, each in its own detached `git worktree`, compared
+      side by side with timings and diffs; the winner is applied with `git
+      apply`, the rest discarded, and the pick feeds per-model accept rates
+- [x] Grammar-constrained tool calling: runtimes that support OpenAI
+      `response_format: json_schema` constrain low-quality models to a
+      tool/answer envelope; the Compute view shows malformed-call rate
+      free-form vs constrained, and the text-repair path remains the fallback
+- [x] KV-cache-aware prompting: a stable system prefix, append-only history and
+      volatile context last, with a "prompt cache" readout (reused prefix
+      tokens, and first-token latency split by high vs low reuse)
+- [x] Model residency: `keep_alive` sized against unified memory, warm-up on
+      window focus, a "loading model" state, and cold-start vs warm first-token
+      latencies kept as separate measurements
+- [x] Energy- and thermal-aware scheduling: on battery or under thermal
+      pressure the router caps model size and autocomplete backs off, with one
+      plain sentence in the Compute view explaining the downshift
+      (`onyx.energy.policy`)
+- [x] Embedding-free semantic retrieval: an incremental BM25 index over the
+      workspace in the shared process (persisted per root, capped, build output
+      excluded), blended with symbol matches and co-change into one ranking —
+      9/10 hit@5 on a fixed query set where substring search scores 0/10
+- [x] Change-risk analysis: churn, coupling, call-graph fan-in, hunk size, test
+      proximity and error-handling edits scored into a calm risk badge with a
+      one-line reason, on both review and agent runs
+- [x] Idle-compute background review (`onyx.review.background`, off by
+      default): when idle, plugged in and cool, the reviewer files findings in
+      the Problems panel under the `onyx` source with a control-plane badge;
+      any activity or foreground request cancels it instantly
+- [x] Context pinning and budget editing: the Context Budget view lists what
+      the next prompt will carry, with pin / evict / re-admit and a live token
+      estimate; pins persist per workspace
+- [x] Run diffing in the Inspector: any two journaled runs compared by routing,
+      per-turn model, tool list, new messages, tool activity and outcome, with
+      identical turn stretches elided
+- [x] Project configuration (`.onyx/config.json`): pinned models per task kind,
+      verification task, context pins, review severity threshold and disabled
+      tools — JSON-schema-backed, merged **under** user settings, with
+      `Onyx: Show Effective Project Configuration`
+- [x] Diagnostics bundle (`Onyx: Export Diagnostics`): one zip of journals,
+      profiles, machine profile, runtimes, settings and recent logs, written
+      where you choose, with prompt text redacted unless you opt in
+- [x] The Onyx Hub (⌘⌃H): one quick pick fronting every Onyx surface with live
+      state in the descriptions — models ready, runs today, what is resident
+- [x] Onyx Dark High Contrast and Onyx Light High Contrast, pinned as the
+      product's HC defaults with their own onboarding tiles
+- [x] Accessibility: an accessibility help dialog and a plain-text accessible
+      view for the control plane, help for inline edit, and polite aria-live
+      announcements for every streaming agent step
+- [x] Virtualized activity timeline: a 5,000-step run renders 96 DOM nodes in
+      5ms instead of 20,001 nodes in 131ms, scrolling at 0.41ms per window
 - [x] End-to-end harness: `test/onyx/run-e2e.mts` launches the workbench
       against the mock runtime and asserts on the run journal; `.github/
       workflows/onyx-ci.yml` runs typecheck, layers, ESLint, stylelint and the
@@ -177,25 +241,25 @@ Integration points consumed (imports only, never patched):
 
 ### Next
 
-- [ ] Embedding-free similarity signals for context ranking
-- [ ] Git-worktree-per-agent parallel runs and tournament mode
-- [ ] Speculative decoding configuration and on-your-repo benchmark suites
+- [ ] Offline documentation mirror for library APIs
+- [ ] Speculative decoding configuration
+- [ ] On-your-repo benchmark suites feeding the router
 
 ### Roadmap
 
-- **Phase 2 — Repo intelligence (mostly shipped, see Done):** call-graph
-  context assembly and co-change mining are in. Still open: embedding-free
-  similarity signals.
-- **Phase 3 — Model management (shipped, see Done):** the model library,
-  Apple-Silicon-aware recommendations. Still open: on-your-repo benchmark
-  suites feeding the router, speculative-decoding configuration.
-- **Phase 4 — Verification & isolation (two slices shipped, see Done):**
-  project checks and the adversarial reviewer. Still open: change risk
-  analysis, git-worktree-per-agent parallel runs, tournament mode.
-- **Phase 5 — Polish & depth (mostly shipped, see Done):** FIM autocomplete on
-  a dedicated small model with task-aware context, persistent local memory,
-  and the compute ledger are in. Still open: offline docs mirror,
-  idle-compute background review, energy/thermal-aware scheduling.
+- **Phase 2 — Repo intelligence (shipped):** call-graph context assembly,
+  co-change mining, and the embedding-free BM25 index blended into one
+  retrieval tool.
+- **Phase 3 — Model management (shipped, one item open):** the model library,
+  Apple-Silicon-aware recommendations, residency and warm-up. Still open:
+  on-your-repo benchmark suites feeding the router, speculative decoding.
+- **Phase 4 — Verification & isolation (shipped):** project checks, the
+  adversarial reviewer, change-risk analysis, git-worktree-per-agent parallel
+  runs and tournament mode.
+- **Phase 5 — Polish & depth (shipped, one item open):** FIM autocomplete with
+  task-aware context, persistent memory, the compute ledger, idle-compute
+  background review, and energy/thermal-aware scheduling. Still open: an
+  offline docs mirror.
 
 ## Development
 
