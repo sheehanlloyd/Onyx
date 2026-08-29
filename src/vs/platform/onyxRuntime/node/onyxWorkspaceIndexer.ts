@@ -114,7 +114,7 @@ export class OnyxWorkspaceIndexer {
 			}
 			for (const entry of entries) {
 				if (entry.isDirectory()) {
-					if (!EXCLUDED_DIRECTORIES.has(entry.name) && !entry.name.startsWith('.')) {
+					if (!EXCLUDED_DIRECTORIES.has(entry.name) && !entry.name.startsWith('.') && !entry.name.startsWith('out-')) {
 						stack.push(join(dir, entry.name));
 					}
 					continue;

@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IOnyxArchitectureMap } from './onyxArchitecture.js';
 import { Event } from '../../../base/common/event.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
 
@@ -83,6 +84,8 @@ export interface IOnyxChatParams {
 	readonly keepAlive?: string;
 	/** OpenAI `response_format` payload for constrained decoding, verbatim. */
 	readonly responseFormat?: unknown;
+	/** Draft model for speculative decoding, sent as `draft_model`. Only set for runtimes that accept it per request. */
+	readonly draftModel?: string;
 }
 
 export interface IOnyxCompletionParams {
@@ -149,6 +152,50 @@ export type IOnyxStreamEvent =
 	| { readonly operationId: string; readonly kind: 'usage'; readonly promptTokens: number; readonly completionTokens: number }
 	| { readonly operationId: string; readonly kind: 'done'; readonly finishReason: string | undefined }
 	| { readonly operationId: string; readonly kind: 'error'; readonly message: string };
+
+/** One commit summarized for on-your-repo benchmark selection. */
+export interface IOnyxCommitCandidate {
+	readonly hash: string;
+	readonly subject: string;
+	readonly files: readonly string[];
+	readonly insertions: number;
+	readonly deletions: number;
+}
+
+export interface IOnyxDocsIndexStats {
+	readonly files: number;
+	readonly buildMs: number;
+	readonly truncated: boolean;
+	/** Epoch ms of the last full build (0 when only loaded from disk without a stamp). */
+	readonly builtAt: number;
+}
+
+/** One hit from the offline documentation mirror. */
+export interface IOnyxDocsHit {
+	/** Workspace-relative path of the source document. */
+	readonly path: string;
+	readonly score: number;
+	/** 1-based line where the snippet starts. */
+	readonly line: number;
+	readonly snippet: string;
+}
+
+/** Live output of a shell command started via {@link IOnyxRuntimeService.execCommand}. */
+export interface IOnyxCommandOutputEvent {
+	readonly operationId: string;
+	readonly stream: 'stdout' | 'stderr';
+	readonly text: string;
+}
+
+export interface IOnyxCommandResult {
+	/** Undefined when the process was killed before exiting on its own. */
+	readonly exitCode: number | undefined;
+	readonly timedOut: boolean;
+	readonly killed: boolean;
+	readonly durationMs: number;
+	/** Combined output, capped; the live stream carries the full text. */
+	readonly output: string;
+}
 
 /**
  * Runs in the shared process, where Node.js APIs are available and localhost
@@ -219,6 +266,15 @@ export interface IOnyxRuntimeService {
 	 */
 	gitDiff(repoPath: string, mode: OnyxDiffMode, maxChars: number): Promise<IOnyxDiff>;
 
+	/**
+	 * Recent non-merge commits with per-file change counts (`git log
+	 * --numstat`), for on-your-repo benchmark task selection.
+	 */
+	gitCommitCandidates(repoPath: string, maxCommits: number): Promise<readonly IOnyxCommitCandidate[]>;
+
+	/** A file's content at a revision (`git show rev:path`), or undefined when absent. */
+	gitShowFile(repoPath: string, revision: string, path: string): Promise<string | undefined>;
+
 	/** What this machine can run — used to size model recommendations. */
 	getMachineProfile(): Promise<IOnyxMachineProfile>;
 
@@ -273,4 +329,38 @@ export interface IOnyxRuntimeService {
 	 * finishes or fails. Cancel with {@link cancel}.
 	 */
 	pullModel(operationId: string, baseUrl: string, model: string): Promise<void>;
+
+	/**
+	 * Ensures the offline documentation mirror for the workspace root exists —
+	 * the workspace's markdown, package READMEs and dependency JSDoc, indexed
+	 * with explicit caps and a freshness stamp. No network is ever involved.
+	 */
+	ensureDocsIndex(rootPath: string, persistPath: string): Promise<IOnyxDocsIndexStats>;
+
+	/** Searches the documentation mirror; each hit carries a snippet with its real line number. */
+	searchDocsIndex(rootPath: string, persistPath: string, query: string, limit: number): Promise<readonly IOnyxDocsHit[]>;
+
+	/** Re-indexes changed workspace markdown; dependency docs refresh on the age stamp instead. */
+	updateDocsIndex(rootPath: string, persistPath: string, changedFiles: readonly string[]): Promise<void>;
+
+	/**
+	 * The workspace's architecture map: modules, dependency edges, churn and
+	 * fan-in hot spots. Cached against a cheap workspace signature; `force`
+	 * rebuilds. Runs here because walking 18k files belongs off the renderer.
+	 */
+	analyzeArchitecture(rootPath: string, persistPath: string, force: boolean): Promise<IOnyxArchitectureMap>;
+
+	/** Live stdout/stderr of commands started via {@link execCommand}. */
+	readonly onDidCommandOutput: Event<IOnyxCommandOutputEvent>;
+
+	/**
+	 * Runs one shell command in `cwd` with a hard timeout, streaming output on
+	 * {@link onDidCommandOutput}. Runs here because the renderer cannot spawn
+	 * processes. The caller is responsible for having obtained approval — this
+	 * method executes, it does not decide.
+	 */
+	execCommand(operationId: string, cwd: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult>;
+
+	/** Kills a running command (its whole process group) started via {@link execCommand}. */
+	killCommand(operationId: string): Promise<void>;
 }

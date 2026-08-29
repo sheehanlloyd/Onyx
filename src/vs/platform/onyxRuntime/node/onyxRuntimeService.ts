@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import { join } from '../../../base/common/path.js';
@@ -11,8 +11,11 @@ import { Emitter } from '../../../base/common/event.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { ILogService } from '../../log/common/log.js';
+import { OnyxArchitectureScanner } from './onyxArchitectureScanner.js';
+import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
-import { IOnyxChatParams, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
+import { IOnyxChatParams, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -72,7 +75,11 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	private readonly _onDidPullProgress = this._register(new Emitter<IOnyxPullProgress>());
 	readonly onDidPullProgress = this._onDidPullProgress.event;
 
+	private readonly _onDidCommandOutput = this._register(new Emitter<IOnyxCommandOutputEvent>());
+	readonly onDidCommandOutput = this._onDidCommandOutput.event;
+
 	private readonly _operations = new Map<string, AbortController>();
+	private readonly _runningCommands = new Map<string, { kill: () => void }>();
 	private readonly _modelDetailCache = new Map<string, Partial<IOnyxDiscoveredModel>>();
 	private readonly _gitRecentCache = new Map<string, { at: number; files: readonly string[] }>();
 	private readonly _gitGroupsCache = new Map<string, { at: number; groups: readonly (readonly string[])[] }>();
@@ -94,6 +101,9 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 			controller.abort();
 		}
 		for (const indexer of this._indexers.values()) {
+			indexer.dispose();
+		}
+		for (const indexer of this._docsIndexers.values()) {
 			indexer.dispose();
 		}
 		super.dispose();
@@ -152,6 +162,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					...(params.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
 					...(params.keepAlive ? { keep_alive: params.keepAlive } : {}),
 					...(params.responseFormat ? { response_format: params.responseFormat } : {}),
+					...(params.draftModel ? { draft_model: params.draftModel } : {}),
 				}),
 			});
 
@@ -260,6 +271,36 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		return groups;
 	}
 
+	async gitCommitCandidates(repoPath: string, maxCommits: number): Promise<readonly IOnyxCommitCandidate[]> {
+		const raw = await this._git(repoPath, ['log', '--no-merges', '--numstat', '--pretty=format:@@%H|%s', '-n', String(clamp(maxCommits, 1, 500))], 4 * 1024 * 1024);
+		const candidates: { hash: string; subject: string; files: string[]; insertions: number; deletions: number }[] = [];
+		let current: { hash: string; subject: string; files: string[]; insertions: number; deletions: number } | undefined;
+		for (const line of raw.split('\n')) {
+			if (line.startsWith('@@')) {
+				const separator = line.indexOf('|');
+				current = { hash: line.slice(2, separator), subject: line.slice(separator + 1), files: [], insertions: 0, deletions: 0 };
+				candidates.push(current);
+				continue;
+			}
+			const match = line.match(/^(?<ins>\d+|-)\t(?<del>\d+|-)\t(?<path>.+)$/);
+			if (match?.groups && current) {
+				current.files.push(match.groups.path);
+				current.insertions += match.groups.ins === '-' ? 0 : Number(match.groups.ins);
+				current.deletions += match.groups.del === '-' ? 0 : Number(match.groups.del);
+			}
+		}
+		return candidates;
+	}
+
+	async gitShowFile(repoPath: string, revision: string, path: string): Promise<string | undefined> {
+		// Reject anything that could smuggle flags or ranges into git.
+		if (!/^[0-9a-f]{4,40}(\^|~\d*)?$/i.test(revision) || path.startsWith('-')) {
+			return undefined;
+		}
+		const content = await this._git(repoPath, ['show', `${revision}:${path}`], 2 * 1024 * 1024);
+		return content || undefined; // '' means git failed (file absent at that revision)
+	}
+
 	async gitDiff(repoPath: string, mode: OnyxDiffMode, maxChars: number): Promise<IOnyxDiff> {
 		const selector = mode === 'staged' ? ['--cached'] : mode === 'head' ? ['HEAD'] : [];
 		const base = ['diff', '--no-color', '--no-ext-diff', ...selector];
@@ -293,6 +334,29 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 
 	async updateWorkspaceIndex(rootPath: string, persistPath: string, changedFiles: readonly string[]): Promise<void> {
 		return this._indexer(rootPath, persistPath).update(changedFiles);
+	}
+
+	private readonly _docsIndexers = new Map<string, OnyxDocsIndexer>();
+
+	private _docsIndexer(rootPath: string, persistPath: string): OnyxDocsIndexer {
+		let indexer = this._docsIndexers.get(rootPath);
+		if (!indexer) {
+			indexer = new OnyxDocsIndexer(rootPath, persistPath);
+			this._docsIndexers.set(rootPath, indexer);
+		}
+		return indexer;
+	}
+
+	async ensureDocsIndex(rootPath: string, persistPath: string): Promise<IOnyxDocsIndexStats> {
+		return this._docsIndexer(rootPath, persistPath).ensure();
+	}
+
+	async searchDocsIndex(rootPath: string, persistPath: string, query: string, limit: number): Promise<readonly IOnyxDocsHit[]> {
+		return this._docsIndexer(rootPath, persistPath).search(query, limit);
+	}
+
+	async updateDocsIndex(rootPath: string, persistPath: string, changedFiles: readonly string[]): Promise<void> {
+		return this._docsIndexer(rootPath, persistPath).update(changedFiles);
 	}
 
 	private _worktreesPruned = false;
@@ -680,7 +744,78 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 			this._scheduleWatch();
 		}, WATCH_INTERVAL_MS);
 	}
+
+	private readonly _architectureScanners = new Map<string, OnyxArchitectureScanner>();
+
+	async analyzeArchitecture(rootPath: string, persistPath: string, force: boolean): Promise<IOnyxArchitectureMap> {
+		let scanner = this._architectureScanners.get(rootPath);
+		if (!scanner) {
+			scanner = new OnyxArchitectureScanner(rootPath, persistPath, () => this.gitCommitFileGroups(rootPath, 300));
+			this._architectureScanners.set(rootPath, scanner);
+		}
+		return scanner.analyze(force);
+	}
+
+	async execCommand(operationId: string, cwd: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult> {
+		const startedAt = Date.now();
+		return new Promise<IOnyxCommandResult>(resolve => {
+			// Its own process group (detached) so a kill reaches the whole tree,
+			// not just the shell that spawned it.
+			const child = spawn('/bin/sh', ['-c', command], { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+			let output = '';
+			let done = false;
+			let timedOut = false;
+			let killed = false;
+
+			const killTree = () => {
+				try {
+					if (child.pid) {
+						process.kill(-child.pid, 'SIGKILL');
+					}
+				} catch {
+					child.kill('SIGKILL');
+				}
+			};
+			this._runningCommands.set(operationId, { kill: () => { killed = true; killTree(); } });
+
+			const timer = setTimeout(() => {
+				timedOut = true;
+				killTree();
+			}, Math.max(1000, timeoutMs));
+
+			const onData = (stream: 'stdout' | 'stderr') => (data: Buffer) => {
+				const text = data.toString();
+				if (output.length < MAX_COMMAND_OUTPUT_CHARS) {
+					output += text;
+				}
+				this._onDidCommandOutput.fire({ operationId, stream, text });
+			};
+			child.stdout?.on('data', onData('stdout'));
+			child.stderr?.on('data', onData('stderr'));
+
+			const finish = (exitCode: number | undefined) => {
+				if (done) {
+					return;
+				}
+				done = true;
+				clearTimeout(timer);
+				this._runningCommands.delete(operationId);
+				resolve({ exitCode, timedOut, killed, durationMs: Date.now() - startedAt, output: output.slice(0, MAX_COMMAND_OUTPUT_CHARS) });
+			};
+			child.on('error', err => {
+				output += `\n${err.message}`;
+				finish(undefined);
+			});
+			child.on('close', code => finish(code ?? undefined));
+		});
+	}
+
+	async killCommand(operationId: string): Promise<void> {
+		this._runningCommands.get(operationId)?.kill();
+	}
 }
+
+const MAX_COMMAND_OUTPUT_CHARS = 200_000;
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.max(min, Math.min(value, max));
