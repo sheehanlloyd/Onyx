@@ -87,9 +87,13 @@ jobs:
         env:
           DISPLAY: ':10'
 
-      # The full end-to-end run: the mock runtime plus a real workbench under
-      # Xvfb. It drives chat, tools, autocomplete, the model library, commit
-      # messages, review and both code actions, asserting on the run journal.
+      # The full end-to-end run: two mock runtimes (Ollama and LM Studio
+      # flavored) plus a real workbench under Xvfb. It drives chat, tools,
+      # autocomplete, the model library, commit messages, review, both code
+      # actions, staged edits (Onyx Changes), the gated terminal tool, the
+      # offline docs mirror, playbooks, run resume, the refactor engine, the
+      # repo benchmark, speculative decoding and the architecture map — 46
+      # checks asserted on the run journal and the live DOM.
       - name: Onyx end-to-end
         run: node test/onyx/run-e2e.mts
         env:

@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const keep = process.argv.includes('--keep');
 const mockPort = Number(process.env.ONYX_MOCK_PORT ?? 11434);
+const lmStudioPort = Number(process.env.ONYX_MOCK_LMSTUDIO_PORT ?? 1234);
 const cdpPort = Number(process.env.ONYX_CDP_PORT ?? 9333);
 const session = `onyx-e2e-${process.pid}`;
 
@@ -96,10 +97,49 @@ function seedWorkspace() {
 		'}',
 		'',
 	].join('\n'));
+	// A doc for the offline docs mirror to find.
+	fs.mkdirSync(path.join(workspace, 'docs'), { recursive: true });
+	fs.writeFileSync(path.join(workspace, 'docs', 'notes.md'), [
+		'# Project notes',
+		'',
+		'## Clamp helper',
+		'',
+		'The clamp helper bounds a value between min and max.',
+		'Use clamp instead of manual Math.min/Math.max chains.',
+		'',
+	].join('\n'));
+	// A playbook for the playbook tool to fetch.
+	fs.mkdirSync(path.join(workspace, '.onyx', 'playbooks'), { recursive: true });
+	fs.writeFileSync(path.join(workspace, '.onyx', 'playbooks', 'e2e-recipe.md'), [
+		'---',
+		'name: e2e-recipe',
+		'description: A recipe used by the end-to-end test',
+		'when-to-use: When the E2E asks for it',
+		'---',
+		'',
+		'1. Confirm the recipe body reached the model.',
+		'',
+	].join('\n'));
+	// Native dialogs are invisible to CDP; the terminal approval needs DOM dialogs.
+	fs.mkdirSync(path.join(userDataDir, 'User'), { recursive: true });
+	fs.writeFileSync(path.join(userDataDir, 'User', 'settings.json'), JSON.stringify({
+		'window.dialogStyle': 'custom',
+		'files.simpleDialog.enable': true,
+	}, null, '\t'));
 	// The commit-message and review flows diff a real repository.
 	git('init', '-q');
 	git('add', '-A');
 	git('commit', '-qm', 'initial');
+	// A small, single-file second commit: the repo benchmark needs one to
+	// generate a task from.
+	fs.appendFileSync(path.join(workspace, 'src', 'math.ts'), [
+		'export function scaleAll(values: number[], factor: number): number[] {',
+		'\treturn values.map(value => value * factor);',
+		'}',
+		'',
+	].join('\n'));
+	git('add', '-A');
+	git('commit', '-qm', 'Add scaleAll helper for uniform scaling');
 }
 
 async function isListening(port: number): Promise<boolean> {
@@ -249,6 +289,13 @@ async function main() {
 	if (!await waitForMock(10_000)) {
 		throw new Error(`the mock runtime never answered on :${mockPort} — stop any real runtime on that port, or set ONYX_MOCK_PORT`);
 	}
+	// A second mock posing as LM Studio (its port, no Ollama native API), so
+	// the speculative-decoding flow has a per-request-draft runtime to talk to.
+	children.push(spawn(process.execPath, [path.join(repoRoot, 'test', 'onyx', 'mock-ollama.mts')], {
+		cwd: repoRoot,
+		env: { ...process.env, ONYX_MOCK_PORT: String(lmStudioPort), ONYX_MOCK_KIND: 'lmstudio' },
+		stdio: 'ignore',
+	}));
 
 	children.push(spawn(path.join(repoRoot, 'scripts', 'code.sh'), [
 		`--user-data-dir=${userDataDir}`,
@@ -304,10 +351,16 @@ async function main() {
 	check('repoSymbols was called', toolCalls.includes('repoSymbols'));
 	check('remember was called', toolCalls.includes('remember'));
 
-	const snapshots = all.filter(event => event.kind === 'promptSnapshot');
+	// resumeMeta snapshots are journal-only metadata; the prompt checks want
+	// the last snapshot that actually carried messages.
+	const snapshots = all.filter(event => event.kind === 'promptSnapshot' && (event.data as { messages?: unknown[] })?.messages);
 	const lastPrompt = JSON.stringify(snapshots[snapshots.length - 1]?.data ?? {});
-	check('the prompt carries workspace context', lastPrompt.includes('Files the user is working on'), 'no workspace context section');
-	check('the prompt carries agent memory', lastPrompt.includes('Facts remembered from earlier sessions'), 'memory section missing from a later prompt');
+	const promptDetail = () => {
+		const context = /Workspace context[^"]{0,400}/.exec(lastPrompt)?.[0] ?? lastPrompt.slice(0, 400);
+		return context.replaceAll('\\n', ' ');
+	};
+	check('the prompt carries workspace context', lastPrompt.includes('Files the user is working on'), promptDetail());
+	check('the prompt carries agent memory', lastPrompt.includes('Facts remembered from earlier sessions'), promptDetail());
 
 	const symbolResult = snapshots.map(snapshot => JSON.stringify(snapshot.data)).find(text => text.includes('Call graph of computeTotal'));
 	check('repoSymbols returned a call graph', !!symbolResult, 'no call-graph section in any tool result');
@@ -316,9 +369,17 @@ async function main() {
 	check('post-run verification reported', verdicts.length >= 1, 'no verification note');
 
 	await typeInEditor();
-	const lastCompletion = await fetch(`http://127.0.0.1:${mockPort}/debug/last-completion`)
-		.then(response => response.json() as Promise<{ prompt?: string }>)
-		.catch(() => undefined);
+	// The FIM model is the smallest one discovered; with two mock endpoints it
+	// can live on either, so ask both for the last completion request.
+	let lastCompletion: { prompt?: string } | undefined;
+	for (const port of [mockPort, lmStudioPort]) {
+		const candidate = await fetch(`http://127.0.0.1:${port}/debug/last-completion`)
+			.then(response => response.json() as Promise<{ prompt?: string }>)
+			.catch(() => undefined);
+		if (candidate?.prompt) {
+			lastCompletion = candidate;
+		}
+	}
 	check('inline completions reached the runtime', !!lastCompletion?.prompt, 'no fill-in-the-middle request was recorded');
 	check('the completion prompt carries the file being edited', !!lastCompletion?.prompt?.includes('export function '), lastCompletion?.prompt?.slice(0, 80));
 	check('the completion prompt carries cross-file context', !!lastCompletion?.prompt?.includes('Context from'), lastCompletion?.prompt?.slice(0, 120));
@@ -426,6 +487,148 @@ async function main() {
 	const reviewEvents = reviewRun ? readRuns().find(run => run.name.startsWith(reviewRun.runId))?.events ?? [] : [];
 	check('the review run carries a replayable prompt snapshot', reviewEvents.some(event => event.kind === 'promptSnapshot'), 'no promptSnapshot event in the review journal');
 	check('the review produced a file:line finding', reviewEvents.some(event => event.kind === 'note' && event.data?.location?.path), 'no finding with a location');
+
+	// --- Staged edits (Onyx Changes): the agent's edits stage for review and
+	// only an explicit accept touches the buffer.
+	await send('EDITTEST src/math.ts stage an edit for review');
+	await sleep(9000);
+	const mathOnDisk = fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8');
+	check('agent edits stage instead of writing the file', !mathOnDisk.includes('edited-by-mock'), 'the tool wrote into the file without review');
+	const stagedSnapshot = JSON.stringify(readRuns().flatMap(run => run.events).filter(event => event.kind === 'promptSnapshot').slice(-2));
+	check('the edit tool reported the staged review to the model', stagedSnapshot.includes('reviews them in Onyx Changes'), 'no staging summary in the tool result');
+	pw('press', 'Meta+Control+o'); // open the control plane
+	await sleep(2000);
+	const changesState = pw('run-code', `async (page) => page.evaluate(() => ({
+		files: Array.from(document.querySelectorAll('.onyx-change-file-path')).map(el => el.textContent),
+	}))`);
+	check('the staged file appears in Onyx Changes', changesState.includes('src/math.ts'), changesState.slice(0, 160));
+	pw('run-code', 'async (page) => { const el = await page.$(".onyx-changes-summary button"); await el.click(); }'); // Accept All
+	await sleep(2500);
+	const acceptedState = pw('run-code', `async (page) => page.evaluate(() => ({
+		empty: !!document.querySelector('.onyx-changes .onyx-empty'),
+	}))`);
+	check('accepting applies and clears the staged set', /"empty"\s*:\s*true/.test(acceptedState), acceptedState.slice(0, 120));
+
+	// --- Terminal tool: approval dialog, execution, journaled output.
+	await send('TERMTEST echo onyx-e2e-terminal-ok');
+	await sleep(6000);
+	const approval = pw('run-code', `async (page) => {
+		const detail = await page.$('.monaco-dialog-box .dialog-message-detail');
+		if (!detail) { return 'no-dialog'; }
+		const text = await detail.textContent();
+		const buttons = await page.$$('.monaco-dialog-box a.monaco-text-button');
+		for (const button of buttons) {
+			if ((await button.textContent())?.includes('Run Once')) { await button.click(); return 'approved:' + text; }
+		}
+		return 'no-run-once:' + text;
+	}`);
+	check('the terminal tool asks before running', approval.includes('approved:'), approval.slice(0, 160));
+	check('the approval names the exact command', approval.includes('echo onyx-e2e-terminal-ok'), approval.slice(0, 160));
+	await sleep(6000);
+	const terminalNotes = readRuns().flatMap(run => run.events).filter(event => event.kind === 'note').map(event => String(event.data?.label ?? ''));
+	check('the command ran and its exit landed on the timeline', terminalNotes.some(label => label.startsWith('Running: echo onyx-e2e-terminal-ok')) && terminalNotes.some(label => label.startsWith('Exited with code 0')), terminalNotes.slice(-6).join(' | '));
+
+	// --- Offline docs mirror: the docs tool finds the workspace's own docs.
+	await send('DOCTEST clamp helper bounds');
+	await sleep(10000);
+	const docsNotes = readRuns().flatMap(run => run.events).filter(event => event.kind === 'note').map(event => `${event.data?.label} ${event.data?.reason ?? ''}`);
+	check('the docs tool searched the offline mirror', docsNotes.some(note => note.includes('offline docs mirror') && note.includes('docs/notes.md')), docsNotes.slice(-4).join(' | '));
+
+	// --- Playbooks: the index reaches the prompt and the tool fetches the recipe.
+	await send('PBTEST e2e-recipe');
+	await sleep(9000);
+	const playbookSnapshots = readRuns().flatMap(run => run.events).filter(event => event.kind === 'promptSnapshot').map(event => JSON.stringify(event.data));
+	check('the prompt advertises the repository playbooks', playbookSnapshots.some(text => text.includes('ships playbooks') && text.includes('e2e-recipe')), 'no playbook index in any prompt');
+	check('the playbook tool fetched the recipe body', playbookSnapshots.some(text => text.includes('Follow this repository playbook') && text.includes('Confirm the recipe body reached the model')), 'the recipe body never reached a tool result');
+
+	// --- Resume: stop a deliberately slow run mid-stream, then resume it.
+	await send('SLOWTEST take your time with this one');
+	await sleep(4000);
+	const stopClicked = pw('run-code', `async (page) => {
+		const stop = await page.$('.onyx-run.running .codicon-debug-stop');
+		if (!stop) { return 'no-stop-button'; }
+		await stop.click(); return 'stopped';
+	}`);
+	await sleep(3000);
+	check('a streaming run can be stopped from the control plane', stopClicked.includes('stopped'), stopClicked);
+	await runCommand('Onyx: Resume an Interrupted Run');
+	await sleep(2500);
+	pw('press', 'Enter'); // pick the stopped run
+	await sleep(8000);
+	const resumeRun = readRunIndex().find(run => run.title.startsWith('Resume an interrupted task'));
+	check('resuming rebuilds the task as a new run', !!resumeRun, JSON.stringify(readRunIndex().map(run => run.title).slice(0, 6)));
+
+	// --- Refactor engine: model-suggested rename staged through Onyx Changes.
+	pw('run-code', 'async (page) => { const tabs = await page.$$(".tabs-container .tab"); for (const tab of tabs) { const t = await tab.textContent(); if (t && t.includes("report.ts")) { await tab.click(); break; } } }');
+	await sleep(1500);
+	pw('run-code', 'async (page) => { const el = await page.$(".editor-instance .monaco-editor .view-lines"); const r = await el.boundingBox(); await page.mouse.click(r.x + 60, r.y + 20); }');
+	pw('press', 'Control+g');
+	await sleep(800);
+	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ':3:20'); }`);
+	pw('press', 'Enter');
+	await sleep(1000);
+	await runCommand('Onyx: Rename Symbol with Onyx');
+	await sleep(9000);
+	const renamePick = pw('run-code', `async (page) => {
+		const rows = await page.$$('.quick-input-widget .monaco-list-row');
+		const texts = [];
+		for (const row of rows) { texts.push(await row.getAttribute('aria-label')); }
+		if (texts.some(text => text && text.includes('mockSuggestedName'))) { await page.keyboard.press('Enter'); return 'picked:' + texts.join(';'); }
+		return 'no-suggestions:' + texts.join(';');
+	}`);
+	check('the rename flow offers model-suggested names', renamePick.includes('picked:'), renamePick.slice(0, 200));
+	await sleep(4000);
+	// The rename routed a naming run through chat, which swapped the aux bar
+	// away from the control plane — bring it back before reading the view.
+	pw('press', 'Meta+Control+o');
+	await sleep(1500);
+	const renameStaged = pw('run-code', `async (page) => page.evaluate(() => ({
+		files: Array.from(document.querySelectorAll('.onyx-change-file-path')).map(el => el.textContent),
+		notifications: Array.from(document.querySelectorAll('.notifications-toasts .notification-list-item-message')).map(el => el.textContent),
+	}))`);
+	check('the rename staged into Onyx Changes, not the buffer', renameStaged.includes('report.ts'), renameStaged.slice(0, 300));
+	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); await buttons[1].click(); }'); // Reject All
+	await sleep(1500);
+
+	// --- Repo benchmark: history-derived tasks, scored, results doc.
+	await runCommand('Onyx: Benchmark on This Repo');
+	await sleep(3000);
+	pw('press', 'Enter'); // accept the preselected models
+	await sleep(15000);
+	const benchRun = readRunIndex().find(run => run.title.startsWith('Repo benchmark'));
+	check('the repo benchmark journaled a run', !!benchRun && benchRun.status === 'completed', JSON.stringify(readRunIndex().map(run => run.title).slice(0, 4)));
+	const benchDoc = pw('run-code', `async (page) => page.evaluate(() => Array.from(document.querySelectorAll('.editor-instance .view-line')).map(l => l.textContent).join('\\n').slice(0, 400))`);
+	check('the benchmark opened its evidence document', benchDoc.includes('Onyx repo benchmark'), benchDoc.slice(0, 160));
+
+	// --- Speculative decoding: pair a draft on the LM Studio mock and verify
+	// the draft went over the wire.
+	await runCommand('Onyx: Measure Speculative Decoding');
+	await sleep(2500);
+	pw('run-code', `async (page) => { const rows = await page.$$('.quick-input-widget .monaco-list-row'); for (const row of rows) { if ((await row.getAttribute('aria-label'))?.includes('32b')) { await row.click(); return; } } }`);
+	await sleep(1500);
+	pw('run-code', `async (page) => { const rows = await page.$$('.quick-input-widget .monaco-list-row'); for (const row of rows) { if ((await row.getAttribute('aria-label'))?.includes('7b')) { await row.click(); return; } } }`);
+	await sleep(15000);
+	const lmChats = await fetch(`http://127.0.0.1:${lmStudioPort}/debug/recent-chats`)
+		.then(response => response.json() as Promise<{ model?: string; draft_model?: string }[]>)
+		.catch(() => [] as { model?: string; draft_model?: string }[]);
+	check('speculative decoding sent draft_model to the runtime', lmChats.some(chat => chat.draft_model === 'mock-coder:7b'), `recent chats: ${lmChats.length}, with draft: ${lmChats.filter(chat => chat.draft_model).length}`);
+
+	// --- Architecture map: modules, timing, and a model summary render.
+	await runCommand('Open Architecture Map');
+	await sleep(9000);
+	const archState = pw('run-code', `async (page) => page.evaluate(() => ({
+		header: document.querySelector('.onyx-arch-header')?.textContent ?? '',
+		modules: Array.from(document.querySelectorAll('.onyx-arch-module-name')).map(el => el.textContent),
+		summary: Array.from(document.querySelectorAll('.onyx-arch-module-summary')).map(el => el.textContent).join(' | '),
+	}))`);
+	check('the architecture map renders modules with timing', archState.includes('analyzed in') && archState.includes('src'), archState.slice(0, 200));
+	check('hot modules get a local-model summary', archState.includes('Mock summary'), archState.slice(0, 240));
+
+	// --- Debug assistant: without a paused session the designed message shows.
+	await runCommand('Onyx: Explain This Failure');
+	await sleep(2500);
+	const debugNotification = pw('run-code', `async (page) => page.evaluate(() => Array.from(document.querySelectorAll('.notifications-toasts .notification-list-item-message')).map(el => el.textContent).join(' | '))`);
+	check('explain-failure explains when no session is paused', debugNotification.includes('No debug session is running'), debugNotification.slice(0, 160));
 }
 
 try {
