@@ -12,6 +12,7 @@ import { IOnyxDiscoveredModel, IOnyxEndpoint, IOnyxRuntimeService } from '../../
 import { IProgressService, ProgressLocation } from '../../../../../platform/progress/common/progress.js';
 import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../../platform/quickinput/common/quickInput.js';
 import { formatSize, fitModel, IOnyxCatalogModel, ONYX_MODEL_CATALOG, recommendForMachine, toGigabytes } from '../../common/onyxModelCatalog.js';
+import { IOnyxSpeculativeService } from '../compute/onyxSpeculativeService.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 
 interface IModelPickItem extends IQuickPickItem {
@@ -32,6 +33,7 @@ export class OnyxModelLibrary {
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
 		@IProgressService private readonly _progressService: IProgressService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IOnyxSpeculativeService private readonly _speculativeService: IOnyxSpeculativeService,
 	) { }
 
 	async show(): Promise<void> {
@@ -44,6 +46,12 @@ export class OnyxModelLibrary {
 		const discovered = this._modelService.getKnownModels().map(model => model.discovered);
 
 		const picks = buildPicks(discovered, memoryGb, tier.recommended);
+		picks.push({ type: 'separator', label: localize('onyx.models.speculative', "Speculative Decoding") });
+		picks.push({
+			id: 'onyx.pairDraft',
+			label: localize('onyx.models.pairDraft', "Pair a Draft Model…"),
+			description: localize('onyx.models.pairDraftDetail', "A small model drafts, the big one verifies — measured on this Mac before it is trusted"),
+		});
 		const selected = await this._quickInputService.pick<IModelPickItem>(picks, {
 			title: localize('onyx.models.title', "Onyx model library"),
 			placeHolder: localize('onyx.models.placeholder', "{0} unified memory · {1} — {2}", `${memoryGb} GB`, tier.label, tier.guidance),
@@ -51,6 +59,10 @@ export class OnyxModelLibrary {
 			matchOnDetail: true,
 		});
 
+		if (selected?.id === 'onyx.pairDraft') {
+			await this._speculativeService.pairAndMeasure();
+			return;
+		}
 		if (!selected?.catalogModel || discovered.some(model => model.id === selected.catalogModel!.id)) {
 			return;
 		}

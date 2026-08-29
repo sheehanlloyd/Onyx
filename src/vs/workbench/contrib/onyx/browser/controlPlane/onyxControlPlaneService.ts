@@ -88,6 +88,11 @@ export interface IOnyxControlPlaneService {
 
 	beginRun(info: { sessionResource: URI; requestId: string; title: string; task: OnyxTaskKind; modelKey: string }): IOnyxRunHandle;
 	getRun(runId: string): IOnyxLiveRun | undefined;
+	/**
+	 * Appends a timeline entry to a live run from outside its loop — tools
+	 * that stream progress (the terminal tool's output) report through this.
+	 */
+	appendActivity(runId: string, entry: Omit<IOnyxActivityEntry, 'at'>): void;
 	selectRun(runId: string | undefined): void;
 	updateCompute(state: Partial<IOnyxComputeState>): void;
 
@@ -205,6 +210,16 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 
 	getRun(runId: string): IOnyxLiveRun | undefined {
 		return this._liveRuns.get(runId);
+	}
+
+	appendActivity(runId: string, entry: Omit<IOnyxActivityEntry, 'at'>): void {
+		const run = this._liveRuns.get(runId);
+		if (!run) {
+			return;
+		}
+		const full = { ...entry, at: Date.now() };
+		run.activityObs.set([...run.activityObs.get(), full], undefined);
+		this._onDidRecordEvent.fire({ runId, event: { t: full.at - run.startedAt, kind: entryKindToEventKind(full.kind), data: full } });
 	}
 
 	updateCompute(state: Partial<IOnyxComputeState>): void {

@@ -1,0 +1,126 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* The architecture map. Calm cards, one thin heat bar per module — the
+   hierarchy comes from order (hottest first) and the ramp, not from color
+   shouting. Motion only under .monaco-enable-motion. */
+
+.onyx-architecture {
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size60);
+	overflow-y: auto;
+	height: 100%;
+	box-sizing: border-box;
+}
+
+.onyx-arch-header {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size20) var(--vscode-spacing-size80);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label2);
+}
+
+.onyx-arch-module {
+	position: relative;
+	margin-bottom: var(--vscode-spacing-size60);
+	padding: var(--vscode-spacing-size60) var(--vscode-spacing-size80) var(--vscode-spacing-size60) var(--vscode-spacing-size120);
+	border: 1px solid var(--vscode-widget-border, transparent);
+	border-radius: var(--vscode-cornerRadius-medium);
+	overflow: hidden;
+}
+
+/* The heat bar: a 2px spine whose intensity is the hot-spot score. */
+.onyx-arch-heat {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: color-mix(in srgb, var(--vscode-onyx-warn) calc(var(--onyx-heat) * 100%), var(--vscode-widget-border, transparent));
+}
+
+.onyx-arch-module-header {
+	display: flex;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size80);
+	flex-wrap: wrap;
+}
+
+.onyx-arch-module-name {
+	padding: 0;
+	text-align: left;
+	border: none;
+	background: transparent;
+	color: var(--vscode-foreground);
+	font-family: var(--monaco-monospace-font);
+	font-size: var(--vscode-fontSize-label1);
+	cursor: pointer;
+}
+
+.onyx-arch-module-name:hover {
+	color: var(--vscode-onyx-accent);
+}
+
+.onyx-arch-module-stats {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label3);
+	font-variant-numeric: tabular-nums;
+}
+
+.onyx-arch-module-summary {
+	margin-top: var(--vscode-spacing-size20);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label2);
+	line-height: 1.5;
+}
+
+.onyx-arch-summarize {
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: var(--vscode-textLink-foreground);
+	font-size: var(--vscode-fontSize-label3);
+	cursor: pointer;
+}
+
+.onyx-arch-deps {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size40);
+	margin-top: var(--vscode-spacing-size40);
+}
+
+.onyx-arch-deps-label,
+.onyx-arch-deps-more {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label3);
+}
+
+.onyx-arch-dep-chip {
+	padding: 0 var(--vscode-spacing-size60);
+	border: 1px solid var(--vscode-widget-border, transparent);
+	border-radius: var(--vscode-cornerRadius-circle);
+	background: transparent;
+	color: var(--vscode-foreground);
+	font-family: var(--monaco-monospace-font);
+	font-size: var(--vscode-fontSize-label3);
+	cursor: pointer;
+}
+
+.onyx-arch-dep-chip:hover {
+	background: var(--vscode-list-hoverBackground);
+	border-color: var(--vscode-onyx-accent);
+}
+
+.monaco-enable-motion .onyx-arch-flash {
+	animation: onyx-arch-flash 900ms ease-out;
+}
+
+@keyframes onyx-arch-flash {
+	0% { background: var(--vscode-onyx-accentSoft); }
+	100% { background: transparent; }
+}

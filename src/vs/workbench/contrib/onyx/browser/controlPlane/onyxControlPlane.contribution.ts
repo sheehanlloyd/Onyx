@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import '../media/onyxControlPlane.css';
+import '../media/onyxChanges.css';
 import '../onyxColors.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
@@ -13,6 +14,7 @@ import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../../platform/instantiation/common/descriptors.js';
 import { ViewPaneContainer } from '../../../../browser/parts/views/viewPaneContainer.js';
 import { Extensions as ViewExtensions, IViewContainersRegistry, IViewsRegistry, ViewContainer, ViewContainerLocation } from '../../../../common/views.js';
+import { OnyxChangesViewPane } from '../changes/onyxChangesView.js';
 import { OnyxActivityViewPane } from './onyxActivityView.js';
 import { OnyxComputeViewPane } from './onyxComputeView.js';
 import { OnyxContextBudgetViewPane } from './onyxContextBudgetView.js';
@@ -50,13 +52,23 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([
 		},
 	},
 	{
+		id: OnyxChangesViewPane.ID,
+		name: localize2('onyx.changes.name', "Onyx Changes"),
+		containerIcon: onyxViewIcon,
+		ctorDescriptor: new SyncDescriptor(OnyxChangesViewPane),
+		canToggleVisibility: true,
+		canMoveView: true,
+		order: 2,
+		weight: 30,
+	},
+	{
 		id: OnyxContextBudgetViewPane.ID,
 		name: localize2('onyx.budget.name', "Context Budget"),
 		containerIcon: onyxViewIcon,
 		ctorDescriptor: new SyncDescriptor(OnyxContextBudgetViewPane),
 		canToggleVisibility: true,
 		canMoveView: true,
-		order: 2,
+		order: 3,
 		weight: 20,
 	},
 	{
@@ -66,7 +78,7 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([
 		ctorDescriptor: new SyncDescriptor(OnyxComputeViewPane),
 		canToggleVisibility: true,
 		canMoveView: true,
-		order: 3,
+		order: 4,
 		weight: 20,
 	},
 	{
@@ -77,7 +89,7 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([
 		canToggleVisibility: true,
 		canMoveView: true,
 		collapsed: true,
-		order: 4,
+		order: 5,
 		weight: 30,
 	},
 ], container);

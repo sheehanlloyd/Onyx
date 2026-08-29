@@ -23,6 +23,11 @@ export function bm25PersistPath(environmentService: IWorkbenchEnvironmentService
 	return joinPath(environmentService.workspaceStorageHome, workspaceService.getWorkspace().id, 'onyx', `bm25-${folder.index}.json`);
 }
 
+/** Where a folder's documentation-mirror index persists, alongside the source index. */
+export function docsPersistPath(environmentService: IWorkbenchEnvironmentService, workspaceService: IWorkspaceContextService, folder: IWorkspaceFolder): URI {
+	return joinPath(environmentService.workspaceStorageHome, workspaceService.getWorkspace().id, 'onyx', `docs-${folder.index}.json`);
+}
+
 /**
  * Owns the lifetime of the embedding-free content index: builds it shortly
  * after startup (off the critical path), and feeds file changes to the shared
@@ -95,6 +100,13 @@ export class OnyxWorkspaceIndexContribution extends Disposable {
 			}
 			this._runtimeService.updateWorkspaceIndex(folder.uri.fsPath, bm25PersistPath(this._environmentService, this._workspaceService, folder).fsPath, [...paths])
 				.catch(error => this._logService.warn('[onyx] content index update failed', error));
+			// Markdown changes also refresh the documentation mirror; the shared
+			// process ignores everything else in the list.
+			const markdown = [...paths].filter(path => path.toLowerCase().endsWith('.md'));
+			if (markdown.length > 0) {
+				this._runtimeService.updateDocsIndex(folder.uri.fsPath, docsPersistPath(this._environmentService, this._workspaceService, folder).fsPath, markdown)
+					.catch(error => this._logService.warn('[onyx] docs mirror update failed', error));
+			}
 		}
 		this._pendingChanges.clear();
 	}

@@ -5,6 +5,7 @@
 
 import '../common/onyxConfiguration.js';
 import '../browser/controlPlane/onyxControlPlane.contribution.js';
+import '../browser/architecture/onyxArchitecture.contribution.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
@@ -30,12 +31,20 @@ import { ILanguageModelsService } from '../../chat/common/languageModels.js';
 import { ChatAgentVoteDirection, IChatService } from '../../chat/common/chatService/chatService.js';
 import { ONYX_VENDOR } from '../common/onyxTypes.js';
 import { OnyxChatAgentContribution } from '../browser/agent/onyxChatAgent.js';
+import { IOnyxChangeSetService, OnyxChangeSetService } from '../browser/changes/onyxChangeSetService.js';
+import { OnyxEditToolContribution } from '../browser/changes/onyxEditTool.js';
+import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../browser/terminal/onyxTerminalTool.js';
 import { OnyxInlineCompletionsContribution } from '../browser/autocomplete/onyxInlineCompletions.js';
 import { IOnyxMemoryService, OnyxMemoryService } from '../browser/intelligence/onyxMemoryService.js';
 import { OnyxMemoryToolContribution } from '../browser/intelligence/onyxMemoryTool.js';
+import { OnyxDebugToolContribution } from '../browser/debug/onyxDebugTool.js';
+import { OnyxDocsToolContribution } from '../browser/intelligence/onyxDocsTool.js';
+import { IOnyxPlaybookService, OnyxPlaybookService } from '../browser/playbooks/onyxPlaybookService.js';
+import { OnyxPlaybookToolContribution } from '../browser/playbooks/onyxPlaybookTool.js';
 import { OnyxRetrievalToolContribution } from '../browser/intelligence/onyxRetrievalTool.js';
 import { OnyxWorkspaceIndexContribution } from '../browser/intelligence/onyxWorkspaceIndex.js';
 import { OnyxBenchmark } from '../browser/benchmark/onyxBenchmark.js';
+import { OnyxRepoBenchmark } from '../browser/benchmark/onyxRepoBenchmark.js';
 import { IOnyxDetectedRuntime, ONYX_DETECT_RUNTIMES_COMMAND_ID } from '../browser/onboarding/onyxRuntimeStep.js';
 import { IOnyxControlPlaneService, OnyxControlPlaneService } from '../browser/controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService, OnyxModelService } from '../browser/model/onyxLanguageModelProvider.js';
@@ -45,9 +54,12 @@ import { OnyxControlPlaneAccessibilityHelp, OnyxControlPlaneAccessibleView, Onyx
 import { AccessibleViewRegistry } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
 import { OnyxCodeActionsContribution } from '../browser/editor/onyxCodeActions.js';
 import '../browser/editor/onyxInlineEditController.js';
+import '../browser/outcomes/onyxResumeRuns.js';
+import '../browser/refactor/onyxRefactorEngine.js';
 import { IOnyxLedgerService, OnyxLedgerService } from '../browser/compute/onyxLedgerService.js';
 import { IOnyxPinService, OnyxPinService } from '../browser/intelligence/onyxPinService.js';
 import { IOnyxEnergyService, OnyxEnergyService } from '../browser/compute/onyxEnergyService.js';
+import { IOnyxSpeculativeService, OnyxSpeculativeService } from '../browser/compute/onyxSpeculativeService.js';
 import { IOnyxPromptCacheService, OnyxPromptCacheService } from '../browser/agent/onyxPromptCache.js';
 import { IOnyxProjectConfigService, OnyxProjectConfigService } from '../browser/config/onyxProjectConfigService.js';
 import { OnyxDiagnosticsExport } from '../browser/diagnostics/onyxDiagnosticsExport.js';
@@ -77,6 +89,10 @@ registerSingleton(IOnyxPinService, OnyxPinService, InstantiationType.Delayed);
 registerSingleton(IOnyxEnergyService, OnyxEnergyService, InstantiationType.Delayed);
 registerSingleton(IOnyxPromptCacheService, OnyxPromptCacheService, InstantiationType.Delayed);
 registerSingleton(IOnyxProjectConfigService, OnyxProjectConfigService, InstantiationType.Delayed);
+registerSingleton(IOnyxChangeSetService, OnyxChangeSetService, InstantiationType.Delayed);
+registerSingleton(IOnyxTerminalService, OnyxTerminalService, InstantiationType.Delayed);
+registerSingleton(IOnyxSpeculativeService, OnyxSpeculativeService, InstantiationType.Delayed);
+registerSingleton(IOnyxPlaybookService, OnyxPlaybookService, InstantiationType.Delayed);
 
 /**
  * Registers the `onyx` language model vendor and provider with the chat stack
@@ -170,6 +186,11 @@ registerWorkbenchContribution2(OnyxChatAgentContribution.ID, OnyxChatAgentContri
 registerWorkbenchContribution2(OnyxStatusBarContribution.ID, OnyxStatusBarContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxInlineCompletionsContribution.ID, OnyxInlineCompletionsContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(OnyxRetrievalToolContribution.ID, OnyxRetrievalToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxEditToolContribution.ID, OnyxEditToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxTerminalToolContribution.ID, OnyxTerminalToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxDocsToolContribution.ID, OnyxDocsToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxPlaybookToolContribution.ID, OnyxPlaybookToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxDebugToolContribution.ID, OnyxDebugToolContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxMemoryToolContribution.ID, OnyxMemoryToolContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxChatWelcomeContribution.ID, OnyxChatWelcomeContribution, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(OnyxCodeActionsContribution.ID, OnyxCodeActionsContribution, WorkbenchPhase.Eventually);
@@ -188,6 +209,20 @@ registerAction2(class BenchmarkOnyxModelsAction extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const instantiationService = accessor.get(IInstantiationService);
 		await instantiationService.createInstance(OnyxBenchmark).run();
+	}
+});
+
+registerAction2(class BenchmarkOnRepoAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.benchmarkOnRepo',
+			title: localize2('onyx.benchmarkOnRepo', "Onyx: Benchmark on This Repo"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IInstantiationService).createInstance(OnyxRepoBenchmark).run();
 	}
 });
 
@@ -331,13 +366,17 @@ registerAction2(class OpenOnyxHubAction extends Action2 {
 		const outcomeService = accessor.get(IOnyxOutcomeService);
 		const memoryService = accessor.get(IOnyxMemoryService);
 		const pinService = accessor.get(IOnyxPinService);
+		const playbookService = accessor.get(IOnyxPlaybookService);
+		const changeSetService = accessor.get(IOnyxChangeSetService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const commandService = accessor.get(ICommandService);
 
 		const models = modelService.getKnownModels();
 		const compute = controlPlaneService.compute.get();
 		const startOfDay = new Date().setHours(0, 0, 0, 0);
-		const runsToday = (await outcomeService.listRuns()).filter(run => run.startedAt >= startOfDay).length;
+		const allRuns = await outcomeService.listRuns();
+		const runsToday = allRuns.filter(run => run.startedAt >= startOfDay).length;
+		const resumableRuns = allRuns.filter(run => run.status !== 'completed').length;
 
 		const entries = buildHubEntries({
 			modelsReady: models.length,
@@ -349,6 +388,9 @@ registerAction2(class OpenOnyxHubAction extends Action2 {
 			runsToday,
 			memoryFacts: memoryService.getNotes().length,
 			pinnedFiles: pinService.pins.get().length,
+			playbooks: playbookService.playbooks.get().length,
+			stagedChangeFiles: changeSetService.files.get().length,
+			resumableRuns,
 		});
 
 		const picks: (IQuickPickItem & { commandId?: string } | IQuickPickSeparator)[] = [];

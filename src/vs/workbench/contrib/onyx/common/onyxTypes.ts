@@ -58,6 +58,9 @@ export interface IOnyxObservedStats {
 	/** Grammar-constrained turns attempted, and how many failed to produce a valid envelope. */
 	readonly constrainedTurns: number;
 	readonly constrainedFailures: number;
+	/** On-your-repo benchmark: mean score and task count per task kind. */
+	readonly benchScores: Record<string, number>;
+	readonly benchSamples: Record<string, number>;
 }
 
 /** One event in a run's journal. */

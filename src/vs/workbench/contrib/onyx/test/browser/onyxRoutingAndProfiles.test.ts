@@ -45,7 +45,7 @@ class StubProfileService implements IOnyxProfileService {
 	readonly onDidChangeProfiles = Event.None;
 	private readonly _stats = new Map<string, IOnyxObservedStats>();
 	setStats(modelKey: string, stats: Partial<IOnyxObservedStats>): void {
-		this._stats.set(modelKey, { sampleCount: 5, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0, ...stats });
+		this._stats.set(modelKey, { sampleCount: 5, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0, benchScores: {}, benchSamples: {}, ...stats });
 	}
 	getProfile(): IOnyxModelProfile { throw new Error('not used'); }
 	getStats(modelKey: string): IOnyxObservedStats | undefined { return this._stats.get(modelKey); }
@@ -53,6 +53,7 @@ class StubProfileService implements IOnyxProfileService {
 	reportOutcome(): void { }
 	reportFimMeasurement(): void { }
 	reportConstrainedOutcome(): void { }
+	reportBenchScore(): void { }
 	setOverride(): void { }
 	exportAll(): { stats: Record<string, IOnyxObservedStats>; overrides: Record<string, Partial<IOnyxModelProfile>> } { return { stats: {}, overrides: {} }; }
 }

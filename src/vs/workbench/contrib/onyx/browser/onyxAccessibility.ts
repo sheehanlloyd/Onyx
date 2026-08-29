@@ -10,11 +10,13 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
 import { CONTEXT_ONYX_INLINE_EDIT_ACTIVE } from './editor/onyxInlineEditController.js';
+import { IOnyxChangeSetService } from './changes/onyxChangeSetService.js';
 import { IOnyxControlPlaneService } from './controlPlane/onyxControlPlaneService.js';
 
 /** Focus context for the control-plane views, so help binds only where it applies. */
 const CONTROL_PLANE_FOCUSED = ContextKeyExpr.or(
 	ContextKeyExpr.equals('focusedView', 'workbench.view.onyx.activity'),
+	ContextKeyExpr.equals('focusedView', 'workbench.view.onyx.changes'),
 	ContextKeyExpr.equals('focusedView', 'workbench.view.onyx.contextBudget'),
 	ContextKeyExpr.equals('focusedView', 'workbench.view.onyx.compute'),
 	ContextKeyExpr.equals('focusedView', 'workbench.view.onyx.inspector'),
@@ -35,7 +37,7 @@ export class OnyxControlPlaneAccessibilityHelp implements IAccessibleViewImpleme
 	getProvider(_accessor: ServicesAccessor) {
 		const content = [
 			localize('onyx.a11y.help.overview', "You are in the Onyx control plane, which shows what the local agent is doing and what it costs."),
-			localize('onyx.a11y.help.views', "It has four views: Agent Activity (every step of every run), Context Budget (what the next prompt will carry, and the files you pinned), Compute (throughput, first-token latency and the compute ledger) and Inspector (past runs, replayable, and a comparison of any two)."),
+			localize('onyx.a11y.help.views', "It has five views: Agent Activity (every step of every run), Onyx Changes (edits the agent proposed, reviewable per file and per hunk — nothing is applied until you accept), Context Budget (what the next prompt will carry, and the files you pinned), Compute (throughput, first-token latency and the compute ledger) and Inspector (past runs, replayable, and a comparison of any two)."),
 			localize('onyx.a11y.help.accessibleView', "- Open the accessible view to read the selected run as plain text."),
 			localize('onyx.a11y.help.open', "- {0}: open the control plane", '<keybinding:onyx.openControlPlane>'),
 			localize('onyx.a11y.help.hub', "- {0}: open the Onyx hub, which fronts every Onyx command with its live state", '<keybinding:onyx.openHub>'),
@@ -61,16 +63,29 @@ export class OnyxControlPlaneAccessibleView implements IAccessibleViewImplementa
 
 	getProvider(accessor: ServicesAccessor) {
 		const controlPlaneService = accessor.get(IOnyxControlPlaneService);
+		const changeSetService = accessor.get(IOnyxChangeSetService);
 		const run = controlPlaneService.selectedRun.get() ?? controlPlaneService.runs.get()[0];
-		if (!run) {
+		const staged = changeSetService.files.get();
+		if (!run && staged.length === 0) {
 			return undefined;
 		}
-		const entries = run.activity.get();
+		const entries = run?.activity.get() ?? [];
 		const lines = [
-			localize('onyx.a11y.view.title', "Run: {0}", run.title),
-			localize('onyx.a11y.view.meta', "Status {0}, model {1}, {2} step(s).", run.status.get(), run.modelKey, entries.length),
-			'',
-			...entries.map((entry, index) => `${index + 1}. ${entry.kind}: ${entry.label}${entry.reason ? ` — ${entry.reason}` : ''}${entry.location ? ` (${entry.location.path}:${entry.location.line})` : ''}`),
+			...(run ? [
+				localize('onyx.a11y.view.title', "Run: {0}", run.title),
+				localize('onyx.a11y.view.meta', "Status {0}, model {1}, {2} step(s).", run.status.get(), run.modelKey, entries.length),
+				'',
+				...entries.map((entry, index) => `${index + 1}. ${entry.kind}: ${entry.label}${entry.reason ? ` — ${entry.reason}` : ''}${entry.location ? ` (${entry.location.path}:${entry.location.line})` : ''}`),
+			] : []),
+			...(staged.length > 0 ? [
+				'',
+				localize('onyx.a11y.view.changes', "Proposed changes awaiting review ({0} file(s)):", staged.length),
+				...staged.map(file => {
+					const added = file.hunks.reduce((total, hunk) => total + hunk.newLines.length, 0);
+					const removed = file.hunks.reduce((total, hunk) => total + hunk.originalLines.length, 0);
+					return localize('onyx.a11y.view.changeFile', "{0}: {1} hunk(s), {2} added line(s), {3} removed line(s){4}", file.proposal.path, file.hunks.length, added, removed, file.risk ? `, ${file.risk.level} risk — ${file.risk.reason}` : '');
+				}),
+			] : []),
 		];
 		return new AccessibleContentProvider(
 			AccessibleViewProviderId.OnyxControlPlane,

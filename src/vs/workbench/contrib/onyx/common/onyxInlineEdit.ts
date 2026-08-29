@@ -60,7 +60,9 @@ const REPLACE_MARKER = /^>{4,}\s*(REPLACE\s*)?$/;
  * whole-selection rewrite; prose becomes `unparseable`.
  */
 export function parseInlineEdits(reply: string): OnyxInlineEditParse {
-	let lines = reply.split('\n');
+	// Bare \r counts as a line break: a model emitting old-Mac line endings
+	// must not be able to smuggle a marker past the grammar inside "one line".
+	let lines = reply.split(/\r\n|\r|\n/);
 	// Strip a wrapping markdown fence (with or without a language tag).
 	const fenced = lines.findIndex(line => line.trimStart().startsWith('```'));
 	if (fenced >= 0) {
@@ -153,14 +155,15 @@ export function parseInlineEdits(reply: string): OnyxInlineEditParse {
 		return { kind: 'rewrite', text: dividerless.join('\n').trim() };
 	}
 
-	const trimmed = reply.trim();
+	// Rewrites are built from the normalized lines (all line-ending flavors
+	// split, fences removed) so a marker can never ride along inside "one line".
 	const body = lines.join('\n').trim();
 	if (fenced >= 0 && body) {
 		// A fenced reply with no markers is the model handing back the whole thing.
 		return { kind: 'rewrite', text: stripMarkers(body.split('\n')).join('\n').trim() };
 	}
-	if (trimmed && looksLikeCode(trimmed)) {
-		return { kind: 'rewrite', text: stripMarkers(trimmed.split('\n')).join('\n').trim() };
+	if (body && looksLikeCode(body)) {
+		return { kind: 'rewrite', text: stripMarkers(body.split('\n')).join('\n').trim() };
 	}
 	return { kind: 'unparseable', raw: reply };
 }

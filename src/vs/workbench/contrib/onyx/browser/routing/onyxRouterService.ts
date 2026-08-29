@@ -134,11 +134,22 @@ export class OnyxRouterService extends Disposable implements IOnyxRouterService 
 			reasons.push(`${Math.round(acceptance * 100)}% accept rate`);
 		}
 
+		// On-your-repo benchmark: how well this model reproduced this
+		// repository's own past commits of this task kind. The strongest
+		// signal there is — it was measured on this code — so it carries
+		// real weight once at least two tasks of the kind have run.
+		const benchSamples = stats?.benchSamples?.[task] ?? 0;
+		const bench = benchSamples >= 2 ? stats!.benchScores[task] : undefined;
+		if (bench !== undefined) {
+			reasons.push(`repo bench ${bench.toFixed(2)} on ${task} (${benchSamples} tasks)`);
+		}
+
 		const score =
 			sizeFit * 0.35 +
 			speed * speedWeight +
 			model.profile.toolCallQuality * toolWeight +
-			acceptance * 0.25;
+			acceptance * 0.25 +
+			(bench !== undefined ? bench * 0.3 : 0);
 		return { model, score, reasons };
 	}
 }

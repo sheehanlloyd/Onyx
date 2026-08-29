@@ -17,10 +17,14 @@ import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
 import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
-import { buildToolEnvelopeFormat, parseToolEnvelope, toolEnvelopeInstruction } from '../../common/onyxConstrainedToolCalls.js';
+import { buildToolEnvelopeFormat, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
 import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
+import { ONYX_EDIT_TOOL_ID } from '../changes/onyxEditTool.js';
+import { ONYX_DOCS_TOOL_ID } from '../intelligence/onyxDocsTool.js';
 import { ONYX_MEMORY_TOOL_ID } from '../intelligence/onyxMemoryTool.js';
+import { ONYX_PLAYBOOK_TOOL_ID } from '../playbooks/onyxPlaybookTool.js';
 import { ONYX_RETRIEVAL_TOOL_ID } from '../intelligence/onyxRetrievalTool.js';
+import { ONYX_TERMINAL_TOOL_ID } from '../terminal/onyxTerminalTool.js';
 import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
 import { qualifyWorkspacePath } from '../../common/onyxWorkspacePaths.js';
@@ -94,6 +98,15 @@ export class OnyxAgentLoop {
 			modelKey: modelIdentifier,
 		});
 		this._controlPlaneService.updateCompute({ modelKey: modelIdentifier, inFlight: true });
+
+		// Journal the git HEAD so a later resume can tell whether the workspace
+		// moved underneath the interrupted run. Not awaited: metadata only.
+		const firstFolder = this._workspaceService.getWorkspace().folders[0];
+		if (firstFolder) {
+			this._runtimeService.gitCommitCandidates(firstFolder.uri.fsPath, 1)
+				.then(commits => { if (commits[0]) { run.snapshot({ resumeMeta: { head: commits[0].hash } }); } })
+				.catch(() => { /* no git, no head to record */ });
+		}
 
 		try {
 			return await this._runLoop(request, progress, history, token, modelIdentifier, metadata, profile, run);
@@ -221,11 +234,17 @@ export class OnyxAgentLoop {
 				return {};
 			}
 
-			for (const toolUse of toolUses) {
+			for (const rawToolUse of toolUses) {
 				if (token.isCancellationRequested) {
 					break;
 				}
 				anyToolRan = true;
+				// Some models wrap the constrained envelope inside a native tool
+				// call; the intent is unambiguous, so it is unwrapped, not failed.
+				const unwrapped = unwrapEnvelopeParameters(rawToolUse.name, rawToolUse.parameters, tools.map(t => t.name));
+				const toolUse: IChatResponseToolUsePart = unwrapped.name === rawToolUse.name && unwrapped.parameters === rawToolUse.parameters
+					? rawToolUse
+					: { ...rawToolUse, name: unwrapped.name, parameters: unwrapped.parameters };
 				const resultText = await this._invokeTool(request, toolUse, toolIdsByName, run, token);
 				// Small models drown in raw tool output; keep head and tail
 				// (signatures and errors) and mark the elided middle.
@@ -345,6 +364,7 @@ export class OnyxAgentLoop {
 		const all = [...this._toolsService.getTools(metadata)]
 			.filter(tool => !enabled || enabled[tool.id] !== false)
 			.filter(tool => !disabledByProject.has(tool.id) && !disabledByProject.has(tool.toolReferenceName ?? ''))
+			.filter(tool => tool.id.startsWith('onyx_') || !(REPLACED_CORE_TOOLS.test(tool.id) || REPLACED_CORE_TOOLS.test(tool.toolReferenceName ?? '')))
 			.filter(tool => !!tool.modelDescription);
 		all.sort((a, b) => toolPriority(a) - toolPriority(b));
 
@@ -427,11 +447,20 @@ function snapshotForJournal(turn: number, modelIdentifier: string, messages: rea
 
 /** Lower is more important; the cap keeps the tools a small model needs most. */
 function toolPriority(tool: IToolData): number {
-	if (tool.id === ONYX_RETRIEVAL_TOOL_ID || tool.id === ONYX_MEMORY_TOOL_ID) {
+	if (tool.id === ONYX_RETRIEVAL_TOOL_ID || tool.id === ONYX_MEMORY_TOOL_ID || tool.id === ONYX_EDIT_TOOL_ID || tool.id === ONYX_TERMINAL_TOOL_ID || tool.id === ONYX_DOCS_TOOL_ID) {
 		// Onyx's own tools are pinned: symbol-aware lookup is the highest-value
-		// read, and the memory tool is how learned facts survive the session —
-		// both must survive even the tightest small-model tool cap.
+		// read, the memory tool is how learned facts survive the session, and
+		// the staged edit + gated terminal tools are the agent's only write
+		// paths — all must survive even the tightest small-model tool cap.
 		return 0;
+	}
+	if ((tool.toolReferenceName ?? tool.id) === 'readFile') {
+		// The read path is how a small model quotes code for its edits; it is
+		// picked explicitly, never left to a regex tie-break.
+		return 1;
+	}
+	if (tool.id === ONYX_PLAYBOOK_TOOL_ID) {
+		return 1;
 	}
 	const id = tool.id.toLowerCase();
 	if (/edit|apply|replace/.test(id)) { return 0; }
@@ -441,6 +470,13 @@ function toolPriority(tool: IToolData): number {
 	if (/todo|task/.test(id)) { return 4; }
 	return 5;
 }
+
+/**
+ * Core tools that write into the workspace or a shell without Onyx's review
+ * or approval surfaces. Onyx replaces them (staged edits, the gated terminal
+ * tool), so exposing both would give the model an ungated back door.
+ */
+const REPLACED_CORE_TOOLS = /^(copilot_)?(runInTerminal|sendToTerminal|shell)$|editFile|applyPatch|insert_edit/i;
 
 /** OpenAI function names must match `[a-zA-Z0-9_-]{1,64}` and be unique per request. */
 function sanitizeToolName(raw: string, taken: ReadonlyMap<string, string>): string {

@@ -11,6 +11,7 @@ import { workbenchConfigurationNodeBase } from '../../../common/configuration.js
 
 export const enum OnyxSettingId {
 	Endpoints = 'onyx.endpoints',
+	SpeculativePairs = 'onyx.speculative.pairs',
 	DiscoveryEnabled = 'onyx.discovery.enabled',
 	RoutingMode = 'onyx.routing.mode',
 	ControlPlaneAnimations = 'onyx.controlPlane.animations',
@@ -109,6 +110,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.APPLICATION,
 			default: true,
 			description: localize('onyx.autocomplete.context', "Include short commented snippets from the most relevant other open files in inline autocomplete prompts."),
+		},
+		[OnyxSettingId.SpeculativePairs]: {
+			type: 'object',
+			scope: ConfigurationScope.APPLICATION,
+			default: {},
+			additionalProperties: { type: 'string' },
+			markdownDescription: localize('onyx.speculative.pairs', "Draft models for speculative decoding, as a map from a target model key (`host:port/modelId`) to the draft model id. Applied only on runtimes that accept a per-request draft model (LM Studio); use *Onyx: Measure Speculative Decoding* to verify the effect on this machine before trusting it."),
 		},
 		[OnyxSettingId.VerificationTask]: {
 			type: 'string',

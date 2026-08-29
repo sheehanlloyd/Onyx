@@ -23,6 +23,9 @@ export interface IOnyxHubState {
 	readonly runsToday: number;
 	readonly memoryFacts: number;
 	readonly pinnedFiles: number;
+	readonly playbooks: number;
+	readonly stagedChangeFiles: number;
+	readonly resumableRuns: number;
 }
 
 export interface IOnyxHubEntry {
@@ -61,6 +64,26 @@ export function buildHubEntries(state: IOnyxHubState): IOnyxHubEntry[] {
 			description: localize('onyx.hub.reviewDetail', "adversarial pass over everything uncommitted"),
 		},
 		{
+			id: 'playbook',
+			commandId: 'onyx.runPlaybook',
+			label: `$(book) ${localize('onyx.hub.playbook', "Run a Playbook")}`,
+			description: state.playbooks === 0
+				? localize('onyx.hub.noPlaybooks', "none in this repository yet — add .onyx/playbooks/<name>.md")
+				: state.playbooks === 1
+					? localize('onyx.hub.onePlaybook', "1 checked-in recipe")
+					: localize('onyx.hub.playbooks', "{0} checked-in recipes", state.playbooks),
+		},
+		{
+			id: 'changes',
+			commandId: 'onyx.openControlPlane',
+			label: `$(diff) ${localize('onyx.hub.changes', "Review Proposed Changes")}`,
+			description: state.stagedChangeFiles === 0
+				? localize('onyx.hub.noStaged', "nothing staged — agent edits land here for review")
+				: state.stagedChangeFiles === 1
+					? localize('onyx.hub.oneStaged', "1 file awaiting your review")
+					: localize('onyx.hub.staged', "{0} files awaiting your review", state.stagedChangeFiles),
+		},
+		{
 			id: 'commit',
 			commandId: 'onyx.generateCommitMessage',
 			label: `$(sparkle) ${localize('onyx.hub.commit', "Generate Commit Message")}`,
@@ -73,6 +96,16 @@ export function buildHubEntries(state: IOnyxHubState): IOnyxHubEntry[] {
 			description: state.runsToday === 1
 				? localize('onyx.hub.oneRunToday', "1 run today · {0}", liveSummary)
 				: localize('onyx.hub.runsToday', "{0} runs today · {1}", state.runsToday, liveSummary),
+		},
+		{
+			id: 'resume',
+			commandId: 'onyx.resumeRun',
+			label: `$(debug-continue) ${localize('onyx.hub.resume', "Resume an Interrupted Run")}`,
+			description: state.resumableRuns === 0
+				? localize('onyx.hub.noResumable', "every run completed")
+				: state.resumableRuns === 1
+					? localize('onyx.hub.oneResumable', "1 run never finished")
+					: localize('onyx.hub.resumable', "{0} runs never finished", state.resumableRuns),
 		},
 		{
 			id: 'runtimes',

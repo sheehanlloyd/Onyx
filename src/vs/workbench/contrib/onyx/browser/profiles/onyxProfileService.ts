@@ -34,6 +34,8 @@ export interface IOnyxProfileService {
 	setOverride(modelKey: string, patch: Partial<IOnyxModelProfile>): void;
 	/** Records whether one grammar-constrained turn produced a valid envelope. */
 	reportConstrainedOutcome(modelKey: string, ok: boolean): void;
+	/** Records one on-your-repo benchmark score (0..1) for a task kind. */
+	reportBenchScore(modelKey: string, taskKind: string, score: number): void;
 	/** Everything measured and overridden, for the diagnostics bundle. */
 	exportAll(): { stats: Record<string, IOnyxObservedStats>; overrides: Record<string, Partial<IOnyxModelProfile>> };
 }
@@ -59,6 +61,9 @@ interface IMutableStats {
 	ttftWarmSamples: number;
 	constrainedTurns: number;
 	constrainedFailures: number;
+	/** Mean on-your-repo benchmark score per task kind, with its sample count. */
+	benchScores: Record<string, number>;
+	benchSamples: Record<string, number>;
 }
 
 export class OnyxProfileService extends Disposable implements IOnyxProfileService {
@@ -153,6 +158,17 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		this._didChange();
 	}
 
+	reportBenchScore(modelKey: string, taskKind: string, score: number): void {
+		const stats = this._getOrCreateStats(modelKey);
+		const samples = stats.benchSamples[taskKind] ?? 0;
+		const mean = stats.benchScores[taskKind] ?? 0;
+		// A running mean, not an EMA: bench runs are rare, deliberate events
+		// and every task should count equally within a suite.
+		stats.benchScores[taskKind] = (mean * samples + score) / (samples + 1);
+		stats.benchSamples[taskKind] = samples + 1;
+		this._didChange();
+	}
+
 	reportFimMeasurement(modelKey: string, latencyMs: number): void {
 		const stats = this._getOrCreateStats(modelKey);
 		stats.fimSampleCount++;
@@ -186,7 +202,7 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 }
 
 function emptyStats(): IMutableStats {
-	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0 };
+	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0, benchScores: {}, benchSamples: {} };
 }
 
 function ema(previous: number, sample: number): number {

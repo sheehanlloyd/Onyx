@@ -26,6 +26,8 @@ export interface IOnyxProjectConfig {
 	readonly reviewSeverityThreshold?: 'low' | 'medium' | 'high';
 	/** Tool ids or reference names the agent must not use in this repository. */
 	readonly disabledTools?: readonly string[];
+	/** Exact commands the agent's terminal tool may run without asking ("always allow" decisions land here). */
+	readonly terminalAllowlist?: readonly string[];
 }
 
 export const ONYX_PROJECT_CONFIG_PATH = '.onyx/config.json';
@@ -58,6 +60,7 @@ export function parseProjectConfig(json: string): IOnyxProjectConfigParse {
 		contextPins?: string[];
 		reviewSeverityThreshold?: 'low' | 'medium' | 'high';
 		disabledTools?: string[];
+		terminalAllowlist?: string[];
 	} = {};
 
 	if (value.models !== undefined) {
@@ -112,8 +115,16 @@ export function parseProjectConfig(json: string): IOnyxProjectConfigParse {
 		}
 	}
 
+	if (value.terminalAllowlist !== undefined) {
+		if (Array.isArray(value.terminalAllowlist) && value.terminalAllowlist.every(entry => typeof entry === 'string')) {
+			config.terminalAllowlist = value.terminalAllowlist as string[];
+		} else {
+			problems.push('terminalAllowlist: expected an array of exact command strings');
+		}
+	}
+
 	for (const key of Object.keys(value)) {
-		if (!['models', 'verificationTask', 'contextPins', 'reviewSeverityThreshold', 'disabledTools', '$schema'].includes(key)) {
+		if (!['models', 'verificationTask', 'contextPins', 'reviewSeverityThreshold', 'disabledTools', 'terminalAllowlist', '$schema'].includes(key)) {
 			problems.push(`unknown field "${key}"`);
 		}
 	}
@@ -161,6 +172,11 @@ export const ONYX_PROJECT_CONFIG_SCHEMA: IJSONSchema = {
 			type: 'array',
 			items: { type: 'string' },
 			description: 'Tool ids or reference names the agent must not use in this repository.',
+		},
+		terminalAllowlist: {
+			type: 'array',
+			items: { type: 'string' },
+			description: 'Exact commands the agent\'s terminal tool may run in this repository without asking. Commands that match a danger heuristic still ask every time.',
 		},
 	},
 };

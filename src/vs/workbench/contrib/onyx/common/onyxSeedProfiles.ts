@@ -56,7 +56,10 @@ function seedToolCallQuality(sizeClass: SizeClass): number {
 function seedMaxTools(sizeClass: SizeClass): number {
 	switch (sizeClass) {
 		case 'tiny': return 3;
-		case 'small': return 6;
+		// Room for the five pinned Onyx tools plus the read path and the
+		// playbook tool — with short descriptions, 8 focused tools beat 6
+		// that are missing the write or recipe path.
+		case 'small': return 8;
 		case 'medium': return 12;
 		case 'large': return 24;
 	}

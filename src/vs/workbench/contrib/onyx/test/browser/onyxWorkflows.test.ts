@@ -275,7 +275,7 @@ suite('OnyxWorkflows', () => {
 		test('live state lands in the descriptions', () => {
 			const entries = buildHubEntries({
 				modelsReady: 2, endpointCount: 1, currentModelKey: 'localhost:11434/q7b', inFlight: false,
-				tokensPerSecond: 42.4, sessionRequests: 9, runsToday: 3, memoryFacts: 2, pinnedFiles: 1,
+				tokensPerSecond: 42.4, sessionRequests: 9, runsToday: 3, memoryFacts: 2, pinnedFiles: 1, playbooks: 2, stagedChangeFiles: 0, resumableRuns: 0,
 			});
 			const byId = new Map(entries.map(entry => [entry.id, entry]));
 			assert.deepStrictEqual([

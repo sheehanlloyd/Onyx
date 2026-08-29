@@ -104,6 +104,13 @@ export class OnyxActivityViewPane extends ViewPane {
 			}
 			this._render(runs, selected);
 		}));
+		// The empty state distinguishes "no runtime" from "nothing run yet", so a
+		// model appearing (or the last one vanishing) must swap it live.
+		this._register(this._onyxModelService.onDidChangeModels(() => {
+			if (this._controlPlaneService.runs.get().length === 0) {
+				this._render(this._controlPlaneService.runs.get(), this._controlPlaneService.selectedRun.get());
+			}
+		}));
 	}
 
 	private _render(runs: readonly IOnyxLiveRun[], selected: IOnyxLiveRun | undefined): void {

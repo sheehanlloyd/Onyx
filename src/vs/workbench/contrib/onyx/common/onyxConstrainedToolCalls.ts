@@ -74,6 +74,29 @@ export function parseToolEnvelope(text: string, knownTools: readonly string[]): 
 	}
 }
 
+/**
+ * Repairs a native tool call whose arguments are the constrained envelope
+ * itself. Seen live with llama3.2:3b under constrained decoding: the model
+ * emits a tool_calls entry whose `arguments` is the whole
+ * `{"action":"tool","tool":...,"arguments":{...}}` object. The intent is
+ * unambiguous, so it is unwrapped instead of failing the call — but only
+ * when the inner tool is known; anything else passes through untouched.
+ */
+export function unwrapEnvelopeParameters(name: string, parameters: unknown, knownTools: readonly string[]): { readonly name: string; readonly parameters: object } {
+	const fallback = { name, parameters: typeof parameters === 'object' && parameters !== null ? parameters as object : {} };
+	if (typeof parameters !== 'object' || parameters === null) {
+		return fallback;
+	}
+	const candidate = parameters as { action?: unknown; tool?: unknown; arguments?: unknown };
+	if (candidate.action !== 'tool' || typeof candidate.tool !== 'string' || !knownTools.includes(candidate.tool)) {
+		return fallback;
+	}
+	return {
+		name: candidate.tool,
+		parameters: typeof candidate.arguments === 'object' && candidate.arguments !== null ? candidate.arguments as object : {},
+	};
+}
+
 function extractFirstJsonObject(text: string): string | undefined {
 	const start = text.indexOf('{');
 	if (start < 0) {

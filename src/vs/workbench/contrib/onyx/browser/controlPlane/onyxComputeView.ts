@@ -21,6 +21,8 @@ import { formatCount, IOnyxLedgerEntry, summarize } from '../../common/onyxLedge
 import { IOnyxEnergyService } from '../compute/onyxEnergyService.js';
 import { IOnyxLedgerService } from '../compute/onyxLedgerService.js';
 import { IOnyxPromptCacheService } from '../agent/onyxPromptCache.js';
+import { IOnyxSpeculativeService } from '../compute/onyxSpeculativeService.js';
+import { formatSpeculativeReadout } from '../../common/onyxSpeculative.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxComputeState, IOnyxControlPlaneService } from './onyxControlPlaneService.js';
 
@@ -56,6 +58,7 @@ export class OnyxComputeViewPane extends ViewPane {
 		@IOnyxEnergyService private readonly _energyService: IOnyxEnergyService,
 		@IOnyxProfileService private readonly _profileService: IOnyxProfileService,
 		@IOnyxPromptCacheService private readonly _promptCacheService: IOnyxPromptCacheService,
+		@IOnyxSpeculativeService private readonly _speculativeService: IOnyxSpeculativeService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -68,6 +71,7 @@ export class OnyxComputeViewPane extends ViewPane {
 			this._energyService.decision.read(reader);
 			this._promptCacheService.lastReuse.read(reader);
 			this._promptCacheService.ttftByReuse.read(reader);
+			this._speculativeService.measurements.read(reader);
 			this._render(
 				this._controlPlaneService.compute.read(reader),
 				this._ledgerService.session.read(reader),
@@ -144,6 +148,22 @@ export class OnyxComputeViewPane extends ViewPane {
 			icon.ariaHidden = 'true';
 			const text = DOM.append(note, $('span'));
 			text.textContent = localize('onyx.compute.constrained', "tool calls: {0}% malformed free-form · {1}% constrained ({2} turns)", freeFormRate, constrainedRate, stats.constrainedTurns);
+		}
+
+		// Speculative decoding, only as measured on this machine — including the
+		// honest "no measured effect" outcome.
+		const speculative = this._speculativeService.measurements.get();
+		// Prefer the current model's measurement; otherwise the newest one —
+		// the sentence names its target, so it cannot be misattributed.
+		const currentMeasurement = (state.modelKey
+			? speculative.find(entry => state.modelKey === entry.targetKey || state.modelKey!.endsWith(entry.targetKey))
+			: undefined) ?? speculative[speculative.length - 1];
+		if (currentMeasurement) {
+			const note = DOM.append(content, $('.onyx-compute-energy'));
+			const icon = DOM.append(note, $('span.codicon.codicon-rocket'));
+			icon.ariaHidden = 'true';
+			const text = DOM.append(note, $('span'));
+			text.textContent = formatSpeculativeReadout(currentMeasurement);
 		}
 
 		// The energy story, in one calm sentence — only when something changed.

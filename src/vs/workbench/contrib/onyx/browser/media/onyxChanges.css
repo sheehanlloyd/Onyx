@@ -1,0 +1,131 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Onyx Changes — the staged-edit review surface. Calm by default: quiet rows,
+   one accent for actions, and the diff colors the editor already taught the
+   user. Density comes from the spacing ramp, not from shrinking type. */
+
+.onyx-changes .onyx-changes-summary {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size60) var(--vscode-spacing-size80);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label2);
+}
+
+.onyx-changes .onyx-changes-summary .onyx-run-actions {
+	margin-left: auto;
+}
+
+.onyx-changes .onyx-text-button {
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size80);
+	border: 1px solid var(--vscode-widget-border, transparent);
+	border-radius: var(--vscode-cornerRadius-small);
+	background: transparent;
+	color: var(--vscode-foreground);
+	font-size: var(--vscode-fontSize-label2);
+	cursor: pointer;
+}
+
+.onyx-changes .onyx-text-button:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.onyx-change-file {
+	margin: 0 var(--vscode-spacing-size60) var(--vscode-spacing-size60);
+	border: 1px solid var(--vscode-widget-border, transparent);
+	border-radius: var(--vscode-cornerRadius-medium);
+	overflow: hidden;
+}
+
+.onyx-change-file-header {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+	cursor: pointer;
+}
+
+.onyx-change-file-header:hover,
+.onyx-change-file-header:focus-visible {
+	background: var(--vscode-list-hoverBackground);
+	outline: none;
+}
+
+.onyx-change-file-header:focus-visible {
+	box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+}
+
+.onyx-change-file-path {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-family: var(--monaco-monospace-font);
+	font-size: var(--vscode-fontSize-label2);
+}
+
+.onyx-change-file-stat {
+	flex-shrink: 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label3);
+	font-variant-numeric: tabular-nums;
+}
+
+.onyx-change-file-header .onyx-run-actions {
+	margin-left: auto;
+}
+
+.onyx-chip.onyx-risk-moderate {
+	color: var(--vscode-onyx-warn);
+	background: color-mix(in srgb, var(--vscode-onyx-warn) 14%, transparent);
+}
+
+.onyx-chip.onyx-risk-elevated {
+	color: var(--vscode-onyx-error);
+	background: color-mix(in srgb, var(--vscode-onyx-error) 14%, transparent);
+}
+
+.onyx-change-file-body {
+	border-top: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.onyx-change-hunk + .onyx-change-hunk {
+	border-top: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.onyx-change-hunk-header {
+	display: flex;
+	align-items: center;
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size80);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label3);
+}
+
+.onyx-change-hunk-header .onyx-run-actions {
+	margin-left: auto;
+}
+
+.onyx-change-hunk-lines {
+	padding: var(--vscode-spacing-size20) 0 var(--vscode-spacing-size40);
+	overflow-x: auto;
+}
+
+.onyx-change-line {
+	padding: 0 var(--vscode-spacing-size80);
+	font-family: var(--monaco-monospace-font);
+	font-size: var(--vscode-fontSize-label2);
+	white-space: pre;
+}
+
+.onyx-change-line.added {
+	color: var(--vscode-gitDecoration-addedResourceForeground);
+	background: color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground) 8%, transparent);
+}
+
+.onyx-change-line.removed {
+	color: var(--vscode-gitDecoration-deletedResourceForeground);
+	background: color-mix(in srgb, var(--vscode-gitDecoration-deletedResourceForeground) 8%, transparent);
+}

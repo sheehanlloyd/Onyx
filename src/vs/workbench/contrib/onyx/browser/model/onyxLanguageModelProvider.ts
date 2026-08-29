@@ -18,6 +18,7 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { IChatMessage, IChatResponsePart, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse } from '../../../chat/common/languageModels.js';
 import { getOnyxEndpointSettings, OnyxSettingId } from '../../common/onyxConfiguration.js';
 import { humanizeRuntimeError } from '../../common/onyxRuntimeErrors.js';
+import { speculativeSupport } from '../../common/onyxSpeculative.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxRouterService } from '../routing/onyxRouterService.js';
@@ -250,6 +251,21 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	 * memory; otherwise a short keep_alive lets the runtime evict soon. The
 	 * machine profile is fetched once — total memory does not change.
 	 */
+	/**
+	 * The configured speculative-decoding draft for a model, only on runtimes
+	 * that accept a per-request draft. Elsewhere the pairing is ignored rather
+	 * than sent — an unknown field silently changing behavior is worse than no
+	 * speedup.
+	 */
+	private _draftModelFor(model: IOnyxKnownModel): string | undefined {
+		if (speculativeSupport(model.discovered.runtime) !== 'per-request') {
+			return undefined;
+		}
+		const pairs = this._configurationService.getValue<Record<string, string>>(OnyxSettingId.SpeculativePairs) ?? {};
+		const draft = pairs[model.key] ?? pairs[model.discovered.id];
+		return typeof draft === 'string' && draft.length > 0 && draft !== model.discovered.id ? draft : undefined;
+	}
+
 	private _keepAliveFor(model: IOnyxKnownModel): string {
 		if (this._totalMemoryGb === undefined) {
 			this._totalMemoryGb = 16;
@@ -367,6 +383,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				// the next request pays prompt-processing, not model loading.
 				keepAlive: model.discovered.runtime === 'ollama' ? this._keepAliveFor(model) : undefined,
 				responseFormat: options.modelOptions?.['responseFormat'],
+				draftModel: this._draftModelFor(model),
 			}).catch(reject);
 		}).finally(() => store.dispose());
 
