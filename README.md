@@ -28,6 +28,16 @@ there is nothing to sign in to.</p>
 <p align="center"><i>The control plane: every step the agent took, why it took it, and where the findings live.</i></p>
 
 <p align="center">
+  <img src="docs/images/onyx-changes.png" alt="Onyx Changes: agent edits staged for per-hunk review — nothing touches a file until accepted" width="420" />
+</p>
+<p align="center"><i>Agent edits stage here first. Per-file and per-hunk accept or reject — your code only changes by your decision.</i></p>
+
+<p align="center">
+  <img src="docs/images/onyx-architecture.png" alt="The Onyx architecture map: modules, dependencies, churn and fan-in hot spots with local-model summaries" width="420" />
+</p>
+<p align="center"><i>The architecture map: 13k files become modules with hot spots and one-line local-model summaries, in about three seconds.</i></p>
+
+<p align="center">
   <img src="docs/images/onyx-model-library.png" alt="The Onyx model library, sized against this Mac's unified memory" width="900" />
 </p>
 <p align="center"><i>The model library reads this Mac's unified memory and recommends accordingly.</i></p>

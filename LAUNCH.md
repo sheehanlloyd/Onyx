@@ -69,7 +69,7 @@ hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
 - [ ] `npm run typecheck-client`, `npm run valid-layers-check`,
       `npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx`,
       `npm run stylelint`, and `./scripts/test.sh --grep Onyx` all green
-- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtime (24 checks)
+- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtimes (46 checks)
 - [ ] The full unit suite (`./scripts/test.sh`) is at zero failures
 - [ ] Fresh-profile launch: onboarding opens on **Connect a Local Runtime**
       (not a sign-in), Onyx Dark preselected, Onyx icon in the Dock,
@@ -81,6 +81,26 @@ hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
       plane live, ghost-text autocomplete, ⌘I inline edit applies reviewable
       hunks, `Onyx: Manage Models` shows this machine's memory tier
 - [ ] The Onyx Hub (⌘⌃H) opens and every row shows live state
+- [ ] Agent edits STAGE into Onyx Changes (nothing touches a buffer until
+      accepted), per-hunk accept/reject works, and staged edits survive a
+      forced quit
+- [ ] The terminal tool asks before every command, names dangerous ones,
+      persists "always allow" into `.onyx/config.json`, and
+      `Onyx: Kill Running Terminal Command` ends a running one
+- [ ] The `docs` tool answers from the offline mirror and the control plane
+      names the documents used
+- [ ] `Onyx: Run a Playbook` lists `.onyx/playbooks/*.md` and a broken
+      playbook shows markers, not a broken picker
+- [ ] `Onyx: Resume an Interrupted Run` rebuilds a stopped run with its
+      caveats (model gone / HEAD moved / staged edits) spelled out
+- [ ] `Onyx: Explain This Failure` sends the visible paused-debugger snapshot;
+      with no session it says so instead
+- [ ] `Onyx: Rename Symbol with Onyx` offers model names and stages the
+      language-service edit for review; accepting reports the marker verdict
+- [ ] `Onyx: Benchmark on This Repo` produces scored tasks from real commits
+      and the scores appear in later routing reasons
+- [ ] The Architecture Map renders this repository's modules in a few seconds
+      with hot spots and local-model summaries
 - [ ] `Onyx: Run in Parallel` races models in worktrees and leaves none behind
       (`git worktree list` shows only the repository itself afterwards)
 - [ ] `Onyx: Export Diagnostics` writes a readable zip and the redaction

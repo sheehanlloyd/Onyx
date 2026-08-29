@@ -70,6 +70,21 @@ one. `src/vs/workbench/contrib/onyx/common/onyxConfiguration.ts` calls
 If a merge changes one of those setting ids, the override silently stops
 applying; the symptom is Copilot chrome reappearing on a fresh profile.
 
+## Merge drill — 2026-08-29
+
+Trial merge of `upstream/main` (df814e65a7c, 153 commits ahead) onto `main`
+in a throwaway worktree:
+
+- **One conflict, in product.json, for the third consecutive drill**: upstream
+  re-adds `trustedExtensionAuthAccess` where Onyx keeps
+  `builtInExtensionsEnabledWithAutoUpdates: []`. Take the Onyx side.
+- Every other Onyx registration edit survived untouched (checked:
+  `workbench.desktop.main.ts`, `sharedProcessMain.ts`, `i18n.resources.json`,
+  `workbenchThemeService.ts`, `vscode-known-variables.json`).
+- The whole uncommitted Onyx delta (116 KB of diff plus ~40 new paths from the
+  ten-feature session) applied cleanly with `git apply` and produced **zero
+  onyx-related type errors** on the merged tree.
+
 ## Merge drill — 2026-08-28
 
 Trial merge of `upstream/main` (87 commits ahead) onto `main` in a throwaway

@@ -69,6 +69,10 @@ exactly what the agent is doing, what it costs in compute, and why.
 │             (the renderer cannot spawn processes), 60s cached                 │
 │  machine:   unified memory, CPU, arch — sizes the model recommendations       │
 │  models:    `ollama pull` with normalized NDJSON progress                     │
+│  exec:      approval-gated shell commands (group kill, hard timeout)          │
+│  docs:      BM25 mirror of workspace md + dependency READMEs/JSDoc            │
+│  architecture: import-graph scanner (modules, churn, fan-in), cached          │
+│  history:   commit candidates + `git show rev:path` for repo benchmarks       │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -238,28 +242,70 @@ Integration points consumed (imports only, never patched):
       against the mock runtime and asserts on the run journal; `.github/
       workflows/onyx-ci.yml` runs typecheck, layers, ESLint, stylelint and the
       Onyx unit tests on every push
+- [x] Onyx Changes: every agent edit is STAGED, never written — a control-plane
+      view lists each file with per-hunk accept/reject, accept/reject-all, a
+      change-risk badge, crash-surviving persistence and rebase-on-drift; the
+      `editFile` tool (SEARCH/REPLACE) is the agent's only write path
+- [x] Approval-gated terminal tool: the agent proposes shell commands; a
+      designed dialog offers once / session / always / deny, "always" persists
+      to `.onyx/config.json`'s `terminalAllowlist`, dangerous-command
+      heuristics are named in the prompt, output streams to the timeline, and
+      a hard timeout plus `Onyx: Kill Running Terminal Command` end it
+- [x] Offline documentation mirror: workspace markdown, dependency READMEs and
+      the JSDoc inside type declarations in a second BM25 corpus (capped,
+      freshness-stamped); the `docs` tool searches it and the control plane
+      notes exactly which documents an answer used
+- [x] Speculative decoding: draft-model pairing (setting + model library), the
+      draft sent per-request where the runtime accepts one (LM Studio), and
+      `Onyx: Measure Speculative Decoding` racing with/without on this machine
+      — the Compute view reports the measured effect, including "no effect"
+- [x] On-your-repo benchmarks: real past commits become tasks (file-before +
+      commit message → reproduce the change), scored by changed-line F1
+      against the author's actual result, per-model per-kind scores feed the
+      router with a visible reason, and a results doc shows the evidence
+- [x] Agent playbooks: checked-in recipes at `.onyx/playbooks/*.md`
+      (frontmatter-validated, Problems-panel markers, frontmatter completion),
+      a one-line index in the agent's prompt, a `playbook` tool to fetch them,
+      `Onyx: Run a Playbook` + a Hub entry, three built-ins for this repo
+- [x] Resumable runs: crashed/stopped/failed runs are found in the journal,
+      distilled into a resume briefing (original request, progress, explicit
+      caveats — vanished model, moved git HEAD, still-staged edits) and
+      continued through the ordinary chat surface; staged edits survive crashes
+- [x] Debug-aware assistant: a read-only `debugState` tool (paused stack,
+      frames, variables) and `Onyx: Explain This Failure`, which puts the full
+      snapshot in the visible chat request — nothing is redacted silently
+- [x] Multi-file refactor engine: rename / extract function / move symbol,
+      where language services compute every edit and the local model only
+      proposes names; results stage into Onyx Changes and an error-marker
+      verification pass reports after accept
+- [x] Architecture map: a sidebar view of the workspace as modules with
+      dependency edges, churn × fan-in hot spots and one-line local-model
+      summaries (cached per module) — 13k files analyzed in ~3s, ~1s cached,
+      off the startup path
 
 ### Next
 
-- [ ] Offline documentation mirror for library APIs
-- [ ] Speculative decoding configuration
-- [ ] On-your-repo benchmark suites feeding the router
+- [ ] Draft-model measurement on a real LM Studio install (verified against
+      the mock's wire format; no LM Studio on this machine)
 
 ### Roadmap
 
 - **Phase 2 — Repo intelligence (shipped):** call-graph context assembly,
   co-change mining, and the embedding-free BM25 index blended into one
   retrieval tool.
-- **Phase 3 — Model management (shipped, one item open):** the model library,
-  Apple-Silicon-aware recommendations, residency and warm-up. Still open:
-  on-your-repo benchmark suites feeding the router, speculative decoding.
+- **Phase 3 — Model management (shipped):** the model library, Apple-Silicon-
+  aware recommendations, residency and warm-up, speculative-decoding pairing
+  with honest measurement, and on-your-repo benchmark suites feeding the
+  router.
 - **Phase 4 — Verification & isolation (shipped):** project checks, the
   adversarial reviewer, change-risk analysis, git-worktree-per-agent parallel
   runs and tournament mode.
-- **Phase 5 — Polish & depth (shipped, one item open):** FIM autocomplete with
-  task-aware context, persistent memory, the compute ledger, idle-compute
-  background review, and energy/thermal-aware scheduling. Still open: an
-  offline docs mirror.
+- **Phase 5 — Polish & depth (shipped):** FIM autocomplete with task-aware
+  context, persistent memory, the compute ledger, idle-compute background
+  review, energy/thermal-aware scheduling, and the offline docs mirror.
+- **Phase 6 — Trust & scale (shipped):** staged agent edits with per-hunk
+  review, the approval-gated terminal, playbooks, resumable runs, the
+  debug-aware assistant, the refactor engine and the architecture map.
 
 ## Development
 
