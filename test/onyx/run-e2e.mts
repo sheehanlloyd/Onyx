@@ -55,6 +55,27 @@ function sleep(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Polls until `condition` holds, or the timeout expires. Returns whether it
+ * held, so the caller's own `check` still reports the real failure.
+ *
+ * Fixed sleeps were tuned on a fast laptop and made six checks fail on a
+ * GitHub runner: the agent run simply had not been journaled yet when the
+ * assertion read it. Worse, one of them failed *quietly* — with nothing
+ * staged, "accepting clears the staged set" saw an already-empty view and
+ * passed. Waiting on the condition costs nothing when it is already true.
+ */
+async function waitUntil(condition: () => boolean, timeoutMs = 45_000, stepMs = 500): Promise<boolean> {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		if (condition()) {
+			return true;
+		}
+		await sleep(stepMs);
+	}
+	return condition();
+}
+
 function pw(...args: string[]) {
 	return execFileSync('npx', ['@playwright/cli', `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
@@ -433,7 +454,7 @@ async function main() {
 		}
 		return 'not-found';
 	}`);
-	await sleep(9000);
+	await waitUntil(() => readRunIndex().some(run => run.title.startsWith('Fix this problem')));
 	check('Fix with Onyx routed into a chat run', readRunIndex().some(run => run.title.startsWith('Fix this problem')), fixClicked.includes('clicked') ? 'no run titled "Fix this problem…"' : 'code action not found in the action widget');
 
 	// --- Explain with Onyx on a selection.
@@ -453,7 +474,7 @@ async function main() {
 		}
 		return 'not-found';
 	}`);
-	await sleep(9000);
+	await waitUntil(() => readRunIndex().some(run => run.title.startsWith('Explain this code')));
 	check('Explain with Onyx routed into a chat run', readRunIndex().some(run => run.title.startsWith('Explain this code')), explainClicked.includes('clicked') ? 'no run titled "Explain this code…"' : 'code action not found in the action widget');
 
 	// --- Model library: the quick pick opens with the machine-sized catalog.
@@ -497,11 +518,12 @@ async function main() {
 	const widgetOpened = pw('run-code', 'async (page) => { const input = await page.$(".onyx-inline-edit-input"); if (!input) { return "missing"; } await input.fill("mark this function"); return "filled"; }');
 	check('the inline edit widget opens on the selection', widgetOpened.includes('filled'), widgetOpened.slice(0, 120));
 	pw('press', 'Enter');
-	await sleep(6000);
-	const hunkState = pw('run-code', `async (page) => page.evaluate(() => ({
+	const readHunkState = () => pw('run-code', `async (page) => page.evaluate(() => ({
 		edited: Array.from(document.querySelectorAll('.editor-instance .view-line')).some(l => (l.textContent || '').includes('edited-by-mock')),
 		decorated: !!document.querySelector('.onyx-inline-hunk'),
 	}))`);
+	await waitUntil(() => /"edited"\s*:\s*true/.test(readHunkState()));
+	const hunkState = readHunkState();
 	check('the inline edit applied a reviewable hunk', /"edited"\s*:\s*true/.test(hunkState) && /"decorated"\s*:\s*true/.test(hunkState), hunkState.slice(0, 160));
 	// Undo the hunk: the original line must come back verbatim.
 	pw('run-code', 'async (page) => { const ed = await page.$(".editor-instance .native-edit-context, .editor-instance textarea.inputarea"); await ed.focus(); }');
@@ -509,6 +531,7 @@ async function main() {
 	await sleep(1500);
 	const afterReject = pw(`run-code`, `async (page) => page.evaluate(() => Array.from(document.querySelectorAll('.editor-instance .view-line')).some(l => (l.textContent || '').includes('edited-by-mock')))`);
 	check('undoing a hunk restores the original line', /false/.test(afterReject), afterReject.slice(0, 120));
+	await waitUntil(() => readRunIndex().some(run => run.title.startsWith('Inline edit')));
 	check('the inline edit run was journaled', readRunIndex().some(run => run.title.startsWith('Inline edit')), JSON.stringify(readRunIndex().map(run => run.title).slice(0, 6)));
 
 	// --- Review: staged + unstaged changes reviewed, journaled with a snapshot.
@@ -524,23 +547,29 @@ async function main() {
 	// --- Staged edits (Onyx Changes): the agent's edits stage for review and
 	// only an explicit accept touches the buffer.
 	await send('EDITTEST src/math.ts stage an edit for review');
-	await sleep(9000);
+	const readStagedSnapshot = () => JSON.stringify(readRuns().flatMap(run => run.events).filter(event => event.kind === 'promptSnapshot').slice(-2));
+	await waitUntil(() => readStagedSnapshot().includes('reviews them in Onyx Changes'));
 	const mathOnDisk = fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8');
 	check('agent edits stage instead of writing the file', !mathOnDisk.includes('edited-by-mock'), 'the tool wrote into the file without review');
-	const stagedSnapshot = JSON.stringify(readRuns().flatMap(run => run.events).filter(event => event.kind === 'promptSnapshot').slice(-2));
-	check('the edit tool reported the staged review to the model', stagedSnapshot.includes('reviews them in Onyx Changes'), 'no staging summary in the tool result');
+	check('the edit tool reported the staged review to the model', readStagedSnapshot().includes('reviews them in Onyx Changes'), 'no staging summary in the tool result');
 	pw('press', 'Meta+Control+o'); // open the control plane
-	await sleep(2000);
-	const changesState = pw('run-code', `async (page) => page.evaluate(() => ({
+	const readChangesState = () => pw('run-code', `async (page) => page.evaluate(() => ({
 		files: Array.from(document.querySelectorAll('.onyx-change-file-path')).map(el => el.textContent),
 	}))`);
-	check('the staged file appears in Onyx Changes', changesState.includes('src/math.ts'), changesState.slice(0, 160));
+	await waitUntil(() => readChangesState().includes('src/math.ts'));
+	const changesState = readChangesState();
+	const wasStaged = changesState.includes('src/math.ts');
+	check('the staged file appears in Onyx Changes', wasStaged, changesState.slice(0, 160));
 	pw('run-code', 'async (page) => { const el = await page.$(".onyx-changes-summary button"); await el.click(); }'); // Accept All
-	await sleep(2500);
-	const acceptedState = pw('run-code', `async (page) => page.evaluate(() => ({
+	const readAcceptedState = () => pw('run-code', `async (page) => page.evaluate(() => ({
 		empty: !!document.querySelector('.onyx-changes .onyx-empty'),
 	}))`);
-	check('accepting applies and clears the staged set', /"empty"\s*:\s*true/.test(acceptedState), acceptedState.slice(0, 120));
+	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
+	const acceptedState = readAcceptedState();
+	// Guarded on `wasStaged`: an empty view is only evidence of accepting when
+	// something was staged to begin with. Without that this check passed on a
+	// run where the edit had never arrived.
+	check('accepting applies and clears the staged set', wasStaged && /"empty"\s*:\s*true/.test(acceptedState), wasStaged ? acceptedState.slice(0, 120) : 'nothing was staged, so an empty view proves nothing');
 
 	// --- Terminal tool: approval dialog, execution, journaled output.
 	await send('TERMTEST echo onyx-e2e-terminal-ok');
