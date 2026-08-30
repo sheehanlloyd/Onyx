@@ -11,6 +11,17 @@ model gets a different harness than a 70B model, the router learns which of
 your models is good at what on your hardware, and a visual control plane shows
 exactly what the agent is doing, what it costs in compute, and why.
 
+## Contents
+
+| | |
+|---|---|
+| [Product principles](#product-principles) | The five rules everything else follows from |
+| [Architecture](#architecture-implemented) | Renderer and shared-process layout, as built |
+| [Status](#status) | What ships today, at a glance and in full |
+| [Verified against real models](#verified-against-real-models-2026-08-30) | Six models live: what broke, and what that taught |
+| [Next](#next) · [Roadmap](#roadmap) | What is left, and how it got here |
+| [Development](#development) | Build, run, and the gates CI enforces |
+
 ## Product principles
 
 1. **Local-first is architectural, not a provider option.** One
@@ -84,6 +95,23 @@ Integration points consumed (imports only, never patched):
 ## Status
 
 ### Done (verified end-to-end in the running app)
+
+**At a glance**
+
+| Area | What ships |
+|---|---|
+| **Local inference** | Runtime auto-discovery across Ollama, LM Studio, llama.cpp and vLLM; streaming OpenAI-compatible provider; per-model capability profiles seeded from metadata and sharpened by measurement; an adaptive router with human-readable reasons; a synthetic **Auto** model |
+| **Trust and review** | Onyx Changes (every agent edit staged, per-hunk accept/reject, crash-surviving, rebased on drift); the approval-gated terminal with un-allowlistable dangerous commands; change-risk badges; post-run verification against the marker baseline |
+| **Repo intelligence** | Embedding-free BM25 retrieval blended with symbol matches and co-change; call-graph expansion; persistent agent memory; the offline docs mirror; the architecture map |
+| **The editor** | ⌘I inline edit with per-hunk undo; FIM autocomplete with cross-file context; Fix/Explain code actions; local commit messages; the adversarial reviewer; the multi-file refactor engine; the debug-aware assistant |
+| **Observability** | The control plane (timeline, gates, context budget, compute); the run journal and Inspector replay down to the wire prompt; the compute ledger; resumable runs; the Onyx Hub |
+| **Measurement** | Model benchmarks, on-your-repo benchmarks feeding the router, prompt-cache measurement, speculative-decoding pairing with an honest readout, energy- and thermal-aware scheduling |
+| **Product** | Onyx branding and icon; four Onyx themes including high contrast; de-branded first run with no account step; accessibility help and accessible views; project config in `.onyx/`; playbooks; the diagnostics bundle; tournament mode |
+
+<details>
+<summary><b>The full list</b> — every shipped item, each verified in the running app</summary>
+
+<br/>
 
 - [x] Branding: Onyx app name/bundle/data folder; telemetry-free product.json
 - [x] Localhost runtime auto-discovery with model metadata (family, params,
@@ -350,6 +378,8 @@ Integration points consumed (imports only, never patched):
       `CONTRIBUTING.md` / `SECURITY.md` / `CODE_OF_CONDUCT.md` placed in
       `.github/`, where GitHub resolves them ahead of the repository root — so
       upstream's copies stay byte-identical and the fork gains no new conflict
+
+</details>
 
 ### Verified against real models (2026-08-30)
 

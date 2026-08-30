@@ -36,6 +36,15 @@ Useful flags:
 Environment: `ONYX_BENCH_OLLAMA` and `ONYX_BENCH_LMSTUDIO` override the
 endpoints (defaults `http://localhost:11434` and `http://localhost:1234`).
 
+## Contents
+
+| | |
+|---|---|
+| [Two halves, and why the split matters](#two-halves-and-why-the-split-matters) | What is reproducible anywhere, and what is not |
+| **The pure-logic measurements** | [Retrieval](#retrieval--bm25-versus-substring-search) · [Architecture scan](#architecture-scan) · [Parser resilience](#parser-resilience) · [Staged hunks](#staged-hunk-round-trip) · [Terminal classification](#terminal-classification) |
+| **The real-model measurements** | [Speed](#generation-speed-toks-and-ttft) · [Tool calling](#tool-calling--three-separate-numbers) · [On-your-repo](#on-your-repo-benchmark) · [Speculative decoding](#speculative-decoding) |
+| [What is *not* benchmarked](#what-is-deliberately-not-benchmarked-here) | And why measuring it would be theatre |
+
 ## Two halves, and why the split matters
 
 **The pure-logic half** — retrieval, the architecture scan, the edit parsers,
@@ -55,19 +64,25 @@ not.
 
 ### Measure one runtime at a time
 
-The published model numbers were measured with **Ollama alone, on an otherwise
-quiesced machine**, and that is the recommended way to run this harness.
+**The harness measures one model at a time and evicts it before loading the
+next.** That is not a detail; it is the whole reason the published numbers are
+usable, and the first version of this harness got it wrong.
 
-The reason is memory, and it is worth stating because the first attempts got it
-wrong. Cycling six models across two runtimes on a 24 GB laptop meant the
-harness was competing with itself: the same model measured 20 tok/s in one run
-and 47 tok/s in another, and one run reported a *warm* time-to-first-token
-longer than the *cold* one that had just loaded the model — an impossible
-result, and a clear sign the machine was paging rather than that the model had
-changed. Over a long session of repeated load/unload, LM Studio's engine
-eventually failed to start at all (`Engine protocol startup was aborted`) and
-stopped serving every model, while Ollama completed every request in the same
-conditions.
+Cycling six models across two runtimes on a 24 GB laptop while leaving them all
+resident meant the harness competed with itself: the same model measured 20
+tok/s in one run and 47 tok/s in another, one run reported a *warm*
+time-to-first-token longer than the *cold* one that had just loaded the model —
+an impossible result, and a clear sign the machine was paging — and LM Studio
+eventually stopped serving anything at all (`Engine protocol startup was
+aborted`) after enough load/unload churn.
+
+The published run measured all six models across both runtimes **with only one
+resident at any moment**, on an otherwise quiesced machine. By the harness's own
+checks it came back clean: no skipped sections, no TTFT pair flagged unreliable,
+no task the runtime failed to serve, and every warm figure (10–31 ms) an order
+of magnitude under its cold counterpart (0.8–3.0 s). If a run of yours reports
+otherwise, close things down and run it again — or run one runtime at a time,
+which is the most reliable way to get speed numbers on a memory-tight machine.
 
 Two things came out of that, both in the harness rather than in prose:
 
