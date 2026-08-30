@@ -69,7 +69,8 @@ hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
 - [ ] `npm run typecheck-client`, `npm run valid-layers-check`,
       `npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx`,
       `npm run stylelint`, and `./scripts/test.sh --grep Onyx` all green
-- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtimes (46 checks)
+- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtimes (45 checks;
+      stop a real Ollama/LM Studio on :11434/:1234 first — it refuses otherwise)
 - [ ] The full unit suite (`./scripts/test.sh`) is at zero failures
 - [ ] Fresh-profile launch: onboarding opens on **Connect a Local Runtime**
       (not a sign-in), Onyx Dark preselected, Onyx icon in the Dock,
@@ -95,12 +96,15 @@ hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
       caveats (model gone / HEAD moved / staged edits) spelled out
 - [ ] `Onyx: Explain This Failure` sends the visible paused-debugger snapshot;
       with no session it says so instead
-- [ ] `Onyx: Rename Symbol with Onyx` offers model names and stages the
+- [ ] `Onyx: Rename Symbol` offers model names and stages the
       language-service edit for review; accepting reports the marker verdict
 - [ ] `Onyx: Benchmark on This Repo` produces scored tasks from real commits
       and the scores appear in later routing reasons
 - [ ] The Architecture Map renders this repository's modules in a few seconds
       with hot spots and local-model summaries
+- [ ] With LM Studio running: only its chat models appear (never the embedding
+      model), and `Onyx: Measure Speculative Decoding` measures a baseline
+      then shows the exact `lms load --speculative-draft-model …` command
 - [ ] `Onyx: Run in Parallel` races models in worktrees and leaves none behind
       (`git worktree list` shows only the repository itself afterwards)
 - [ ] `Onyx: Export Diagnostics` writes a readable zip and the redaction

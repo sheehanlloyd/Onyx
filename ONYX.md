@@ -62,8 +62,9 @@ exactly what the agent is doing, what it costs in compute, and why.
 │  index:    incremental BM25 over the workspace, persisted per root, capped    │
 │  worktree: detached git worktrees for tournament isolation + crash pruning    │
 │  power:    pmset power source and thermal pressure (macOS)                    │
-│  discovery: probe :11434/:1234/:8080/:8000 + configured URLs,                 │
-│             /v1/models + Ollama /api/tags + /api/show, 30s watcher            │
+│  discovery: probe :11434/:1234/:8080/:8000 + configured URLs, /v1/models     │
+│             ⊕ Ollama /api/tags + /api/show ⊕ LM Studio /api/v0/models        │
+│             (drops embedding models), 30s watcher                            │
 │  inference: streaming SSE POST /v1/chat/completions, AbortController cancel   │
 │  repo:      gitRecentFiles / gitCommitFileGroups / gitDiff via `git`          │
 │             (the renderer cannot spawn processes), 60s cached                 │
@@ -99,8 +100,10 @@ Integration points consumed (imports only, never patched):
       tool/result entries with reasons), pause / stop / redirect gates,
       Context Budget breakdown, Compute panel (tok/s, TTFT, live state)
 - [x] `Onyx: Show Local Runtimes` command; `Open Onyx Control Plane` (⌘⌃O)
-- [x] Run journal persisted per workspace (index + JSONL per run, 200-run cap);
-      control plane history survives reloads
+- [x] Run journal persisted per workspace (index + JSONL per run, 200-run cap).
+      The Agent Activity view is deliberately *live* — it shows this window's
+      runs and starts empty after a reload, saying so and pointing at the
+      Inspector, which replays every journaled run including earlier windows'
 - [x] Inspector view: replay any past run down to the exact wire prompt each
       turn sent (messages, tool list, routing)
 - [x] Accept/reject learning: chat votes and kept/copied code feed per-model
@@ -255,10 +258,13 @@ Integration points consumed (imports only, never patched):
       the JSDoc inside type declarations in a second BM25 corpus (capped,
       freshness-stamped); the `docs` tool searches it and the control plane
       notes exactly which documents an answer used
-- [x] Speculative decoding: draft-model pairing (setting + model library), the
-      draft sent per-request where the runtime accepts one (LM Studio), and
-      `Onyx: Measure Speculative Decoding` racing with/without on this machine
-      — the Compute view reports the measured effect, including "no effect"
+- [x] Speculative decoding: every runtime that supports it configures the draft
+      when the model **loads** (verified against LM Studio 0.4.23, which
+      rejects a per-request draft outright), so Onyx never puts one on the
+      wire. `Onyx: Measure Speculative Decoding` pairs a draft, measures the
+      target as it stands, tells you the exact command for your runtime, waits,
+      then re-measures — the Compute view reports only what was observed here,
+      including "no measured effect"
 - [x] On-your-repo benchmarks: real past commits become tasks (file-before +
       commit message → reproduce the change), scored by changed-line F1
       against the author's actual result, per-model per-kind scores feed the
@@ -283,10 +289,132 @@ Integration points consumed (imports only, never patched):
       summaries (cached per module) — 13k files analyzed in ~3s, ~1s cached,
       off the startup path
 
+- [x] LM Studio: models are read through its native `/api/v0/models` as well,
+      so embedding models are never routed a chat request and Onyx picks up
+      the architecture, quantization and context length it reports
+
+- [x] Speculative decoding measured against a real LM Studio 0.4.23 install
+      (which drives llama.cpp's `llama-server` underneath). The draft is
+      provably attached: a bogus draft is rejected at load time, so a
+      successful load means the pairing took effect. Across three
+      configurations on this M4 Pro, speculation made generation **slower**,
+      never faster:
+
+      | target → draft | prompt | without draft | with draft | Δ |
+      |---|---|---|---|---|
+      | 1.5B → 0.5B | prose | 90.2 tok/s | 88.3 tok/s | −2% |
+      | 7B → 0.5B   | prose | 25.9 tok/s | 23.7 tok/s | −9% |
+      | 7B → 0.5B   | code  | 31.2 tok/s | 24.7 tok/s | −21% |
+
+      Best-of-three after a discarded warm-up round; the conclusion survives
+      the variance (the baseline's *worst* code run, 26.5 tok/s, still beats
+      the draft's *best*, 24.7). Plausible cause: both models contend for the
+      same unified-memory GPU, so the draft is not close to free. Results may
+      differ on hardware where the draft runs on separate silicon. **This is
+      exactly why the readout only reports measurements taken on your
+      machine** — the feature is the honesty, not a claimed speedup.
+- [x] Reproducible benchmarks (`test/onyx/run-benchmarks.mts`): a deterministic
+      half (retrieval, architecture scan, edit parsers, hunk algebra, terminal
+      classification) that runs anywhere and in CI, plus a real-model half that
+      measures tok/s and TTFT warm and cold, tool-call validity across three
+      arms, and every installed model's score reproducing this repository's own
+      commits — one model resident at a time, absent runtimes skipped with a
+      printed reason rather than a failure. `make-charts.mts` renders the
+      README's SVGs from that run's JSON only, so a chart cannot drift from the
+      number it claims. [docs/BENCHMARKS.md](./docs/BENCHMARKS.md) documents
+      what each measurement means and how to reproduce it.
+
+      Measured against three real Ollama models on a quiesced M4 Pro:
+
+      | model | tok/s | TTFT warm / cold | native tool calls | after Onyx repair | constrained | repo-bench F1 |
+      |---|---|---|---|---|---|---|
+      | qwen2.5-coder:7b   | 49.0  | 26 ms / 1.00 s | **0%** | 100% | 100% | 0.25 |
+      | llama3.2:3b        | 94.9  | 15 ms / 1.36 s | 100%   | 100% | 100% | 0.11 |
+      | qwen2.5-coder:1.5b | 151.6 | 11 ms / 0.87 s | **0%** | 100% | 83%  | 0.13 |
+
+      Two of the three emit no usable native `tool_calls` at all; Onyx recovers a
+      valid call from prose in 6/6 requests for both. The repo-bench F1 reproduced
+      exactly across three independent runs (temperature 0), and on quick edits
+      the 1.5B ties the 7B at 0.34 while running 3× faster — the routing signal
+      arguing against always reaching for the largest model.
+
+      One measurement-hygiene finding worth recording: running two runtimes at
+      once on 24 GB made the same model read 20–49 tok/s and once produced a warm
+      TTFT longer than its own cold one. The harness now flags that impossible
+      pair as unreliable, counts a task the runtime could not serve separately
+      from one the model got wrong, and the published numbers come from a
+      single-runtime run on an idle machine.
+- [x] Project identity and community files: `NOTICE.md` (who owns what, and why
+      Onyx's own files still carry the upstream lint header), `TRADEMARK.md`
+      (the name and mark are reserved; the code is not), and Onyx's
+      `CONTRIBUTING.md` / `SECURITY.md` / `CODE_OF_CONDUCT.md` placed in
+      `.github/`, where GitHub resolves them ahead of the repository root — so
+      upstream's copies stay byte-identical and the fork gains no new conflict
+
+### Verified against real models (2026-08-30)
+
+A full pass over every surface with **six** models live — Ollama serving
+qwen2.5-coder 7b/1.5b and llama3.2:3b, LM Studio serving qwen2.5-coder
+7b/1.5b/0.5b — found five bugs that the mock runtime structurally could not
+show, all now fixed with regression tests:
+
+1. **Two runtimes at once broke the first-run headline.** With Ollama and LM
+   Studio both up, onboarding said "Ollama is running — 6 models ready",
+   crediting LM Studio's three models to Ollama. Needs two runtimes to see.
+2. **Successful constrained turns were scored as failures.** The grammar
+   produced a valid `{"action":"tool",…}` envelope; the text-repair path
+   recognized `tool` as a tool name and consumed it first; the loop then judged
+   the constrained turn on the empty prose that was left, logged "did not match
+   the envelope", and counted a constrained failure — in the very metric the
+   Compute view publishes. Needs a real model *and* a runtime that honors
+   `response_format`.
+3. **A failed tool looked exactly like a successful one.** Two `editFile` calls
+   failed against a real model and the transcript still read "Staging an edit to
+   src/cart.ts" twice, with a reasonless red dot on the timeline. Failures now
+   carry the tool's own sentence, in the transcript and on the timeline.
+4. **The staged-file row starved the filename.** Every sibling in that flex row
+   was fixed-width, so `src/cart.ts` rendered as `src_` while the risk chip kept
+   its full width. The path is the row's identity and is now the last thing to
+   give.
+5. **FIM autocomplete overran the cursor.** qwen2.5-coder:1.5b, asked to fill a
+   function body, wrote the body, closed the function the file already closes,
+   and started writing the next three functions. The `\n\n\n` stop never fires —
+   these models separate declarations with one blank line — so a user accepting
+   the ghost text got a stray `}` and half a function they never asked for.
+
+Two more honest observations that are **model** behavior, not product bugs, and
+are worth knowing before trusting a small local model:
+
+- **qwen2.5-coder never uses the native tool-call channel.** 0/6 across four
+  model/runtime combinations, while llama3.2:3b managed 6/6. Ollama advertises
+  `tools` capability for it and the model still writes the call as prose. Onyx's
+  text-repair path is the only reason these models can call tools at all — the
+  benchmark now reports that as its own number.
+- **A model's own tool-free answer poisons the rest of the session.** Asked to
+  use the `docs` tool, qwen2.5-coder:7b answered "not explicitly mentioned in
+  the documentation" three times without calling it. In a *fresh* chat the same
+  model called the tool and answered correctly from README.md. Its own earlier
+  answers, sitting in history, taught it that answering from nothing was fine.
+
+One harness bug surfaced the same way: `run-e2e.mts` spawned its two mock
+runtimes **without** `detached: true`, so teardown's group kill (`kill(-pid)`)
+named a group that never existed, threw into an empty catch, and left a mock
+listening on `:11434` — which the next session mistakes for a real Ollama.
+Fixed, with a pid fallback behind the group kill.
+
+Also verified live end to end: Auto routing with the reason journaled, staged
+edits through per-hunk accept to disk, the terminal approval dialog and a real
+`npm test` exit, the offline docs mirror naming the document it used, the
+playbook index and fetched recipe reaching the wire prompt, resume after a real
+`SIGKILL` mid-run, the debugger snapshot with real frames and variables, the
+refactor engine's model-suggested names staging for review, the six-model
+tournament in six git worktrees with clean teardown, the model library against
+this Mac's memory, a commit message from the staged diff, the adversarial
+reviewer, and the architecture map over 13,256 files in 3.1s.
+
 ### Next
 
-- [ ] Draft-model measurement on a real LM Studio install (verified against
-      the mock's wire format; no LM Studio on this machine)
+- [ ] Distribution: notarize the DMG with a Developer ID, then publish.
 
 ### Roadmap
 

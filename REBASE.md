@@ -13,6 +13,33 @@ everything else that conflicts is pure upstream and should take their side.
   chat-completions client. All HTTP happens here (no renderer CORS).
 - `src/vs/workbench/contrib/onyx/` — model provider, capability profiles,
   adaptive router, agent loop, prompt builder, control-plane service + views.
+- `extensions/theme-onyx/` — the built-in Onyx themes.
+- `test/onyx/` — mock runtimes, end-to-end harness, benchmark harness,
+  chart generator.
+- `NOTICE.md`, `TRADEMARK.md`, `ONYX.md`, `LAUNCH.md`, `docs/BENCHMARKS.md`,
+  `docs/images/` — Onyx documentation and generated imagery.
+
+### Community files — two different strategies, on purpose
+
+**`CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`: shadowed, not
+overwritten.** Upstream owns `CONTRIBUTING.md` and `SECURITY.md` at the
+repository root and both describe contributing to *VS Code*. GitHub resolves
+community-health files from `.github/` **before** the repository root, so Onyx's
+versions win without upstream's being touched at all:
+
+| Onyx file (new, never conflicts) | Shadows |
+|---|---|
+| `.github/CONTRIBUTING.md` | root `CONTRIBUTING.md` (upstream, unmodified) |
+| `.github/SECURITY.md` | root `SECURITY.md` (upstream, unmodified) |
+| `.github/CODE_OF_CONDUCT.md` | nothing — upstream has none |
+| `.github/workflows/onyx-ci.yml` | nothing — added alongside upstream's workflows |
+
+**Issue and PR templates: replaced.** These could not be shadowed — GitHub reads
+every file in `.github/ISSUE_TEMPLATE/`, so upstream's would have kept appearing
+in the chooser, offering a Copilot bug report on a fork that ships no Copilot.
+They are listed in the upstream-touched table below and **will conflict** when
+upstream edits them. Resolution is always "take the Onyx side"; none of Onyx's
+own behaviour depends on them.
 
 ## Upstream files touched (re-apply these lines if a merge drops them)
 
@@ -24,6 +51,21 @@ everything else that conflicts is pure upstream and should take their side.
 | `resources/darwin/code.icns` | Replaced with the Onyx app icon (binary asset swap; on conflict take the Onyx side, or regenerate — the icon is a canvas-drawn faceted gem on a dark plate) |
 | `src/vs/workbench/services/themes/common/workbenchThemeService.ts` | Three value changes in `ThemeSettingDefaults`: `COLOR_THEME_DARK` = `'Onyx Dark'`, `COLOR_THEME_HC_DARK` = `'Onyx Dark High Contrast'`, `COLOR_THEME_HC_LIGHT` = `'Onyx Light High Contrast'` (the themes ship from `extensions/theme-onyx/`; extensions cannot override these APPLICATION-scoped defaults) |
 | `README.md` | Replaced with the Onyx product README (docs-only; on conflict take the Onyx side) |
+| `.github/ISSUE_TEMPLATE/bug_report.md` | **Deleted** — replaced by `onyx_bug_report.yml`. On a modify/delete conflict, keep it deleted |
+| `.github/ISSUE_TEMPLATE/feature_request.md` | **Deleted** — replaced by `onyx_feature_request.yml`. On a modify/delete conflict, keep it deleted |
+| `.github/ISSUE_TEMPLATE/copilot_bug_report.md` | **Deleted** — Onyx ships no Copilot. On a modify/delete conflict, keep it deleted |
+| `.github/ISSUE_TEMPLATE/config.yml` | Contact links repointed at the Onyx README, the private security advisory form, and upstream for stock VS Code bugs |
+| `.github/pull_request_template.md` | Replaced with Onyx's verification and fork-hygiene checklist (docs-only; on conflict take the Onyx side) |
+| `.github/ISSUE_TEMPLATE/bug_report.md`, `…/feature_request.md`, `…/copilot_bug_report.md` | **Deleted.** Onyx ships its own form templates as new files (`onyx_bug_report.yml`, `onyx_feature_request.yml`) that never conflict; the upstream `.md` ones would otherwise appear alongside them in the issue picker, one of them titled for another vendor's assistant. A merge that re-adds any of them shows as a delete/modify conflict — keep them deleted. |
+| `.github/ISSUE_TEMPLATE/config.yml` | Replaced: `blank_issues_enabled: false` plus three Onyx contact links. GitHub allows only one `ISSUE_TEMPLATE` directory, so this one file cannot be moved out of upstream's way. **On conflict take the Onyx side.** |
+| `.github/pull_request_template.md` | Replaced with Onyx's checklist (the gates, plus the fork rules: Onyx-owned paths, a REBASE.md row for any upstream touch, no non-local network calls, DCO sign-off). The uppercase alternative path resolves to the same file on macOS, so this cannot be moved either. **On conflict take the Onyx side.** |
+
+**`CONTRIBUTING.md`, `SECURITY.md` and the code of conduct are deliberately NOT
+in this table.** GitHub resolves community health files from `.github/` before
+the repository root, so Onyx's versions live at `.github/CONTRIBUTING.md`,
+`.github/SECURITY.md` and `.github/CODE_OF_CONDUCT.md` — new files that can
+never conflict — and upstream's root copies are left byte-identical. Do not
+"tidy" this by overwriting the root files; the duplication is the point.
 | `src/vs/workbench/contrib/welcomeOnboarding/browser/media/theme-preview-onyx-dark.svg` | New additive file (never conflicts): tile preview for the onboarding dialog; the tile itself comes from `product.json` `onboardingThemes` (Onyx Dark listed first so the first-run dialog preselects it) |
 | `product.json` | Onyx branding (nameShort/nameLong/applicationName `onyx`, dataFolderName `.onyx`, darwinBundleIdentifier `com.onyx.editor`, urlProtocol `onyx`); removed `voiceWsUrl`, `webviewContentExternalBaseUrlTemplate`, `trustedExtensionAuthAccess`, `agentsTelemetryAppName`; `builtInExtensionsEnabledWithAutoUpdates` emptied; `onboardingThemes` lists **Onyx Dark first** and **Onyx Light** before `light-2026`, and the two high-contrast tiles are **Onyx Dark High Contrast** / **Onyx Light High Contrast** instead of the defaults. `defaultChatAgent` is kept because core dereferences it without guards. On conflict: keep upstream's structure, re-apply the Onyx values. |
 | `src/vs/workbench/contrib/welcomeOnboarding/common/onboardingTypes.ts` | `OnboardingStepId.LocalRuntime` added (enum member + title + subtitle cases), and `ONBOARDING_STEPS[0]` is `LocalRuntime` instead of `SignIn`. The `SignIn` member and its strings stay, so nothing else in the file changes shape. |
@@ -69,6 +111,21 @@ one. `src/vs/workbench/contrib/onyx/common/onyxConfiguration.ts` calls
 
 If a merge changes one of those setting ids, the override silently stops
 applying; the symptom is Copilot chrome reappearing on a fresh profile.
+
+## Merge drill — 2026-08-30
+
+Trial merge of `upstream/main` (004a1fbb165, **161 commits ahead**) onto `main`
+in a throwaway worktree:
+
+- **One conflict, in `product.json`, for the fourth consecutive drill** — the
+  identical hunk every time: upstream re-adds `trustedExtensionAuthAccess`.
+  Take the Onyx side.
+- The `.github/ISSUE_TEMPLATE/` files Onyx deletes and the `README.md` /
+  `pull_request_template.md` it replaces were **not touched** by any of the 161
+  commits, so the new Onyx-owned community files added on 2026-08-30 cost the
+  fork nothing this cycle. `CONTRIBUTING.md` and `SECURITY.md` are byte-identical
+  to upstream by design (Onyx's live in `.github/`), so they cannot conflict at
+  all.
 
 ## Merge drill — 2026-08-29
 

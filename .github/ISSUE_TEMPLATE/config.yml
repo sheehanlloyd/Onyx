@@ -1,8 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Question
-    url: https://stackoverflow.com/questions/tagged/visual-studio-code
-    about: Please ask and answer questions here.
-  - name: Extension Development
-    url: https://github.com/microsoft/vscode-discussions/discussions
-    about: Please use this for extension development questions and ideas.
+  - name: Setting up a local runtime
+    url: https://github.com/sheehanlloyd/cursor2.0/blob/main/README.md#installing
+    about: Onyx needs a local model runtime — start here before filing a bug.
+  - name: Security vulnerability
+    url: https://github.com/sheehanlloyd/cursor2.0/security/advisories/new
+    about: Report these privately, never as a public issue.
+  - name: A bug in stock VS Code behaviour
+    url: https://github.com/microsoft/vscode/issues
+    about: Onyx is a fork; behaviour it did not change belongs upstream.

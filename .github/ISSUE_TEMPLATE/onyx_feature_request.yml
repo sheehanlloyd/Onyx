@@ -1,0 +1,49 @@
+name: Onyx feature request
+description: Suggest a capability for Onyx
+labels: ['onyx', 'feature-request']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Onyx has one design constraint worth knowing before you write: **it must
+        work on a small local model.** A feature that only behaves when the model
+        is large is not an Onyx feature — the interesting engineering is in the
+        harness that makes a 1.5B model useful. Proposals that make the harness
+        smarter are much more likely to land than proposals that assume a smarter
+        model.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you unable to do today? Describe the situation, not the solution.
+      placeholder: |
+        When the agent proposes edits across eight files I can review them, but I
+        cannot tell which ones it was confident about, so I read all eight
+        equally carefully.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like Onyx to do
+    validations:
+      required: true
+
+  - type: textarea
+    id: small-model
+    attributes:
+      label: How this behaves on a small model
+      description: |
+        Does it need the model to be smart, or does the harness carry it? If it
+        needs model intelligence, say so — that is not automatically
+        disqualifying, but it changes the design.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including "an existing Onyx feature nearly does this, but…"

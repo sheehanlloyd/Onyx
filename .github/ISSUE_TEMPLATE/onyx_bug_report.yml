@@ -1,0 +1,87 @@
+name: Onyx bug report
+description: Something in Onyx behaves incorrectly
+labels: ['onyx', 'bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. With local models, **which model and runtime** is
+        usually the first thing that matters — please fill those in even if the
+        bug looks unrelated to the model.
+
+        For bugs in stock VS Code behaviour that Onyx did not change, please
+        report upstream at [microsoft/vscode](https://github.com/microsoft/vscode/issues)
+        instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+      placeholder: |
+        I asked the agent to rename a symbol across the repo. I expected staged
+        edits in Onyx Changes. Instead the panel stayed empty and the run
+        journal showed the tool call being rejected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a TypeScript project
+        2. Run "Onyx: Start Agent Run"
+        3. Ask "rename foo to bar everywhere"
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model and runtime
+      description: The exact model id, and which runtime served it.
+      placeholder: qwen2.5-coder:7b on Ollama 0.6.2
+    validations:
+      required: true
+
+  - type: input
+    id: onyx-version
+    attributes:
+      label: Onyx version
+      description: From the About dialog, or the commit you built from.
+      placeholder: built from 4fdc235
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS and hardware
+      placeholder: macOS 15.5, M4 Pro, 24 GB
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: diagnostics
+    attributes:
+      label: Diagnostics bundle
+      description: |
+        Run **Onyx: Export Diagnostics** from the command palette, then drag the
+        saved `.zip` into this issue. It contains run journals, model capability
+        profiles, your machine profile, discovered runtimes, Onyx settings, and
+        recent logs.
+
+        **Prompt text and file contents are redacted by default** — the export
+        dialog has an opt-in checkbox if you want to include them. Leave it
+        unchecked unless the bug needs them, and remember that anything you
+        attach to a public issue is public.
+      options:
+        - label: I attached a diagnostics bundle (or explained below why I could not)
+
+  - type: textarea
+    id: journal
+    attributes:
+      label: Relevant run journal lines
+      description: Optional, but the fastest route to a diagnosis for agent bugs.
+      render: text
