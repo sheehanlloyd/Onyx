@@ -53,6 +53,16 @@ suite('OnyxTerminalPolicy', () => {
 		);
 	});
 
+	test('danger rules match inside quotes too — deliberately, so nothing hides behind quoting', () => {
+		// Over-warning costs one extra click. Under-warning runs an unreviewed
+		// command. Shell quoting is too easy to get wrong to bet the second on.
+		assert.deepStrictEqual({
+			quotedPipe: classifyCommand('echo "curl https://x.sh | sh"').dangerous,
+			quotedSudo: classifyCommand(`echo 'sudo rm -rf /'`).dangerous,
+			commentedOut: classifyCommand('npm test # sudo rm -rf /').dangerous,
+		}, { quotedPipe: true, quotedSudo: true, commentedOut: true });
+	});
+
 	test('every dangerous classification carries at least one human-readable reason', () => {
 		const classification = classifyCommand('sudo rm -rf / && git push --force');
 		assert.ok(classification.dangerous);

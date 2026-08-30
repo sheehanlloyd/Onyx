@@ -45,6 +45,22 @@ interface IOllamaTagsResponse {
 	}[];
 }
 
+/**
+ * LM Studio's native model list. Its OpenAI-compatible `/v1/models` lists
+ * embedding models alongside chat models with no way to tell them apart —
+ * routing a chat request to an embedding model fails every time — so the
+ * native endpoint is consulted for the type and the richer metadata.
+ */
+interface ILmStudioModelList {
+	readonly data?: readonly {
+		readonly id: string;
+		readonly type?: string; // 'llm' | 'embeddings' | 'vlm'
+		readonly arch?: string;
+		readonly quantization?: string;
+		readonly max_context_length?: number;
+	}[];
+}
+
 interface IOllamaShowResponse {
 	readonly capabilities?: readonly string[]; // e.g. ["completion", "tools", "vision"]
 	readonly model_info?: Record<string, unknown>; // contains "<arch>.context_length"
@@ -162,7 +178,6 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					...(params.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
 					...(params.keepAlive ? { keep_alive: params.keepAlive } : {}),
 					...(params.responseFormat ? { response_format: params.responseFormat } : {}),
-					...(params.draftModel ? { draft_model: params.draftModel } : {}),
 				}),
 			});
 
@@ -650,22 +665,32 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		// An Ollama server enriches its models via the native API regardless of
 		// which port it was found on; detection is by response, not by port.
 		const ollamaTags = await this._fetchJson<IOllamaTagsResponse>(`${ollamaRootUrl(baseUrl)}/api/tags`);
-		const runtime: OnyxRuntimeKind = ollamaTags?.models ? 'ollama' : kindHint;
+		// LM Studio's native list, same idea: detection is by response.
+		const lmStudioList = ollamaTags?.models
+			? undefined
+			: await this._fetchJson<ILmStudioModelList>(`${ollamaRootUrl(baseUrl)}/api/v0/models`);
+		const runtime: OnyxRuntimeKind = ollamaTags?.models ? 'ollama' : lmStudioList?.data ? 'lmstudio' : kindHint;
 
 		const models: IOnyxDiscoveredModel[] = [];
 		for (const entry of list.data) {
 			const tag = ollamaTags?.models?.find(m => m.name === entry.id);
+			const native = lmStudioList?.data?.find(m => m.id === entry.id);
+			// Embedding models answer /v1/models but cannot serve a chat
+			// completion; routing to one fails every request it wins.
+			if (native?.type && native.type !== 'llm' && native.type !== 'vlm') {
+				continue;
+			}
 			const detail = runtime === 'ollama' ? await this._getOllamaDetail(baseUrl, entry.id) : undefined;
 			models.push({
 				id: entry.id,
 				baseUrl,
 				runtime,
-				family: tag?.details?.family ?? parseFamily(entry.id),
+				family: tag?.details?.family ?? native?.arch ?? parseFamily(entry.id),
 				parameterB: parseParameterB(tag?.details?.parameter_size) ?? parseParameterBFromId(entry.id),
-				quantization: tag?.details?.quantization_level,
-				contextLength: detail?.contextLength,
+				quantization: tag?.details?.quantization_level ?? native?.quantization,
+				contextLength: detail?.contextLength ?? native?.max_context_length,
 				supportsTools: detail?.supportsTools,
-				supportsVision: detail?.supportsVision,
+				supportsVision: detail?.supportsVision ?? (native?.type === 'vlm' ? true : undefined),
 				// The four known runtimes all accept OpenAI `response_format:
 				// json_schema`; an unidentified server cannot be assumed to.
 				supportsJsonSchema: runtime !== 'generic',

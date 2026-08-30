@@ -245,11 +245,29 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 			}
 			const uri = this._resolveUri(staged.proposal.path);
 			const current = uri ? await this._readCurrentContent(uri) : undefined;
-			if (current === undefined || current === staged.proposal.base) {
+			if (current === undefined) {
+				// The file is gone. Keep the proposal (rejecting it is the user's
+				// call) but say so, rather than leaving a diff against nothing.
+				this._notificationService.notify({
+					severity: Severity.Warning,
+					message: localize('onyx.changes.fileGone', "{0} no longer exists, so its staged edit cannot be applied. Reject it in Onyx Changes when you are ready.", staged.proposal.path),
+				});
+				continue;
+			}
+			if (current === staged.proposal.base) {
 				continue;
 			}
 			const rebased = rebaseProposal(staged.proposal, current);
 			const hunks = proposalHunks(rebased.file);
+			// A hunk whose anchor vanished is dropped rather than applied in the
+			// wrong place — but never silently: that is the whole promise of this
+			// surface.
+			if (rebased.droppedHunks > 0) {
+				this._notificationService.notify({
+					severity: Severity.Info,
+					message: localize('onyx.changes.rebaseDropped', "{0} changed underneath {1} staged edit(s), so they no longer apply and were dropped. The rest were re-anchored to your current file.", staged.proposal.path, rebased.droppedHunks),
+				});
+			}
 			if (hunks.length === 0) {
 				this._remove(staged.proposal.path);
 			} else {

@@ -9,13 +9,14 @@ import { generateUuid } from '../../../../../base/common/uuid.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { createDecorator, ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../../platform/notification/common/notification.js';
 import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IOnyxRuntimeService, IOnyxStreamEvent } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { OnyxSettingId } from '../../common/onyxConfiguration.js';
-import { candidateDrafts, formatSpeculativeReadout, IOnyxSpeculativeMeasurement, speculativeSupport } from '../../common/onyxSpeculative.js';
+import { candidateDrafts, formatSpeculativeReadout, IOnyxSpeculativeMeasurement, speculativeSetupHint, speculativeSupport } from '../../common/onyxSpeculative.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 
 export const IOnyxSpeculativeService = createDecorator<IOnyxSpeculativeService>('onyxSpeculativeService');
@@ -27,10 +28,12 @@ const MEASURE_ROUNDS = 2;
 const MEASURE_PROMPT = 'Write a paragraph explaining what a binary search tree is, then list three balanced variants with one sentence each.';
 
 /**
- * Speculative-decoding pairing and its honest measurement. A pairing is only
- * a configuration entry until this service has raced the same prompt with and
- * without the draft on this machine; the Compute view then shows exactly what
- * was measured, including "no effect" when the runtime ignored the draft.
+ * Speculative-decoding pairing and its honest measurement. Every runtime that
+ * supports it wants the draft configured when the model LOADS, so Onyx cannot
+ * flip it on mid-session: it measures the target as it stands, tells the user
+ * exactly how to enable the draft on their runtime, waits, then runs the same
+ * prompt again. The Compute view reports only what was measured here —
+ * including "no measured effect".
  */
 export interface IOnyxSpeculativeService {
 	readonly _serviceBrand: undefined;
@@ -52,6 +55,7 @@ export class OnyxSpeculativeService extends Disposable implements IOnyxSpeculati
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
+		@IDialogService private readonly _dialogService: IDialogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IStorageService private readonly _storageService: IStorageService,
 	) {
@@ -68,14 +72,11 @@ export class OnyxSpeculativeService extends Disposable implements IOnyxSpeculati
 
 	async pairAndMeasure(): Promise<void> {
 		const models = this._modelService.getKnownModels();
-		const capable = models.filter(model => speculativeSupport(model.discovered.runtime) === 'per-request');
+		const capable = models.filter(model => speculativeSupport(model.discovered.runtime) === 'load-time');
 		if (capable.length === 0) {
-			const kinds = [...new Set(models.map(model => model.discovered.runtime))];
 			this._notificationService.notify({
 				severity: Severity.Info,
-				message: kinds.includes('llamacpp') || kinds.includes('vllm')
-					? localize('onyx.speculative.serverSide', "Your runtime configures speculative decoding at server launch, not per request — start it with a draft model (e.g. llama.cpp --model-draft) and Onyx benefits automatically.")
-					: localize('onyx.speculative.unsupported', "No connected runtime accepts a per-request draft model. LM Studio does; Ollama currently does not."),
+				message: localize('onyx.speculative.unsupported', "No connected runtime supports speculative decoding. LM Studio, llama.cpp and vLLM do; Ollama currently does not."),
 			});
 			return;
 		}
@@ -104,20 +105,46 @@ export class OnyxSpeculativeService extends Disposable implements IOnyxSpeculati
 			return;
 		}
 
-		// Persist the pairing, then measure it.
+		// Remember the intended pairing so the Compute view can label the
+		// measurement, then take the BEFORE number with the model as it is now.
 		const pairs = { ...(this._configurationService.getValue<Record<string, string>>(OnyxSettingId.SpeculativePairs) ?? {}) };
 		pairs[target.model.key] = draft.label;
 		await this._configurationService.updateValue(OnyxSettingId.SpeculativePairs, pairs);
 
-		this._notificationService.notify({ severity: Severity.Info, message: localize('onyx.speculative.measuring', "Measuring {0} with and without draft {1}…", target.model.discovered.id, draft.label) });
+		let baseline: { tokensPerSecond: number; timeToFirstTokenMs: number };
 		try {
-			const withDraft = await this._measureOnce(target.model.discovered.baseUrl, target.model.discovered.id, draft.label);
-			const withoutDraft = await this._measureOnce(target.model.discovered.baseUrl, target.model.discovered.id, undefined);
+			this._notificationService.notify({ severity: Severity.Info, message: localize('onyx.speculative.baselining', "Measuring {0} as it is loaded now…", target.model.discovered.id) });
+			baseline = await this._measureOnce(target.model.discovered.baseUrl, target.model.discovered.id);
+		} catch (error) {
+			this._notificationService.notify({ severity: Severity.Error, message: localize('onyx.speculative.failed', "Speculative measurement failed: {0}", error instanceof Error ? error.message : String(error)) });
+			return;
+		}
+
+		// Every runtime that supports this configures it when the model loads, so
+		// Onyx cannot switch it on itself — it says exactly how, waits for the
+		// user to do it, and then measures the same prompt again.
+		const proceed = await this._dialogService.confirm({
+			message: localize('onyx.speculative.enableNow', "Enable speculative decoding for {0}, then measure again?", target.model.discovered.id),
+			detail: [
+				localize('onyx.speculative.baselineIs', "Right now {0} generates at {1} tok/s on this machine.", target.model.discovered.id, baseline.tokensPerSecond.toFixed(1)),
+				'',
+				speculativeSetupHint(target.model.discovered.runtime, target.model.discovered.id, draft.label),
+				'',
+				localize('onyx.speculative.thenContinue', "Do that, then continue — Onyx runs the identical prompt again and reports the honest difference."),
+			].join('\n'),
+			primaryButton: localize('onyx.speculative.measureAgain', "Measure Again"),
+		});
+		if (!proceed.confirmed) {
+			return;
+		}
+
+		try {
+			const withDraft = await this._measureOnce(target.model.discovered.baseUrl, target.model.discovered.id);
 			const measurement: IOnyxSpeculativeMeasurement = {
 				targetKey: target.model.key,
 				draftModelId: draft.label,
 				withDraft,
-				withoutDraft,
+				withoutDraft: baseline,
 				measuredAt: Date.now(),
 			};
 			const next = [...this._measurementsObs.get().filter(entry => entry.targetKey !== measurement.targetKey), measurement];
@@ -130,10 +157,10 @@ export class OnyxSpeculativeService extends Disposable implements IOnyxSpeculati
 	}
 
 	/** Best-of-N: the fastest round, so a cold start does not poison the comparison. */
-	private async _measureOnce(baseUrl: string, model: string, draftModel: string | undefined): Promise<{ tokensPerSecond: number; timeToFirstTokenMs: number }> {
+	private async _measureOnce(baseUrl: string, model: string): Promise<{ tokensPerSecond: number; timeToFirstTokenMs: number }> {
 		let best: { tokensPerSecond: number; timeToFirstTokenMs: number } | undefined;
 		for (let round = 0; round < MEASURE_ROUNDS + 1; round++) {
-			const sample = await this._sample(baseUrl, model, draftModel);
+			const sample = await this._sample(baseUrl, model);
 			if (round === 0) {
 				continue; // warm-up round: load the weights, discard the numbers
 			}
@@ -144,7 +171,7 @@ export class OnyxSpeculativeService extends Disposable implements IOnyxSpeculati
 		return best!;
 	}
 
-	private _sample(baseUrl: string, model: string, draftModel: string | undefined): Promise<{ tokensPerSecond: number; timeToFirstTokenMs: number }> {
+	private _sample(baseUrl: string, model: string): Promise<{ tokensPerSecond: number; timeToFirstTokenMs: number }> {
 		return new Promise((resolve, reject) => {
 			const operationId = `speculative-${generateUuid()}`;
 			const startedAt = Date.now();
@@ -183,7 +210,6 @@ export class OnyxSpeculativeService extends Disposable implements IOnyxSpeculati
 				messages: [{ role: 'user', content: MEASURE_PROMPT }],
 				maxTokens: MEASURE_MAX_TOKENS,
 				temperature: 0,
-				draftModel,
 			}).catch(reject);
 		});
 	}

@@ -274,7 +274,9 @@ export class OnyxRefactorEngine {
 		this._watchForVerification(new Set(stagedPaths), baseline, title);
 		this._notificationService.notify({
 			severity: Severity.Info,
-			message: localize('onyx.refactor.staged', "{0}: {1} file(s) staged in Onyx Changes — review and accept there.", title, stagedPaths.length),
+			message: stagedPaths.length === 1
+				? localize('onyx.refactor.staged.one', "{0}: 1 file staged in Onyx Changes — review and accept there.", title)
+				: localize('onyx.refactor.staged', "{0}: {1} files staged in Onyx Changes — review and accept there.", title, stagedPaths.length),
 		});
 	}
 
@@ -322,7 +324,7 @@ export class OnyxRefactorEngine {
 
 registerAction2(class OnyxRenameAction extends Action2 {
 	constructor() {
-		super({ id: 'onyx.refactor.rename', title: localize2('onyx.refactor.rename', "Onyx: Rename Symbol with Onyx"), f1: true });
+		super({ id: 'onyx.refactor.rename', title: localize2('onyx.refactor.rename', "Onyx: Rename Symbol"), f1: true });
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
 		await accessor.get(IInstantiationService).createInstance(OnyxRefactorEngine).renameSymbol();
@@ -331,7 +333,7 @@ registerAction2(class OnyxRenameAction extends Action2 {
 
 registerAction2(class OnyxExtractAction extends Action2 {
 	constructor() {
-		super({ id: 'onyx.refactor.extract', title: localize2('onyx.refactor.extract', "Onyx: Extract Function with Onyx"), f1: true });
+		super({ id: 'onyx.refactor.extract', title: localize2('onyx.refactor.extract', "Onyx: Extract Function"), f1: true });
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
 		await accessor.get(IInstantiationService).createInstance(OnyxRefactorEngine).extractFunction();
@@ -340,7 +342,7 @@ registerAction2(class OnyxExtractAction extends Action2 {
 
 registerAction2(class OnyxMoveAction extends Action2 {
 	constructor() {
-		super({ id: 'onyx.refactor.move', title: localize2('onyx.refactor.move', "Onyx: Move Symbol with Onyx"), f1: true });
+		super({ id: 'onyx.refactor.move', title: localize2('onyx.refactor.move', "Onyx: Move Symbol"), f1: true });
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
 		await accessor.get(IInstantiationService).createInstance(OnyxRefactorEngine).moveSymbol();

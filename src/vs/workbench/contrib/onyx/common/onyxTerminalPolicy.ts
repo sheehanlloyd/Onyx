@@ -40,6 +40,12 @@ interface IDangerRule {
  * escalates privilege, or executes unreviewed remote content. Matching is on
  * the normalized command text, case-insensitive only where the tool is
  * case-insensitive.
+ *
+ * These rules match inside quotes too, which over-warns on things like
+ * `echo "curl | sh"`. That is deliberate and not a bug to fix: correctly
+ * parsing shell quoting is hard, and any gap becomes a way to smuggle a real
+ * `curl | sh` past the prompt. The cost of over-warning is one extra click;
+ * the cost of under-warning is an unreviewed command running on your machine.
  */
 const DANGER_RULES: readonly IDangerRule[] = [
 	{ pattern: /\brm\s+(-[a-z]*[rf][a-z]*\s+)+/i, reason: 'recursive or forced delete (rm -r/-f)' },

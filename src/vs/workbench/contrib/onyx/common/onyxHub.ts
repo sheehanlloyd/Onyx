@@ -38,11 +38,17 @@ export interface IOnyxHubEntry {
 }
 
 export function buildHubEntries(state: IOnyxHubState): IOnyxHubEntry[] {
+	// Both halves get a real singular: "1 model on 1 runtime(s)" is the sort of
+	// seam that makes a product feel unfinished, and two runtimes at once is an
+	// ordinary setup here, not an edge case.
+	const runtimeSummary = state.endpointCount === 1
+		? localize('onyx.hub.oneRuntime', "1 runtime")
+		: localize('onyx.hub.runtimeCount', "{0} runtimes", state.endpointCount);
 	const modelSummary = state.modelsReady === 0
 		? localize('onyx.hub.noModels', "no local models yet")
 		: state.modelsReady === 1
-			? localize('onyx.hub.oneModel', "1 model on {0} runtime(s)", state.endpointCount)
-			: localize('onyx.hub.models', "{0} models on {1} runtime(s)", state.modelsReady, state.endpointCount);
+			? localize('onyx.hub.oneModel', "1 model on {0}", runtimeSummary)
+			: localize('onyx.hub.models', "{0} models on {1}", state.modelsReady, runtimeSummary);
 
 	const liveSummary = state.inFlight
 		? localize('onyx.hub.generating', "generating now{0}", state.tokensPerSecond ? ` · ${Math.round(state.tokensPerSecond)} tok/s` : '')
@@ -114,6 +120,12 @@ export function buildHubEntries(state: IOnyxHubState): IOnyxHubEntry[] {
 			description: modelSummary,
 		},
 		{
+			id: 'architecture',
+			commandId: 'onyx.openArchitecture',
+			label: `$(type-hierarchy-sub) ${localize('onyx.hub.architecture', "Open the Architecture Map")}`,
+			description: localize('onyx.hub.architectureDetail', "modules, dependencies and hot spots, summarized locally"),
+		},
+		{
 			id: 'models', group: localize('onyx.hub.group.tune', "Tune"),
 			commandId: 'onyx.manageModels',
 			label: `$(library) ${localize('onyx.hub.models.label', "Manage Models")}`,
@@ -124,6 +136,12 @@ export function buildHubEntries(state: IOnyxHubState): IOnyxHubEntry[] {
 			commandId: 'onyx.benchmarkModels',
 			label: `$(dashboard) ${localize('onyx.hub.benchmark', "Benchmark Local Models")}`,
 			description: localize('onyx.hub.benchmarkDetail', "measure tok/s, first token and tool compliance"),
+		},
+		{
+			id: 'repoBenchmark',
+			commandId: 'onyx.benchmarkOnRepo',
+			label: `$(git-commit) ${localize('onyx.hub.repoBenchmark', "Benchmark on This Repo")}`,
+			description: localize('onyx.hub.repoBenchmarkDetail', "score models on this repository's own past commits"),
 		},
 		{
 			id: 'pin',

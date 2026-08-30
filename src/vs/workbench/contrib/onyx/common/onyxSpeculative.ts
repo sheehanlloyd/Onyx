@@ -6,31 +6,52 @@
 /**
  * Speculative decoding support: a small draft model proposes tokens and the
  * large target verifies them, which can raise tok/s without changing output.
- * Onyx's stance is honesty-first — support differs per runtime and the only
- * trustworthy signal is a measurement taken on this machine, so this module
- * holds the pure parts: which runtimes can take a per-request draft model at
- * all, which installed models make plausible drafts, and how a measured
- * comparison is summarized without ever inventing a speedup.
+ *
+ * Every runtime Onyx speaks to configures this when the model is LOADED, not
+ * per request — LM Studio 0.4.x rejects a per-request draft outright ("Engine
+ * protocol speculative decoding must be configured at load time, not
+ * prediction time"), and llama.cpp and vLLM take it as a server flag. So Onyx
+ * never sends a draft on the wire; it tells you how to enable it on your
+ * runtime, and then measures honestly whether it actually helped on this
+ * machine. That measurement is the feature — a speedup is never claimed
+ * unless it was observed here.
  */
 
 import { OnyxRuntimeKind } from '../../../../platform/onyxRuntime/common/onyxRuntime.js';
 
 export type OnyxSpeculativeSupport =
-	/** The runtime accepts a per-request draft model (LM Studio). */
-	| 'per-request'
-	/** The server decides at launch (llama.cpp `--model-draft`); a request cannot turn it on. */
-	| 'server-configured'
+	/**
+	 * The runtime supports it, but only as part of loading the model — Onyx
+	 * cannot switch it on for one request, so it explains how and measures.
+	 */
+	| 'load-time'
 	/** The runtime has no speculative decoding surface Onyx can reach. */
 	| 'unsupported';
 
 /** What each runtime can do today; measurement remains the ground truth. */
 export function speculativeSupport(runtime: OnyxRuntimeKind): OnyxSpeculativeSupport {
 	switch (runtime) {
-		case 'lmstudio': return 'per-request';
-		case 'llamacpp': return 'server-configured';
+		// Verified against LM Studio 0.4.23: a per-request `draft_model` is
+		// rejected with an explicit "configure at load time" error.
+		case 'lmstudio': return 'load-time';
+		case 'llamacpp': return 'load-time';
+		case 'vllm': return 'load-time';
 		case 'ollama': return 'unsupported';
-		case 'vllm': return 'server-configured';
 		default: return 'unsupported';
+	}
+}
+
+/** How to actually turn it on, per runtime — shown verbatim to the user. */
+export function speculativeSetupHint(runtime: OnyxRuntimeKind, target: string, draft: string): string {
+	switch (runtime) {
+		case 'lmstudio':
+			return `In LM Studio, reload ${target} with a draft model — in the app's model settings enable speculative decoding and pick ${draft}, or run:\n  lms load ${target} --speculative-draft-simple --speculative-draft-model ${draft}`;
+		case 'llamacpp':
+			return `Restart llama.cpp's server with a draft model:\n  llama-server -m ${target} --model-draft ${draft}`;
+		case 'vllm':
+			return `Restart vLLM with a draft model:\n  vllm serve ${target} --speculative-model ${draft}`;
+		default:
+			return `${runtime} has no speculative decoding option Onyx can reach.`;
 	}
 }
 
@@ -89,5 +110,9 @@ export function formatSpeculativeReadout(measurement: IOnyxSpeculativeMeasuremen
 	if (speedup <= 0.9) {
 		return `speculative decoding (${target}): draft ${measurement.draftModelId} made it slower here (${withText} vs ${withoutText}) — consider removing the pairing`;
 	}
-	return `speculative decoding (${target}): no measured effect with draft ${measurement.draftModelId} (${withText} vs ${withoutText}) — the runtime may ignore the draft`;
+	// Measured on a real LM Studio: a validated, genuinely attached draft can
+	// still show nothing when the target is already fast — verifying the
+	// draft's tokens costs about what it saves. Speculation pays when the
+	// target is much larger than the draft, so that is what this says.
+	return `speculative decoding (${target}): no measured effect with draft ${measurement.draftModelId} (${withText} vs ${withoutText}) — the draft is probably too close in size to the target to pay for itself`;
 }

@@ -84,8 +84,6 @@ export interface IOnyxChatParams {
 	readonly keepAlive?: string;
 	/** OpenAI `response_format` payload for constrained decoding, verbatim. */
 	readonly responseFormat?: unknown;
-	/** Draft model for speculative decoding, sent as `draft_model`. Only set for runtimes that accept it per request. */
-	readonly draftModel?: string;
 }
 
 export interface IOnyxCompletionParams {
