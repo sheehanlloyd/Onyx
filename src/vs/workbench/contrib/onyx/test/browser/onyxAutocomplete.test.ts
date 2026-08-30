@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { pickFimModel } from '../../browser/autocomplete/onyxInlineCompletions.js';
+import { pickFimModel, postprocess } from '../../browser/autocomplete/onyxInlineCompletions.js';
 import { IOnyxObservedStats } from '../../common/onyxTypes.js';
 import { IOnyxKnownModel } from '../../browser/model/onyxLanguageModelProvider.js';
 
@@ -22,6 +22,32 @@ function stats(fimLatencyMs: number, fimSampleCount: number): IOnyxObservedStats
 }
 
 suite('OnyxAutocomplete', () => {
+
+	test('a FIM completion is cut back to what belongs at the cursor', () => {
+		// Verbatim from qwen2.5-coder:1.5b on Ollama, asked to fill one function
+		// body: it wrote the body, closed the function the file already closes,
+		// then started writing the next function. The stop sequence cannot catch
+		// this — the model separates declarations with one blank line.
+		const raw = [
+			'const tax = base * taxRate;',
+			'\treturn base + tax;',
+			'}',
+			'',
+			'function subtotal(items) {',
+			'\treturn items.reduce((total, item) => total + item.price, 0);',
+		].join('\n');
+		// A closer the completion itself opened must survive.
+		const opensItsOwnBlock = ['if (!items) {', '\treturn 0;', '}'].join('\n');
+		assert.deepStrictEqual({
+			trimmed: postprocess(raw, '\n}\n'),
+			keepsOwnCloser: postprocess(opensItsOwnBlock, '\n}\n'),
+			noSuffix: postprocess('const a = 1;', ''),
+		}, {
+			trimmed: 'const tax = base * taxRate;\n\treturn base + tax;',
+			keepsOwnCloser: 'if (!items) {\n\treturn 0;\n}',
+			noSuffix: 'const a = 1;',
+		});
+	});
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 

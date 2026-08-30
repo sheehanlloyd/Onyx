@@ -152,19 +152,26 @@ export class OnyxAssistantTextStream {
 	/**
 	 * Ends the turn. Returns the prose the model actually produced and, when
 	 * the held text turned out to be a tool call written as prose, that call.
+	 *
+	 * `raw` is everything the model emitted this turn, including a held
+	 * envelope that the prose path is about to consume. A grammar-constrained
+	 * turn needs it: there, the envelope *is* the whole turn, and judging the
+	 * grammar by whatever is left after the repair path takes its share scores
+	 * a perfectly valid constrained turn as a failure.
 	 */
-	finish(): { readonly text: string; readonly toolCall: IOnyxTextToolCall | undefined } {
+	finish(): { readonly text: string; readonly toolCall: IOnyxTextToolCall | undefined; readonly raw: string } {
+		const raw = this._text + this._held;
 		if (!this._held) {
-			return { text: this._text, toolCall: undefined };
+			return { text: this._text, toolCall: undefined, raw };
 		}
 		const toolCall = parseTextToolCall(this._held, this._offeredToolNames);
 		if (toolCall) {
 			this._held = '';
-			return { text: this._text, toolCall };
+			return { text: this._text, toolCall, raw };
 		}
 		this._text += this._held;
 		this._emit(this._held);
 		this._held = '';
-		return { text: this._text, toolCall: undefined };
+		return { text: this._text, toolCall: undefined, raw };
 	}
 }

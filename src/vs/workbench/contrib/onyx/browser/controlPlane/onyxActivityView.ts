@@ -29,6 +29,7 @@ import { OnyxVirtualTimeline } from './onyxVirtualTimeline.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 import { onyxNoRuntimeState, renderOnyxEmptyState } from './onyxEmptyState.js';
 import { IOnyxActivityEntry, IOnyxControlPlaneService, IOnyxLiveRun } from './onyxControlPlaneService.js';
+import { IOnyxOutcomeService } from '../outcomes/onyxOutcomeService.js';
 
 const $ = DOM.$;
 
@@ -63,6 +64,8 @@ export class OnyxActivityViewPane extends ViewPane {
 	static readonly ID = 'workbench.view.onyx.activity';
 
 	private _content: HTMLElement | undefined;
+	/** Runs in this workspace's journal, including ones from before this window. */
+	private _journaledRuns = 0;
 	private readonly _expandedRuns = new Set<string>();
 	private readonly _showAllRuns = new Set<string>();
 	private readonly _renderedRuns = new Map<string, IRenderedRun>();
@@ -86,8 +89,28 @@ export class OnyxActivityViewPane extends ViewPane {
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
+		@IOnyxOutcomeService private readonly _outcomeService: IOnyxOutcomeService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
+		this._register(this._outcomeService.onDidChangeRuns(() => this._refreshJournaledRunCount()));
+		this._refreshJournaledRunCount();
+	}
+
+	/**
+	 * This view is live: it shows the runs of *this* window and starts empty
+	 * after a reload. The journal outlives the window, though, so "Nothing has
+	 * run yet" is simply untrue once there is history — say what is actually
+	 * true and point at the Inspector, which replays it.
+	 */
+	private async _refreshJournaledRunCount(): Promise<void> {
+		const count = (await this._outcomeService.listRuns()).length;
+		if (this._store.isDisposed || count === this._journaledRuns) {
+			return;
+		}
+		this._journaledRuns = count;
+		if (this._controlPlaneService.runs.get().length === 0) {
+			this._render(this._controlPlaneService.runs.get(), this._controlPlaneService.selectedRun.get());
+		}
 	}
 
 	protected override renderBody(container: HTMLElement): void {
@@ -134,10 +157,17 @@ export class OnyxActivityViewPane extends ViewPane {
 			// Two very different silences: nothing to run on, or nothing run yet.
 			const state = this._onyxModelService.getKnownModels().length === 0
 				? onyxNoRuntimeState()
-				: {
-					headline: localize('onyx.activity.empty.headline', "Nothing has run yet"),
-					body: localize('onyx.activity.empty', "Ask the Onyx agent something in chat. Every step it takes shows up here — live, with the reason behind it."),
-				};
+				: this._journaledRuns > 0
+					? {
+						headline: localize('onyx.activity.empty.sinceReload.headline', "Nothing has run in this window"),
+						body: this._journaledRuns === 1
+							? localize('onyx.activity.empty.sinceReload.one', "This view is live, so it starts empty after a reload. The earlier run in this workspace is in the Inspector below, replayable down to the exact prompt.")
+							: localize('onyx.activity.empty.sinceReload', "This view is live, so it starts empty after a reload. The {0} earlier runs in this workspace are in the Inspector below, replayable down to the exact prompt.", this._journaledRuns),
+					}
+					: {
+						headline: localize('onyx.activity.empty.headline', "Nothing has run yet"),
+						body: localize('onyx.activity.empty', "Ask the Onyx agent something in chat. Every step it takes shows up here — live, with the reason behind it."),
+					};
 			renderOnyxEmptyState(content, state, this._clipboardService, this._emptyStateDisposables);
 			return;
 		}

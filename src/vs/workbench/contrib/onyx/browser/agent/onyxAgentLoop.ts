@@ -12,6 +12,7 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../../platform/markers/common/markers.js';
 import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { localize } from '../../../../../nls.js';
 import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePart, ILanguageModelChatMetadata, ILanguageModelsService } from '../../../chat/common/languageModels.js';
 import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
@@ -192,9 +193,15 @@ export class OnyxAgentLoop {
 			}
 			await response.result;
 
-			let { text: assistantText, toolCall: textToolCall } = textStream.finish();
+			let { text: assistantText, toolCall: textToolCall, raw: rawTurnText } = textStream.finish();
 			if (constrained && toolUses.length === 0) {
-				const envelope = parseToolEnvelope(assistantText, tools.map(tool => tool.name));
+				// Against the RAW turn, not the prose left over after the
+				// text-repair path recognized the envelope as a tool call:
+				// `{"action":"tool","tool":…}` satisfies both parsers, so
+				// reading `assistantText` here scored every successful
+				// constrained turn as a malformed one — on the timeline and in
+				// the model's constrained-failure rate.
+				const envelope = parseToolEnvelope(rawTurnText, tools.map(tool => tool.name));
 				this._profileService.reportConstrainedOutcome(modelKey, envelope.kind !== 'invalid');
 				if (envelope.kind === 'tool') {
 					assistantText = '';
@@ -245,7 +252,7 @@ export class OnyxAgentLoop {
 				const toolUse: IChatResponseToolUsePart = unwrapped.name === rawToolUse.name && unwrapped.parameters === rawToolUse.parameters
 					? rawToolUse
 					: { ...rawToolUse, name: unwrapped.name, parameters: unwrapped.parameters };
-				const resultText = await this._invokeTool(request, toolUse, toolIdsByName, run, token);
+				const resultText = await this._invokeTool(request, toolUse, toolIdsByName, run, progress, token);
 				// Small models drown in raw tool output; keep head and tail
 				// (signatures and errors) and mark the elided middle.
 				messages.push({
@@ -333,7 +340,7 @@ export class OnyxAgentLoop {
 		}
 	}
 
-	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, run: ReturnType<IOnyxControlPlaneService['beginRun']>, token: CancellationToken): Promise<string> {
+	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, run: ReturnType<IOnyxControlPlaneService['beginRun']>, progress: (parts: IChatProgress[]) => void, token: CancellationToken): Promise<string> {
 		const toolId = toolIdsByName.get(toolUse.name);
 		if (!toolId) {
 			run.activity({ kind: 'toolCall', label: toolUse.name, reason: 'unknown tool requested by the model', ok: false });
@@ -350,12 +357,35 @@ export class OnyxAgentLoop {
 				userSelectedTools: request.userSelectedTools,
 			}, (input, _token) => Promise.resolve(estimateTokens(input)), token);
 			const text = result.content.map(part => part.kind === 'text' ? part.value : '').join('') || '(no output)';
-			run.activity({ kind: 'toolResult', label: toolUse.name, ok: !result.toolResultError });
-			return result.toolResultError ? `Error: ${typeof result.toolResultError === 'string' ? result.toolResultError : text}` : text;
+			const failure = result.toolResultError
+				? (typeof result.toolResultError === 'string' ? result.toolResultError : text)
+				: undefined;
+			// A failed tool is the most useful thing on the timeline, and a red
+			// "editFile" with no reason is not far off saying nothing. Onyx's
+			// own tools answer with a plain sentence — carry it through.
+			run.activity({ kind: 'toolResult', label: toolUse.name, ok: !failure, reason: failure ? shortReason(failure) : undefined });
+			if (failure) {
+				this._reportToolFailure(progress, toolUse.name, failure);
+			}
+			return failure ? `Error: ${failure}` : text;
 		} catch (err) {
-			run.activity({ kind: 'toolResult', label: toolUse.name, ok: false, reason: toErrorMessage(err) });
+			run.activity({ kind: 'toolResult', label: toolUse.name, ok: false, reason: shortReason(toErrorMessage(err)) });
+			this._reportToolFailure(progress, toolUse.name, toErrorMessage(err));
 			return `Error invoking ${toolUse.name}: ${toErrorMessage(err)}`;
 		}
+	}
+
+	/**
+	 * Says in the transcript that a tool did not do what its running message
+	 * announced. The chat's tool UI shows only "Staging an edit to x.ts" and
+	 * keeps showing it after the call fails, so without this line a run where
+	 * every edit was rejected reads exactly like a run where every edit landed.
+	 */
+	private _reportToolFailure(progress: (parts: IChatProgress[]) => void, toolName: string, failure: string): void {
+		progress([{
+			kind: 'markdownContent',
+			content: new MarkdownString(localize('onyx.agent.toolFailed', "`{0}` did not complete: {1}", toolName, shortReason(failure))),
+		}]);
 	}
 
 	private _selectTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined, profile: IOnyxModelProfile): { tools: IRequestTool[]; toolIdsByName: Map<string, string> } {
@@ -477,6 +507,16 @@ function toolPriority(tool: IToolData): number {
  * tool), so exposing both would give the model an ungated back door.
  */
 const REPLACED_CORE_TOOLS = /^(copilot_)?(runInTerminal|sendToTerminal|shell)$|editFile|applyPatch|insert_edit/i;
+
+/**
+ * A tool's error, trimmed to something a timeline row and one chat line can
+ * hold: the first line, without the `Error:` the tools already prefix.
+ */
+export function shortReason(failure: string): string {
+	const firstLine = failure.split('\n').find(line => line.trim().length > 0)?.trim() ?? failure.trim();
+	const withoutPrefix = firstLine.replace(/^Error:\s*/i, '');
+	return withoutPrefix.length > 160 ? `${withoutPrefix.slice(0, 159)}…` : withoutPrefix;
+}
 
 /** OpenAI function names must match `[a-zA-Z0-9_-]{1,64}` and be unique per request. */
 function sanitizeToolName(raw: string, taken: ReadonlyMap<string, string>): string {

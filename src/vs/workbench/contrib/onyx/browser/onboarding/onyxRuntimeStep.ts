@@ -104,6 +104,25 @@ function detect(status: HTMLElement, commandService: ICommandService, disposable
 	probe();
 }
 
+/**
+ * The "we found something" headline. More than one runtime can answer at once —
+ * Ollama on :11434 and LM Studio on :1234 is an ordinary setup — and naming
+ * only the first while summing every runtime's models credits LM Studio's
+ * models to Ollama. Pure so it can be tested without a DOM.
+ */
+export function runtimesFoundHeadline(runtimes: readonly IOnyxDetectedRuntime[]): string {
+	const models = runtimes.reduce((sum, runtime) => sum + runtime.modelCount, 0);
+	if (runtimes.length === 1) {
+		return models === 1
+			? localize('onyx.onboarding.found.one', "{0} is running — 1 model ready", runtimes[0].displayName)
+			: localize('onyx.onboarding.found', "{0} is running — {1} models ready", runtimes[0].displayName, models);
+	}
+	if (runtimes.length === 2) {
+		return localize('onyx.onboarding.found.two', "{0} and {1} are running — {2} models ready", runtimes[0].displayName, runtimes[1].displayName, models);
+	}
+	return localize('onyx.onboarding.found.many', "{0} local runtimes are running — {1} models ready", runtimes.length, models);
+}
+
 function renderStatus(status: HTMLElement, state: 'probing' | 'found' | 'none', runtimes: readonly IOnyxDetectedRuntime[]): void {
 	clearNode(status);
 	status.classList.toggle('found', state === 'found');
@@ -119,14 +138,10 @@ function renderStatus(status: HTMLElement, state: 'probing' | 'found' | 'none', 
 			text.textContent = localize('onyx.onboarding.probing', "Looking for a local runtime…");
 			detail.textContent = localize('onyx.onboarding.probing.detail', "Onyx checks the ports Ollama, LM Studio, llama.cpp and vLLM listen on.");
 			break;
-		case 'found': {
-			const models = runtimes.reduce((sum, runtime) => sum + runtime.modelCount, 0);
-			text.textContent = models === 1
-				? localize('onyx.onboarding.found.one', "{0} is running — 1 model ready", runtimes[0].displayName)
-				: localize('onyx.onboarding.found', "{0} is running — {1} models ready", runtimes[0].displayName, models);
+		case 'found':
+			text.textContent = runtimesFoundHeadline(runtimes);
 			detail.textContent = runtimes.map(runtime => runtime.host).join(' · ');
 			break;
-		}
 		case 'none':
 			text.textContent = localize('onyx.onboarding.none', "No local runtime yet");
 			detail.textContent = localize('onyx.onboarding.none.detail', "Run the three commands below, then reopen Onyx — models appear on their own.");

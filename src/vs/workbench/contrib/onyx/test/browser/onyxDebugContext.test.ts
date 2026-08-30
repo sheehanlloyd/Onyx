@@ -27,6 +27,30 @@ function snapshot(overrides: Partial<IOnyxDebugSnapshot>): IOnyxDebugSnapshot {
 
 suite('OnyxDebugContext', () => {
 
+	test('runtime-internal frames collapse so the user\u2019s own frames are what the model reads', () => {
+		// Measured against a real paused Node process: two frames of the user's
+		// code sat under eight `<node_internals>` module-loader frames, which is
+		// most of the frame budget spent on the runtime rather than the bug.
+		assert.strictEqual(formatDebugSnapshot(snapshot({
+			frames: [
+				{ name: 'subtotal', path: '/tmp/ws/run.js', line: 4 },
+				{ name: '<anonymous>', path: '/tmp/ws/run.js', line: 19 },
+				{ name: '<anonymous>', path: '<node_internals>/internal/modules/cjs/loader', line: 1929 },
+				{ name: '<anonymous>', path: '<node_internals>/internal/modules/cjs/loader', line: 2060 },
+				{ name: 'executeUserEntryPoint', path: '<node_internals>/internal/modules/run_main', line: 154 },
+			],
+			variables: [],
+		})), [
+			'Debug session "Launch app", thread "main" is paused (reason: exception).',
+			'',
+			'Call stack (innermost first):',
+			'\u2192 subtotal \u2014 /tmp/ws/run.js:4',
+			'  <anonymous> \u2014 /tmp/ws/run.js:19',
+			'  [\u2026 3 runtime-internal frames \u2026]',
+		].join('\n'));
+	});
+
+
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('the snapshot renders stack, reason, and variables grouped by scope', () => {

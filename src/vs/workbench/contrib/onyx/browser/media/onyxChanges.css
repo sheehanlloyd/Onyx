@@ -44,6 +44,12 @@
 .onyx-change-file-header {
 	display: flex;
 	align-items: center;
+	/* The trailing stat, risk chip and actions are all fixed-width, so in a
+	   narrow side bar the path was the only thing that could give — it ended up
+	   as "src_" while the badges kept their full width. The path is the row's
+	   identity and must be the last thing sacrificed: it takes the free space
+	   below, and everything after it wraps to a second line instead. */
+	flex-wrap: wrap;
 	gap: var(--vscode-spacing-size60);
 	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
 	cursor: pointer;
@@ -60,6 +66,8 @@
 }
 
 .onyx-change-file-path {
+	flex: 1 1 auto;
+	min-width: 8ch;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

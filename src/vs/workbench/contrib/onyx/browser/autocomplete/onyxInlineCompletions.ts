@@ -144,7 +144,7 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 				this._logService.trace(`[onyx.autocomplete] no completion (cancelled=${token.isCancellationRequested})`);
 				return undefined;
 			}
-			const insertText = postprocess(text);
+			const insertText = postprocess(text, suffix);
 			this._logService.trace(`[onyx.autocomplete] completion from ${target.discovered.id}: ${JSON.stringify(insertText.slice(0, 80))}`);
 			if (!insertText) {
 				return undefined;
@@ -272,9 +272,47 @@ export function pickFimModel(models: readonly IOnyxKnownModel[], statsFor: (mode
 	return [...models].sort((a, b) => (a.profile.parameterB ?? 999) - (b.profile.parameterB ?? 999))[0];
 }
 
-/** Trim runaway generations: cap the line count and drop trailing partial noise. */
-function postprocess(text: string): string {
+/**
+ * Trims a FIM completion down to the part that belongs at the cursor.
+ *
+ * Measured against qwen2.5-coder:1.5b on Ollama: asked to fill one function
+ * body, it writes the body, closes the function, and then writes three more
+ * functions. The `stop` sequence cannot catch that — these models separate
+ * declarations with a single blank line, not the two a `\n\n\n` stop needs —
+ * and the line cap alone still leaves the user accepting a stray `}` plus half
+ * of a function they did not ask for.
+ *
+ * So: cap the lines, cut at the first blank line that introduces a new
+ * top-level construct, and drop a trailing closer that the file already has.
+ */
+export function postprocess(text: string, suffix: string): string {
 	const withoutCr = text.replace(/\r\n/g, '\n');
-	const lines = withoutCr.split('\n').slice(0, MAX_COMPLETION_LINES);
+	let lines = withoutCr.split('\n').slice(0, MAX_COMPLETION_LINES);
+
+	// A blank line followed by an unindented line starts a new declaration; the
+	// continuation of the construct under the cursor never does that.
+	const newConstruct = lines.findIndex((line, index) =>
+		index > 0 && line.trim().length === 0 && /^\S/.test(lines[index + 1] ?? ''));
+	if (newConstruct > 0) {
+		lines = lines.slice(0, newConstruct);
+	}
+
+	// A lone closer the model did not open is the file's own, already sitting in
+	// the suffix. Only drop it when the kept lines have nothing left open —
+	// otherwise it closes a block the completion itself introduced.
+	const firstSuffixLine = suffix.replace(/\r\n/g, '\n').split('\n').find(line => line.trim().length > 0)?.trim();
+	while (lines.length > 0 && firstSuffixLine) {
+		const last = lines[lines.length - 1].trim();
+		if (last !== firstSuffixLine || !/^[)\]}]+;?$/.test(last)) {
+			break;
+		}
+		const kept = lines.slice(0, -1).join('\n');
+		const balance = (kept.match(/[{([]/g) ?? []).length - (kept.match(/[})\]]/g) ?? []).length;
+		if (balance > 0) {
+			break;
+		}
+		lines.pop();
+	}
+
 	return lines.join('\n').trimEnd();
 }

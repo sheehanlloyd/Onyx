@@ -21,6 +21,7 @@ import { buildComparisonDocument, decideTournamentConcurrency } from '../../comm
 import { humanizeRuntimeError } from '../../common/onyxRuntimeErrors.js';
 import { crc32, createStoredZip } from '../../common/onyxZip.js';
 import { couldBeToolEnvelope, OnyxAssistantTextStream, parseTextToolCall } from '../../common/onyxTextToolCalls.js';
+import { shortReason } from '../../browser/agent/onyxAgentLoop.js';
 
 suite('OnyxWorkflows', () => {
 
@@ -284,7 +285,7 @@ suite('OnyxWorkflows', () => {
 				byId.get('pin')?.description,
 				entries.filter(entry => entry.group).map(entry => entry.group),
 			], [
-				'2 models on 1 runtime(s)',
+				'2 models on 1 runtime',
 				'3 runs today · last: localhost:11434/q7b · 42 tok/s',
 				'1 file pinned',
 				['Do', 'Observe', 'Tune'],
@@ -462,6 +463,47 @@ suite('OnyxWorkflows', () => {
 				['', '{', '``', '```js', '<tool', 'The ', 'x'.repeat(5000)].map(couldBeToolEnvelope),
 				[true, true, true, true, true, false, false],
 			);
+		});
+
+		test('a failed tool reports a reason short enough for a timeline row', () => {
+			// Found live: two editFile calls failed against a real model and the
+			// only trace was a red "RESULT editFile" with no reason, while the
+			// transcript still read "Staging an edit to src/cart.ts". The
+			// tools already answer in plain language — this is what gets shown.
+			assert.deepStrictEqual([
+				shortReason('Error: none of the search text was found in src/cart.ts'),
+				shortReason('first line\nsecond line'),
+				shortReason(`Error: ${'x'.repeat(400)}`).length,
+			], [
+				'none of the search text was found in src/cart.ts',
+				'first line',
+				160,
+			]);
+		});
+
+		test('a constrained envelope survives the repair path so the grammar is scored honestly', () => {
+			// Found live against qwen2.5-coder:7b: the runtime's grammar produced
+			// a perfect envelope, the repair path recognized `tool` as a tool
+			// name and consumed it, and the agent loop then judged the
+			// constrained turn on the empty prose that was left — logging
+			// "did not match the envelope" and counting a constrained failure
+			// for a turn that worked. `raw` is what the loop must judge.
+			const stream = new OnyxAssistantTextStream(tools, () => { });
+			for (const chunk of ['{"action":"tool","tool":"repo', 'Symbols","arguments":{"query":"applyDiscount"}}']) {
+				stream.append(chunk);
+			}
+			const result = stream.finish();
+			assert.deepStrictEqual({
+				text: result.text,
+				raw: result.raw,
+				envelope: parseToolEnvelope(result.raw, tools),
+				envelopeFromLeftoverProse: parseToolEnvelope(result.text, tools).kind,
+			}, {
+				text: '',
+				raw: '{"action":"tool","tool":"repoSymbols","arguments":{"query":"applyDiscount"}}',
+				envelope: { kind: 'tool', name: 'repoSymbols', parameters: { query: 'applyDiscount' } },
+				envelopeFromLeftoverProse: 'invalid',
+			});
 		});
 
 		test('prose streams through; a mis-channelled call never reaches the transcript', () => {
