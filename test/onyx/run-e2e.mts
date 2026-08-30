@@ -37,8 +37,12 @@ const extensionsDir = path.join(runDir, 'extensions');
 
 const children: ReturnType<typeof spawn>[] = [];
 const failures: string[] = [];
+/** Counted so the run reports its own total — the docs quote this number, and a
+ *  number nobody can re-derive from the output is a number that drifts. */
+let checksRun = 0;
 
 function check(name: string, condition: boolean, detail?: string) {
+	checksRun++;
 	if (condition) {
 		console.log(`  ok   ${name}`);
 	} else {
@@ -172,11 +176,11 @@ async function waitForCdp(timeoutMs: number) {
  * left running there would answer every probe and quietly turn this into a
  * non-deterministic test against live models.
  */
-async function waitForMock(timeoutMs: number) {
+async function waitForMockOn(port: number, timeoutMs: number) {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
 		try {
-			const response = await fetch(`http://127.0.0.1:${mockPort}/v1/models`);
+			const response = await fetch(`http://127.0.0.1:${port}/v1/models`);
 			if (response.ok) {
 				const body = await response.json() as { data?: { id: string }[] };
 				return (body.data ?? []).some(model => model.id.startsWith('mock-'));
@@ -187,6 +191,20 @@ async function waitForMock(timeoutMs: number) {
 		await sleep(200);
 	}
 	return false;
+}
+
+function waitForMock(timeoutMs: number) {
+	return waitForMockOn(mockPort, timeoutMs);
+}
+
+/** Whether anything already answers the OpenAI model list on a port. */
+async function isOpenAiEndpoint(port: number): Promise<boolean> {
+	try {
+		const response = await fetch(`http://127.0.0.1:${port}/v1/models`, { signal: AbortSignal.timeout(1500) });
+		return response.ok;
+	} catch {
+		return false;
+	}
 }
 
 function journalDir(): string | undefined {
@@ -281,21 +299,36 @@ async function main() {
 	}
 	seedWorkspace();
 
+	// Detached like the workbench below: teardown kills by process *group*
+	// (negative pid), and a non-detached child sits in this runner's own group,
+	// so `kill(-pid)` names a group that does not exist, throws ESRCH into an
+	// empty catch, and leaves a mock listening on :11434 for the next session
+	// to mistake for a real Ollama.
 	children.push(spawn(process.execPath, [path.join(repoRoot, 'test', 'onyx', 'mock-ollama.mts')], {
 		cwd: repoRoot,
 		env: { ...process.env, ONYX_MOCK_PORT: String(mockPort) },
 		stdio: 'ignore',
+		detached: true,
 	}));
 	if (!await waitForMock(10_000)) {
 		throw new Error(`the mock runtime never answered on :${mockPort} — stop any real runtime on that port, or set ONYX_MOCK_PORT`);
 	}
 	// A second mock posing as LM Studio (its port, no Ollama native API), so
 	// the speculative-decoding flow has a per-request-draft runtime to talk to.
+	// A real LM Studio on that port would answer every probe and silently turn
+	// the speculative check into a test against live models.
+	if (await isOpenAiEndpoint(lmStudioPort)) {
+		throw new Error(`something already serves an OpenAI API on :${lmStudioPort} (a real LM Studio?) — stop it, or set ONYX_MOCK_LMSTUDIO_PORT`);
+	}
 	children.push(spawn(process.execPath, [path.join(repoRoot, 'test', 'onyx', 'mock-ollama.mts')], {
 		cwd: repoRoot,
 		env: { ...process.env, ONYX_MOCK_PORT: String(lmStudioPort), ONYX_MOCK_KIND: 'lmstudio' },
 		stdio: 'ignore',
+		detached: true,
 	}));
+	if (!await waitForMockOn(lmStudioPort, 10_000)) {
+		throw new Error(`the LM Studio mock never answered on :${lmStudioPort}`);
+	}
 
 	children.push(spawn(path.join(repoRoot, 'scripts', 'code.sh'), [
 		`--user-data-dir=${userDataDir}`,
@@ -567,7 +600,7 @@ async function main() {
 	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ':3:20'); }`);
 	pw('press', 'Enter');
 	await sleep(1000);
-	await runCommand('Onyx: Rename Symbol with Onyx');
+	await runCommand('Onyx: Rename Symbol');
 	await sleep(9000);
 	const renamePick = pw('run-code', `async (page) => {
 		const rows = await page.$$('.quick-input-widget .monaco-list-row');
@@ -600,18 +633,28 @@ async function main() {
 	const benchDoc = pw('run-code', `async (page) => page.evaluate(() => Array.from(document.querySelectorAll('.editor-instance .view-line')).map(l => l.textContent).join('\\n').slice(0, 400))`);
 	check('the benchmark opened its evidence document', benchDoc.includes('Onyx repo benchmark'), benchDoc.slice(0, 160));
 
-	// --- Speculative decoding: pair a draft on the LM Studio mock and verify
-	// the draft went over the wire.
+	// --- Speculative decoding: the pairing flow reaches the "enable it on your
+	// runtime, then measure again" gate. Onyx never puts a draft on the wire —
+	// every runtime that supports this configures it at model load time.
 	await runCommand('Onyx: Measure Speculative Decoding');
 	await sleep(2500);
 	pw('run-code', `async (page) => { const rows = await page.$$('.quick-input-widget .monaco-list-row'); for (const row of rows) { if ((await row.getAttribute('aria-label'))?.includes('32b')) { await row.click(); return; } } }`);
 	await sleep(1500);
 	pw('run-code', `async (page) => { const rows = await page.$$('.quick-input-widget .monaco-list-row'); for (const row of rows) { if ((await row.getAttribute('aria-label'))?.includes('7b')) { await row.click(); return; } } }`);
-	await sleep(15000);
+	await sleep(14000);
+	const speculativeGate = pw('run-code', `async (page) => page.evaluate(() => ({
+		detail: document.querySelector('.monaco-dialog-box .dialog-message-detail')?.textContent ?? '(no dialog)',
+	}))`);
+	check('speculative decoding measures a baseline and explains how to enable the draft',
+		speculativeGate.includes('tok/s on this machine') && speculativeGate.includes('--speculative-draft-model'),
+		speculativeGate.slice(0, 220));
 	const lmChats = await fetch(`http://127.0.0.1:${lmStudioPort}/debug/recent-chats`)
 		.then(response => response.json() as Promise<{ model?: string; draft_model?: string }[]>)
 		.catch(() => [] as { model?: string; draft_model?: string }[]);
-	check('speculative decoding sent draft_model to the runtime', lmChats.some(chat => chat.draft_model === 'mock-coder:7b'), `recent chats: ${lmChats.length}, with draft: ${lmChats.filter(chat => chat.draft_model).length}`);
+	check('no draft_model is ever sent on the wire', lmChats.every(chat => chat.draft_model === undefined),
+		`${lmChats.filter(chat => chat.draft_model).length} of ${lmChats.length} chats carried a draft`);
+	pw('run-code', `async (page) => { const buttons = await page.$$('.monaco-dialog-box a.monaco-text-button'); for (const b of buttons) { if ((await b.textContent())?.includes('Cancel')) { await b.click(); return; } } await page.keyboard.press('Escape'); }`);
+	await sleep(1500);
 
 	// --- Architecture map: modules, timing, and a model summary render.
 	await runCommand('Open Architecture Map');
@@ -648,10 +691,19 @@ try {
 	// during shutdown, hence the SIGKILL sweep.
 	for (const signal of ['SIGTERM', 'SIGKILL'] as const) {
 		for (const child of children) {
+			if (!child.pid) {
+				continue;
+			}
 			try {
-				process.kill(child.pid ? -child.pid : 0, signal);
+				process.kill(-child.pid, signal);
 			} catch {
-				// already gone
+				// The group is gone (or never existed); try the process itself
+				// rather than leaving a listener behind.
+				try {
+					process.kill(child.pid, signal);
+				} catch {
+					// already gone
+				}
 			}
 		}
 		if (signal === 'SIGTERM') {
@@ -665,5 +717,7 @@ try {
 	}
 }
 
-console.log(failures.length ? `\n${failures.length} check(s) failed` : '\nall checks passed');
+console.log(failures.length
+	? `\n${failures.length} of ${checksRun} checks failed`
+	: `\nall ${checksRun} checks passed`);
 process.exit(failures.length ? 1 : 0);

@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="578" viewBox="0 0 820 578" role="img" aria-label="Small models can be made to call tools reliably">
+  <title>Small models can be made to call tools reliably</title>
+  <text x="0" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#57606a">Small models can be made to call tools reliably</text>
+  <text x="0" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#8b949e">Requests that need a tool: how often does one arrive that Onyx can actually execute?</text>
+  <rect x="0" y="52" width="10" height="10" rx="2" fill="#8b949e"/>
+  <text x="16" y="61" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e">the model’s own tool channel</text>
+  <rect x="200" y="52" width="10" height="10" rx="2" fill="#1f9e91"/>
+  <text x="216" y="61" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e">+ Onyx’s repair of prose calls</text>
+  <rect x="412" y="52" width="10" height="10" rx="2" fill="#7c5cff"/>
+  <text x="428" y="61" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e">+ grammar-constrained envelope</text>
+  <g>
+    <text x="0" y="96" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">qwen2.5-coder:7b</text>
+    <text x="0" y="112" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">0/6 arrived as a well-formed tool_calls ent…</text>
+    <rect x="250" y="84" width="454" height="16" rx="3" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="250" y="84" width="2" height="16" rx="3" fill="#8b949e"/>
+    <text x="714" y="96" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#8b949e">0%</text>
+    <rect x="250" y="105" width="454" height="16" rx="3" fill="rgba(31, 158, 145, 0.18)"/>
+    <rect x="250" y="105" width="454" height="16" rx="3" fill="#1f9e91"/>
+    <text x="714" y="117" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#1f9e91">100%</text>
+    <rect x="250" y="126" width="454" height="16" rx="3" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="250" y="126" width="454" height="16" rx="3" fill="#7c5cff"/>
+    <text x="714" y="138" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#7c5cff">100%</text>
+  </g>
+  <g>
+    <text x="0" y="177" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">llama3.2:3b</text>
+    <text x="0" y="193" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">6/6 arrived as a well-formed tool_calls ent…</text>
+    <rect x="250" y="165" width="454" height="16" rx="3" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="250" y="165" width="454" height="16" rx="3" fill="#8b949e"/>
+    <text x="714" y="177" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#8b949e">100%</text>
+    <rect x="250" y="186" width="454" height="16" rx="3" fill="rgba(31, 158, 145, 0.18)"/>
+    <rect x="250" y="186" width="454" height="16" rx="3" fill="#1f9e91"/>
+    <text x="714" y="198" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#1f9e91">100%</text>
+    <rect x="250" y="207" width="454" height="16" rx="3" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="250" y="207" width="454" height="16" rx="3" fill="#7c5cff"/>
+    <text x="714" y="219" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#7c5cff">100%</text>
+  </g>
+  <g>
+    <text x="0" y="258" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">qwen2.5-coder:1.5b</text>
+    <text x="0" y="274" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">0/6 arrived as a well-formed tool_calls ent…</text>
+    <rect x="250" y="246" width="454" height="16" rx="3" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="250" y="246" width="2" height="16" rx="3" fill="#8b949e"/>
+    <text x="714" y="258" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#8b949e">0%</text>
+    <rect x="250" y="267" width="454" height="16" rx="3" fill="rgba(31, 158, 145, 0.18)"/>
+    <rect x="250" y="267" width="454" height="16" rx="3" fill="#1f9e91"/>
+    <text x="714" y="279" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#1f9e91">100%</text>
+    <rect x="250" y="288" width="454" height="16" rx="3" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="250" y="288" width="378.3182" height="16" rx="3" fill="#7c5cff"/>
+    <text x="714" y="300" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#7c5cff">83.3%</text>
+  </g>
+  <g>
+    <text x="0" y="339" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">qwen2.5-coder-7b-instruct</text>
+    <text x="0" y="355" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">0/6 arrived as a well-formed tool_calls ent…</text>
+    <rect x="250" y="327" width="454" height="16" rx="3" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="250" y="327" width="2" height="16" rx="3" fill="#8b949e"/>
+    <text x="714" y="339" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#8b949e">0%</text>
+    <rect x="250" y="348" width="454" height="16" rx="3" fill="rgba(31, 158, 145, 0.18)"/>
+    <rect x="250" y="348" width="454" height="16" rx="3" fill="#1f9e91"/>
+    <text x="714" y="360" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#1f9e91">100%</text>
+    <rect x="250" y="369" width="454" height="16" rx="3" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="250" y="369" width="454" height="16" rx="3" fill="#7c5cff"/>
+    <text x="714" y="381" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#7c5cff">100%</text>
+  </g>
+  <g>
+    <text x="0" y="420" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">qwen2.5-coder-1.5b-instruct</text>
+    <text x="0" y="436" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">0/6 arrived as a well-formed tool_calls ent…</text>
+    <rect x="250" y="408" width="454" height="16" rx="3" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="250" y="408" width="2" height="16" rx="3" fill="#8b949e"/>
+    <text x="714" y="420" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#8b949e">0%</text>
+    <rect x="250" y="429" width="454" height="16" rx="3" fill="rgba(31, 158, 145, 0.18)"/>
+    <rect x="250" y="429" width="302.6818" height="16" rx="3" fill="#1f9e91"/>
+    <text x="714" y="441" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#1f9e91">66.7%</text>
+    <rect x="250" y="450" width="454" height="16" rx="3" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="250" y="450" width="454" height="16" rx="3" fill="#7c5cff"/>
+    <text x="714" y="462" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#7c5cff">100%</text>
+  </g>
+  <g>
+    <text x="0" y="501" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">qwen2.5-coder-0.5b-instruct</text>
+    <text x="0" y="517" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">0/6 arrived as a well-formed tool_calls ent…</text>
+    <rect x="250" y="489" width="454" height="16" rx="3" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="250" y="489" width="2" height="16" rx="3" fill="#8b949e"/>
+    <text x="714" y="501" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#8b949e">0%</text>
+    <rect x="250" y="510" width="454" height="16" rx="3" fill="rgba(31, 158, 145, 0.18)"/>
+    <rect x="250" y="510" width="227" height="16" rx="3" fill="#1f9e91"/>
+    <text x="714" y="522" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#1f9e91">50%</text>
+    <rect x="250" y="531" width="454" height="16" rx="3" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="250" y="531" width="454" height="16" rx="3" fill="#7c5cff"/>
+    <text x="714" y="543" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#7c5cff">100%</text>
+  </g>
+</svg>

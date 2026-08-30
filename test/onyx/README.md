@@ -6,7 +6,8 @@ Onyx's own checks come in two layers.
 
 Pure logic (the OpenAI wire translator, routing and profile math, context
 ranking, co-change mining, compression, the model catalog, the commit-message
-and review parsers, the compute ledger) is covered by the normal suite:
+and review parsers, the compute ledger, the FIM trimmer, the debug snapshot) is
+covered by the normal suite — 168 tests:
 
 ```bash
 ./scripts/test.sh --grep Onyx
@@ -53,6 +54,37 @@ in the shape those flows parse, so both features can be driven without a model.
 > Restart the mock after editing it — a stale process on the port keeps serving
 > the old behavior, which looks exactly like a product bug.
 
+## Benchmarks
+
+`run-benchmarks.mts` produces every number the README and
+[docs/BENCHMARKS.md](../../docs/BENCHMARKS.md) publish, and the SVG charts are
+generated from its JSON — never hand-written.
+
+```bash
+npm run transpile-client                 # the harness imports the real modules from out/
+node test/onyx/run-benchmarks.mts        # readable report
+node test/onyx/run-benchmarks.mts --json-out /tmp/onyx-bench.json
+node test/onyx/make-charts.mts /tmp/onyx-bench.json   # → docs/images/chart-*.svg
+```
+
+It has two halves. The **pure-logic** half (retrieval, architecture scan, edit
+parsers, staged-hunk algebra, terminal classification, test surface) is
+deterministic and needs no model — that is what CI runs, via `--skip-models`.
+The **real-model** half talks to whatever is installed on the machine: Ollama
+at `:11434` and LM Studio at `:1234` by default (`ONYX_BENCH_OLLAMA` /
+`ONYX_BENCH_LMSTUDIO` override them), measuring tok/s and TTFT warm and cold,
+tool-call validity across three arms, and each model's score reproducing this
+repository's own commits with the product's `scoreBenchAttempt`.
+
+A runtime that is not running is **skipped with a printed reason** that also
+lands in the JSON under `skipped`, so a report can never look complete when it
+is not. `--speculative` adds the with/without-draft comparison; it is opt-in
+because it reloads models through the `lms` CLI.
+
+> The real-model half will happily benchmark `mock-ollama.mts` if you leave it
+> running — models named `mock-*` are filtered out for exactly that reason, but
+> stop the mock anyway before publishing numbers.
+
 ## End-to-end
 
 `run-e2e.mts` drives the real workbench against the mock and asserts on the run
@@ -66,7 +98,7 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (46 checks):
+asserting on the run journal and the live DOM (45 checks):
 
 - chat with the tool loop, `repoSymbols` with call-graph expansion, and the
   `remember` tool, plus the workspace-context and agent-memory sections landing
@@ -88,7 +120,8 @@ asserting on the run journal and the live DOM (46 checks):
 - stopping a streaming run and resuming it as a new briefing-run
 - the refactor engine: model-suggested names, the rename staged for review
 - the repo benchmark journaling a run and opening its evidence document
-- speculative decoding sending `draft_model` to the LM Studio mock
+- speculative decoding measuring a baseline and explaining the runtime's own
+  load-time flag — and never putting a draft on the wire
 - the architecture map rendering modules, timing and a model summary
 - the debug assistant's designed no-session message
 

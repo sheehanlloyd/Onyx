@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="330" viewBox="0 0 720 330" role="img" aria-label="What these models actually do on this Mac">
+  <title>What these models actually do on this Mac</title>
+  <text x="0" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#57606a">What these models actually do on this Mac</text>
+  <text x="0" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#8b949e">Generation speed measured on an M-series laptop, best of several warm rounds — no cloud, no queue</text>
+  <g>
+    <text x="0" y="77" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">qwen2.5-coder-0.5b-instruct</text>
+    <text x="0" y="93" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">11 ms to first token warm · 0.8s cold</text>
+    <rect x="210" y="66" width="398" height="18" rx="4" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="210" y="66" width="361.8181818181818" height="18" rx="4" fill="#7c5cff"/>
+    <text x="618" y="80" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#7c5cff">249.2 tok/s</text>
+  </g>
+  <g>
+    <text x="0" y="119" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">qwen2.5-coder-1.5b-instruct</text>
+    <text x="0" y="135" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">13 ms to first token warm · 0.8s cold</text>
+    <rect x="210" y="108" width="398" height="18" rx="4" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="210" y="108" width="228.270684371808" height="18" rx="4" fill="#8b949e"/>
+    <text x="618" y="122" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#8b949e">157.2 tok/s</text>
+  </g>
+  <g>
+    <text x="0" y="161" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">qwen2.5-coder:1.5b</text>
+    <text x="0" y="177" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">12 ms to first token warm · 1.4s cold</text>
+    <rect x="210" y="150" width="398" height="18" rx="4" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="210" y="150" width="214.39033999708153" height="18" rx="4" fill="#8b949e"/>
+    <text x="618" y="164" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#8b949e">147.7 tok/s</text>
+  </g>
+  <g>
+    <text x="0" y="203" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">llama3.2:3b</text>
+    <text x="0" y="219" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">14 ms to first token warm · 1.6s cold</text>
+    <rect x="210" y="192" width="398" height="18" rx="4" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="210" y="192" width="142.3606449730045" height="18" rx="4" fill="#8b949e"/>
+    <text x="618" y="206" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#8b949e">98.1 tok/s</text>
+  </g>
+  <g>
+    <text x="0" y="245" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">qwen2.5-coder:7b</text>
+    <text x="0" y="261" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">26 ms to first token warm · 2.8s cold</text>
+    <rect x="210" y="234" width="398" height="18" rx="4" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="210" y="234" width="70.54873777907487" height="18" rx="4" fill="#8b949e"/>
+    <text x="618" y="248" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#8b949e">48.6 tok/s</text>
+  </g>
+  <g>
+    <text x="0" y="287" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">qwen2.5-coder-7b-instruct</text>
+    <text x="0" y="303" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">31 ms to first token warm · 3.0s cold</text>
+    <rect x="210" y="276" width="398" height="18" rx="4" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="210" y="276" width="69.05326134539618" height="18" rx="4" fill="#8b949e"/>
+    <text x="618" y="290" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#8b949e">47.6 tok/s</text>
+  </g>
+</svg>

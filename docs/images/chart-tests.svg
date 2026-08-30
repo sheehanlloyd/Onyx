@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="162" viewBox="0 0 720 162" role="img" aria-label="What is actually verified">
+  <title>What is actually verified</title>
+  <text x="0" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#57606a">What is actually verified</text>
+  <text x="0" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#8b949e">Every Onyx behavior claim is backed by a test that runs in CI</text>
+  <g>
+    <text x="0" y="77" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">Unit tests</text>
+    <text x="0" y="93" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">pure logic: parsers, policies, scoring, rebasing — including fuzzing</text>
+    <rect x="210" y="66" width="398" height="18" rx="4" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="210" y="66" width="346.0869565217392" height="18" rx="4" fill="#7c5cff"/>
+    <text x="618" y="80" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#7c5cff">168</text>
+  </g>
+  <g>
+    <text x="0" y="119" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">End-to-end checks</text>
+    <text x="0" y="135" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">a real workbench driven over CDP, asserted on the run journal</text>
+    <rect x="210" y="108" width="398" height="18" rx="4" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="210" y="108" width="92.70186335403727" height="18" rx="4" fill="#8b949e"/>
+    <text x="618" y="122" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#8b949e">45</text>
+  </g>
+</svg>

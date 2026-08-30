@@ -92,12 +92,21 @@ jobs:
       # autocomplete, the model library, commit messages, review, both code
       # actions, staged edits (Onyx Changes), the gated terminal tool, the
       # offline docs mirror, playbooks, run resume, the refactor engine, the
-      # repo benchmark, speculative decoding and the architecture map — 46
+      # repo benchmark, speculative decoding and the architecture map — 45
       # checks asserted on the run journal and the live DOM.
       - name: Onyx end-to-end
         run: node test/onyx/run-e2e.mts
         env:
           DISPLAY: ':10'
+
+      # The deterministic half of the benchmark harness: retrieval, the
+      # architecture scan, the edit parsers, the staged-hunk algebra and the
+      # terminal classifier, measured against this repository. --skip-models
+      # leaves out the sections that need a local model runtime; those skip
+      # gracefully anyway, but being explicit keeps CI honest about what it
+      # actually measured.
+      - name: Onyx benchmarks (pure logic)
+        run: node test/onyx/run-benchmarks.mts --skip-models
 
       - name: Upload end-to-end diagnostics
         if: failure()

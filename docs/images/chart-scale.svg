@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="204" viewBox="0 0 720 204" role="img" aria-label="Built for a repository you have never read">
+  <title>Built for a repository you have never read</title>
+  <text x="0" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#57606a">Built for a repository you have never read</text>
+  <text x="0" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#8b949e">Measured on this repository — a full VS Code fork — on an Apple silicon laptop</text>
+  <g>
+    <text x="0" y="77" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">Files mapped</text>
+    <text x="0" y="93" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">whole workspace scanned in 1.1s, ~12k files/second</text>
+    <rect x="210" y="66" width="398" height="18" rx="4" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="210" y="66" width="238.1240302960753" height="18" rx="4" fill="#7c5cff"/>
+    <text x="618" y="80" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#7c5cff">13k</text>
+  </g>
+  <g>
+    <text x="0" y="119" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">Files indexed for retrieval</text>
+    <text x="0" y="135" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">incremental BM25, persisted per workspace</text>
+    <rect x="210" y="108" width="398" height="18" rx="4" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="210" y="108" width="158.45095249024558" height="18" rx="4" fill="#8b949e"/>
+    <text x="618" y="122" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#8b949e">8673</text>
+  </g>
+  <g>
+    <text x="0" y="161" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">Lines of Onyx source</text>
+    <text x="0" y="177" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">124 files, all additive to upstream</text>
+    <rect x="210" y="150" width="398" height="18" rx="4" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="210" y="150" width="398" height="18" rx="4" fill="#8b949e"/>
+    <text x="618" y="164" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="13" font-weight="600" fill="#8b949e">22k</text>
+  </g>
+</svg>
