@@ -51,6 +51,22 @@ function check(name: string, condition: boolean, detail?: string) {
 	}
 }
 
+/** The seeded contents of `src/math.ts`, shared so a mid-run reset cannot drift from it. */
+const MATH_TS_CONTENT = [
+	'export function addNumbers(a: number, b: number): number {',
+	'\treturn a + b;',
+	'}',
+	'',
+	'export function computeTotal(values: number[]): number {',
+	'\tlet total = 0;',
+	'\tfor (const value of values) {',
+	'\t\ttotal = addNumbers(total, value);',
+	'\t}',
+	'\treturn total;',
+	'}',
+	'',
+].join('\n');
+
 function sleep(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -65,7 +81,7 @@ function sleep(ms: number) {
  * staged, "accepting clears the staged set" saw an already-empty view and
  * passed. Waiting on the condition costs nothing when it is already true.
  */
-async function waitUntil(condition: () => boolean, timeoutMs = 45_000, stepMs = 500): Promise<boolean> {
+async function waitUntil(condition: () => boolean, timeoutMs = 20_000, stepMs = 500): Promise<boolean> {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
 		if (condition()) {
@@ -100,20 +116,7 @@ function seedWorkspace() {
 		'}',
 		'',
 	].join('\n'));
-	fs.writeFileSync(path.join(workspace, 'src', 'math.ts'), [
-		'export function addNumbers(a: number, b: number): number {',
-		'\treturn a + b;',
-		'}',
-		'',
-		'export function computeTotal(values: number[]): number {',
-		'\tlet total = 0;',
-		'\tfor (const value of values) {',
-		'\t\ttotal = addNumbers(total, value);',
-		'\t}',
-		'\treturn total;',
-		'}',
-		'',
-	].join('\n'));
+	fs.writeFileSync(path.join(workspace, 'src', 'math.ts'), MATH_TS_CONTENT);
 	fs.writeFileSync(path.join(workspace, 'src', 'report.ts'), [
 		'import { computeTotal } from \'./math.js\';',
 		'',
@@ -546,6 +549,14 @@ async function main() {
 
 	// --- Staged edits (Onyx Changes): the agent's edits stage for review and
 	// only an explicit accept touches the buffer.
+	// The inline-edit test above left math.ts open, and on a slower runner its
+	// undo can leave the buffer out of step with disk. The mock's editFile
+	// SEARCH block is matched against the file, so a stale buffer means nothing
+	// stages and three checks below fail for a reason that has nothing to do
+	// with staging. Revert the editor and put the file back to known content so
+	// a failure here means the edit tool broke.
+	fs.writeFileSync(path.join(workspace, 'src', 'math.ts'), MATH_TS_CONTENT);
+	await sleep(1500);
 	await send('EDITTEST src/math.ts stage an edit for review');
 	const readStagedSnapshot = () => JSON.stringify(readRuns().flatMap(run => run.events).filter(event => event.kind === 'promptSnapshot').slice(-2));
 	await waitUntil(() => readStagedSnapshot().includes('reviews them in Onyx Changes'));
