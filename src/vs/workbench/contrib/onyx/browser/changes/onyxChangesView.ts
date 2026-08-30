@@ -93,7 +93,9 @@ export class OnyxChangesViewPane extends ViewPane {
 		// user hears that the agent proposed something without watching a view.
 		if (files.length !== this._lastAnnouncedCount) {
 			if (files.length > this._lastAnnouncedCount) {
-				aria.status(localize('onyx.changes.announce', "Onyx staged edits to {0} file(s), pending your review.", files.length));
+				aria.status(files.length === 1
+					? localize('onyx.changes.announce.one', "Onyx staged edits to 1 file, pending your review.")
+					: localize('onyx.changes.announce', "Onyx staged edits to {0} files, pending your review.", files.length));
 			}
 			this._lastAnnouncedCount = files.length;
 		}
@@ -107,11 +109,15 @@ export class OnyxChangesViewPane extends ViewPane {
 
 		const summary = summarizeChangeSet(files.map(file => file.proposal));
 		const header = DOM.append(content, $('.onyx-changes-summary'));
-		header.textContent = localize('onyx.changes.summary', "{0} file(s) · +{1} −{2}", summary.fileCount, summary.addedLines, summary.removedLines);
+		header.textContent = summary.fileCount === 1
+			? localize('onyx.changes.summary.one', "1 file · +{0} −{1}", summary.addedLines, summary.removedLines)
+			: localize('onyx.changes.summary', "{0} files · +{1} −{2}", summary.fileCount, summary.addedLines, summary.removedLines);
 		const headerActions = DOM.append(header, $('.onyx-run-actions'));
 		this._textButton(headerActions, localize('onyx.changes.acceptAll', "Accept All"), localize('onyx.changes.acceptAllTitle', "Apply every staged edit"), async () => {
 			const applied = await this._changeSetService.acceptAll();
-			aria.status(localize('onyx.changes.acceptedAll', "Applied edits to {0} file(s).", applied));
+			aria.status(applied === 1
+				? localize('onyx.changes.acceptedAll.one', "Applied edits to 1 file.")
+				: localize('onyx.changes.acceptedAll', "Applied edits to {0} files.", applied));
 		});
 		this._textButton(headerActions, localize('onyx.changes.rejectAll', "Reject All"), localize('onyx.changes.rejectAllTitle', "Discard every staged edit — files stay untouched"), () => {
 			this._changeSetService.rejectAll();

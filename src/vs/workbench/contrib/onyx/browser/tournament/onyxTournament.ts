@@ -186,7 +186,11 @@ export class OnyxTournament {
 			await this._runtimeService.worktreeWriteFile(worktreePath, relativePath, newFile);
 			const diff = await this._runtimeService.worktreeDiff(worktreePath);
 			const stats = this._profileService.getStats(contestant.key);
-			run.activity({ kind: 'note', label: localize('onyx.tournament.candidate', "Candidate ready: {0} file(s) changed", diff.files.length), ok: true });
+			run.activity({
+				kind: 'note', ok: true, label: diff.files.length === 1
+					? localize('onyx.tournament.candidate.one', "Candidate ready: 1 file changed")
+					: localize('onyx.tournament.candidate', "Candidate ready: {0} files changed", diff.files.length),
+			});
 			run.complete('completed');
 			return {
 				modelKey: contestant.key,

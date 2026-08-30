@@ -79,7 +79,9 @@ export class OnyxControlPlaneAccessibleView implements IAccessibleViewImplementa
 			] : []),
 			...(staged.length > 0 ? [
 				'',
-				localize('onyx.a11y.view.changes', "Proposed changes awaiting review ({0} file(s)):", staged.length),
+				staged.length === 1
+					? localize('onyx.a11y.view.changes.one', "Proposed changes awaiting review (1 file):")
+					: localize('onyx.a11y.view.changes', "Proposed changes awaiting review ({0} files):", staged.length),
 				...staged.map(file => {
 					const added = file.hunks.reduce((total, hunk) => total + hunk.newLines.length, 0);
 					const removed = file.hunks.reduce((total, hunk) => total + hunk.originalLines.length, 0);

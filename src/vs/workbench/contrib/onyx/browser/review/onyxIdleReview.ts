@@ -199,7 +199,9 @@ export class OnyxIdleReviewContribution extends Disposable {
 		this._markerService.changeAll('onyx', entries);
 		this._badge.value = entries.length > 0
 			? this._activityService.showViewContainerActivity(ONYX_CONTROL_PLANE_CONTAINER_ID, {
-				badge: new NumberBadge(entries.length, count => localize('onyx.idleReview.badge', "{0} background review finding(s)", count)),
+				badge: new NumberBadge(entries.length, count => count === 1
+					? localize('onyx.idleReview.badge.one', "1 background review finding")
+					: localize('onyx.idleReview.badge', "{0} background review findings", count)),
 			})
 			: undefined;
 	}

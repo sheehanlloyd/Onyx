@@ -53,7 +53,7 @@ suite('OnyxResume', () => {
 			count: degraded.length,
 			namesModel: degraded[0].includes('localhost:11434/q7b'),
 			namesHead: degraded[1].includes('git HEAD moved'),
-			namesEdits: degraded[2].includes('2 file(s)'),
+			namesEdits: degraded[2].includes('2 files'),
 		}, { clean: [], count: 3, namesModel: true, namesHead: true, namesEdits: true });
 	});
 

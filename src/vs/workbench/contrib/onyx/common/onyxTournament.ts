@@ -54,7 +54,7 @@ export function buildComparisonDocument(instruction: string, candidates: readonl
 	const lines: string[] = [
 		`# Onyx tournament — "${instruction}"`,
 		'',
-		`${candidates.length} model(s) attempted the same edit in isolated git worktrees. Pick a winner to apply its diff to your working tree; every other worktree is discarded.`,
+		`${candidates.length === 1 ? '1 model' : `${candidates.length} models`} attempted the same edit in isolated git worktrees. Pick a winner to apply its diff to your working tree; every other worktree is discarded.`,
 		'',
 	];
 	for (const candidate of candidates) {

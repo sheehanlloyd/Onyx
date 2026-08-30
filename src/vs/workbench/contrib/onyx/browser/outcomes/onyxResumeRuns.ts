@@ -54,7 +54,9 @@ registerAction2(class ResumeOnyxRunAction extends Action2 {
 
 		const picked = await quickInputService.pick(resumable.map(summary => ({
 			label: summary.title || localize('onyx.resume.untitled', "Untitled run"),
-			description: localize('onyx.resume.pickDetail', "{0} · {1} · {2} turn(s)", summary.status, new Date(summary.startedAt).toLocaleString(), summary.turnCount),
+			description: summary.turnCount === 1
+				? localize('onyx.resume.pickDetail.one', "{0} · {1} · 1 turn", summary.status, new Date(summary.startedAt).toLocaleString())
+				: localize('onyx.resume.pickDetail', "{0} · {1} · {2} turns", summary.status, new Date(summary.startedAt).toLocaleString(), summary.turnCount),
 			detail: summary.modelKey,
 			summary,
 		})), { placeHolder: localize('onyx.resume.pick', "Which interrupted run should continue?"), matchOnDescription: true });

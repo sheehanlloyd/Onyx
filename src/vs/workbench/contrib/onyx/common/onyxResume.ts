@@ -111,7 +111,8 @@ export function resumeConditionMessages(conditions: IOnyxResumeConditions): stri
 		messages.push('The workspace has changed since this run (git HEAD moved). The agent will re-read the current state rather than trusting what it saw before.');
 	}
 	if (conditions.pendingEditFiles > 0) {
-		messages.push(`${conditions.pendingEditFiles} file(s) of proposed edits from the interrupted run are still staged in Onyx Changes — review them there; the resumed run knows about them.`);
+		const files = conditions.pendingEditFiles === 1 ? '1 file' : `${conditions.pendingEditFiles} files`;
+		messages.push(`${files} of proposed edits from the interrupted run are still staged in Onyx Changes — review them there; the resumed run knows about them.`);
 	}
 	return messages;
 }

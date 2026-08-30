@@ -136,7 +136,12 @@ export class OnyxReviewChanges {
 			const allFindings = parseReviewFindings(raw);
 			const findings = allFindings.filter(finding => passesSeverityThreshold(finding.severity, threshold));
 			if (allFindings.length > findings.length) {
-				handle.activity({ kind: 'note', label: localize('onyx.review.filtered', "{0} finding(s) below the project's severity threshold hidden", allFindings.length - findings.length) });
+				const hidden = allFindings.length - findings.length;
+				handle.activity({
+					kind: 'note', label: hidden === 1
+						? localize('onyx.review.filtered.one', "1 finding below the project's severity threshold hidden")
+						: localize('onyx.review.filtered', "{0} findings below the project's severity threshold hidden", hidden),
+				});
 			}
 			for (const finding of findings) {
 				handle.activity({

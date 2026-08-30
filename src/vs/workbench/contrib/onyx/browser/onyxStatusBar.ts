@@ -43,7 +43,7 @@ export class OnyxStatusBarContribution extends Disposable {
 			: `$(pulse) Onyx`;
 		const tooltip = modelCount === 0
 			? localize('onyx.status.noModels', "Onyx — no local models found. Start Ollama, LM Studio, llama.cpp or vLLM.")
-			: localize('onyx.status.models', "Onyx — {0} local model(s) ready. Click to open the control plane.", modelCount);
+			: localize('onyx.status.models', "Onyx — {0} local models ready. Click to open the control plane.", modelCount);
 		return {
 			name: localize('onyx.status.name', "Onyx"),
 			text,
