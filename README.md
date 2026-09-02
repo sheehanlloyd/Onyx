@@ -39,10 +39,19 @@ mangles tool calls, writes edits that do not apply, and answers confidently from
 nothing. Onyx is the harness that makes those failures survivable, and that shows
 you when it did not.
 
-## What I built
+> **What I built:** Onyx is a Code – OSS fork with the upstream history
+> intentionally preserved. My original implementation is primarily in
+> [`src/vs/platform/onyxRuntime/`](./src/vs/platform/onyxRuntime),
+> [`src/vs/workbench/contrib/onyx/`](./src/vs/workbench/contrib/onyx),
+> [`extensions/theme-onyx/`](./extensions/theme-onyx) and
+> [`test/onyx/`](./test/onyx), plus the Onyx documentation and product design.
+> That is 143 files and about 25.8k lines. [REBASE.md](./REBASE.md) lists every
+> upstream file Onyx touches, and why the history is kept rather than squashed.
 
-Onyx is based on Code – OSS, so this repository carries upstream's full history
-and its 164k commits. The original Onyx implementation lives in four directories:
+<details>
+<summary>What is in each tree</summary>
+
+<br/>
 
 | Directory | What is in it | Size |
 |---|---|---|
@@ -51,32 +60,21 @@ and its 164k commits. The original Onyx implementation lives in four directories
 | [`extensions/theme-onyx/`](./extensions/theme-onyx) | The four themes | 14 files, 1.4k lines |
 | [`test/onyx/`](./test/onyx) | Mock runtime, end-to-end harness, benchmark harness, chart generator | 5 files, 2.7k lines |
 
-The upstream history is preserved deliberately, for rebasing and for attribution.
-[REBASE.md](./REBASE.md) lists every upstream file Onyx touches and the merge
-drills run against microsoft/vscode.
+</details>
 
-## Three results worth reading first
+**One result that shaped Onyx:** every qwen2.5-coder variant I tested used the
+native tool-call channel **0% of the time**, across both local runtimes, even
+though Ollama advertises tool support for them. The models emitted calls as prose
+instead. Onyx's repair path recovered a usable call from that prose in 6 of 6
+requests for three of the five variants, and a schema-constrained turn reached
+100% valid tool use on four of the five, 83% on the last. Method and numbers:
+[Benchmark results](#tool-calling) and
+[docs/BENCHMARKS.md](./docs/BENCHMARKS.md#tool-calling--three-separate-numbers).
 
-These came out of the measurements rather than out of a plan, and they are why
-the architecture looks the way it does.
-
-1. **Every qwen2.5-coder variant used its native tool-call channel 0% of the
-   time.** Five models, two runtimes, six tool-requiring requests each. Ollama
-   advertises tool support for these models; they wrote the call as prose
-   instead. Onyx's repair path recovers an executable call from that prose, and a
-   schema-constrained turn reaches 100% validity on five of the six models
-   tested. [Numbers and method](#tool-calling)
-
-2. **Speculative decoding made generation 28% slower.** A 7B target with a 0.5B
-   draft of the same family ran at 0.72x, because both models contend for the
-   same unified memory. Onyx measures the pairing on your hardware and tells you
-   to drop it when it loses, instead of listing "speculative decoding supported"
-   as a feature. [Numbers and method](#speculative-decoding)
-
-3. **The local reviewer missed a textbook off-by-one that was in its prompt.** In
-   another session a model learned from its own earlier answers that replying
-   without retrieval was acceptable, and then skipped retrieval three times in a
-   row. [The full list](#known-failure-cases)
+Two more measurements changed the design: speculative decoding came out at 0.72x
+on this machine, and the local reviewer missed an off-by-one that was in its own
+prompt. Both are below, in [Benchmark results](#speculative-decoding) and
+[Known failure cases](#known-failure-cases).
 
 ---
 
