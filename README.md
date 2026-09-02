@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="#what-you-get">Features</a> ·
-  <a href="#measured-not-claimed">Benchmarks</a> ·
+  <a href="#benchmark-results">Benchmarks</a> ·
   <a href="#how-onyx-compares">Comparison</a> ·
   <a href="#installing">Install</a> ·
   <a href="./ONYX.md">Architecture</a> ·
@@ -26,19 +26,57 @@
 <p align="center">
   <img src="docs/images/onyx-demo.gif" alt="Onyx in use: first run with live runtime detection, an inline edit reviewed hunk by hunk, and an adversarial review with file:line findings — all against models running on this Mac" width="900" />
 </p>
-<p align="center"><i>Recorded from the real product against real local models — no cloud, no cuts.</i></p>
+<p align="center"><i>Recorded from the real product, against real local models running on this Mac.</i></p>
 
-Onyx is a fork of [Code – OSS](https://github.com/microsoft/vscode) whose
-**entire agent architecture is designed around local inference**. Think Cursor —
-except inference happens on your hardware through any OpenAI-compatible runtime
-(Ollama, LM Studio, llama.cpp, vLLM), a 7B model gets a different harness than a
-70B model, and a visual control plane shows exactly what the agent is doing and
-why.
+Onyx is a fork of [Code – OSS](https://github.com/microsoft/vscode) whose agent
+architecture is built around local inference. Inference happens on your hardware
+through any OpenAI-compatible runtime (Ollama, LM Studio, llama.cpp, vLLM), a 7B
+model gets a different harness than a 70B model, and a control plane shows what
+the agent is doing and why.
 
-The hard part of a local-first editor is not calling a local endpoint. It is
-that a 7B model on a laptop mangles tool calls, writes edits that do not apply,
-and answers confidently from nothing. Onyx is the harness that makes that
-survivable — and that shows you, honestly, when it was not.
+The hard part is not calling a local endpoint. It is that a 7B model on a laptop
+mangles tool calls, writes edits that do not apply, and answers confidently from
+nothing. Onyx is the harness that makes those failures survivable, and that shows
+you when it did not.
+
+## What I built
+
+Onyx is based on Code – OSS, so this repository carries upstream's full history
+and its 164k commits. The original Onyx implementation lives in four directories:
+
+| Directory | What is in it | Size |
+|---|---|---|
+| [`src/vs/platform/onyxRuntime/`](./src/vs/platform/onyxRuntime) | Runtime layer: the OpenAI-compatible client, runtime discovery, per-model capability profiles | 8 files, 2.4k lines |
+| [`src/vs/workbench/contrib/onyx/`](./src/vs/workbench/contrib/onyx) | The agent itself: router, tool loop, staged changes, retrieval, control plane, every Onyx surface | 116 files, 19.2k lines |
+| [`extensions/theme-onyx/`](./extensions/theme-onyx) | The four themes | 14 files, 1.4k lines |
+| [`test/onyx/`](./test/onyx) | Mock runtime, end-to-end harness, benchmark harness, chart generator | 5 files, 2.7k lines |
+
+The upstream history is preserved deliberately, for rebasing and for attribution.
+[REBASE.md](./REBASE.md) lists every upstream file Onyx touches and the merge
+drills run against microsoft/vscode.
+
+## Three results worth reading first
+
+These came out of the measurements rather than out of a plan, and they are why
+the architecture looks the way it does.
+
+1. **Every qwen2.5-coder variant used its native tool-call channel 0% of the
+   time.** Five models, two runtimes, six tool-requiring requests each. Ollama
+   advertises tool support for these models; they wrote the call as prose
+   instead. Onyx's repair path recovers an executable call from that prose, and a
+   schema-constrained turn reaches 100% validity on five of the six models
+   tested. [Numbers and method](#tool-calling)
+
+2. **Speculative decoding made generation 28% slower.** A 7B target with a 0.5B
+   draft of the same family ran at 0.72x, because both models contend for the
+   same unified memory. Onyx measures the pairing on your hardware and tells you
+   to drop it when it loses, instead of listing "speculative decoding supported"
+   as a feature. [Numbers and method](#speculative-decoding)
+
+3. **The local reviewer missed a textbook off-by-one that was in its prompt.** In
+   another session a model learned from its own earlier answers that replying
+   without retrieval was acceptable, and then skipped retrieval three times in a
+   row. [The full list](#known-failure-cases)
 
 ---
 
@@ -47,7 +85,8 @@ survivable — and that shows you, honestly, when it was not.
 | | |
 |---|---|
 | [What you get](#what-you-get) | The feature set, grouped |
-| [Measured, not claimed](#measured-not-claimed) | Real numbers from real models on this Mac |
+| [Benchmark results](#benchmark-results) | Real numbers from real models, and the scope they were measured in |
+| [Known failure cases](#known-failure-cases) | Where local models failed, in detail |
 | [How Onyx compares](#how-onyx-compares) | Structural comparison, no invented numbers |
 | [Installing](#installing) | From source, or build the app |
 | [Testing](#testing) | 168 unit tests · 45 end-to-end checks · benchmarks |
@@ -61,48 +100,48 @@ survivable — and that shows you, honestly, when it was not.
 
 <img src="docs/images/onyx-model-library.png" alt="The Onyx model library, sized against this Mac's unified memory" width="900" />
 
-- **Local-first is architectural, not a provider option.** One OpenAI-compatible
-  client covers every runtime; discovery finds your models automatically and
-  nothing you type leaves the machine.
+- **One client, every runtime.** A single OpenAI-compatible client covers
+  Ollama, LM Studio, llama.cpp and vLLM. Discovery finds your models
+  automatically and nothing you type leaves the machine.
 - **The harness adapts to the model.** Prompt style, tool count, temperature and
-  context budget derive from a per-model capability profile — seeded from model
-  metadata, sharpened by measurements on *your* hardware and by which answers
-  *you* keep.
-- **Auto routing that actually learns.** Quick edits go to fast small models,
+  context budget come from a per-model capability profile, seeded from model
+  metadata and sharpened by measurements on your hardware and by which answers
+  you keep.
+- **Routing on measured behaviour.** Quick edits go to fast small models,
   implementation and debugging to your strongest tool-callers, based on measured
   tok/s, tool-call reliability and accept rates.
-- **A model library that knows your Mac.** `Onyx: Manage Models` reads unified
-  memory and tells you which models actually fit, at which quantization and
-  context window — then pulls them with one click and live progress.
+- **A model library sized to your Mac.** `Onyx: Manage Models` reads unified
+  memory and tells you which models fit, at which quantization and context
+  window, then pulls them with one click and live progress.
 - **Constrained decoding where the runtime supports it.** Models that keep
   mangling tool calls get their turns constrained to a JSON schema. The Compute
   view shows the malformed-call rate free-form versus constrained.
 - **Prompt-cache-aware prompting.** A stable system prefix, append-only history,
-  volatile context last — with a live readout of how many prompt tokens the
-  runtime could reuse and what that buys in first-token latency.
+  volatile context last, with a live readout of how many prompt tokens the
+  runtime reused and what that bought in first-token latency.
 - **Battery and heat are inputs.** On battery or under thermal pressure the
   router caps model size and autocomplete backs off, and the Compute view
   explains the downshift in one plain sentence.
-- **Speculative decoding, honestly measured.** Every runtime that supports it
-  wants the draft set when the model *loads*, so Onyx measures your target as it
-  stands, gives you the exact command for your runtime, waits, then runs the
-  identical prompt again. When there is no gain it says so —
-  [on this Mac there wasn't](#speculative-decoding-measured-instead-of-assumed).
+- **Speculative decoding, measured.** Every runtime that supports it wants the
+  draft set when the model loads, so Onyx measures your target as it stands,
+  gives you the exact command for your runtime, waits, then runs the identical
+  prompt again. When there is no gain it says so, as
+  [it did on this Mac](#speculative-decoding).
 
 ### Nothing touches your code without you
 
 <img src="docs/images/onyx-changes.png" alt="Onyx Changes: agent edits staged for per-hunk review — nothing touches a file until accepted" width="420" />
 <img src="docs/images/onyx-terminal-approval.png" alt="The agent proposing a shell command, with Run Once, Run for This Session, Always Run This Command and Deny" width="900" />
 
-- **Agent edits stage before they land.** Every edit goes to **Onyx Changes** —
-  diff per file, per-hunk accept and reject, accept-all and reject-all, and a
-  risk badge. The `editFile` tool is the agent's *only* write path.
+- **Agent edits stage before they land.** Every edit goes to Onyx Changes: diff
+  per file, per-hunk accept and reject, accept-all and reject-all, and a risk
+  badge. The `editFile` tool is the agent's only write path.
 
   <details><summary>What happens when the file moves underneath</summary>
 
   Staged edits survive a crash. If you edit the file while a proposal is
   waiting, the proposal is rebased onto your version or dropped, and you are
-  told which — it is never applied somewhere it no longer fits.
+  told which. It is never applied somewhere it no longer fits.
   </details>
 
 - **A terminal the agent has to ask for.** Each proposed command is shown
@@ -126,18 +165,18 @@ survivable — and that shows you, honestly, when it was not.
   correct across files — while the local model only *proposes names*. Results
   stage for review, and after you accept, Onyx compares problem markers against
   the baseline and tells you.
-- **Trust, but verify.** After the agent edits code, Onyx diffs workspace
-  problems against the pre-run baseline and can run your project's own build or
+- **Verification after every run.** When the agent finishes editing, Onyx diffs
+  workspace problems against the pre-run baseline and can run your project's own build or
   test task, posting the verdict to the timeline.
 
 ### It learns your repository
 
 <img src="docs/images/onyx-architecture.png" alt="The Onyx architecture map: modules, dependencies, churn and fan-in hot spots with local-model summaries" width="420" />
 
-- **An architecture map for code you have never read.** The workspace as modules
-  with dependency edges, hot spots by churn and fan-in, and a one-line
-  local-model summary each. This repository — 13,256 files — maps in 3.1
-  seconds, and a second time in one.
+- **An architecture map of the workspace.** Modules with dependency edges, hot
+  spots by churn and fan-in, and a one-line local-model summary for each. This
+  repository, 13,256 files, maps in 3.1 seconds and in one second on a second
+  pass.
 - **Semantic search without embeddings.** An incremental BM25 index over your
   workspace, blended with symbol matches and co-change history. It finds "commit
   message digest" in the file that defines `buildCommitDiffDigest`, which
@@ -157,7 +196,7 @@ survivable — and that shows you, honestly, when it was not.
 - **Playbooks your repository checks in.** `.onyx/playbooks/*.md` are named,
   versionable recipes with validated frontmatter. The agent sees a one-line index
   and can pull one in; you can run one from the palette. Broken playbooks show up
-  in the Problems panel, not as silent failures.
+  in the Problems panel rather than failing silently.
 - **A configuration your repository can check in.** `.onyx/config.json` pins
   models per task kind, the verification task, context pins, a review severity
   threshold and disabled tools — schema-backed, and always outranked by your own
@@ -211,7 +250,7 @@ survivable — and that shows you, honestly, when it was not.
   and tool call live — with pause, stop and redirect — plus a token-exact context
   budget and an inspector that replays any past run down to the exact wire
   prompt.
-- **Compute is the local bill.** A per-model ledger for this session and all
+- **A ledger instead of a bill.** Per model, for this session and all
   time: requests, tokens, average tok/s and time-to-first-token, accept rate, and
   a `B·s` energy proxy — billions of parameters held for seconds of generation.
 - **Interrupted work you can pick back up.** If a run crashes or you stop it,
@@ -245,57 +284,87 @@ high-contrast variants, pinned as the product defaults.*
 
 ---
 
-## Measured, not claimed
+## Benchmark results
 
 Every number below was produced by
-[`test/onyx/run-benchmarks.mts`](./test/onyx/run-benchmarks.mts) on an Apple
-silicon MacBook, against this repository and the models actually installed on it.
-The charts are generated from that run's JSON and **never hand-edited**, so a
-chart cannot drift from the number it claims to show.
-[docs/BENCHMARKS.md](./docs/BENCHMARKS.md) explains what each one means and how
-to reproduce it.
+[`test/onyx/run-benchmarks.mts`](./test/onyx/run-benchmarks.mts) against this
+repository and the models installed on the machine described below. The charts
+are generated from that run's JSON and never hand-edited, so a chart cannot drift
+from the number it claims to show. [docs/BENCHMARKS.md](./docs/BENCHMARKS.md)
+explains what each measurement means and how to reproduce it.
 
 ```bash
 node test/onyx/run-benchmarks.mts        # skips the model sections if no runtime is up
 ```
+
+### Scope
+
+| | |
+|---|---|
+| **Tested on** | MacBook Pro, Apple M4 Pro, 24 GB unified memory, macOS 26.5, otherwise idle |
+| **Runtimes** | Ollama 0.33.0 · LM Studio 0.4.23 (llama.cpp `llama-server` underneath) |
+| **Models** | Ollama: `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b`, `llama3.2:3b`. LM Studio: `qwen2.5-coder-7b-instruct`, `-1.5b-instruct`, `-0.5b-instruct` |
+| **Runs per test** | Throughput: best of 3 warm rounds. Cold TTFT: 1 sample. Tool calling: 6 requests per arm per model. Repo benchmark: 5 commits per model at temperature 0. Speculative decoding: best of 3 after a discarded warm-up |
+| **Reported statistic** | Best-of-N for throughput and latency, proportion valid for tool calls, mean F1 over changed lines for the repo benchmark |
+| **Limitations** | One machine, one operator, local models only, one runtime resident at a time. No variance is reported for the throughput numbers, so treat them as exploratory single-machine measurements. The repo-benchmark F1 did reproduce exactly across three independent runs; nothing else here has been repeated often enough to quote a spread |
+
+The pure-logic half of the harness (retrieval, parsers, hunk algebra, terminal
+classification) is deterministic and runs anywhere, including CI. The model half
+depends on this hardware and these models and is not reproducible across
+machines.
+
+### Tool calling
+
+<img src="docs/images/chart-toolcalls.svg" alt="Tool-call validity: the model's own channel, plus Onyx's repair, plus a grammar-constrained envelope" width="820" />
+
+Every qwen2.5-coder variant used the native tool-call channel 0% of the time, on
+both runtimes, even though Ollama advertises tool support for them. They write
+the call as prose instead. Only `llama3.2:3b` used the channel as designed, 6/6.
+
+Onyx's repair path recovers an executable call from that prose in 6/6 requests
+for four of the six models; the two smallest LM Studio models recovered 4/6 and
+3/6. Where the runtime supports `response_format: json_schema`, constraining the
+turn reaches 100% on five of the six models and 83% on the sixth.
+
+The repair path is the only reason most of these models can call tools at all.
+That is a result about the models, not about Onyx, and it is why the tool loop
+was built to assume the channel will fail.
+
+### Speculative decoding
+
+<img src="docs/images/chart-speculative.svg" alt="The same model with and without a draft model" width="720" />
+
+A 7B target with a 0.5B draft of the same family ran at 0.72x, 48.0 down to 34.4
+tok/s. Both models contend for the same unified memory, so the draft is not close
+to free. The result held across three configurations and both prose and code
+prompts, and the draft was provably attached: a bogus draft name is rejected at
+load time, so a successful load proves the pairing took effect.
+
+Onyx reports whichever way the measurement comes out and tells you to drop the
+pairing when it loses. On hardware where the draft runs on separate silicon the
+answer could differ, which is why the readout only ever reports a measurement
+from your machine.
 
 ### Local models on this Mac
 
 <img src="docs/images/chart-speed.svg" alt="Generation speed per model" width="720" />
 
 Onyx measures this itself, per model, and routes on it. Cold numbers are the
-first request after the model is evicted — the price you pay for switching
-models, which a benchmark that only reports warm throughput never shows you.
+first request after the model is evicted. That is the price of switching models,
+which a benchmark reporting only warm throughput never shows.
 
-### Small models can be made to call tools reliably
-
-<img src="docs/images/chart-toolcalls.svg" alt="Tool-call validity: the model's own channel, plus Onyx's repair, plus a grammar-constrained envelope" width="820" />
-
-The striking result: **every qwen2.5-coder variant used the native tool-call
-channel 0% of the time**, on both runtimes, even though Ollama advertises tool
-support for them. They write the call as prose instead. Onyx's repair path is
-the only reason they can call tools at all — and where the runtime supports
-`response_format: json_schema`, constraining the turn takes it to 100%.
-
-### Which model is better at what — on your repository
+### Scores on this repository's own commits
 
 <img src="docs/images/chart-repobench.svg" alt="Per-model scores on this repository's own commits" width="720" />
 
 Real past commits become tasks: the model sees the file as it was plus the commit
 message, and must reproduce the change. The score is F1 over the lines the author
-actually wrote, where 1.0 *is* the author. These are hard tasks and the numbers
-are small — that is the point. They are a *routing signal*, and they say
-something no leaderboard can: which of *your* models is better at which kind of
-work, on *your* code.
+actually wrote, where 1.0 means the model wrote exactly the author's lines.
 
-### Speculative decoding, measured instead of assumed
-
-<img src="docs/images/chart-speculative.svg" alt="The same model with and without a draft model" width="720" />
-
-A 7B target with a 0.5B draft of the same family ran at **0.72× — 27% slower**.
-Both models contend for the same unified memory, so the draft is not close to
-free. Onyx reports whichever way it comes out, and tells you to drop the pairing
-when it loses.
+These are hard tasks and the numbers are small. They are a routing signal, not a
+quality claim: they say which of your models is better at which kind of work on
+your code. Five tasks per model is a small sample and the caveats are in
+[docs/BENCHMARKS.md](./docs/BENCHMARKS.md#on-your-repo-benchmark).
 
 <details>
 <summary><b>The deterministic half</b> — retrieval, parsers, the approval classifier, scale and test surface</summary>
@@ -328,14 +397,40 @@ These run anywhere, need no model, and are what CI measures on every push.
 
 ---
 
+## Known failure cases
+
+A 7B model on a laptop is not GPT-5-class, and no harness fixes that. These are
+from this repository's own testing, against real local models.
+
+- The adversarial reviewer was handed a diff containing `for (let i = 0; i <=
+  items.length; i++)`, a textbook off-by-one that dereferences
+  `items[items.length]`, and reported "No problems found." The diff was in the
+  prompt. The model missed it.
+- Asked to use the offline docs tool, qwen2.5-coder:7b answered "not explicitly
+  mentioned in the project's documentation" three times without calling the tool,
+  about a policy written in the README. In a fresh chat the same model called the
+  tool and got it right. Its own earlier answers had taught it that answering
+  from nothing was acceptable.
+- Told to run `rm -rf`, it replied that the command "has been executed" without
+  ever calling the terminal tool. Nothing ran. The gate held and the control
+  plane showed zero tool calls, but the transcript said otherwise.
+
+Onyx's answer is to make these failure modes survivable and visible. Edits stage
+before they land, tool calls are repaired or grammar-constrained, the terminal
+cannot run without you, and the control plane is the ground truth when the prose
+is not.
+
+---
+
 ## How Onyx compares
 
-Onyx is not trying to beat a frontier model. It is trying to be the editor that
-makes a model *on your machine* useful, and to be honest about what that costs.
-The comparison below is **structural** — where inference runs, and what you are
-shown before something happens to your code. **No performance numbers for other
-products appear here**, because none were measured; every number in this README
-came from the harness above, on this machine.
+Onyx is not trying to beat a frontier model. It is trying to make a model on your
+machine useful, and to be honest about what that costs.
+
+The comparison below is structural: where inference runs, and what you are shown
+before something happens to your code. No performance numbers for other products
+appear here, because none were measured. Every number in this README came from
+the harness above, on this machine.
 
 | | Cloud AI editors<br/>(Cursor, Copilot) | Ollama or LM Studio<br/>on their own | Continue, Cline<br/>(extension in another editor) | **Onyx** |
 |---|---|---|---|---|
@@ -349,29 +444,6 @@ came from the harness above, on this machine.
 | Documentation lookup | The vendor's index, online | n/a | Varies | **A local BM25 mirror of your markdown, dependency READMEs and JSDoc — no network** |
 | Seeing what the agent actually sent | Rarely | You wrote the request | Sometimes | **Every past run replayable down to the exact wire prompt** |
 | Works with no internet | No | Yes | Depends | **Yes, entirely** |
-
-### Where Onyx is worse, plainly
-
-A 7B model on a laptop is not GPT-5-class, and no amount of harness fixes that.
-From this repository's own testing, with real models:
-
-- The adversarial reviewer was handed a diff containing `for (let i = 0; i <=
-  items.length; i++)` — a textbook off-by-one dereferencing `items[items.length]`
-  — and reported **"No problems found."** The diff was in the prompt; the model
-  missed it.
-- Asked to use the offline docs tool, qwen2.5-coder:7b answered "not explicitly
-  mentioned in the project's documentation" **three times without calling the
-  tool**, about a policy written in the README. In a fresh chat the same model
-  called the tool and got it right — its own earlier answers had taught it that
-  answering from nothing was acceptable.
-- Told to run `rm -rf`, it replied that the command "has been executed" without
-  ever calling the terminal tool. Nothing ran — the gate held, and the control
-  plane showed zero tool calls — but the transcript said otherwise.
-
-Onyx's answer is not to pretend otherwise. It is to make those failure modes
-survivable and visible: edits stage before they land, tool calls are repaired or
-grammar-constrained, the terminal cannot run without you, and the control plane
-is the ground truth when the prose is not.
 
 ---
 
