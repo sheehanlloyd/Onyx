@@ -8,6 +8,33 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Scoped hygiene (A6): NUL bytes in Onyx text files, the old repository
+  # name anywhere in the tree, a developer home path in anything Onyx ships,
+  # URLs outside the allowlist in the four identity files, and every file
+  # under docs/images/ listed in docs/images/MANIFEST.md with its provenance.
+  # Needs no dependencies: the checker uses only Node built-ins, and the
+  # fixture test proves it fails on a deliberately injected NUL.
+  hygiene:
+    name: Hygiene
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Hygiene check
+        run: node test/onyx/run-hygiene.mts
+
+      - name: Hygiene check fails on injected defects (fixtures)
+        run: node --test test/onyx/checks/hygiene.test.mts
+
   onyx:
     name: Typecheck, layers, lint, Onyx unit tests
     runs-on: ubuntu-24.04
