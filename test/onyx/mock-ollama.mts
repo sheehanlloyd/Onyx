@@ -24,8 +24,15 @@
  *
  * It also recognizes Onyx's commit-message and review system prompts and
  * answers them in the shape those flows parse.
+ *
+ * Episode replay (L1): `ONYX_MOCK_EPISODE=<path.json>` makes the mock answer
+ * every chat completion with the next model turn of that episode script
+ * (`test/onyx/sim/episodes/*.json`, the same data the in-process rig runs),
+ * rendered through the real SSE path, markers ignored. `/debug/episode`
+ * reports the script and how many turns have been served.
  */
 
+import fs from 'node:fs';
 import http from 'node:http';
 
 const PORT = Number(process.env.ONYX_MOCK_PORT ?? 11434);
@@ -41,6 +48,44 @@ const MODELS = [
 let lastCompletionRequest: unknown;
 let lastChatRequest: unknown;
 const recentChatRequests: unknown[] = [];
+
+type EpisodeTurn =
+	| { kind: 'text'; text: string; chunks?: number }
+	| { kind: 'toolCall'; tool: string; arguments: unknown; id?: string; argumentsText?: string; chunks?: number }
+	| { kind: 'toolCalls'; calls: { tool: string; arguments: unknown; id?: string }[] }
+	| { kind: 'textToolCall'; tool: string; arguments: unknown }
+	| { kind: 'truncated'; text: string }
+	| { kind: 'stall' }
+	| { kind: 'error'; message: string };
+interface IEpisode { name: string; persona: string; turns: EpisodeTurn[] }
+
+const EPISODE_PATH = process.env.ONYX_MOCK_EPISODE;
+const episode: IEpisode | undefined = EPISODE_PATH ? JSON.parse(fs.readFileSync(EPISODE_PATH, 'utf8')) : undefined;
+let episodeTurnsServed = 0;
+
+/** The next scripted turn: the looping persona repeats its last turn, everyone else falls back to a plain answer. */
+function nextEpisodeTurn(): EpisodeTurn {
+	if (!episode) {
+		throw new Error('no episode loaded');
+	}
+	if (episodeTurnsServed < episode.turns.length) {
+		return episode.turns[episodeTurnsServed++];
+	}
+	episodeTurnsServed++;
+	return episode.persona === 'looping' && episode.turns.length ? episode.turns[episode.turns.length - 1] : { kind: 'text', text: 'Done.' };
+}
+
+function splitText(text: string, pieces: number): string[] {
+	if (text.length === 0 || pieces <= 1) {
+		return [text];
+	}
+	const size = Math.ceil(text.length / pieces);
+	const out: string[] = [];
+	for (let index = 0; index < text.length; index += size) {
+		out.push(text.slice(index, index + size));
+	}
+	return out;
+}
 
 const server = http.createServer((req, res) => {
 	const url = new URL(req.url, 'http://localhost');
@@ -85,6 +130,9 @@ const server = http.createServer((req, res) => {
 	if (req.method === 'GET' && url.pathname === '/debug/last-chat') {
 		return json(res, lastChatRequest ?? {});
 	}
+	if (req.method === 'GET' && url.pathname === '/debug/episode') {
+		return json(res, episode ? { path: EPISODE_PATH, name: episode.name, persona: episode.persona, turns: episode.turns.length, served: episodeTurnsServed } : {});
+	}
 	res.writeHead(404); res.end();
 });
 
@@ -112,7 +160,65 @@ async function streamPull(res: http.ServerResponse, body: any) {
 	res.end();
 }
 
+/**
+ * Episode replay: one scripted model turn over SSE, in the same shape the
+ * marker paths emit. A truncated turn ends the body without `[DONE]`; a
+ * stall never ends it (the client's timeout or cancel does); an error turn
+ * closes the connection mid-stream.
+ */
+async function streamEpisodeTurn(res: http.ServerResponse, body: any, turn: EpisodeTurn) {
+	res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
+	const send = (obj: unknown) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+	const chunk = (delta: unknown) => ({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason: null }] });
+	const finish = (reason: string) => send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: reason }] });
+	const usage = () => send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
+	await sleep(120);
+	switch (turn.kind) {
+		case 'text':
+			for (const piece of splitText(turn.text, turn.chunks ?? 8)) {
+				send(chunk({ content: piece }));
+				await sleep(Number(process.env.ONYX_MOCK_WORD_DELAY_MS ?? 5));
+			}
+			finish('stop');
+			usage();
+			break;
+		case 'toolCall':
+		case 'toolCalls': {
+			const calls = turn.kind === 'toolCall' ? [{ tool: turn.tool, arguments: turn.arguments, id: turn.id, argumentsText: turn.argumentsText }] : turn.calls.map(call => ({ ...call, argumentsText: undefined }));
+			calls.forEach((call, index) => {
+				send({ ...chunk({ tool_calls: [{ index, id: call.id ?? `call_${index + 1}`, type: 'function', function: { name: call.tool, arguments: '' } }] }) });
+				send({ ...chunk({ tool_calls: [{ index, function: { arguments: call.argumentsText ?? JSON.stringify(call.arguments) } }] }) });
+			});
+			finish('tool_calls');
+			usage();
+			break;
+		}
+		case 'textToolCall':
+			send(chunk({ content: `I will call the tool now.\n{"tool":"${turn.tool}","arguments":${JSON.stringify(turn.arguments)}}` }));
+			finish('stop');
+			usage();
+			break;
+		case 'truncated':
+			for (const piece of splitText(turn.text, 3)) {
+				send(chunk({ content: piece }));
+			}
+			res.end(); // no finish_reason, no [DONE]
+			return;
+		case 'stall':
+			return; // the connection stays open; nothing more arrives
+		case 'error':
+			send(chunk({ content: '' }));
+			res.destroy(new Error(turn.message));
+			return;
+	}
+	res.write('data: [DONE]\n\n');
+	res.end();
+}
+
 async function streamCompletion(res: http.ServerResponse, body: any) {
+	if (episode) {
+		return streamEpisodeTurn(res, body, nextEpisodeTurn());
+	}
 	res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
 	const send = (obj: unknown) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
 	const chunk = (delta: unknown) => ({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason: null }] });
@@ -283,4 +389,4 @@ function answerFor(system: string, body: any, hasToolResult: boolean) {
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-server.listen(PORT, () => console.log(`mock ollama on :${PORT}`));
+server.listen(PORT, () => console.log(`mock ollama on :${PORT}${episode ? ` replaying episode ${episode.name} (${episode.turns.length} turns)` : ''}`));
