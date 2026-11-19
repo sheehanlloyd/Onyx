@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      module:
+        description: Run the module gate for this module (1 to 5) in addition to the usual jobs; empty runs only the usual jobs
+        required: false
+        default: ''
 
 jobs:
   # Scoped hygiene (A6): NUL bytes in Onyx text files, the old repository
@@ -173,3 +178,58 @@ jobs:
             /tmp/onyx-e2e-*/user-data/User/workspaceStorage/**/onyx/journal/**
           if-no-files-found: ignore
           retention-days: 7
+
+  # Module gate on demand (A12, DEC-11): one command proves a module. Runs on
+  # macOS so the packaged checks are not skipped: it builds the app the way a
+  # release does, points the gate at it, and uploads the results file. Dispatch
+  # with the `module` input; the job is absent from push and PR runs.
+  module-gate:
+    name: Module gate (manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.module != ''
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      NPM_ARCH: arm64
+      VSCODE_ARCH: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GIT_LFS_SKIP_SMUDGE: '1'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the packaged app
+        run: npm run gulp vscode-darwin-arm64-min
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compile built-in extensions for the end-to-end suite
+        run: npm run compile
+
+      - name: Fresh output stamp
+        run: node test/onyx/run-fresh.mts --stamp-only
+
+      - name: Module gate
+        run: node test/onyx/run-module-gate.mts --module ${{ inputs.module }}
+        env:
+          ONYX_PACKAGED_APP: ../VSCode-darwin-arm64/Onyx.app
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload gate results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: onyx-gate-module-${{ inputs.module }}
+          path: docs/progress/gate-module-${{ inputs.module }}.json
+          if-no-files-found: ignore
+          retention-days: 90
