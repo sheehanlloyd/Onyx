@@ -1,5 +1,11 @@
 # Contributing to Onyx
 
+> **Cloning:** 98 SQLite test fixtures under `extensions/copilot/test/simulation/cache/` are Git LFS
+> pointers that Onyx never reads. Clone and install with `GIT_LFS_SKIP_SMUDGE=1` (CI does), or without
+> `git-lfs` installed; the pointers check out as 3-line text files and `npm ci` completes without the
+> fixture warning. Nothing in Onyx needs the fixture contents. See `REBASE.md`, "Git LFS fixtures".
+
+
 > **Note:** the `CONTRIBUTING.md` in the repository root belongs to upstream
 > Visual Studio Code and describes contributing to *that* project. This file
 > takes precedence on GitHub and is the one that applies to Onyx. The upstream

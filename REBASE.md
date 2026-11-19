@@ -190,3 +190,28 @@ npm run typecheck-client && npm run valid-layers-check && npx eslint src/vs/plat
 | Trial | `docs/progress/A9.md`: 5 conflicts (all in the table above), 0 of 849 consumed API symbols missing, typecheck/compile/layers/unit/benchmarks green on the merged tree; upstream now requires pnpm 12.16.0 and Node 24.22.1 |
 | Recorded decision | **Recommendation:** keep the current base through Module 1's gate, rebase onto 1.147.0 at the start of Module 2. **Waiting on HUMAN confirmation** (DEC-05). Elapsed time never makes a failing or known-vulnerable base releasable; the rebased tree re-runs the activated gates |
 | Drill | `node test/onyx/run-upstream-drill.mts --latest-release` (weekly in `.github/workflows/onyx-upstream-drill.yml`); the report names unpredicted conflicts and missing symbols, so this table and the one above stay honest |
+## Git LFS fixtures (A10)
+
+Upstream tracks 98 SQLite fixtures under `extensions/copilot/test/simulation/cache/` through Git
+LFS (`.gitattributes`: `*.sqlite filter=lfs`). Onyx excludes the Copilot extension from the packaged
+product and never runs those tests, so the fixture *contents* are never needed; only the pointer files
+are tracked. The decision, recorded here so that it is not re-litigated at every merge:
+
+- **The pointers stay in HEAD.** Removing them would be a 98-file change to upstream-owned paths that
+  conflicts at every merge, for no product gain. A tracked pointer is a 3-line text file; it is not a
+  product defect.
+- **Installs never smudge them.** CI sets `GIT_LFS_SKIP_SMUDGE=1` for `npm ci`; a local clone made with
+  the same variable (or without `git-lfs` installed at all) checks the pointers out as pointers and
+  `npm ci` completes without touching them. `extensions/copilot/script/postinstall.ts` warns only when
+  `test/simulation/cache/base.sqlite` is *absent*; a pointer file satisfies the check, so a clone made
+  this way installs without the warning. That was verified in the isolated checkout for Module 1
+  (`npm ci`: no fixture warning, `git status` clean afterwards) and in the CI install step.
+- **An owner's checkout whose working tree lacks the files** (the situation A1 inventoried: 98 pointers
+  reported as deleted) shows them as deletions until the files are restored with
+  `GIT_LFS_SKIP_SMUDGE=1 git checkout -- extensions/copilot/test/simulation/cache`. That restores
+  pointers, not fixture contents, and needs no LFS server. A1/DEC-06 forbids running that in the
+  owner's checkout without separate authorization; it is documented here for when the owner chooses to.
+- On an upstream merge, take upstream's side for every `.sqlite` pointer and for `.gitattributes`.
+
+Removal of the fixtures is therefore **not** a release gate; the documented install strategy handles them
+(ActionPlan A10).
