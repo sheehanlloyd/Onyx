@@ -64,6 +64,9 @@ const STALE_STRING_EXEMPT = [
 	/^docs\/ActionPlan\.md$/,
 	/^test\/onyx\/checks\/fixtures\//,
 	/(^|\/)test\/.*\/fixtures\//,
+	// The checker and its test name the strings they look for.
+	/^test\/onyx\/run-hygiene\.mts$/,
+	/^test\/onyx\/checks\/hygiene\.test\.mts$/,
 ];
 
 const IDENTITY_FILES = ['product.json', 'extensions/theme-onyx/package.json', '.github/SECURITY.md', '.github/ISSUE_TEMPLATE/config.yml'];
