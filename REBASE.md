@@ -215,3 +215,20 @@ are tracked. The decision, recorded here so that it is not re-litigated at every
 
 Removal of the fixtures is therefore **not** a release gate; the documented install strategy handles them
 (ActionPlan A10).
+
+## Inherited automation (A11)
+
+Upstream's workflows and bot configurations were "disabled manually" in GitHub's Actions settings only.
+A11 deleted them from the tree and added the `inherited-automation` hygiene check so that none can return
+through a merge. On an upstream merge, **take the Onyx side: deleted** for every path in this table.
+`.github/README.md` explains what remains and what it can run.
+
+| Path | Resolution |
+|---|---|
+| `.github/workflows/chat-lib-package.yml`, `chat-perf.yml`, `component-fixtures.yml`, `copilot-setup-steps.yml`, `css-order-scan.yml`, `monaco-editor.yml`, `pr-darwin-test.yml`, `pr-linux-cli-test.yml`, `pr-linux-test.yml`, `pr-node-modules.yml`, `pr-win32-test.yml`, `pr.yml`, `require-commit-trailer.yml`, `sessions-e2e.yml`, `telemetry.yml` | take Onyx side: deleted |
+| `.github/workflows/node_modules_cache/`, `.github/workflows/check-clean-git-state.sh` | take Onyx side: deleted (helpers of the deleted workflows) |
+| `.github/CODEOWNERS` | take Onyx side: deleted (requested reviews from Microsoft staff) |
+| `.github/dependabot.yml` | take Onyx side: deleted |
+| `.github/CODENOTIFY`, `.github/classifier.json`, `.github/commands.json`, `.github/commands/`, `.github/similarity.yml`, `.github/insiders.yml`, `.github/endgame/` | take Onyx side: deleted (issue-bot configuration) |
+| `.github/actions/` | kept; unreferenced composite actions run nothing on their own |
+| `.github/README.md` | Onyx-owned, new |
