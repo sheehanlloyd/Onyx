@@ -29,7 +29,7 @@ test('A4: no harness script depends on the .claude symlink', () => {
 		}
 		const lines = fs.readFileSync(path.join(harnessDir, name), 'utf8').split('\n');
 		lines.forEach((line, index) => {
-			if (line.includes("'.claude'") || line.includes('.claude/')) {
+			if (line.includes('\'.claude\'') || line.includes('.claude/')) {
 				offenders.push(`test/onyx/${name}:${index + 1}`);
 			}
 		});

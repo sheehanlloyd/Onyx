@@ -494,9 +494,22 @@ node test/onyx/run-e2e.mts         # 45 end-to-end checks against a real workben
 node test/onyx/run-benchmarks.mts  # every number in this README, re-measured
 ```
 
-CI runs typecheck, layer checks, ESLint, stylelint, the Onyx unit tests, the full
-end-to-end suite under Xvfb and the deterministic benchmarks on every push —
-[.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.yml).
+What runs where — [.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.yml):
+
+- **On every push to `main` and every pull request into it:** a scoped hygiene
+  job (NUL bytes, stale identity strings, URL allowlist, image manifest) and the
+  main job: typecheck, layer check, ESLint on the Onyx paths, stylelint, compile,
+  the Onyx unit tests, the full end-to-end suite under Xvfb, the deterministic
+  benchmarks (every safety invariant in them is an assertion that fails the
+  job), and the harness's own self-checks (`test/onyx/checks/`), which include
+  the fresh-output protocol: a probe regression is transpiled before it is
+  observed to fail and again before it is observed to pass.
+- **On manual dispatch:** the same jobs. Later items add the module gate and the
+  packaged-app smoke here.
+- **Locally:** the commands above, plus `node test/onyx/run-fresh.mts -- <command>`
+  to refresh `out/` and stamp it before any red or green run, and
+  `node --test "test/onyx/checks/*.test.mts"` for the self-checks. The real-model
+  half of the benchmarks runs only locally, against the runtimes on your machine.
 
 ---
 

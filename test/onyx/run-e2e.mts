@@ -261,6 +261,61 @@ function readRuns() {
 }
 
 /**
+ * The primary modifier of the editor's default keybindings on this platform:
+ * ⌘ on macOS, Ctrl elsewhere. The suite runs under Xvfb on Linux in CI, where
+ * a hard-coded Meta would press nothing.
+ */
+const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+const toDocumentStart = process.platform === 'darwin' ? 'Meta+Home' : 'Control+Home';
+const toDocumentEnd = process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End';
+
+/**
+ * Focuses the active editor's input element through the DOM. A synthesized
+ * mouse click at a bounding-box coordinate does not land under Xvfb; a focus
+ * call does, and it is what a keyboard user's Tab order would do.
+ */
+function focusEditor() {
+	pw('run-code', 'async (page) => { const ed = await page.$(".editor-instance .native-edit-context, .editor-instance textarea.inputarea"); if (!ed) { throw new Error("no editor input element"); } await ed.focus(); }');
+}
+
+/**
+ * Opens a file through Quick Open (a real `<input>`, so fill works) and
+ * leaves the editor focused — the keyboard equivalent of clicking its tab.
+ */
+async function openFile(name: string) {
+	pw('press', `${mod}+p`);
+	await sleep(800);
+	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ${JSON.stringify(name)}); }`);
+	await sleep(800);
+	pw('press', 'Enter');
+	await sleep(1200);
+	focusEditor();
+}
+
+/**
+ * Picks a code action by title from the open action widget with the
+ * keyboard: the widget focuses its first action on open, ArrowDown moves
+ * through enabled actions and Enter runs the focused one. Returns
+ * `picked:<index>` or `not-found:<titles>`.
+ */
+function pickCodeAction(title: string) {
+	return pw('run-code', `async (page) => {
+		await page.waitForSelector('.action-widget [role=option]', { timeout: 5000 });
+		const rows = await page.$$('.action-widget [role=option]');
+		const titles = [];
+		for (const row of rows) {
+			if ((await row.getAttribute('aria-disabled')) === 'true') { continue; }
+			titles.push(((await row.textContent()) || '').trim());
+		}
+		const index = titles.findIndex(text => text.includes(${JSON.stringify(title)}));
+		if (index === -1) { return 'not-found:' + titles.join(' | '); }
+		for (let i = 0; i < index; i++) { await page.keyboard.press('ArrowDown'); }
+		await page.keyboard.press('Enter');
+		return 'picked:' + index;
+	}`);
+}
+
+/**
  * Types into a real editor so the inline-completion provider fires. Ghost text
  * is deliberately scoped to document editors, so this must not go through the
  * chat input.
@@ -268,9 +323,9 @@ function readRuns() {
 async function typeInEditor() {
 	// Activate both tabs first: cross-file FIM context only reads text models
 	// that are already loaded, and a tab that was never focused has none.
-	pw('run-code', 'async (page) => { const tabs = await page.$$(".tabs-container .tab"); for (const tab of tabs) { await tab.click(); await page.waitForTimeout(400); } }');
-	pw('run-code', 'async (page) => { const el = await page.$(".editor-instance .monaco-editor .view-lines"); if (!el) { return; } const r = await el.boundingBox(); await page.mouse.click(r.x + 60, r.y + 20); }');
-	pw('press', 'Meta+ArrowDown');
+	await openFile('math.ts');
+	await openFile('report.ts');
+	pw('press', toDocumentEnd);
 	for (const key of ['e', 'x', 'p', 'o', 'r', 't', 'Space', 'c', 'o', 'n', 's', 't', 'Space', 'q']) {
 		pw('press', key);
 	}
@@ -444,41 +499,21 @@ async function main() {
 	// --- Fix with Onyx: the truncated `export const q` line the FIM typing left
 	// behind is a real TS error; the code action must route it into chat.
 	await sleep(8000); // let the TS server produce the diagnostic
-	pw('press', 'Meta+.');
+	pw('press', `${mod}+.`);
 	await sleep(2500);
-	const fixClicked = pw('run-code', `async (page) => {
-		const rows = await page.$$('.action-widget [role=option], .action-widget .monaco-list-row');
-		for (const row of rows) {
-			if ((await row.textContent())?.includes('Fix with Onyx')) {
-				const box = await row.boundingBox();
-				await page.mouse.click(box.x + 12, box.y + box.height / 2);
-				return 'clicked';
-			}
-		}
-		return 'not-found';
-	}`);
+	const fixPicked = pickCodeAction('Fix with Onyx');
 	await waitUntil(() => readRunIndex().some(run => run.title.startsWith('Fix this problem')));
-	check('Fix with Onyx routed into a chat run', readRunIndex().some(run => run.title.startsWith('Fix this problem')), fixClicked.includes('clicked') ? 'no run titled "Fix this problem…"' : 'code action not found in the action widget');
+	check('Fix with Onyx routed into a chat run', readRunIndex().some(run => run.title.startsWith('Fix this problem')), fixPicked.includes('picked:') ? 'no run titled "Fix this problem…"' : `code action not found in the action widget: ${fixPicked.slice(0, 160)}`);
 
 	// --- Explain with Onyx on a selection.
 	pw('press', 'Escape');
-	pw('run-code', 'async (page) => { const el = await page.$(".editor-instance .monaco-editor .view-lines"); const r = await el.boundingBox(); await page.mouse.click(r.x + 60, r.y + 20); }');
-	pw('press', 'Meta+a');
-	pw('press', 'Meta+.');
+	focusEditor();
+	pw('press', `${mod}+a`);
+	pw('press', `${mod}+.`);
 	await sleep(2500);
-	const explainClicked = pw('run-code', `async (page) => {
-		const rows = await page.$$('.action-widget [role=option], .action-widget .monaco-list-row');
-		for (const row of rows) {
-			if ((await row.textContent())?.includes('Explain with Onyx')) {
-				const box = await row.boundingBox();
-				await page.mouse.click(box.x + 12, box.y + box.height / 2);
-				return 'clicked';
-			}
-		}
-		return 'not-found';
-	}`);
+	const explainPicked = pickCodeAction('Explain with Onyx');
 	await waitUntil(() => readRunIndex().some(run => run.title.startsWith('Explain this code')));
-	check('Explain with Onyx routed into a chat run', readRunIndex().some(run => run.title.startsWith('Explain this code')), explainClicked.includes('clicked') ? 'no run titled "Explain this code…"' : 'code action not found in the action widget');
+	check('Explain with Onyx routed into a chat run', readRunIndex().some(run => run.title.startsWith('Explain this code')), explainPicked.includes('picked:') ? 'no run titled "Explain this code…"' : `code action not found in the action widget: ${explainPicked.slice(0, 160)}`);
 
 	// --- Model library: the quick pick opens with the machine-sized catalog.
 	await runCommand('Onyx: Manage Models');
@@ -509,14 +544,12 @@ async function main() {
 
 	// --- Inline edit (Cmd+I): the widget, a streamed SEARCH/REPLACE edit, and
 	// the hunk review keyboard flow.
-	pw('run-code', 'async (page) => { const tabs = await page.$$(".tabs-container .tab"); for (const tab of tabs) { const t = await tab.textContent(); if (t && t.includes("math.ts")) { await tab.click(); break; } } }');
-	await sleep(1500);
-	pw('run-code', 'async (page) => { const el = await page.$(".editor-instance .monaco-editor .view-lines"); const r = await el.boundingBox(); await page.mouse.click(r.x + 60, r.y + 12); }');
-	pw('press', 'Meta+Home');
+	await openFile('math.ts');
+	pw('press', toDocumentStart);
 	for (let i = 0; i < 3; i++) {
 		pw('press', 'Shift+ArrowDown');
 	}
-	pw('press', 'Meta+i');
+	pw('press', `${mod}+i`);
 	await sleep(1500);
 	const widgetOpened = pw('run-code', 'async (page) => { const input = await page.$(".onyx-inline-edit-input"); if (!input) { return "missing"; } await input.fill("mark this function"); return "filled"; }');
 	check('the inline edit widget opens on the selection', widgetOpened.includes('filled'), widgetOpened.slice(0, 120));
@@ -529,8 +562,8 @@ async function main() {
 	const hunkState = readHunkState();
 	check('the inline edit applied a reviewable hunk', /"edited"\s*:\s*true/.test(hunkState) && /"decorated"\s*:\s*true/.test(hunkState), hunkState.slice(0, 160));
 	// Undo the hunk: the original line must come back verbatim.
-	pw('run-code', 'async (page) => { const ed = await page.$(".editor-instance .native-edit-context, .editor-instance textarea.inputarea"); await ed.focus(); }');
-	pw('press', 'Meta+Backspace');
+	focusEditor();
+	pw('press', `${mod}+Backspace`);
 	await sleep(1500);
 	const afterReject = pw(`run-code`, `async (page) => page.evaluate(() => Array.from(document.querySelectorAll('.editor-instance .view-line')).some(l => (l.textContent || '').includes('edited-by-mock')))`);
 	check('undoing a hunk restores the original line', /false/.test(afterReject), afterReject.slice(0, 120));
@@ -563,7 +596,7 @@ async function main() {
 	const mathOnDisk = fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8');
 	check('agent edits stage instead of writing the file', !mathOnDisk.includes('edited-by-mock'), 'the tool wrote into the file without review');
 	check('the edit tool reported the staged review to the model', readStagedSnapshot().includes('reviews them in Onyx Changes'), 'no staging summary in the tool result');
-	pw('press', 'Meta+Control+o'); // open the control plane
+	await runCommand('Open Onyx Control Plane');
 	const readChangesState = () => pw('run-code', `async (page) => page.evaluate(() => ({
 		files: Array.from(document.querySelectorAll('.onyx-change-file-path')).map(el => el.textContent),
 	}))`);
@@ -632,9 +665,7 @@ async function main() {
 	check('resuming rebuilds the task as a new run', !!resumeRun, JSON.stringify(readRunIndex().map(run => run.title).slice(0, 6)));
 
 	// --- Refactor engine: model-suggested rename staged through Onyx Changes.
-	pw('run-code', 'async (page) => { const tabs = await page.$$(".tabs-container .tab"); for (const tab of tabs) { const t = await tab.textContent(); if (t && t.includes("report.ts")) { await tab.click(); break; } } }');
-	await sleep(1500);
-	pw('run-code', 'async (page) => { const el = await page.$(".editor-instance .monaco-editor .view-lines"); const r = await el.boundingBox(); await page.mouse.click(r.x + 60, r.y + 20); }');
+	await openFile('report.ts');
 	pw('press', 'Control+g');
 	await sleep(800);
 	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ':3:20'); }`);
@@ -653,7 +684,7 @@ async function main() {
 	await sleep(4000);
 	// The rename routed a naming run through chat, which swapped the aux bar
 	// away from the control plane — bring it back before reading the view.
-	pw('press', 'Meta+Control+o');
+	await runCommand('Open Onyx Control Plane');
 	await sleep(1500);
 	const renameStaged = pw('run-code', `async (page) => page.evaluate(() => ({
 		files: Array.from(document.querySelectorAll('.onyx-change-file-path')).map(el => el.textContent),
