@@ -18,6 +18,9 @@
  *   TERMTEST <cmd>  - propose that shell command via the terminal tool
  *   DOCTEST <query> - search the offline docs mirror via the docs tool
  *   PBTEST <name>   - fetch that repository playbook via the playbook tool
+ *   READEDITTEST <path> - read that file via the readFile tool, then propose
+ *                     an edit whose SEARCH text is a line it read back (R-31);
+ *                     answers "no read tool" when readFile is not offered
  *
  * It also recognizes Onyx's commit-message and review system prompts and
  * answers them in the shape those flows parse.
@@ -128,9 +131,47 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 	const wantsDocs = body.tools?.length && /DOCTEST\s+(.+)/.test(lastUser?.content ?? '') && !hasToolResult;
 	// PBTEST <name> fetches a repository playbook.
 	const wantsPlaybook = body.tools?.length && /PBTEST\s+(\S+)/.test(lastUser?.content ?? '') && !hasToolResult;
+	// READEDITTEST <path>: first turn reads the file, second turn edits the
+	// line it read. Only the read tool's presence decides whether it can start.
+	const readEditPath = /READEDITTEST\s+(\S+)/.exec(lastUser?.content ?? '')?.[1];
+	const readTool = body.tools?.find((t: any) => /^readFile$/i.test(t.function.name));
+	const wantsReadEdit = !!readEditPath && body.tools?.length && !hasToolResult;
+	const wantsEditAfterRead = !!readEditPath && body.tools?.length && hasToolResult && messages.filter((m: any) => m.role === 'tool').length === 1;
 	const wantsTool = wantsSymbols || wantsMemory || wantsEdit || wantsTerminal || wantsDocs || wantsPlaybook || (body.tools?.length && /TOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult);
 
 	await sleep(120); // simulated TTFT
+	if (wantsReadEdit) {
+		if (!readTool) {
+			for (const word of 'I have no read tool: readFile was not offered, so I cannot read the file before editing it.'.split(' ')) {
+				send(chunk({ content: word + ' ' }));
+			}
+			send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
+			send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
+			res.write('data: [DONE]\n\n');
+			res.end();
+			return;
+		}
+		send({ ...chunk({ tool_calls: [{ index: 0, id: 'read_1', type: 'function', function: { name: readTool.function.name, arguments: '' } }] }) });
+		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ path: readEditPath }) } }] }) });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
+		res.write('data: [DONE]\n\n');
+		res.end();
+		return;
+	}
+	if (wantsEditAfterRead) {
+		const editTool = body.tools.find((t: any) => /editFile/i.test(t.function.name)) ?? body.tools[0];
+		const readResult = String(messages.find((m: any) => m.role === 'tool')?.content ?? '');
+		// The line it read back, with a numbered-read prefix ("12| ") removed if the tool adds one.
+		const readLine = readResult.split('\n').map(line => line.replace(/^\s*\d+\|\s?/, '')).find(line => /return /.test(line)) ?? 'return a + b;';
+		send({ ...chunk({ tool_calls: [{ index: 0, id: 'edit_after_read', type: 'function', function: { name: editTool.function.name, arguments: '' } }] }) });
+		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ path: readEditPath, search: readLine, replace: `${readLine} // edited-by-mock` }) } }] }) });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
+		res.write('data: [DONE]\n\n');
+		res.end();
+		return;
+	}
 	if (wantsPlaybook) {
 		const playbookTool = body.tools.find((t: any) => /playbook/i.test(t.function.name)) ?? body.tools[0];
 		const playbookName = /PBTEST\s+(\S+)/.exec(lastUser.content)![1];
