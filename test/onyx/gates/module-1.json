@@ -1,0 +1,21 @@
+{
+	"module": 1,
+	"title": "Module 1: foundation, truthful CI and the simulation rig",
+	"checks": [
+		{ "id": "typecheck", "title": "TypeScript type check of src/", "layer": "build", "command": ["npm", "run", "typecheck-client"] },
+		{ "id": "layers", "title": "Layer check", "layer": "build", "command": ["npm", "run", "valid-layers-check"] },
+		{ "id": "eslint", "title": "ESLint on the Onyx paths", "layer": "build", "command": ["npx", "eslint", "src/vs/platform/onyxRuntime", "src/vs/workbench/contrib/onyx", "test/onyx"] },
+		{ "id": "stylelint", "title": "Stylelint", "layer": "build", "command": ["npm", "run", "stylelint"] },
+		{ "id": "hygiene", "title": "A6 scoped hygiene", "layer": "node", "command": ["node", "test/onyx/run-hygiene.mts"] },
+		{ "id": "unit", "title": "Onyx unit tests on fresh output", "layer": "service", "command": ["./scripts/test.sh", "--grep", "Onyx"] },
+		{ "id": "benchmarks", "title": "Pure-logic benchmarks with asserting invariants", "layer": "node", "regressions": ["R-23"], "command": ["node", "test/onyx/run-benchmarks.mts", "--skip-models"] },
+		{ "id": "R-37", "title": "A1 inventory in disposable repositories", "layer": "procedure", "regressions": ["R-37"], "files": ["test/onyx/checks/r37-inventory.test.mts"], "command": ["node", "--test", "test/onyx/checks/r37-inventory.test.mts"] },
+		{ "id": "A4-paths", "title": "Harness runs without the .claude symlink", "layer": "node", "files": ["test/onyx/checks/harness-paths.test.mts"], "command": ["node", "--test", "test/onyx/checks/harness-paths.test.mts"] },
+		{ "id": "A6-fixtures", "title": "Hygiene fails on injected defects", "layer": "node", "files": ["test/onyx/checks/hygiene.test.mts"], "command": ["node", "--test", "test/onyx/checks/hygiene.test.mts"] },
+		{ "id": "R-23", "title": "Benchmarks exit non-zero on an injected marker leak", "layer": "node", "regressions": ["R-23"], "files": ["test/onyx/checks/r23-benchmark-asserts.test.mts"], "command": ["node", "--test", "test/onyx/checks/r23-benchmark-asserts.test.mts"] },
+		{ "id": "R-35", "title": "Fresh-output protocol: red then green on refreshed output", "layer": "procedure", "regressions": ["R-35"], "files": ["test/onyx/checks/r35-fresh-output.test.mts"], "command": ["node", "--test", "test/onyx/checks/r35-fresh-output.test.mts"] },
+		{ "id": "R-57", "title": "Gate runner: failing, missing, stale, exception", "layer": "procedure", "regressions": ["R-57"], "files": ["test/onyx/checks/r57-module-gate.test.mts"], "command": ["node", "--test", "test/onyx/checks/r57-module-gate.test.mts"] },
+		{ "id": "e2e", "title": "End-to-end suite against the mock runtime", "layer": "e2e", "command": ["node", "test/onyx/run-e2e.mts"], "timeoutMs": 1200000 },
+		{ "id": "evidence-A1-A11", "title": "Completion reports for A1 to A11 recorded", "layer": "procedure", "files": ["docs/progress/A1.md", "docs/progress/A2.md", "docs/progress/A3.md", "docs/progress/A4.md", "docs/progress/A5.md", "docs/progress/A6.md", "docs/progress/A7.md", "docs/progress/A8.md", "docs/progress/A9.md", "docs/progress/A10.md", "docs/progress/A11.md", "docs/progress/A12.md"] }
+	]
+}
