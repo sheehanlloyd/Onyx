@@ -180,3 +180,13 @@ npm run typecheck-client && npm run valid-layers-check && npx eslint src/vs/plat
    relevant block, mirroring an existing neighbor (Local Git is the template).
 3. Never reformat or refactor upstream code.
 4. Every new file uses the standard header (ESLint enforces it).
+
+## Upstream baseline (A9, DEC-05)
+
+| Field | Value |
+|---|---|
+| Fork base | `36d38757a15` (microsoft/vscode, August 2026; the fork's `package.json` reports 1.136.0) |
+| Current upstream release at the trial | `1.147.0` = `8a14f0cc1b0`, 2026-11-18 |
+| Trial | `docs/progress/A9.md`: 5 conflicts (all in the table above), 0 of 849 consumed API symbols missing, typecheck/compile/layers/unit/benchmarks green on the merged tree; upstream now requires pnpm 12.16.0 and Node 24.22.1 |
+| Recorded decision | **Recommendation:** keep the current base through Module 1's gate, rebase onto 1.147.0 at the start of Module 2. **Waiting on HUMAN confirmation** (DEC-05). Elapsed time never makes a failing or known-vulnerable base releasable; the rebased tree re-runs the activated gates |
+| Drill | `node test/onyx/run-upstream-drill.mts --latest-release` (weekly in `.github/workflows/onyx-upstream-drill.yml`); the report names unpredicted conflicts and missing symbols, so this table and the one above stay honest |
