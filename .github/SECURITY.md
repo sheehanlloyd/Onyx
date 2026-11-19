@@ -10,7 +10,7 @@
 **Do not open a public issue for a security bug.**
 
 Use GitHub's [private vulnerability
-reporting](https://github.com/sheehanlloyd/cursor2.0/security/advisories/new) on
+reporting](https://github.com/sheehanlloyd/Onyx/security/advisories/new) on
 this repository. Expect an acknowledgement within a week. If a report is valid I
 will tell you the fix timeline and credit you in the advisory unless you prefer
 otherwise.

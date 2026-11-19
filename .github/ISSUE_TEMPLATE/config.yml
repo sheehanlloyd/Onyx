@@ -1,10 +1,10 @@
 blank_issues_enabled: false
 contact_links:
   - name: Setting up a local runtime
-    url: https://github.com/sheehanlloyd/cursor2.0/blob/main/README.md#installing
+    url: https://github.com/sheehanlloyd/Onyx/blob/main/README.md#installing
     about: Onyx needs a local model runtime — start here before filing a bug.
   - name: Security vulnerability
-    url: https://github.com/sheehanlloyd/cursor2.0/security/advisories/new
+    url: https://github.com/sheehanlloyd/Onyx/security/advisories/new
     about: Report these privately, never as a public issue.
   - name: A bug in stock VS Code behaviour
     url: https://github.com/microsoft/vscode/issues
