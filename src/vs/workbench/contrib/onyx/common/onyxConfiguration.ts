@@ -116,7 +116,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.APPLICATION,
 			default: {},
 			additionalProperties: { type: 'string' },
-			markdownDescription: localize('onyx.speculative.pairs', "Draft models for speculative decoding, as a map from a target model key (`host:port/modelId`) to the draft model id. Applied only on runtimes that accept a per-request draft model (LM Studio); use *Onyx: Measure Speculative Decoding* to verify the effect on this machine before trusting it."),
+			markdownDescription: localize('onyx.speculative.pairs', "The draft model you configured on your runtime at load time for each target model, as a map from a target model key (`host:port/modelId`) to the draft model id, recorded so that *Onyx: Measure Speculative Decoding* can label its measurement. Onyx never sends a draft model with a request: every runtime that supports speculative decoding configures the draft when the model loads."),
 		},
 		[OnyxSettingId.VerificationTask]: {
 			type: 'string',
