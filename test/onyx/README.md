@@ -72,6 +72,11 @@ node test/onyx/make-charts.mts /tmp/onyx-bench.json   # → docs/images/chart-*.
 It has two halves. The **pure-logic** half (retrieval, architecture scan, edit
 parsers, staged-hunk algebra, terminal classification, test surface) is
 deterministic and needs no model — that is what CI runs, via `--skip-models`.
+Every safety invariant in it (no parser marker leak, no fuzz crash, every hunk
+selection round-trips, every labelled command classified) is recorded as a row
+and asserted: a violation prints with the row and exits non-zero. There is no
+"commands never run without approval" row; that is measured by the
+authorization regressions at the dispatch boundary (B2), not asserted here.
 The **real-model** half talks to whatever is installed on the machine: Ollama
 at `:11434` and LM Studio at `:1234` by default (`ONYX_BENCH_OLLAMA` /
 `ONYX_BENCH_LMSTUDIO` override them), measuring tok/s and TTFT warm and cold,
@@ -127,6 +132,40 @@ asserting on the run journal and the live DOM (45 checks):
 - the architecture map rendering modules, timing and a model summary
 - the debug assistant's designed no-session message
 
-It needs `@playwright/cli` (a devDependency). CI runs it under Xvfb after the
-unit tests and uploads the journals on failure — see
-`.github/workflows/onyx-ci.yml`.
+It needs `@playwright/cli` (a devDependency). CI runs it under Xvfb on every
+push and pull request, after the unit tests, and uploads the journals on
+failure — see `.github/workflows/onyx-ci.yml`. The harness never clicks at a
+coordinate: files open through Quick Open, the editor is focused through the
+DOM, code actions are picked with the keyboard, and Onyx views open through
+their commands, so the same script drives the workbench on macOS and under a
+Linux framebuffer.
+
+## Fresh output, and the harness's own checks
+
+Unit tests and the benchmarks import compiled modules from `out/`, and an
+existing `out/` proves nothing about whether it matches the source. Before a
+red or a green run, go through the runner:
+
+```bash
+node test/onyx/run-fresh.mts -- ./scripts/test.sh --grep OnyxSomething
+node test/onyx/run-fresh.mts --stamp-only        # refresh and stamp, run nothing
+```
+
+It records the revision and a digest of the dirty source tree, runs
+`npm run transpile-client`, writes `out/.onyx-fresh.json`, and only then runs
+the command. The module gate refuses to run when that stamp does not match the
+tree.
+
+The checks under `test/onyx/checks/` test the harness itself with Node's own
+test runner and need no build of their own:
+
+```bash
+node --test "test/onyx/checks/*.test.mts"
+```
+
+They cover the A1 inventory in disposable repositories (R-37), the hygiene
+check against fixture trees with injected defects, the launch-script path
+(A4), the benchmark's assertions against a compiled tree with an injected
+marker leak (R-23), and the fresh-output protocol end to end (R-35: a failing
+probe regression is written into this checkout, observed to fail only after a
+transpile, fixed, observed to pass, and removed again).
