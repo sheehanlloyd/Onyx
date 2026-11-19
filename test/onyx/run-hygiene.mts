@@ -17,6 +17,9 @@
  *                    and .github/ISSUE_TEMPLATE/config.yml carry only allowlisted URLs
  *   image-manifest   every file under docs/images/ has a row in docs/images/MANIFEST.md
  *                    with a source (packaged or dev), a model and a date
+ *   inherited-automation  only Onyx-owned workflows (onyx-*.yml) exist under .github/workflows,
+ *                    and upstream's CODEOWNERS, dependabot and issue-bot configurations are
+ *                    absent, so nothing inherited can execute or request reviews (A11)
  *
  * Exit code 1 when any check fails. Widen an allowlist here rather than deleting a fixture.
  */
@@ -262,11 +265,50 @@ function checkImageManifest(): ICheckResult {
 	return { check: 'image-manifest', ok: problems.length === 0, scanned: images.length, problems };
 }
 
+/** Upstream automation that A11 removed; its return would re-enable bots or reviewers. */
+const INHERITED_AUTOMATION = [
+	'.github/CODEOWNERS',
+	'.github/CODENOTIFY',
+	'.github/dependabot.yml',
+	'.github/classifier.json',
+	'.github/commands.json',
+	'.github/commands',
+	'.github/similarity.yml',
+	'.github/insiders.yml',
+	'.github/endgame',
+	'.github/workflows/node_modules_cache',
+];
+
+function checkInheritedAutomation(): ICheckResult {
+	const problems: string[] = [];
+	let scanned = 0;
+	const workflows = path.join(root, '.github', 'workflows');
+	if (fs.existsSync(workflows)) {
+		for (const entry of fs.readdirSync(workflows, { withFileTypes: true })) {
+			scanned++;
+			if (entry.isFile() && /\.ya?ml$/.test(entry.name) && !entry.name.startsWith('onyx-')) {
+				problems.push(`.github/workflows/${entry.name} is an inherited workflow; only onyx-*.yml may exist (delete it, A11)`);
+			}
+		}
+	}
+	for (const relative of INHERITED_AUTOMATION) {
+		scanned++;
+		if (fs.existsSync(path.join(root, relative))) {
+			problems.push(`${relative} is inherited automation configuration and must stay deleted (A11)`);
+		}
+	}
+	if (!fs.existsSync(path.join(root, '.github', 'README.md'))) {
+		problems.push('.github/README.md is missing: it explains what is inherited and inert');
+	}
+	return { check: 'inherited-automation', ok: problems.length === 0, scanned, problems };
+}
+
 const CHECKS: Record<string, () => ICheckResult> = {
 	'nul-bytes': checkNulBytes,
 	'stale-strings': checkStaleStrings,
 	'identity-urls': checkIdentityUrls,
 	'image-manifest': checkImageManifest,
+	'inherited-automation': checkInheritedAutomation,
 };
 
 const selected = only ?? Object.keys(CHECKS);
@@ -278,7 +320,7 @@ if (unknown.length) {
 
 const results = selected.map(check => CHECKS[check]());
 for (const result of results) {
-	console.log(`  ${result.ok ? 'ok  ' : 'FAIL'} ${result.check.padEnd(16)} ${result.scanned} ${result.check === 'image-manifest' ? 'images' : 'files'}`);
+	console.log(`  ${result.ok ? 'ok  ' : 'FAIL'} ${result.check.padEnd(20)} ${result.scanned} ${result.check === 'image-manifest' ? 'images' : result.check === 'inherited-automation' ? 'entries' : 'files'}`);
 	for (const problem of result.problems) {
 		console.log(`         ${problem}`);
 	}

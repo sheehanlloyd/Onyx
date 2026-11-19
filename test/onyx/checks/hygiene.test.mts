@@ -36,6 +36,8 @@ function cleanFixture(): string {
 	write('.github/ISSUE_TEMPLATE/config.yml', 'contact_links:\n  - url: https://github.com/microsoft/vscode/issues\n');
 	write('docs/images/shot.png', Buffer.from([0x89, 0x50, 0x4e, 0x47]));
 	write('docs/images/MANIFEST.md', '| File | Source | Model | Date | Notes |\n|---|---|---|---|---|\n| `shot.png` | dev | unknown | 2026-01-01 | fixture |\n');
+	write('.github/workflows/onyx-ci.yml', 'name: Onyx CI\non: [push]\n');
+	write('.github/README.md', '# inherited and inert\n');
 	return root;
 }
 
@@ -68,6 +70,23 @@ test('A6: an injected NUL byte in an Onyx source file fails the nul-bytes check 
 			failed: lines(stdout, /^FAIL/).map(line => line.split(/\s+/)[1]),
 			named: stdout.includes('src/vs/workbench/contrib/onyx/common/example.ts:1 contains a NUL byte'),
 		}, { status: 1, failed: ['nul-bytes'], named: true });
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test('A11: an inherited workflow, CODEOWNERS or dependabot config fails the inherited-automation check', () => {
+	const root = cleanFixture();
+	try {
+		fs.writeFileSync(path.join(root, '.github/workflows/pr.yml'), 'name: upstream\non: [pull_request]\n');
+		fs.writeFileSync(path.join(root, '.github/CODEOWNERS'), '* @someone\n');
+		fs.writeFileSync(path.join(root, '.github/dependabot.yml'), 'version: 2\n');
+		const { status, stdout } = runHygiene(root);
+		assert.deepStrictEqual({
+			status,
+			failed: lines(stdout, /^FAIL/).map(line => line.split(/\s+/)[1]),
+			named: ['.github/workflows/pr.yml is an inherited workflow', '.github/CODEOWNERS is inherited automation', '.github/dependabot.yml is inherited automation'].every(text => stdout.includes(text)),
+		}, { status: 1, failed: ['inherited-automation'], named: true });
 	} finally {
 		fs.rmSync(root, { recursive: true, force: true });
 	}
