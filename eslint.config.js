@@ -2285,12 +2285,14 @@ export default defineConfig(
 			'local/code-import-patterns': [
 				'warn',
 				{
-					// The Onyx mock runtime and end-to-end driver: node built-ins
-					// and dev dependencies only — they must never import product code.
+					// The Onyx mock runtime, end-to-end driver and harness scripts:
+					// node built-ins, dev dependencies and each other only — they
+					// must never import product code.
 					'target': 'test/onyx/**',
 					'restrictions': [
 						'node:*',
 						'@playwright/*',
+						'test/onyx/**',
 						'*' // node modules
 					]
 				},
