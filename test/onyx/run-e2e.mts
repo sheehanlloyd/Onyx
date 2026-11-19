@@ -338,7 +338,7 @@ async function main() {
 		throw new Error(`the mock runtime never answered on :${mockPort} — stop any real runtime on that port, or set ONYX_MOCK_PORT`);
 	}
 	// A second mock posing as LM Studio (its port, no Ollama native API), so
-	// the speculative-decoding flow has a per-request-draft runtime to talk to.
+	// the speculative-decoding flow has a runtime that supports a load-time draft.
 	// A real LM Studio on that port would answer every probe and silently turn
 	// the speculative check into a test against live models.
 	if (await isOpenAiEndpoint(lmStudioPort)) {

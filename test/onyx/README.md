@@ -41,9 +41,11 @@ Prompt markers steer it:
 | `SLOWTEST` | streams a ~20s answer, giving interruption tests a window |
 
 `ONYX_MOCK_KIND=lmstudio` hides the Ollama native API so discovery detects the
-endpoint as LM Studio — the speculative-decoding flow needs a runtime that
-accepts a per-request draft model. `/debug/recent-chats` returns the last 8
-chat request bodies (the with-draft arm of a measurement is not the last one).
+endpoint as LM Studio — the speculative-decoding flow only offers runtimes that
+support a draft model, and every one of them configures it when the model
+loads, so the measurement records the pairing and never sends a draft on the
+wire. `/debug/recent-chats` returns the last 8 chat request bodies (the
+with-draft arm of a measurement is not the last one).
 
 `ONYX_MOCK_WORD_DELAY_MS` slows the streamed answer (default 5ms per word) so
 resilience tests have a real mid-stream window to interrupt.

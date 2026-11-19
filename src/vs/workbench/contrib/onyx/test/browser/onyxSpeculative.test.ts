@@ -6,6 +6,9 @@
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { candidateDrafts, formatSpeculativeReadout, speculativeSetupHint, speculativeSupport } from '../../common/onyxSpeculative.js';
+import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
+import { Registry } from '../../../../../platform/registry/common/platform.js';
+import { OnyxSettingId } from '../../common/onyxConfiguration.js';
 
 suite('OnyxSpeculative', () => {
 
@@ -27,6 +30,20 @@ suite('OnyxSpeculative', () => {
 			vllm: 'load-time',
 			ollama: 'unsupported',
 			generic: 'unsupported',
+		});
+	});
+
+	test('the shipped setting describes a pairing recorded at load time, never a per-request draft (A5)', () => {
+		const properties = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).getConfigurationProperties();
+		const description = properties[OnyxSettingId.SpeculativePairs].markdownDescription ?? '';
+		assert.deepStrictEqual({
+			saysLoadTime: /load time/.test(description),
+			saysRecordedForMeasurement: /recorded/.test(description) && /measure/i.test(description),
+			claimsPerRequestDraft: /per-request/.test(description) || /applied only/i.test(description),
+		}, {
+			saysLoadTime: true,
+			saysRecordedForMeasurement: true,
+			claimsPerRequestDraft: false,
 		});
 	});
 
