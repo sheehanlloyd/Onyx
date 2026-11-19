@@ -75,7 +75,10 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      # node_modules is the slowest step by far and only changes with the lockfile.
+      # node_modules is the slowest step by far and only changes with the
+      # lockfile. The paths are every directory build/npm/dirs.ts installs
+      # into (the v1 key cached five of them and lost extensions/node_modules
+      # and the nested server/test trees; A7).
       - name: Cache node_modules
         id: cache-node-modules
         uses: actions/cache@v4
@@ -83,10 +86,15 @@ jobs:
           path: |
             node_modules
             build/node_modules
+            build/*/node_modules
+            extensions/node_modules
             extensions/*/node_modules
+            extensions/*/server/node_modules
             remote/node_modules
-            remote/web/node_modules
-          key: onyx-node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', '.nvmrc') }}
+            remote/*/node_modules
+            test/*/node_modules
+            test/integration/*/node_modules
+          key: onyx-node-modules-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', 'build/npm/dirs.ts', '.nvmrc') }}
 
       - name: Install dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
@@ -106,6 +114,31 @@ jobs:
           for artifact in node_modules/.postinstall-state .build/typings/electron.d.ts build/node_modules extensions/node_modules remote/node_modules; do
             if [ -e "$artifact" ]; then echo "present  $artifact"; else echo "MISSING  $artifact"; fi
           done
+
+      # The cache holds node_modules directories only. postinstall also writes
+      # .build/typings/electron.d.ts, which src/tsconfig.base.json maps the
+      # `electron` module to, and a cache hit skips postinstall: that is why
+      # the warm runs on main failed at typecheck (A7). Regenerate what the
+      # cache cannot hold, and reinstall outright if the restored tree has no
+      # postinstall state at all.
+      - name: Regenerate what the cache does not hold
+        run: |
+          missing=$(node --input-type=module -e "
+            import fs from 'node:fs';
+            import { dirs } from './build/npm/dirs.ts';
+            const missing = dirs.filter(dir => fs.existsSync((dir ? dir + '/' : '') + 'package.json') && !fs.existsSync((dir ? dir + '/' : '') + 'node_modules'));
+            if (!fs.existsSync('node_modules/.postinstall-state')) { missing.unshift('node_modules/.postinstall-state'); }
+            console.log(missing.join(' '));
+          ")
+          if [ -n "$missing" ]; then
+            echo "restored dependencies are incomplete ($missing); reinstalling"
+            npm ci
+          fi
+          node build/npm/electronTypes.ts
+          test -f .build/typings/electron.d.ts
+        env:
+          GIT_LFS_SKIP_SMUDGE: '1'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Type check
         run: npm run typecheck-client
