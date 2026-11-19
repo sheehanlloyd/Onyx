@@ -244,6 +244,50 @@
 			"owner": "B1, B3",
 			"reason": "the packaged build has no readFile, listDirectory, findFiles or grep tool; B1 adds them, B3 makes release mode a required check",
 			"timeoutMs": 900000
+		},
+		{
+			"id": "R-41",
+			"title": "L1 simulation rig: byte-identical traces per seed, every persona terminates, scenarios as scripts, shrinking",
+			"layer": "service",
+			"regressions": [
+				"R-41"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim"
+			]
+		},
+		{
+			"id": "sim-smoke",
+			"title": "L1 smoke campaign: 2,000 seeded episodes in the unit-test runner",
+			"layer": "service",
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim smoke"
+			],
+			"env": {
+				"ONYX_SIM_EPISODES": "2000",
+				"ONYX_SIM_SEED": "1"
+			},
+			"timeoutMs": 600000
+		},
+		{
+			"id": "sim-episodes",
+			"title": "L1 episode scripts in sync and replayable through the mock's SSE path",
+			"layer": "node",
+			"files": [
+				"test/onyx/checks/sim-episodes.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/sim-episodes.test.mts"
+			]
 		}
 	]
 }

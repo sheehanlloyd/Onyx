@@ -171,3 +171,36 @@ check against fixture trees with injected defects, the launch-script path
 marker leak (R-23), and the fresh-output protocol end to end (R-35: a failing
 probe regression is written into this checkout, observed to fail only after a
 transpile, fixed, observed to pass, and removed again).
+
+## Simulation rig
+
+`src/vs/workbench/contrib/onyx/test/browser/sim/` is the deterministic
+simulation rig (L1). It instantiates the real agent loop, control plane,
+change set service, edit tool and terminal tool against real text models
+over an in-memory file system and simulates only the boundaries: the runtime
+(a scripted stream and a recording command executor), the dialog service
+(scripted decisions), the core model and tool registries, and the clock
+(`runWithFakedTimers`, so `Date.now` and every timer are virtual; no real
+sleeps). One seed decides what the model persona emits, what the user does
+concurrently, which faults the environment injects, and at which boundary.
+Traces are canonical: product-minted ids become first-appearance ordinals and
+time is virtual, so the same seed gives a byte-identical trace (R-41).
+
+```bash
+./scripts/test.sh --grep OnyxSim                                   # R-41, personas, scenarios, shrinking, a 25-episode smoke
+ONYX_SIM_EPISODES=2000 ./scripts/test.sh --grep "OnyxSim smoke"     # the smoke campaign (every pull request, the module gate)
+ONYX_SIM_EPISODES=50000 ONYX_SIM_SEED=<seed> ./scripts/test.sh --grep "OnyxSim smoke"   # module and full campaigns
+```
+
+The campaign reports episodes per second, the status mix, the persona mix and
+the number of activity branches reached in the test's reported title. A
+failing episode prints its seed; `shrinkEpisode` reduces its script while the
+violation persists and the minimal script is what gets committed, never a
+prose description.
+
+Episodes are data. The end-to-end mock scenarios live as scripts in
+`onyxSimScenarios.ts`; `node test/onyx/sim/export-episodes.mts` writes them to
+`test/onyx/sim/episodes/*.json` (`--check` fails when the files drift), and
+`ONYX_MOCK_EPISODE=test/onyx/sim/episodes/<name>.json node test/onyx/mock-ollama.mts`
+replays one over the real SSE path, so the same episode runs at the service
+layer in milliseconds and again through the node and end-to-end layers.
