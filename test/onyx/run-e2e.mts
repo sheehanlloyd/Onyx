@@ -307,8 +307,8 @@ function readRunIndex(): { title: string; task: string; status: string; runId: s
 }
 
 async function send(prompt: string) {
-	const focusScript = path.join(repoRoot, '.claude', 'skills', 'launch', 'playwrightScripts', 'focus-chat-input.ts');
-	const paste = path.join(repoRoot, '.claude', 'skills', 'launch', 'scripts', 'monaco-paste.sh');
+	const focusScript = path.join(repoRoot, '.agents', 'skills', 'launch', 'playwrightScripts', 'focus-chat-input.ts');
+	const paste = path.join(repoRoot, '.agents', 'skills', 'launch', 'scripts', 'monaco-paste.sh');
 	pw('run-code', `--filename=${focusScript}`);
 	execFileSync(paste, ['--session', session, prompt], { cwd: repoRoot, encoding: 'utf8' });
 	pw('press', 'Enter');
