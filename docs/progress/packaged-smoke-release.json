@@ -1,0 +1,125 @@
+{
+	"mode": "release",
+	"app": "../VSCode-darwin-arm64/Onyx.app",
+	"ranAt": "2026-11-19T22:42:39.259Z",
+	"observed": {
+		"product": {
+			"nameShort": "Onyx",
+			"version": "1.136.0",
+			"commit": "3c83cc037d2ec7d5f6fcd917fed492636846b67d",
+			"date": "2026-11-19T17:27:23-05:00"
+		},
+		"sourceRevision": "9dacdfe179322bc35eacfd01bdfbae4a7c077f20",
+		"window": {
+			"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.136.0 Chrome/148.0.7778.280 Electron/42.8.1 Safari/537.36",
+			"title": "math.ts — ws"
+		},
+		"advertisedTools": [
+			"repoSymbols",
+			"editFile",
+			"terminal",
+			"docs",
+			"remember",
+			"openBrowserPage",
+			"readPage",
+			"playbook"
+		],
+		"model": "mock-coder:7b",
+		"missingEssentials": [
+			"readFile",
+			"listDirectory",
+			"findFiles",
+			"grep"
+		]
+	},
+	"checks": [
+		{
+			"name": "the app bundle has a product.json with a commit",
+			"ok": true,
+			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.136.0\",\"commit\":\"3c83cc037d2ec7d5f6fcd917fed492636846b67d\",\"date\":\"2026-11-19T17:27:23-05:00\"}",
+			"claim": "infrastructure"
+		},
+		{
+			"name": "the packaged app launched and opened a CDP endpoint",
+			"ok": true,
+			"claim": "infrastructure"
+		},
+		{
+			"name": "the window belongs to the packaged product",
+			"ok": true,
+			"detail": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.136.0 Chrome/148.0.7778.280 Electron/42.8.1 Safari/537.36",
+			"claim": "infrastructure"
+		},
+		{
+			"name": "the agent reached the mock runtime, not a real one",
+			"ok": true,
+			"detail": "mock-coder:7b",
+			"claim": "infrastructure"
+		},
+		{
+			"name": "the run journal lives in the throwaway profile",
+			"ok": true,
+			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-SMMArT/user-data/User/workspaceStorage/413af5ed80ddbb9cd48d35c1df62d81f/onyx/journal/runs",
+			"claim": "infrastructure"
+		},
+		{
+			"name": "the request carried a tool list",
+			"ok": true,
+			"detail": "no tools in the chat request",
+			"claim": "infrastructure"
+		},
+		{
+			"name": "all six essential tools are advertised",
+			"ok": false,
+			"detail": "missing: readFile, listDirectory, findFiles, grep",
+			"claim": "contract"
+		},
+		{
+			"name": "the tool list stays within the 8-slot supported profile",
+			"ok": true,
+			"detail": "8 tools",
+			"claim": "contract"
+		},
+		{
+			"name": "the model read the file through the read tool before editing",
+			"ok": false,
+			"detail": "tool calls: repoSymbols",
+			"claim": "contract"
+		},
+		{
+			"name": "the edit was staged, not written",
+			"ok": false,
+			"detail": "file changed on disk, or nothing was staged",
+			"claim": "contract"
+		},
+		{
+			"name": "the staged hunk shows the content the model read (R-31)",
+			"ok": false,
+			"detail": "### Result\n{\"files\":[],\"hunks\":[]}\n### Ran Playwright code\n```js\nawait (async (page) => page.evaluate(() => ({ files: Array.from(document.querySelectorAll(\".onyx-change-file-path\")).map(el => el.textC",
+			"claim": "contract"
+		},
+		{
+			"name": "rejecting leaves the file untouched",
+			"ok": true,
+			"claim": "contract"
+		},
+		{
+			"name": "accepting applies the reviewed hunk to the buffer",
+			"ok": false,
+			"claim": "contract"
+		},
+		{
+			"name": "the terminal tool asks before running",
+			"ok": true,
+			"detail": "### Result\n\"approved:echo onyx-packaged-terminal-ok\"\n### Ran Playwright code\n```js\nawait (async (page) => {\n\t\tconst detail = await page.$('.monaco-dialog-box .d",
+			"claim": "contract"
+		},
+		{
+			"name": "the approval names the exact command",
+			"ok": true,
+			"detail": "### Result\n\"approved:echo onyx-packaged-terminal-ok\"\n### Ran Playwright code\n```js\nawait (async (page) => {\n\t\tconst detail = await page.$('.monaco-dialog-box .d",
+			"claim": "contract"
+		}
+	],
+	"passed": false
+}
