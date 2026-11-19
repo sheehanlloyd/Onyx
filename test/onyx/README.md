@@ -160,8 +160,10 @@ The checks under `test/onyx/checks/` test the harness itself with Node's own
 test runner and need no build of their own:
 
 ```bash
-node --test "test/onyx/checks/*.test.mts"
+node --test --test-concurrency=1 "test/onyx/checks/*.test.mts"
 ```
+
+One file at a time, because R-35 rewrites `out/` while it runs and R-23 reads it.
 
 They cover the A1 inventory in disposable repositories (R-37), the hygiene
 check against fixture trees with injected defects, the launch-script path
