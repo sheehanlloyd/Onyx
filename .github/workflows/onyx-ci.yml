@@ -157,9 +157,10 @@ jobs:
       # The harness's own checks: the A1 inventory (R-37), the hygiene
       # fixtures, the launch-script path (A4), the asserting benchmark against
       # an injected parser leak (R-23) and the fresh-output protocol (R-35,
-      # which transpiles twice and runs a probe test under Xvfb).
+      # which transpiles twice and runs a probe test under Xvfb). One file at
+      # a time: R-35 rewrites out/ while it runs, and R-23 reads out/.
       - name: Harness self-checks
-        run: node --test "test/onyx/checks/*.test.mts"
+        run: node --test --test-concurrency=1 "test/onyx/checks/*.test.mts"
         env:
           DISPLAY: ':10'
 

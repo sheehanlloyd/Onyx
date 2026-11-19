@@ -508,7 +508,8 @@ What runs where — [.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.
   packaged-app smoke here.
 - **Locally:** the commands above, plus `node test/onyx/run-fresh.mts -- <command>`
   to refresh `out/` and stamp it before any red or green run, and
-  `node --test "test/onyx/checks/*.test.mts"` for the self-checks. The real-model
+  `node --test --test-concurrency=1 "test/onyx/checks/*.test.mts"` for the self-checks
+  (one file at a time: the fresh-output check rewrites `out/` while others read it). The real-model
   half of the benchmarks runs only locally, against the runtimes on your machine.
 
 ---
