@@ -41,13 +41,16 @@ your machine, and a model is not a trusted party:
   There is no "for this session" and no "always" in this release. Nothing a
   repository contains confers authority: a `terminalAllowlist` in
   `.onyx/config.json` is read as suggestions, a check task named there asks
-  before each run, and Workspace Trust changes none of this. Commands are
-  classified against eighteen patterns for destructive, privilege-escalating
-  and remote-code-executing shapes, and a match is named in the dialog as what
-  the command looks like. The classifier deliberately over-warns rather than
-  under-warns, including inside quoted strings, because a parser gap is an
-  evasion path. It is an honesty mechanism for the approval prompt, **not a
-  sandbox**: a shell command can hide its intent, the dialog cannot show what
+  before each run, and Workspace Trust changes none of this. Every
+  command in the pipeline, including the ones inside substitutions and
+  subshells, is classified by its executable and arguments as destructive,
+  privilege, remote code, network egress, persistence or unseen code, and each
+  finding is named in the dialog as what the command looks like. Egress and
+  persistence are always named. The classifier deliberately over-warns rather
+  than under-warns, including on quoted strings and comments, because a parser
+  gap is an evasion path. It warns; it does not decide, and a command it is
+  silent about has not been shown to be harmless. It is an honesty mechanism
+  for the approval prompt, **not a sandbox**: a shell command can hide its intent, the dialog cannot show what
   a script it starts will do, and you are the last line of defence. Read what
   you approve.
 

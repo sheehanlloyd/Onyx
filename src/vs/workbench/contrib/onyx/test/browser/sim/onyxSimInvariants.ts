@@ -5,7 +5,7 @@
 
 import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
 import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
-import { OnyxSimBoundary } from './onyxSimEpisode.js';
+import { OnyxSimBoundary, SIM_MUST_WARN_COMMANDS } from './onyxSimEpisode.js';
 import { SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { IOnyxSimState, OnyxSimChecker } from './onyxSimRig.js';
 import { OnyxSimTraceEvent } from './onyxSimTrace.js';
@@ -129,6 +129,14 @@ const i02: OnyxSimChecker = state => {
 		} else if (event.kind === 'commandDispatch') {
 			const isTask = event.command.startsWith('Task: ');
 			const outcome = consume(isTask ? 'task' : 'command', event.command, event.cwd);
+			// B4: a command from the must-warn set ran on an approval; the dialog that approved it must have
+			// said what the command looks like. An approval given to a silent prompt is not an informed one.
+			if (outcome === 'ok' && SIM_MUST_WARN_COMMANDS.includes(event.command)) {
+				const shown = approvals.filter(approval => approval.used && approval.detail.includes(event.command)).pop();
+				if (shown && !shown.detail.includes('looks like:')) {
+					return `I-02/unwarned-command: "${event.command}" was approved on a prompt that carried no warning`;
+				}
+			}
 			if (outcome === 'other-bytes') {
 				return `I-02/approval-for-other-bytes: "${event.command}" ran on an approval whose dialog showed something else`;
 			}
