@@ -7,7 +7,7 @@
 			"title": "TypeScript type check of src/",
 			"layer": "build",
 			"command": [
-				"npm",
+				"pnpm",
 				"run",
 				"typecheck-client"
 			]
@@ -17,18 +17,19 @@
 			"title": "Layer check",
 			"layer": "build",
 			"command": [
-				"npm",
+				"pnpm",
 				"run",
 				"valid-layers-check"
 			]
 		},
 		{
 			"id": "eslint",
-			"title": "ESLint on the Onyx paths",
+			"title": "Lint on the Onyx paths: oxlint running the eslint.config.js rules",
 			"layer": "build",
 			"command": [
-				"npx",
-				"eslint",
+				"pnpm",
+				"run",
+				"oxlint",
 				"src/vs/platform/onyxRuntime",
 				"src/vs/workbench/contrib/onyx",
 				"test/onyx"
@@ -39,7 +40,7 @@
 			"title": "Stylelint",
 			"layer": "build",
 			"command": [
-				"npm",
+				"pnpm",
 				"run",
 				"stylelint"
 			]

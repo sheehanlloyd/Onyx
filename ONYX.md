@@ -469,14 +469,15 @@ reviewer, and the architecture map over 13,256 files in 3.1s.
 ## Development
 
 ```bash
-# Node 24 required (repo hard-fails otherwise)
+# Node 24.22.1 or a newer 24.x, and pnpm 12.16.0 from corepack (the repo hard-fails otherwise)
 export PATH="/opt/homebrew/opt/node@24/bin:$PATH"
-npm i
-npm run transpile-client        # ~3s incremental compile
+corepack enable pnpm
+GIT_LFS_SKIP_SMUDGE=1 pnpm_config_frozen_lockfile=true pnpm install --frozen-lockfile
+pnpm run transpile-client       # ~3s incremental compile
 VSCODE_SKIP_PRELAUNCH=1 ./scripts/code.sh <workspace>
 # verify
-npm run typecheck-client && npm run valid-layers-check && npm run stylelint
-npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx
+pnpm run typecheck-client && pnpm run valid-layers-check && pnpm run stylelint
+pnpm run oxlint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx
 ```
 
 CI runs those gates plus the Onyx unit tests on every push —

@@ -13,7 +13,7 @@
  * pointed at that tree with `--module-root` and must fail the process and
  * name the violated invariant. The unmodified tree must still exit zero.
  *
- * Needs a current `npm run transpile-client`.
+ * Needs a current `pnpm run transpile-client`.
  *
  *   node --test test/onyx/checks/r23-benchmark-asserts.test.mts
  */
@@ -65,7 +65,7 @@ function runBenchmarks(moduleRoot: string) {
 }
 
 test('R-23: the unmodified tree passes every invariant and exits zero', { timeout: 120_000 }, () => {
-	assert.equal(fs.existsSync(path.join(outDir, parserModule)), true, 'run `npm run transpile-client` first');
+	assert.equal(fs.existsSync(path.join(outDir, parserModule)), true, 'run `pnpm run transpile-client` first');
 	const { status, output } = runBenchmarks(outDir);
 	assert.deepStrictEqual({ status, violated: /invariant\(s\) violated/.test(output), byConstructionRow: /by construction/.test(output) }, { status: 0, violated: false, byConstructionRow: false }, output.slice(-600));
 });

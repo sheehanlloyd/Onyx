@@ -57,7 +57,7 @@ const head = spawnSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding:
 test('R-57: the stamp of this checkout is fresh, so the gate runs (precondition for the cases below)', () => {
 	assert.equal(fs.existsSync(stampPath), true, 'run `node test/onyx/run-fresh.mts --stamp-only` first');
 	const run = runGate({ 'module-1.json': { module: 1, checks: [{ id: 'true', layer: 'node', command: ['true'] }] } });
-	assert.deepStrictEqual({ status: run.status, passed: run.results?.passed, revision: run.results?.revision, buildCommand: run.results?.build?.command }, { status: 0, passed: true, revision: head, buildCommand: 'npm run transpile-client' }, run.stdout);
+	assert.deepStrictEqual({ status: run.status, passed: run.results?.passed, revision: run.results?.revision, buildCommand: run.results?.build?.command }, { status: 0, passed: true, revision: head, buildCommand: 'pnpm run transpile-client' }, run.stdout);
 });
 
 test('R-57: a failing check, a missing check and a named exception each report as themselves; only the first two block', () => {

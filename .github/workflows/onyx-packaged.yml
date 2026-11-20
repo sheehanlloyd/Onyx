@@ -36,14 +36,29 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install dependencies
-        run: npm ci
+      # pnpm comes from corepack, which reads the version from `packageManager`
+      # in package.json; build/npm/preinstall.ts refuses anything else.
+      - name: Setup pnpm
+        run: |
+          corepack enable pnpm
+          pnpm --version
         env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+      # Frozen, and frozen in the build/ and remote/ installs that postinstall
+      # runs: an unfrozen install rewrites the lockfile in place (A9).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          pnpm_config_frozen_lockfile: 'true'
           GIT_LFS_SKIP_SMUDGE: '1'
+          # The suites attach to the workbench's own Electron; nothing here
+          # uses the Chromium that @playwright/browser-chromium would fetch.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build the packaged app
-        run: npm run gulp vscode-darwin-arm64-min
+        run: pnpm run gulp vscode-darwin-arm64-min
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

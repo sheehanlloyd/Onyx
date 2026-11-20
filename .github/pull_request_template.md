@@ -10,8 +10,8 @@
      and what it showed — a test name, a benchmark delta, a screenshot of the
      running app, a line from the run journal. -->
 
-- [ ] `npm run typecheck-client` and `npm run valid-layers-check`
-- [ ] `npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx`
+- [ ] `pnpm run typecheck-client` and `pnpm run valid-layers-check`
+- [ ] `pnpm run oxlint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx`
 - [ ] `./scripts/test.sh --grep Onyx`
 - [ ] `node test/onyx/run-e2e.mts` (if behavior changed)
 - [ ] Shown working in the running app (if user-facing)

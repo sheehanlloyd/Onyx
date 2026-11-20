@@ -7,7 +7,7 @@
  * Fresh-output protocol (Section 11, A7, R-35). Tests import compiled modules
  * from `out/`, and an existing `out/` proves nothing about freshness. This
  * runner records the source revision and a digest of the dirty source tree,
- * refreshes `out/` with `npm run transpile-client`, writes a build stamp to
+ * refreshes `out/` with `pnpm run transpile-client`, writes a build stamp to
  * `out/.onyx-fresh.json`, and only then runs the command it was given.
  *
  *   node test/onyx/run-fresh.mts [--json-out <file>] -- <command> [args...]
@@ -29,7 +29,7 @@ export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export const stampPath = path.join(repoRoot, 'out', '.onyx-fresh.json');
 /** What the transpiler reads; a change anywhere under it changes the digest. */
 const DIGEST_SCOPE = ['src'];
-const BUILD_COMMAND = ['npm', 'run', 'transpile-client'];
+const BUILD_COMMAND = ['pnpm', 'run', 'transpile-client'];
 
 export interface IFreshStamp {
 	readonly revision: string;
@@ -96,6 +96,10 @@ export function refresh(): IFreshStamp {
 	const state = sourceState();
 	const startedAt = new Date();
 	const build = spawnSync(BUILD_COMMAND[0], BUILD_COMMAND.slice(1), { cwd: repoRoot, stdio: 'inherit', env: process.env });
+	if ((build.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
+		// The repository installs and builds with the pnpm that `packageManager` in package.json pins.
+		console.error(`fresh: \`${BUILD_COMMAND[0]}\` is not on PATH; enable it with \`corepack enable pnpm\``);
+	}
 	const completedAt = new Date();
 	const stamp: IFreshStamp = {
 		...state,

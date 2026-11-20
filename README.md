@@ -450,12 +450,19 @@ the harness above, on this machine.
 ### From source
 
 ```bash
-# Node 24 exactly — the repo's preinstall check hard-fails on other majors
+# Node 24.22.1 or a newer 24.x, and the pnpm that package.json pins (12.16.0).
+# The repo's preinstall check refuses another major, an older 24.x, or npm.
 git clone https://github.com/sheehanlloyd/Onyx.git && cd Onyx
-npm i
-npm run compile
+corepack enable pnpm                      # ships with Node 24; reads the pin from package.json
+GIT_LFS_SKIP_SMUDGE=1 pnpm_config_frozen_lockfile=true pnpm install --frozen-lockfile
+pnpm run compile
 ./scripts/code.sh
 ```
+
+Install frozen, always. An unfrozen `pnpm install` rewrites `pnpm-lock.yaml` in
+place and is then refused by the seven-day release-age policy in
+`pnpm-workspace.yaml`; `pnpm_config_frozen_lockfile` carries the setting into
+the installs that run for `build/` and `remote/`.
 
 You also need a local model runtime. Any OpenAI-compatible server works;
 `brew install ollama && ollama pull qwen2.5-coder:7b` is the shortest path. Onyx
@@ -467,7 +474,7 @@ There is no download link yet. The release build produces `Onyx.app`, and
 `hdiutil` wraps it in a disk image:
 
 ```bash
-npm run gulp vscode-darwin-arm64-min      # → ../VSCode-darwin-arm64/Onyx.app
+pnpm run gulp vscode-darwin-arm64-min     # → ../VSCode-darwin-arm64/Onyx.app
 mkdir -p dmg-root && cp -R ../VSCode-darwin-arm64/Onyx.app dmg-root/
 ln -s /Applications dmg-root/Applications
 hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg

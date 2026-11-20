@@ -5,9 +5,9 @@
 
 /**
  * A4: the harness must run in a checkout that has no `.claude/` symlink. That
- * link is created by `build/npm/postinstall.ts`, which CI skips on a warm
- * cache, so every script under test/onyx resolves the tracked
- * `.agents/skills/launch/` path and never `.claude/`.
+ * link is created by `build/npm/postinstall.ts` and is not tracked, so a
+ * checkout that has not been installed lacks it; every script under test/onyx
+ * resolves the tracked `.agents/skills/launch/` path and never `.claude/`.
  *
  *   node --test test/onyx/checks/harness-paths.test.mts
  */
