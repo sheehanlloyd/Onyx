@@ -106,6 +106,22 @@ function pw(...args: string[]) {
 }
 
 /**
+ * The value a `run-code` call returned, without the driver's echo of the code
+ * that produced it. The echo contains every literal the script can return, so
+ * a check on the raw output for a prefix such as "approved:" is true whether
+ * or not the script returned it.
+ */
+function pwValue(output: string): string {
+	const raw = /### Result\n(?<value>[\s\S]*?)\n### Ran Playwright code/.exec(output)?.groups?.value ?? output;
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		return typeof parsed === 'string' ? parsed : raw;
+	} catch {
+		return raw;
+	}
+}
+
+/**
  * Flags that keep the workbench under test away from the developer's login
  * keychain. On macOS the workbench reads its "Safe Storage" key at startup,
  * synchronously, on the main thread. When the key was created by a different
@@ -482,7 +498,23 @@ async function main() {
 	// "remember" is an optional tool: on the eight-slot profile it is offered
 	// when the user asks for it by name, in place of the last default (R-36).
 	await send('MEMTEST remember that this project indents with tabs');
-	await sleep(9000);
+	// A note the model asks to store needs the user's confirmation first, with
+	// the note and where its text came from on show (B3, I-14, R-59).
+	let memoryConfirmation = 'no-dialog';
+	await waitUntil(() => {
+		memoryConfirmation = pwValue(pw('run-code', `async (page) => {
+			const detail = await page.$('.monaco-dialog-box .dialog-message-detail');
+			if (!detail) { return 'no-dialog'; }
+			const text = await detail.textContent();
+			const buttons = await page.$$('.monaco-dialog-box a.monaco-text-button');
+			for (const button of buttons) {
+				if (((await button.textContent()) || '').trim() === 'Remember') { await button.click(); return 'confirmed:' + text; }
+			}
+			return 'no-remember-button:' + text;
+		}`));
+		return memoryConfirmation !== 'no-dialog';
+	}, 20_000, 1000);
+	await sleep(6000);
 	// Prompts are built once per run, so a fact remembered during a run first
 	// shows up in the next one — hence a fourth, deliberately boring request.
 	await send('Thanks, that is all.');
@@ -490,6 +522,13 @@ async function main() {
 
 	const runs = readRuns();
 	check('four runs were journaled', runs.length >= 4, `saw ${runs.length}`);
+	check('R-59: storing a note asked first, showing the note and that its text came from the user\'s own request', memoryConfirmation.startsWith('confirmed:') && memoryConfirmation.includes('this project indents with tabs') && memoryConfirmation.includes('Where this text came from: your own request.'), memoryConfirmation.slice(0, 300));
+
+	// B3: upstream's Agent Host (the Copilot SDK harness) is excluded. When it
+	// starts it writes agenthost.log into the window's log directory, so the
+	// absence of that file after several agent runs is the evidence.
+	const agentHostLogs = fs.existsSync(path.join(userDataDir, 'logs')) ? fs.readdirSync(path.join(userDataDir, 'logs'), { recursive: true, encoding: 'utf8' }).filter(name => /agenthost/i.test(name)) : ['no logs directory'];
+	check('the Agent Host did not start: no agenthost log in this profile', agentHostLogs.length === 0, agentHostLogs.join(', '));
 
 	// R-43 (L3): every agent run's journal is a schema-valid v2 trace, read
 	// through the product's own reader from compiled output.
@@ -609,8 +648,8 @@ async function main() {
 	}
 	pw('press', `${mod}+i`);
 	await sleep(1500);
-	const widgetOpened = pw('run-code', 'async (page) => { const input = await page.$(".onyx-inline-edit-input"); if (!input) { return "missing"; } await input.fill("mark this function"); return "filled"; }');
-	check('the inline edit widget opens on the selection', widgetOpened.includes('filled'), widgetOpened.slice(0, 120));
+	const widgetOpened = pwValue(pw('run-code', 'async (page) => { const input = await page.$(".onyx-inline-edit-input"); if (!input) { return "missing"; } await input.fill("mark this function"); return "filled"; }'));
+	check('the inline edit widget opens on the selection', widgetOpened === 'filled', widgetOpened.slice(0, 120));
 	pw('press', 'Enter');
 	const readHunkState = () => pw('run-code', `async (page) => page.evaluate(() => ({
 		edited: Array.from(document.querySelectorAll('.editor-instance .view-line')).some(l => (l.textContent || '').includes('edited-by-mock')),
@@ -692,7 +731,7 @@ async function main() {
 	// --- Terminal tool: approval dialog, execution, journaled output.
 	await send('TERMTEST echo onyx-e2e-terminal-ok');
 	await sleep(6000);
-	const approval = pw('run-code', `async (page) => {
+	const approval = pwValue(pw('run-code', `async (page) => {
 		const detail = await page.$('.monaco-dialog-box .dialog-message-detail');
 		if (!detail) { return 'no-dialog'; }
 		const text = await detail.textContent();
@@ -703,10 +742,10 @@ async function main() {
 			if ((await button.textContent())?.includes('Run Once')) { await button.click(); return 'approved:' + text + ' buttons=' + labels.sort().join('+'); }
 		}
 		return 'no-run-once:' + text + ' buttons=' + labels.sort().join('+');
-	}`);
-	check('the terminal tool asks before running', approval.includes('approved:'), approval.slice(0, 160));
-	check('the approval names the exact command', approval.includes('echo onyx-e2e-terminal-ok'), approval.slice(0, 160));
-	check('the approval offers Run Once and Deny, and nothing that outlives the invocation (B2)', /buttons=Deny\+Run Once"/.test(approval), approval.slice(0, 400));
+	}`));
+	check('the terminal tool asks before running', approval.startsWith('approved:'), approval.slice(0, 160));
+	check('the approval names the exact command', approval.startsWith('approved:echo onyx-e2e-terminal-ok'), approval.slice(0, 160));
+	check('the approval offers Run Once and Deny, and nothing that outlives the invocation (B2)', /buttons=Deny\+Run Once$/.test(approval), approval.slice(0, 400));
 	await sleep(6000);
 	const terminalNotes = readRuns().flatMap(run => run.events).filter(event => event.kind === 'note').map(event => String(event.data?.label ?? ''));
 	check('the command ran and its exit landed on the timeline', terminalNotes.some(label => label.startsWith('Running: echo onyx-e2e-terminal-ok')) && terminalNotes.some(label => label.startsWith('Exited with code 0')), terminalNotes.slice(-6).join(' | '));
@@ -715,7 +754,7 @@ async function main() {
 	// denial keeps it from running. The first approval covered one invocation.
 	await send('TERMTEST echo onyx-e2e-terminal-ok');
 	await sleep(6000);
-	const secondApproval = pw('run-code', `async (page) => {
+	const secondApproval = pwValue(pw('run-code', `async (page) => {
 		const detail = await page.$('.monaco-dialog-box .dialog-message-detail');
 		if (!detail) { return 'no-dialog'; }
 		const text = await detail.textContent();
@@ -724,8 +763,8 @@ async function main() {
 			if ((await button.textContent())?.includes('Deny')) { await button.click(); return 'denied:' + text; }
 		}
 		return 'no-deny:' + text;
-	}`);
-	check('R-03: the same command asks again; the earlier approval covers nothing', secondApproval.includes('denied:') && secondApproval.includes('echo onyx-e2e-terminal-ok'), secondApproval.slice(0, 200));
+	}`));
+	check('R-03: the same command asks again; the earlier approval covers nothing', secondApproval.startsWith('denied:echo onyx-e2e-terminal-ok'), secondApproval.slice(0, 200));
 	await sleep(5000);
 	const notesAfterDenial = readRuns().flatMap(run => run.events).filter(event => event.kind === 'note').map(event => String(event.data?.label ?? ''));
 	check('R-04: the denied command was not dispatched', notesAfterDenial.filter(label => label.startsWith('Running: echo onyx-e2e-terminal-ok')).length === 1 && notesAfterDenial.includes('Command denied by the user'), notesAfterDenial.slice(-6).join(' | '));
@@ -746,13 +785,16 @@ async function main() {
 	// --- Resume: stop a deliberately slow run mid-stream, then resume it.
 	await send('SLOWTEST take your time with this one');
 	await sleep(4000);
-	const stopClicked = pw('run-code', `async (page) => {
+	// Sending focused the chat, which hides the Control Plane; the Stop button lives on its run list.
+	await runCommand('Open Onyx Control Plane');
+	await sleep(1500);
+	const stopClicked = pwValue(pw('run-code', `async (page) => {
 		const stop = await page.$('.onyx-run.running .codicon-debug-stop');
 		if (!stop) { return 'no-stop-button'; }
 		await stop.click(); return 'stopped';
-	}`);
+	}`));
 	await sleep(3000);
-	check('a streaming run can be stopped from the control plane', stopClicked.includes('stopped'), stopClicked);
+	check('a streaming run can be stopped from the control plane', stopClicked === 'stopped', stopClicked);
 	await runCommand('Onyx: Resume an Interrupted Run');
 	await sleep(2500);
 	pw('press', 'Enter'); // pick the stopped run
@@ -769,14 +811,14 @@ async function main() {
 	await sleep(1000);
 	await runCommand('Onyx: Rename Symbol');
 	await sleep(9000);
-	const renamePick = pw('run-code', `async (page) => {
+	const renamePick = pwValue(pw('run-code', `async (page) => {
 		const rows = await page.$$('.quick-input-widget .monaco-list-row');
 		const texts = [];
 		for (const row of rows) { texts.push(await row.getAttribute('aria-label')); }
 		if (texts.some(text => text && text.includes('mockSuggestedName'))) { await page.keyboard.press('Enter'); return 'picked:' + texts.join(';'); }
 		return 'no-suggestions:' + texts.join(';');
-	}`);
-	check('the rename flow offers model-suggested names', renamePick.includes('picked:'), renamePick.slice(0, 200));
+	}`));
+	check('the rename flow offers model-suggested names', renamePick.startsWith('picked:'), renamePick.slice(0, 200));
 	await sleep(4000);
 	// The rename routed a naming run through chat, which swapped the aux bar
 	// away from the control plane — bring it back before reading the view.

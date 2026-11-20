@@ -5,7 +5,9 @@
 
 import { ILanguageModelChatMetadata } from '../../../../chat/common/languageModels.js';
 import { IChatAgentRequest } from '../../../../chat/common/participants/chatAgents.js';
-import { OnyxAgentLoop, OnyxSelectedTools } from '../../../browser/agent/onyxAgentLoop.js';
+import { IOnyxSelectableTool, OnyxAgentLoop, OnyxSelectedTools } from '../../../browser/agent/onyxAgentLoop.js';
+import { IOnyxToolExclusion } from '../../../common/onyxToolSlots.js';
+import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMemoryTool.js';
 import { OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxExecutionRequest, OnyxTerminalService } from '../../../browser/terminal/onyxTerminalTool.js';
 import { buildApprovalRequest, IOnyxCommandInvocation, IOnyxTerminalApprovalRequest, normalizeCommand, OnyxTerminalDecision } from '../../../common/onyxTerminalPolicy.js';
@@ -36,6 +38,33 @@ class OnyxMutantPriorityTruncatingLoop extends OnyxAgentLoop {
 		const priority = (name: string) => name === 'editFile' || name === 'terminal' ? 0 : 1;
 		const tools = [...available].sort((a, b) => priority(a.name) - priority(b.name)).slice(0, profile.maxTools);
 		return { kind: 'edit', tools, optional: [], omitted: [] };
+	}
+}
+
+/** B3: tool selection before the capability contract. Whatever the registry holds, short of the names core's own terminal and edit tools use, is offered. */
+class OnyxMutantUncontractedToolsLoop extends OnyxAgentLoop {
+	protected override _candidateTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined): { available: IOnyxSelectableTool[]; excluded: IOnyxToolExclusion[] } {
+		const contracted = super._candidateTools(request, metadata);
+		const taken = new Set(contracted.available.map(tool => tool.name));
+		const extra: IOnyxSelectableTool[] = [];
+		for (const tool of this._registeredTools(metadata)) {
+			const name = tool.toolReferenceName ?? tool.id;
+			if (!taken.has(name) && !/^(runInTerminal|sendToTerminal|shell)$|editFile|applyPatch/i.test(name) && tool.modelDescription) {
+				taken.add(name);
+				extra.push({ id: tool.id, name, description: tool.modelDescription, inputSchema: tool.inputSchema });
+			}
+		}
+		return { available: [...contracted.available, ...extra], excluded: contracted.excluded };
+	}
+	protected override _needsApprovalPerCall(_toolId: string): boolean {
+		return false; // and core's tools are called as core registered them, with no Onyx gate
+	}
+}
+
+/** B3: a memory tool that stores whatever the model hands it, with no confirmation. */
+class OnyxMutantUnconfirmedMemoryTool extends OnyxMemoryToolContribution {
+	protected override async _confirm(): Promise<boolean> {
+		return true;
 	}
 }
 
@@ -91,6 +120,8 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B2-reused-approval': { TerminalService: OnyxMutantReusedApprovalTerminal },
 	'B2-normalized-approval': { TerminalService: OnyxMutantNormalizedApprovalTerminal },
 	'B2-unasked-check-task': { TerminalService: OnyxMutantUnaskedCheckTerminal },
+	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
+	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };
 
 /** The class name each mutant id resolves to, for the table's `resurrects` column. */

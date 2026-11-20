@@ -15,6 +15,7 @@ import { ITextModelService, IResolvedTextEditorModel } from '../../../../../../e
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IDialogService } from '../../../../../../platform/dialogs/common/dialogs.js';
+import { ExtensionIdentifier } from '../../../../../../platform/extensions/common/extensions.js';
 import { FileService } from '../../../../../../platform/files/common/fileService.js';
 import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
@@ -29,7 +30,7 @@ import { ChatAgentLocation } from '../../../../chat/common/constants.js';
 import { ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { IChatAgentRequest } from '../../../../chat/common/participants/chatAgents.js';
 import { IChatProgress } from '../../../../chat/common/chatService/chatService.js';
-import { ILanguageModelToolsService } from '../../../../chat/common/tools/languageModelToolsService.js';
+import { ILanguageModelToolsService, ToolDataSource } from '../../../../chat/common/tools/languageModelToolsService.js';
 import { ITaskService } from '../../../../tasks/common/taskService.js';
 import { ISearchService } from '../../../../../services/search/common/search.js';
 import { IOnyxModelProfile } from '../../../common/onyxTypes.js';
@@ -44,6 +45,7 @@ import { OnyxFindFilesToolContribution } from '../../../browser/intelligence/ony
 import { OnyxGrepToolContribution } from '../../../browser/intelligence/onyxGrepTool.js';
 import { OnyxListDirectoryToolContribution } from '../../../browser/intelligence/onyxListDirectoryTool.js';
 import { IOnyxMemoryService, OnyxMemoryService } from '../../../browser/intelligence/onyxMemoryService.js';
+import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMemoryTool.js';
 import { OnyxReadFileToolContribution } from '../../../browser/intelligence/onyxReadFileTool.js';
 import { IOnyxWorkspaceAccessService, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxPinService } from '../../../browser/intelligence/onyxPinService.js';
@@ -53,7 +55,7 @@ import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileServic
 import { IOnyxRouterService, OnyxRouterService } from '../../../browser/routing/onyxRouterService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../../../browser/terminal/onyxTerminalTool.js';
 import { OnyxSimBoundary, OnyxSimEpisode, OnyxSimFault, OnyxSimUserAction } from './onyxSimEpisode.js';
-import { IOnyxSimCommandScript, IOnyxSimScheduler, OnyxSimDialogService, OnyxSimEnergyService, OnyxSimFileSystemProvider, OnyxSimLanguageModelsService, OnyxSimPinService, OnyxSimPlaybookService, OnyxSimProfileService, OnyxSimRuntimeService, OnyxSimSearchService, OnyxSimTaskService, OnyxSimToolsService, SIM_MODEL_KEY, simWorkspaceUri } from './onyxSimFakes.js';
+import { IOnyxSimCommandScript, IOnyxSimScheduler, OnyxSimDialogService, OnyxSimEnergyService, OnyxSimFileSystemProvider, OnyxSimLanguageModelsService, OnyxSimPinService, OnyxSimPlaybookService, OnyxSimProfileService, OnyxSimRuntimeService, OnyxSimSearchService, OnyxSimTaskService, OnyxSimToolsService, SIM_CORE_TOOLS, SIM_MODEL_KEY, simWorkspaceUri } from './onyxSimFakes.js';
 import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
 import { digest, OnyxSimTrace } from './onyxSimTrace.js';
 
@@ -79,6 +81,8 @@ export interface IOnyxSimState {
 	readonly changeSet: IOnyxChangeSetService;
 	readonly controlPlane: IOnyxControlPlaneService;
 	readonly search: OnyxSimSearchService;
+	/** The workspace's agent memory: what later prompts will carry. */
+	readonly memory: IOnyxMemoryService;
 	/** Current buffer content per workspace path, for files that have a live text model. */
 	buffer(path: string): string | undefined;
 	/** Current content on the in-memory disk. */
@@ -109,6 +113,7 @@ export interface IOnyxSimProductClasses {
 	readonly AgentLoop: typeof OnyxAgentLoop;
 	readonly TerminalService: typeof OnyxTerminalService;
 	readonly WorkspaceAccess: typeof OnyxWorkspaceAccessService;
+	readonly MemoryTool: typeof OnyxMemoryToolContribution;
 }
 
 export interface IOnyxSimRigOptions {
@@ -140,6 +145,10 @@ export interface IOnyxSimResult {
 	readonly tasksRan: readonly string[];
 	/** The repository configuration file as it is on disk at the end. */
 	readonly projectConfigOnDisk: string | undefined;
+	/** The agent memory at the end: what every later prompt in this workspace will carry. */
+	readonly memoryNotes: readonly string[];
+	/** Everything the first request of the follow-up run sent, when the episode has one. */
+	readonly followUpPromptText: string | undefined;
 }
 
 const WATCHDOG_MS = 10 * 60_000;
@@ -154,6 +163,9 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly controlPlane: IOnyxControlPlaneService;
 	readonly search: OnyxSimSearchService;
 	readonly tasks: OnyxSimTaskService;
+	readonly memory: IOnyxMemoryService;
+	private readonly _createLoop: () => OnyxAgentLoop;
+	private _followUpFirstRequest: number | undefined;
 	private readonly _provider: OnyxSimFileSystemProvider;
 	private readonly _terminal: IOnyxTerminalService;
 	readonly sanctionedBuffer = new Map<string, string>();
@@ -189,7 +201,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private _prepared = false;
 
 	constructor(readonly episode: OnyxSimEpisode, checkers: readonly OnyxSimChecker[] = [], options: IOnyxSimRigOptions = {}) {
-		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, ...options.classes };
+		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, ...options.classes };
 		this._checkers.push(...checkers);
 		this.trace = new OnyxSimTrace(() => Date.now());
 
@@ -227,6 +239,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		configuration.setUserConfiguration('search', { useIgnoreFiles: true, followSymlinks: true, exclude: { '**/node_modules': true } });
 		configuration.setUserConfiguration('files', { exclude: { '**/.git': true } });
 		configuration.setUserConfiguration('editor', { wordSeparators: '`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?' });
+		configuration.setUserConfiguration('onyx', { agent: { networkTools: episode.networkTools === true } });
 		instantiationService.stub(ISearchService, this.search);
 		instantiationService.stub(IOnyxWorkspaceAccessService, instantiationService.createInstance(classes.WorkspaceAccess));
 
@@ -238,7 +251,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(ILanguageModelsService, this._languageModels);
 		instantiationService.stub(IOnyxRouterService, this._disposables.add(instantiationService.createInstance(OnyxRouterService)));
 		instantiationService.stub(IOnyxPromptCacheService, this._disposables.add(new OnyxPromptCacheService()));
-		instantiationService.stub(IOnyxMemoryService, this._disposables.add(instantiationService.createInstance(OnyxMemoryService)));
+		this.memory = this._disposables.add(instantiationService.createInstance(OnyxMemoryService));
+		instantiationService.stub(IOnyxMemoryService, this.memory);
 		this.changeSet = this._disposables.add(instantiationService.createInstance(OnyxChangeSetService));
 		instantiationService.stub(IOnyxChangeSetService, this.changeSet);
 		this._terminal = this._disposables.add(instantiationService.createInstance(classes.TerminalService));
@@ -249,6 +263,19 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this._disposables.add(instantiationService.createInstance(OnyxGrepToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxEditToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxTerminalToolContribution));
+		this._disposables.add(instantiationService.createInstance(classes.MemoryTool));
+		// What else the core registry holds: reviewed tools, network tools, excluded tools and unknown ones.
+		for (const tool of SIM_CORE_TOOLS) {
+			const source: ToolDataSource = tool.source === 'internal'
+				? ToolDataSource.Internal
+				: tool.source === 'mcp'
+					? { type: 'mcp', label: 'sim', serverLabel: 'sim', instructions: undefined, collectionId: 'sim', definitionId: 'sim' }
+					: { type: 'extension', label: 'sim', extensionId: new ExtensionIdentifier('sim.tools') };
+			this._disposables.add(this.tools.registerTool(
+				{ id: tool.id, toolReferenceName: tool.name, displayName: tool.name, modelDescription: `Simulated ${tool.name}.`, source, canBeReferencedInPrompt: true, inputSchema: { type: 'object', properties: {} } },
+				{ invoke: async () => ({ content: [{ kind: 'text', value: `ran ${tool.id}` }] }) }));
+		}
+		this._createLoop = () => instantiationService.createInstance(classes.AgentLoop);
 
 		this._modelService = instantiationService.get(IModelService);
 		this._textModelService = instantiationService.get(ITextModelService);
@@ -641,6 +668,16 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		}
 		// Fire-and-forget work after a run (risk badges, verification) settles on virtual time.
 		await timeout(1000);
+		if (this.episode.followUpPrompt !== undefined && !this.stopped) {
+			// A later request in the same workspace: its prompt is built from whatever persistent state the first run left.
+			this._followUpFirstRequest = this.runtime.requests.length;
+			try {
+				await this._createLoop().run({ ...request, requestId: 'request-2', message: this.episode.followUpPrompt }, progress, [], this._cancellation.token);
+			} catch (error) {
+				this.trace.record({ kind: 'fault', fault: 'followUp', detail: error instanceof Error ? error.message : String(error) });
+			}
+			await timeout(1000);
+		}
 		await watchdog;
 		await this._observe('end');
 		for (const message of this._languageModels.streamErrors) {
@@ -662,6 +699,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			commands: this.runtime.commands.map(command => ({ cwd: command.cwd, command: command.command, timeoutMs: command.timeoutMs })),
 			tasksRan: [...this.tasks.ran],
 			projectConfigOnDisk: await this.projectConfigOnDisk(),
+			memoryNotes: this.memory.getNotes().map(note => note.text),
+			followUpPromptText: this._followUpFirstRequest === undefined ? undefined : (this.runtime.requests[this._followUpFirstRequest]?.messages ?? []).map(message => String(message.content ?? '')).join('\n'),
 		};
 	}
 

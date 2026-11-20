@@ -123,7 +123,8 @@ suite('OnyxToolSlots', () => {
 			readExcludedByName: await run({ projectConfig: { disabledTools: ['readFile', 'grep'] } }),
 			tinyProfileWithAnExclusion: await run({ profile: { maxTools: 3 }, projectConfig: { disabledTools: ['onyx_terminal'] } }),
 		}, {
-			supported: { status: 'completed', advertised: [...ONYX_ESSENTIAL_TOOLS], error: undefined },
+			// The rig's registry holds no repoSymbols or docs tool, so the two spare slots go to the next admitted tools.
+			supported: { status: 'completed', advertised: [...ONYX_ESSENTIAL_TOOLS, 'remember', 'usages'], error: undefined },
 			sixSlots: { status: 'completed', advertised: [...ONYX_ESSENTIAL_TOOLS], error: undefined },
 			fiveSlots: { status: 'completed', advertised: ['readFile', 'grep', 'findFiles', 'listDirectory'], error: undefined },
 			threeSlots: { status: 'completed', advertised: ['readFile', 'grep', 'findFiles'], error: undefined },

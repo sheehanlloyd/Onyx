@@ -7,6 +7,7 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../../platform/markers/common/markers.js';
@@ -16,12 +17,14 @@ import { localize } from '../../../../../nls.js';
 import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePart, ILanguageModelChatMetadata, ILanguageModelsService } from '../../../chat/common/languageModels.js';
 import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
-import { ILanguageModelToolsService } from '../../../chat/common/tools/languageModelToolsService.js';
+import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
 import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
 import { buildToolEnvelopeFormat, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
 import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
 import { classifyStreamEnd, digestValue, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxPlaybookService } from '../playbooks/onyxPlaybookService.js';
+import { IOnyxTerminalService } from '../terminal/onyxTerminalTool.js';
+import { admitTool, needsApprovalPerCall, ONYX_NETWORK_TOOLS_SETTING } from '../../common/onyxToolContract.js';
 import { IOnyxToolExclusion, ONYX_MIN_EDIT_SLOTS, OnyxToolSlotSelection, requestedOptionalTools, selectToolSlots } from '../../common/onyxToolSlots.js';
 import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
@@ -70,6 +73,8 @@ export class OnyxAgentLoop {
 		@IOnyxPromptCacheService private readonly _promptCacheService: IOnyxPromptCacheService,
 		@IOnyxProjectConfigService private readonly _projectConfigService: IOnyxProjectConfigService,
 		@IOnyxPlaybookService private readonly _playbookService: IOnyxPlaybookService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IOnyxTerminalService private readonly _terminalService: IOnyxTerminalService,
 		@ILogService private readonly _logService: ILogService,
 	) { }
 
@@ -95,6 +100,7 @@ export class OnyxAgentLoop {
 			title: request.message.slice(0, 80),
 			task,
 			modelKey: modelIdentifier,
+			request: request.message,
 		});
 		this._controlPlaneService.updateCompute({ modelKey: modelIdentifier, inFlight: true });
 
@@ -304,6 +310,7 @@ export class OnyxAgentLoop {
 					? rawToolUse
 					: { ...rawToolUse, name: unwrapped.name, parameters: unwrapped.parameters };
 				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, run, progress, token);
+				run.noteToolResult(toolUse.name, resultText);
 				traceToolCalls.push({ name: toolUse.name, argumentsDigest: digestValue(toolUse.parameters), resultDigest: traceDigest(resultText), ok });
 				// Small models drown in raw tool output; keep head and tail
 				// (signatures and errors) and mark the elided middle.
@@ -400,11 +407,26 @@ export class OnyxAgentLoop {
 			return { text: `Error: unknown tool '${toolUse.name}'. Available tools: ${[...toolIdsByName.keys()].join(', ')}`, ok: false };
 		}
 		run.activity({ kind: 'toolCall', label: toolUse.name });
+		const parameters = typeof toolUse.parameters === 'object' && toolUse.parameters !== null ? toolUse.parameters : {};
+		if (this._needsApprovalPerCall(toolId)) {
+			// A network tool is not Onyx's to implement, so the gate stands here: one approval for this call,
+			// showing the tool and the arguments it will be called with (DEC-03).
+			const approved = await this._terminalService.confirmExecution({
+				kind: 'network',
+				subject: `Tool: ${toolUse.name} ${JSON.stringify(parameters)}`,
+				configuredBy: localize('onyx.agent.networkToolsSetting', "your setting {0}", ONYX_NETWORK_TOOLS_SETTING),
+				runId: run.runId,
+			});
+			if (!approved) {
+				run.activity({ kind: 'toolResult', label: toolUse.name, ok: false, reason: 'denied by the user' });
+				return { text: `Error: the user denied this ${toolUse.name} call. Do not retry it; continue without it or ask the user.`, ok: false };
+			}
+		}
 		try {
 			const result = await this._toolsService.invokeTool({
 				callId: toolUse.toolCallId || generateUuid(),
 				toolId,
-				parameters: typeof toolUse.parameters === 'object' && toolUse.parameters !== null ? toolUse.parameters : {},
+				parameters,
 				context: { sessionResource: request.sessionResource },
 				chatRequestId: request.requestId,
 				userSelectedTools: request.userSelectedTools,
@@ -456,15 +478,27 @@ export class OnyxAgentLoop {
 		});
 	}
 
+	/** Every tool the core registry offers this model, before any Onyx rule is applied. */
+	protected _registeredTools(metadata: ILanguageModelChatMetadata | undefined): IToolData[] {
+		return [...this._toolsService.getTools(metadata)];
+	}
+
+	/** Whether one call to this tool needs its own approval, asked here because the tool is not Onyx's. */
+	protected _needsApprovalPerCall(toolId: string): boolean {
+		return needsApprovalPerCall(toolId);
+	}
+
 	/** Every tool the registry offers this model, split into what may be advertised and what was excluded, with the reason. */
 	protected _candidateTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined): { available: IOnyxSelectableTool[]; excluded: IOnyxToolExclusion[] } {
 		const enabled = request.userSelectedTools;
 		const disabledByProject = new Set(this._projectConfigService.resolved.get().config.disabledTools ?? []);
-		const candidates = [...this._toolsService.getTools(metadata)]
-			.filter(tool => tool.id.startsWith('onyx_') || !(REPLACED_CORE_TOOLS.test(tool.id) || REPLACED_CORE_TOOLS.test(tool.toolReferenceName ?? '')))
+		// The capability contract comes first (B3, DEC-03): a tool that is not in the reviewed table, or whose
+		// gate is not met, never becomes a candidate, whatever registered it and whatever the settings say.
+		const contractOptions = { networkTools: this._configurationService.getValue<boolean>(ONYX_NETWORK_TOOLS_SETTING) === true };
+		const candidates = this._registeredTools(metadata)
 			.filter(tool => !!tool.modelDescription)
-			// Onyx's own tools claim their names first, so a development
-			// extension that registers a tool called readFile cannot displace one.
+			.filter(tool => admitTool({ id: tool.id, name: tool.toolReferenceName ?? tool.id, source: tool.source.type === 'internal' || tool.source.type === 'extension' || tool.source.type === 'mcp' ? tool.source.type : 'other' }, contractOptions).admitted)
+			// Onyx's own tools claim their names first.
 			.sort((a, b) => Number(b.id.startsWith('onyx_')) - Number(a.id.startsWith('onyx_')));
 
 		const available: IOnyxSelectableTool[] = [];
@@ -556,13 +590,6 @@ export interface IOnyxSelectableTool {
 }
 
 export type OnyxSelectedTools = OnyxToolSlotSelection<IOnyxSelectableTool>;
-
-/**
- * Core tools that write into the workspace or a shell without Onyx's review
- * or approval surfaces. Onyx replaces them (staged edits, the gated terminal
- * tool), so exposing both would give the model an ungated back door.
- */
-const REPLACED_CORE_TOOLS = /^(copilot_)?(runInTerminal|sendToTerminal|shell)$|editFile|applyPatch|insert_edit/i;
 
 /**
  * A tool's error, trimmed to something a timeline row and one chat line can

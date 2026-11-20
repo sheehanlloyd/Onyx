@@ -75,6 +75,10 @@ import { OnyxReviewChanges } from '../browser/review/onyxReviewChanges.js';
 import { OnyxCommitMessageGenerator } from '../browser/scm/onyxCommitMessage.js';
 import { OnyxStatusBarContribution } from '../browser/onyxStatusBar.js';
 import { IOnyxProfileService, OnyxProfileService } from '../browser/profiles/onyxProfileService.js';
+import { IAgentHostEnablementService } from '../../../../platform/agentHost/common/agentHostEnablementService.js';
+import { OnyxAgentHostEnablementService } from '../browser/onyxAgentHost.js';
+import { ILanguageModelToolsService } from '../../chat/common/tools/languageModelToolsService.js';
+import { describeToolInventory, ONYX_NETWORK_TOOLS_SETTING, ONYX_TOOL_CONTRACT_VERSION } from '../common/onyxToolContract.js';
 import { IOnyxRouterService, OnyxRouterService } from '../browser/routing/onyxRouterService.js';
 
 registerSharedProcessRemoteService(IOnyxRuntimeService, 'onyxRuntime');
@@ -99,6 +103,8 @@ registerSingleton(IOnyxTerminalService, OnyxTerminalService, InstantiationType.D
 registerSingleton(IOnyxSpeculativeService, OnyxSpeculativeService, InstantiationType.Delayed);
 registerSingleton(IOnyxPlaybookService, OnyxPlaybookService, InstantiationType.Delayed);
 registerSingleton(IOnyxWorkspaceAccessService, OnyxWorkspaceAccessService, InstantiationType.Delayed);
+// Replaces upstream's implementation (the last registration wins): the Agent Host is not part of Onyx.
+registerSingleton(IAgentHostEnablementService, OnyxAgentHostEnablementService, InstantiationType.Eager);
 
 /**
  * Registers the `onyx` language model vendor and provider with the chat stack
@@ -345,6 +351,41 @@ registerAction2(class ShowOnyxProjectConfigAction extends Action2 {
 			JSON.stringify(resolved.config, undefined, '\t'),
 		];
 		await editorService.openEditor({ resource: undefined, contents: lines.join('\n'), languageId: 'jsonc', options: { pinned: true } });
+	}
+});
+
+registerAction2(class ShowOnyxAgentToolsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.showAgentTools',
+			title: localize2('onyx.showAgentTools', "Onyx: Show Agent Tools"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const toolsService = accessor.get(ILanguageModelToolsService);
+		const configurationService = accessor.get(IConfigurationService);
+		const editorService = accessor.get(IEditorService);
+		const networkTools = configurationService.getValue<boolean>(ONYX_NETWORK_TOOLS_SETTING) === true;
+		const registered = [...toolsService.getTools(undefined)].map(tool => ({
+			id: tool.id,
+			name: tool.toolReferenceName ?? tool.id,
+			source: tool.source.type === 'internal' || tool.source.type === 'extension' || tool.source.type === 'mcp' ? tool.source.type : 'other' as const,
+		}));
+		const inventory = describeToolInventory(registered, { networkTools });
+		const lines = [
+			`// Onyx agent tools (read-only view). Capability contract version ${ONYX_TOOL_CONTRACT_VERSION}; ${ONYX_NETWORK_TOOLS_SETTING} is ${networkTools ? 'on' : 'off'}.`,
+			'// A tool reaches a model only if the reviewed contract admits it. Which of the admitted tools a request',
+			'// carries then depends on the model profile\'s slot cap: the six essential tools first, then the optional ones.',
+			'',
+			`// Admitted (${inventory.exposed.length}): name, what it can do and the gate in front of it, why`,
+			...inventory.exposed.map(tool => `${tool.name}  [${tool.gates || 'no effect outside the conversation'}]  ${tool.reason}`),
+			'',
+			`// Refused (${inventory.excluded.length}): name, why`,
+			...inventory.excluded.map(tool => `${tool.name}  ${tool.reason}`),
+		];
+		await editorService.openEditor({ resource: undefined, contents: lines.join('\n'), languageId: 'plaintext', options: { pinned: true } });
 	}
 });
 

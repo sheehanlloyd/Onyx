@@ -57,7 +57,9 @@ export interface IOnyxApprovalRecord {
 
 /** An execution that is not a terminal-tool command but needs the same per-invocation approval: a project check task. */
 export interface IOnyxExecutionRequest {
-	/** The line that names what will run, e.g. `Task: npm: test`. */
+	/** What is being asked about: a project check task, or one call to a network tool. */
+	readonly kind: 'task' | 'network';
+	/** The line that names what will run, e.g. `Task: npm: test` or `Tool: openBrowserPage {"url":…}`. */
 	readonly subject: string;
 	/** Who configured it, in words the dialog shows. */
 	readonly configuredBy: string;
@@ -172,13 +174,19 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 
 	async confirmExecution(request: IOnyxExecutionRequest): Promise<boolean> {
 		const result = await this._dialogService.prompt<OnyxTerminalDecision>({
-			type: Severity.Info,
-			message: localize('onyx.terminal.approveCheck', "Onyx wants to run a project check"),
+			type: request.kind === 'network' ? Severity.Warning : Severity.Info,
+			message: request.kind === 'network'
+				? localize('onyx.terminal.approveNetwork', "The agent wants to use the network")
+				: localize('onyx.terminal.approveCheck', "Onyx wants to run a project check"),
 			detail: [
 				request.subject,
 				'',
-				localize('onyx.terminal.approveCheck.configuredBy', "Configured by: {0}", request.configuredBy),
-				localize('onyx.terminal.approveCheck.unseen', "A task runs commands from this workspace's task configuration. This dialog cannot show them; open the task to read them."),
+				request.kind === 'network'
+					? localize('onyx.terminal.approveNetwork.enabledBy', "Enabled by: {0}", request.configuredBy)
+					: localize('onyx.terminal.approveCheck.configuredBy', "Configured by: {0}", request.configuredBy),
+				request.kind === 'network'
+					? localize('onyx.terminal.approveNetwork.leaves', "This sends a request to another machine. What the request carries is shown above; what the other side does with it is not.")
+					: localize('onyx.terminal.approveCheck.unseen', "A task runs commands from this workspace's task configuration. This dialog cannot show them; open the task to read them."),
 			].join('\n'),
 			buttons: [{ label: localize('onyx.terminal.allowOnce', "Run Once"), run: () => 'allow-once' }],
 			cancelButton: { label: localize('onyx.terminal.deny', "Deny"), run: () => 'deny' },

@@ -198,7 +198,7 @@
 		},
 		{
 			"id": "packaged-baseline",
-			"title": "A8 packaged smoke, baseline mode: launch, profile and runtime isolation, observed tools",
+			"title": "Packaged smoke, baseline mode: launch, profile and runtime isolation, observed tools",
 			"layer": "packaged",
 			"command": [
 				"node",
@@ -220,10 +220,12 @@
 		},
 		{
 			"id": "packaged-release",
-			"title": "A8 packaged smoke, release mode: the full tool contract, read → staged edit → accept, terminal approval",
+			"title": "Packaged smoke, release mode: the tool contract (R-05), read \u2192 staged edit \u2192 accept (R-31), per-invocation approval, the network opt-in, no Agent Host",
 			"layer": "packaged",
 			"regressions": [
-				"R-31"
+				"R-05",
+				"R-31",
+				"R-36"
 			],
 			"command": [
 				"node",
@@ -241,9 +243,6 @@
 					"ONYX_PACKAGED_APP"
 				]
 			},
-			"expect": "fail",
-			"owner": "B1, B3",
-			"reason": "the packaged build has no readFile, listDirectory, findFiles or grep tool; B1 adds them, B3 makes release mode a required check",
 			"timeoutMs": 900000
 		},
 		{

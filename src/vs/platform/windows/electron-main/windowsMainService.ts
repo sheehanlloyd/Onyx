@@ -186,6 +186,9 @@ function isSingleFolderWorkspacePathToOpen(path: IPathToOpen | undefined): path 
 
 //#endregion
 
+/** Onyx: see `openAgentsWindow`. */
+const ONYX_EXCLUDES_AGENTS_WINDOW = true;
+
 export class WindowsMainService extends Disposable implements IWindowsMainService {
 
 	declare readonly _serviceBrand: undefined;
@@ -303,6 +306,15 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 
 	async openAgentsWindow(openConfig: IOpenConfiguration, folderUri?: URI, reveal?: URI | 'new', source?: AgentsWindowOpenSource, folderUriIsDefault = false, draft?: IAgentsWindowDraft, onboardingSessionResource?: URI, revealRemoteAuthority?: string): Promise<ICodeWindow[]> {
 		this.logService.trace('windowsManager#openAgentsWindow');
+
+		// Onyx: the Agents window is not part of this product (REBASE.md, B3). It is a second
+		// workbench built around upstream's Agent Host, which Onyx excludes, and it loads none of
+		// Onyx's own contributions. Every way of asking for it (the command, `--agents`, a
+		// protocol link) ends here: an ordinary window when there is none, nothing otherwise.
+		if (ONYX_EXCLUDES_AGENTS_WINDOW) {
+			this.logService.info('windowsManager#openAgentsWindow: the Agents window is not part of Onyx');
+			return this.getWindows().length > 0 ? [] : this.openEmptyWindow({ context: openConfig.context, contextWindowId: openConfig.contextWindowId });
+		}
 
 		const existingWindows = this.getWindows();
 		folderUri = await resolveAgentsWindowFolder(openConfig, folderUri, reveal === 'new' ? undefined : reveal, source, cli => this.doExtractPathsFromCLI(cli));

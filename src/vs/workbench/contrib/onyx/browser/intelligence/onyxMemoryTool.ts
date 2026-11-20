@@ -4,16 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../../base/common/lifecycle.js';
+import Severity from '../../../../../base/common/severity.js';
 import { localize } from '../../../../../nls.js';
-import { ILanguageModelToolsService, IToolData, IToolImpl, IToolResult, ToolDataSource } from '../../../chat/common/tools/languageModelToolsService.js';
+import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { ILanguageModelToolsService, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource } from '../../../chat/common/tools/languageModelToolsService.js';
+import { OnyxNoteOrigin } from '../../common/onyxMemoryOrigin.js';
+import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxMemoryService } from './onyxMemoryService.js';
 
 export const ONYX_MEMORY_TOOL_ID = 'onyx_memory';
 
 /**
- * Lets the agent write to its per-workspace memory. Reading needs no tool —
- * the prompt builder injects the notes into every request — so the tool
- * surface stays minimal for small models: one action, one argument.
+ * Lets the agent ask to write to its per-workspace memory. Reading needs no
+ * tool: the prompt builder injects the notes into every later request, which
+ * is exactly why a write is not the model's to make (I-14). A note is stored
+ * only after the user confirms a dialog that shows the note and where its
+ * text came from: their own request, something a tool returned in this run,
+ * or the model. Declined, the call returns an error result and nothing is
+ * stored.
  */
 export class OnyxMemoryToolContribution extends Disposable {
 
@@ -21,7 +29,9 @@ export class OnyxMemoryToolContribution extends Disposable {
 
 	constructor(
 		@ILanguageModelToolsService toolsService: ILanguageModelToolsService,
-		@IOnyxMemoryService memoryService: IOnyxMemoryService,
+		@IOnyxMemoryService private readonly _memoryService: IOnyxMemoryService,
+		@IDialogService private readonly _dialogService: IDialogService,
+		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
 	) {
 		super();
 
@@ -29,8 +39,8 @@ export class OnyxMemoryToolContribution extends Disposable {
 			id: ONYX_MEMORY_TOOL_ID,
 			toolReferenceName: 'remember',
 			displayName: localize('onyx.memory.displayName', "Remember for This Workspace"),
-			modelDescription: 'Saves one short, durable fact about this workspace for future sessions (e.g. "unit tests run with scripts/test.sh", "the API client lives in src/net/"). Existing notes are already shown in your instructions; only save NEW facts that will stay true and useful. One concise sentence per call.',
-			userDescription: localize('onyx.memory.userDescription', "Save a note to the agent's workspace memory"),
+			modelDescription: 'Asks the user to save one short, durable fact about this workspace for future sessions (e.g. "unit tests run with scripts/test.sh", "the API client lives in src/net/"). The user sees the note and decides; a declined note must not be retried. Existing notes are already shown in your instructions; only propose NEW facts that will stay true and useful. One concise sentence per call.',
+			userDescription: localize('onyx.memory.userDescription', "Propose a note for the agent's workspace memory; you confirm each one"),
 			source: ToolDataSource.Internal,
 			canBeReferencedInPrompt: true,
 			runsInWorkspace: true,
@@ -45,19 +55,59 @@ export class OnyxMemoryToolContribution extends Disposable {
 
 		const impl: IToolImpl = {
 			prepareToolInvocation: async (context) => ({
-				invocationMessage: localize('onyx.memory.invoking', "Remembering: {0}", String((context.parameters as { note?: unknown }).note ?? '')),
+				invocationMessage: localize('onyx.memory.invoking', "Proposing a note to remember: {0}", String((context.parameters as { note?: unknown }).note ?? '')),
 			}),
-			invoke: async (invocation): Promise<IToolResult> => {
-				const note = (invocation.parameters as { note?: unknown }).note;
-				if (typeof note !== 'string' || !note.trim()) {
-					return { content: [{ kind: 'text', value: 'Error: a non-empty "note" string is required.' }], toolResultError: true };
-				}
-				memoryService.addNote(note);
-				return { content: [{ kind: 'text', value: `Remembered for this workspace: ${note.trim()}` }] };
-			},
+			invoke: invocation => this._invoke(invocation),
 		};
 
 		this._register(toolsService.registerToolData(toolData));
 		this._register(toolsService.registerToolImplementation(ONYX_MEMORY_TOOL_ID, impl));
+	}
+
+	private async _invoke(invocation: IToolInvocation): Promise<IToolResult> {
+		const note = (invocation.parameters as { note?: unknown }).note;
+		if (typeof note !== 'string' || !note.trim()) {
+			return { content: [{ kind: 'text', value: 'Error: a non-empty "note" string is required.' }], toolResultError: true };
+		}
+		const text = note.trim();
+		const runId = this._controlPlaneService.runs.get().find(run => run.requestId === invocation.chatRequestId)?.runId;
+		const origin: OnyxNoteOrigin = runId ? this._controlPlaneService.originOf(runId, text) : { kind: 'model' };
+		if (!await this._confirm(text, origin)) {
+			return { content: [{ kind: 'text', value: 'Error: the user declined to store this note. Nothing was remembered; do not ask again.' }], toolResultError: true };
+		}
+		this._memoryService.addNote(text);
+		return { content: [{ kind: 'text', value: `Remembered for this workspace: ${text}` }] };
+	}
+
+	/**
+	 * The only way a note reaches the memory: the user presses Remember on a
+	 * dialog that shows the note and where its text came from.
+	 */
+	protected async _confirm(text: string, origin: OnyxNoteOrigin): Promise<boolean> {
+		const confirmation = await this._dialogService.prompt<boolean>({
+			type: origin.kind === 'tool-result' ? Severity.Warning : Severity.Info,
+			message: localize('onyx.memory.confirm', "The agent wants to remember a note for this workspace"),
+			detail: [
+				text,
+				'',
+				originLine(origin),
+				localize('onyx.memory.confirm.effect', "A remembered note is added to every later prompt in this workspace until you clear the agent memory."),
+			].join('\n'),
+			buttons: [{ label: localize('onyx.memory.confirm.remember', "Remember"), run: () => true }],
+			cancelButton: { label: localize('onyx.memory.confirm.decline', "Don't Remember"), run: () => false },
+		});
+		return confirmation.result === true;
+	}
+}
+
+/** The line of the confirmation that says where the note's text came from. */
+function originLine(origin: OnyxNoteOrigin): string {
+	switch (origin.kind) {
+		case 'user':
+			return localize('onyx.memory.origin.user', "Where this text came from: your own request.");
+		case 'tool-result':
+			return localize('onyx.memory.origin.toolResult', "Where this text came from: the output of the {0} tool in this run. Text from a file or a command can carry instructions.", origin.tool);
+		case 'model':
+			return localize('onyx.memory.origin.model', "Where this text came from: the model wrote it; it is not in your request or in anything a tool returned in this run.");
 	}
 }

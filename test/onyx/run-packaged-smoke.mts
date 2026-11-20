@@ -31,7 +31,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -93,6 +93,22 @@ const playwrightCli = createRequire(import.meta.url).resolve('@playwright/cli/pl
 
 function pw(...args: string[]) {
 	return execFileSync(process.execPath, [playwrightCli, `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+/**
+ * The value a `run-code` call returned, without the driver's echo of the code
+ * that produced it. The echo contains every literal the script can return, so
+ * a check on the raw output for a prefix such as "approved:" is true whether
+ * or not the script returned it.
+ */
+function pwValue(output: string): string {
+	const raw = /### Result\n(?<value>[\s\S]*?)\n### Ran Playwright code/.exec(output)?.groups?.value ?? output;
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		return typeof parsed === 'string' ? parsed : raw;
+	} catch {
+		return raw;
+	}
 }
 
 const MATH_TS = [
@@ -351,7 +367,7 @@ async function main() {
 	// Terminal: an actual approval dialog naming the exact command.
 	await send('TERMTEST echo onyx-packaged-terminal-ok');
 	await sleep(6000);
-	const approval = pw('run-code', `async (page) => {
+	const approval = pwValue(pw('run-code', `async (page) => {
 		const detail = await page.$('.monaco-dialog-box .dialog-message-detail');
 		if (!detail) { return 'no-dialog'; }
 		const text = await detail.textContent();
@@ -362,10 +378,79 @@ async function main() {
 			if ((await button.textContent())?.includes('Run Once')) { await button.click(); return 'approved:' + text + ' buttons=' + labels.sort().join('+'); }
 		}
 		return 'no-run-once:' + text + ' buttons=' + labels.sort().join('+');
-	}`);
-	check('contract', 'the terminal tool asks before running', approval.includes('approved:'), approval.slice(0, 160));
-	check('contract', 'the approval names the exact command', approval.includes('echo onyx-packaged-terminal-ok'), approval.slice(0, 160));
-	check('contract', 'the approval offers Run Once and Deny, and nothing that outlives the invocation (B2)', /buttons=Deny\+Run Once"/.test(approval), approval.slice(0, 400));
+	}`));
+	check('contract', 'the terminal tool asks before running', approval.startsWith('approved:'), approval.slice(0, 160));
+	check('contract', 'the approval names the exact command', approval.startsWith('approved:echo onyx-packaged-terminal-ok'), approval.slice(0, 160));
+	check('contract', 'the approval offers Run Once and Deny, and nothing that outlives the invocation (B2)', /buttons=Deny\+Run Once$/.test(approval), approval.slice(0, 400));
+	await sleep(4000);
+
+	// --- R-05: the tool capability contract (B3) --------------------------
+	// The reviewed table is read from freshly transpiled output, the same
+	// module the product was built from.
+	const contractPath = path.join(repoRoot, 'out', 'vs', 'workbench', 'contrib', 'onyx', 'common', 'onyxToolContract.js');
+	const contract = fs.existsSync(contractPath)
+		? await import(pathToFileURL(contractPath).href) as { contractInventory(options: { networkTools: boolean }): string[]; ONYX_TOOL_CONTRACT_VERSION: number }
+		: undefined;
+	const defaultInventory = contract?.contractInventory({ networkTools: false }) ?? [];
+	const networkInventory = contract?.contractInventory({ networkTools: true }) ?? [];
+	observed.contractVersion = contract?.ONYX_TOOL_CONTRACT_VERSION;
+	const supportedProfileDefault = [...ESSENTIAL_TOOLS, 'repoSymbols', 'docs'];
+	check('contract', 'R-05: the default tool list is exactly the documented one for the supported profile', JSON.stringify(advertised) === JSON.stringify(supportedProfileDefault), `advertised: ${advertised.join(', ')}`);
+	check('contract', 'R-05: every advertised tool is in the versioned contract\'s default inventory', !!contract && advertised.every(name => defaultInventory.includes(name)), contract ? `outside the contract: ${advertised.filter(name => !defaultInventory.includes(name)).join(', ') || 'none'}` : 'out/ has no onyxToolContract.js: run pnpm run transpile-client first');
+
+	// The supported opt-in: the reviewed network tools. It must not enlarge
+	// the slot budget, must admit nothing but the reviewed rows, and every
+	// network call must still ask.
+	const settingsPath = path.join(userDataDir, 'User', 'settings.json');
+	fs.writeFileSync(settingsPath, JSON.stringify({ ...JSON.parse(fs.readFileSync(settingsPath, 'utf8')), 'onyx.agent.networkTools': true }, null, '\t'));
+	await sleep(3000);
+	const chatTools = async () => ((await fetchJson<{ tools?: { function: { name: string } }[] }>(`http://127.0.0.1:${mockPort}/debug/last-chat`))?.tools ?? []).map(tool => tool.function.name);
+	const runsBeforeOptIn = readRunIndex().length;
+	await send('TOOLTEST inventory the tools again');
+	await waitUntil(() => readRunIndex().length > runsBeforeOptIn, 30_000);
+	await sleep(4000);
+	const optInDefault = await chatTools();
+	check('contract', 'R-05: the network opt-in does not enlarge the slot budget or displace a tool unasked', JSON.stringify(optInDefault) === JSON.stringify(supportedProfileDefault), `advertised: ${optInDefault.join(', ')}`);
+	const runsBeforeAsk = readRunIndex().length;
+	await send('NETTEST https://example.com/onyx-packaged-smoke in the browser');
+	await waitUntil(() => readRunIndex().length > runsBeforeAsk, 30_000);
+	await sleep(5000);
+	const optInAsked = ((await fetchJson<{ tools?: { function: { name: string } }[] }[]>(`http://127.0.0.1:${mockPort}/debug/recent-chats`)) ?? []).map(chat => (chat.tools ?? []).map(tool => tool.function.name)).find(names => names.includes('openBrowserPage')) ?? await chatTools();
+	observed.networkOptInTools = optInAsked;
+	check('contract', 'R-05: with the opt-in, a network tool asked for by name takes a spare slot, within the same eight', JSON.stringify(optInAsked) === JSON.stringify([...ESSENTIAL_TOOLS, 'openBrowserPage', 'readPage']) && !!contract && optInAsked.every(name => networkInventory.includes(name)), `advertised: ${optInAsked.join(', ')}`);
+	const networkApproval = pwValue(pw('run-code', `async (page) => {
+		const detail = await page.$('.monaco-dialog-box .dialog-message-detail');
+		const message = await page.$('.monaco-dialog-box .dialog-message-text');
+		if (!detail) { return 'no-dialog'; }
+		const text = (message ? await message.textContent() : '') + ' :: ' + await detail.textContent();
+		const buttons = await page.$$('.monaco-dialog-box a.monaco-text-button');
+		for (const button of buttons) {
+			if ((await button.textContent())?.includes('Deny')) { await button.click(); return 'denied:' + text; }
+		}
+		return 'no-deny:' + text;
+	}`));
+	check('contract', 'R-05: the opt-in does not bypass approval: a network call asks first, showing the tool and the URL', networkApproval.startsWith('denied:') && networkApproval.includes('use the network') && networkApproval.includes('Tool: openBrowserPage') && networkApproval.includes('https://example.com/onyx-packaged-smoke'), networkApproval.slice(0, 400));
+	await sleep(3000);
+	const networkNotes = readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolResult' && event.data?.label === 'openBrowserPage').map(event => String(event.data?.reason ?? event.data?.ok));
+	check('contract', 'R-05: the denied network call did not run', networkNotes.length === 1 && networkNotes[0].includes('denied by the user'), networkNotes.join(' | ') || 'no openBrowserPage result on the timeline');
+
+	// --- The Agent Host is excluded (B3) -----------------------------------
+	// When upstream's Agent Host starts it writes agenthost.log into the
+	// window's log directory. Several agent runs later there must be none,
+	// and asking for the Agents window must not start one either.
+	const agentHostLogs = () => fs.existsSync(path.join(userDataDir, 'logs')) ? fs.readdirSync(path.join(userDataDir, 'logs'), { recursive: true, encoding: 'utf8' }).filter(name => /agenthost/i.test(name)) : ['no logs directory'];
+	check('contract', 'the Agent Host did not start: no agenthost log in this profile', agentHostLogs().length === 0, agentHostLogs().join(', '));
+	const pageTargets = async () => ((await fetchJson<{ type: string; url: string }[]>(`http://127.0.0.1:${cdpPort}/json/list`)) ?? []).filter(target => target.type === 'page').map(target => target.url.slice(-60));
+	const targetsBefore = await pageTargets();
+	pw('press', 'F1');
+	await sleep(800);
+	pw('run-code', 'async (page) => { await page.fill(".quick-input-box input", ">Open Agents Window"); }');
+	await sleep(1000);
+	pw('press', 'Enter');
+	await sleep(5000);
+	pw('press', 'Escape');
+	const targetsAfter = await pageTargets();
+	check('contract', 'asking for the Agents window opens no second workbench and starts no Agent Host', targetsAfter.length === targetsBefore.length && !targetsAfter.some(url => /sessions/.test(url)) && agentHostLogs().length === 0, `pages before: ${targetsBefore.join(' | ')}; after: ${targetsAfter.join(' | ')}; logs: ${agentHostLogs().join(', ') || 'none'}`);
 }
 
 let aborted: string | undefined;

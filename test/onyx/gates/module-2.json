@@ -55,6 +55,38 @@
 			]
 		},
 		{
+			"id": "R-05-R-59",
+			"title": "B3 tool capability contract at the service layer: the wire carries only contracted tools by default and with the network opt-in (R-05); a stored note needs a confirmation that shows its origin (R-59)",
+			"layer": "service",
+			"regressions": [
+				"R-05",
+				"R-59",
+				"R-36"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxToolContract.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxToolContract"
+			]
+		},
+		{
+			"id": "B3-agent-host",
+			"title": "B3 upstream's Agent Host is excluded: the switch is off and no agent-host session type can start a chat (the packaged smoke and the end-to-end suite check that it never starts)",
+			"layer": "service",
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChatDefaults.test.ts",
+				"src/vs/workbench/contrib/onyx/browser/onyxAgentHost.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxChatDefaults"
+			]
+		},
+		{
 			"id": "sim-mutants",
 			"title": "Every defect fixed in this module has a resurrection mutant that its script and the seeded campaign detect",
 			"layer": "service",

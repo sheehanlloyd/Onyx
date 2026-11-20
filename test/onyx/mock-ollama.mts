@@ -19,6 +19,8 @@
  *   TERMTEST <cmd>  - propose that shell command via the terminal tool
  *   DOCTEST <query> - search the offline docs mirror via the docs tool
  *   PBTEST <name>   - fetch that repository playbook via the playbook tool
+ *   NETTEST <url>   - open that URL via the openBrowserPage tool, when it is
+ *                     offered (the network tools are an opt-in)
  *   READEDITTEST <path> - read that file via the readFile tool, then propose
  *                     an edit whose SEARCH text is a line it read back (R-31);
  *                     answers "no read tool" when readFile is not offered
@@ -295,6 +297,19 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 		const docsQuery = /DOCTEST\s+(.+)/.exec(lastUser.content)![1].trim();
 		send({ ...chunk({ tool_calls: [{ index: 0, id: 'docs_1', type: 'function', function: { name: docsTool.function.name, arguments: '' } }] }) });
 		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ query: docsQuery }) } }] }) });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
+		res.write('data: [DONE]\n\n');
+		res.end();
+		return;
+	}
+	// NETTEST <url> asks to open that URL through the openBrowserPage tool, which
+	// exists only when the user has opted in to the network tools (B3).
+	const netUrl = /NETTEST\s+(\S+)/.exec(lastUser?.content ?? '')?.[1];
+	const browserTool = body.tools?.find((t: any) => t.function.name === 'openBrowserPage');
+	if (netUrl && browserTool && !hasToolResult) {
+		send({ ...chunk({ tool_calls: [{ index: 0, id: 'net_1', type: 'function', function: { name: browserTool.function.name, arguments: '' } }] }) });
+		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ url: netUrl }) } }] }) });
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
 		res.write('data: [DONE]\n\n');

@@ -582,6 +582,33 @@ export function simWorkspaceUri(): URI {
 }
 
 /**
+ * Tools the core registry holds that are not Onyx's: reviewed read tools, the
+ * network tools behind the opt-in, tools the contract excludes, and tools it
+ * has never heard of (an MCP tool, an extension tool, a new core tool, and
+ * one squatting on an essential tool's name). The fakes do nothing but
+ * answer; what matters is whether the harness ever offers or calls them.
+ */
+export const SIM_CORE_TOOLS: readonly { readonly id: string; readonly name: string; readonly source: 'internal' | 'extension' | 'mcp' }[] = [
+	{ id: 'vscode_listCodeUsages', name: 'usages', source: 'internal' },
+	{ id: 'testFailure', name: 'testFailure', source: 'internal' },
+	{ id: 'open_browser_page', name: 'openBrowserPage', source: 'internal' },
+	{ id: 'read_page', name: 'readPage', source: 'internal' },
+	{ id: 'vscode_fetchWebPage_internal', name: 'vscode_fetchWebPage_internal', source: 'internal' },
+	{ id: 'run_in_terminal', name: 'runInTerminal', source: 'internal' },
+	{ id: 'run_task', name: 'runTask', source: 'internal' },
+	{ id: 'create_and_run_task', name: 'createAndRunTask', source: 'internal' },
+	{ id: 'vscode_renameSymbol', name: 'rename', source: 'internal' },
+	{ id: 'run_playwright_code', name: 'runPlaywrightCode', source: 'internal' },
+	{ id: 'kill_terminal', name: 'killTerminal', source: 'internal' },
+	{ id: 'runTests', name: 'runTests', source: 'internal' },
+	{ id: 'manage_todo_list', name: 'todo', source: 'internal' },
+	{ id: 'vscode_brandNewTool_internal', name: 'brandNewTool', source: 'internal' },
+	{ id: 'mcp_filesystem_write', name: 'mcp_filesystem_write', source: 'mcp' },
+	{ id: 'acme_deploy', name: 'acme_deploy', source: 'extension' },
+	{ id: 'copilot_readFile', name: 'readFile', source: 'extension' },
+];
+
+/**
  * The in-memory file system with symbolic links: a linked path reads as its
  * target's content, reports the link type, and resolves to the target's real
  * path. That is all a link is to the code under test.
