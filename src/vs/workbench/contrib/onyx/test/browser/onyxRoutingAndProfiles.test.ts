@@ -32,6 +32,7 @@ function known(key: string, parameterB: number, profile?: Partial<IOnyxModelProf
 		key,
 		discovered: discovered(key, parameterB),
 		profile: { toolCallQuality: 0.85, contextLength: 16384, maxTools: 8, temperature: 0.2, promptStyle: 'full', family: 'test', parameterB, supportsVision: false, ...profile },
+		location: { transport: 'loopback', execution: 'local' },
 	};
 }
 

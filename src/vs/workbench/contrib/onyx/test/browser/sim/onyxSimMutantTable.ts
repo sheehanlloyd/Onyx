@@ -213,6 +213,16 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		}),
 	},
 	{
+		id: 'B14-address-is-locality',
+		fixedBy: 'B14',
+		defect: 'A loopback address was taken to mean local inference: a model the runtime reports as cloud-backed was used like any other, with nothing said (Claude H7; DEC-04; R-17)',
+		detects: 'DEC-04/refused-model-used',
+		resurrects: 'OnyxMutantAddressIsLocalityModelService',
+		script: script('B14-address-is-locality', 'What does this repository do?', [
+			{ kind: 'text', text: 'It adds numbers.' },
+		], { selectedModel: 'cloud' }),
+	},
+	{
 		id: 'B3-uncontracted-tools',
 		fixedBy: 'B3',
 		defect: 'Whatever core\'s tool registry holds reaches the model: `runTask`, `createAndRunTask`, a rename that writes without staging, the browser tools, MCP and extension tools, each with core\'s own confirmations or none (Claude H2; R-05)',

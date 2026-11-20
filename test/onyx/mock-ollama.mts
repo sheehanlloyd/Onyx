@@ -103,6 +103,14 @@ const server = http.createServer((req, res) => {
 		}
 		return json(res, { models: MODELS.map((m: typeof MODELS[number]) => ({ name: m.id, details: { family: m.family, parameter_size: m.parameter_size, quantization_level: m.quantization_level } })) });
 	}
+	if (req.method === 'GET' && url.pathname === '/api/v0/models') {
+		// LM Studio's native model list. Onyx identifies a runtime by what it answers, not by its port
+		// (B14): a server that does not say what it is has not said where its models run.
+		if (KIND !== 'lmstudio') {
+			res.writeHead(404); return res.end();
+		}
+		return json(res, { object: 'list', data: MODELS.map((m: typeof MODELS[number]) => ({ id: m.id, object: 'model', type: 'llm', arch: m.family, quantization: m.quantization_level, max_context_length: m.context_length })) });
+	}
 	if (req.method === 'POST' && url.pathname === '/api/show') {
 		return readBody(req).then(body => {
 			const m = MODELS.find((m: typeof MODELS[number]) => m.id === body.model) ?? MODELS[0];

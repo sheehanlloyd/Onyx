@@ -6,6 +6,7 @@
 import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
 import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
 import { ONYX_TERMINAL_OUTPUT_LIMITS } from '../../../common/onyxTerminalOutput.js';
+import { SIM_CLOUD_MODEL_ID } from './onyxSimFakes.js';
 import { validateToolArguments } from '../../../common/onyxToolArguments.js';
 import { OnyxSimBoundary, SIM_INJECTED_NOTE, SIM_MUST_WARN_COMMANDS, SIM_PROCESS_ENVIRONMENT, SIM_SECRET_ENVIRONMENT_NAMES } from './onyxSimEpisode.js';
 import { SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
@@ -516,6 +517,20 @@ const i14: OnyxSimChecker = state => {
 	return undefined;
 };
 
+/**
+ * DEC-04 (B14), checked beside the fourteen invariants: the rig's runtime also serves a model it reports as
+ * cloud-backed, through the same loopback address. Under the default settings nothing is ever sent to it,
+ * whoever picks it and however.
+ */
+const dec04: OnyxSimChecker = state => {
+	for (const event of events(state)) {
+		if (event.kind === 'request' && event.model === SIM_CLOUD_MODEL_ID) {
+			return `DEC-04/refused-model-used: a prompt was sent to ${event.model}, which its runtime reports as cloud-backed, under the default strict-local setting`;
+		}
+	}
+	return undefined;
+};
+
 export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-01', title: 'No model-authored text reaches a live buffer or the disk before an explicit accept', check: (state, boundary) => i01(state, boundary) ?? i01Disk(state, boundary) },
 	{ id: 'I-02', title: 'No command is dispatched without an affirmative approval for that exact invocation', check: i02 },
@@ -532,6 +547,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-12', title: 'The trace is complete and ordered', check: i12 },
 	{ id: 'I-13', title: 'Retained output, proposal size and queue lengths stay under their caps', check: i13 },
 	{ id: 'I-14', title: 'Nothing a model asks to persist influences a later prompt before the user confirms it with its origin shown', check: i14 },
+	{ id: 'DEC-04', title: 'No prompt is sent to a model the inference settings refuse', check: dec04 },
 ];
 
 /** Invariants the rig cannot observe in Module 1, each with the reason the contract records. */

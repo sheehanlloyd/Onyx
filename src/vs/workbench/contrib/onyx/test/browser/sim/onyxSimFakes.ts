@@ -50,6 +50,9 @@ export interface IOnyxSimScheduler {
 export const SIM_BASE_URL = 'http://localhost:11434/v1';
 export const SIM_MODEL_ID = 'sim-coder:7b';
 export const SIM_MODEL_KEY = 'localhost:11434/sim-coder:7b';
+/** A model the same runtime reports as cloud-backed: reachable through loopback, run somewhere else (B14). */
+export const SIM_CLOUD_MODEL_ID = 'sim-coder:480b-cloud';
+export const SIM_CLOUD_MODEL_KEY = 'localhost:11434/sim-coder:480b-cloud';
 
 export interface IOnyxSimCommandScript {
 	readonly exitCode: number;
@@ -107,11 +110,16 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	}
 
 	get endpoint(): IOnyxEndpoint {
-		return { baseUrl: SIM_BASE_URL, kind: 'ollama', displayName: 'Ollama (simulated)', models: [this.model] };
+		return { baseUrl: SIM_BASE_URL, kind: 'ollama', displayName: 'Ollama (simulated)', models: [this.model, this.cloudModel] };
 	}
 
 	get model(): IOnyxDiscoveredModel {
-		return { id: SIM_MODEL_ID, baseUrl: SIM_BASE_URL, runtime: 'ollama', family: 'sim', parameterB: 7, contextLength: 16384, supportsTools: true, supportsJsonSchema: false };
+		// An Ollama on this machine that reports the model as one it runs itself.
+		return { id: SIM_MODEL_ID, baseUrl: SIM_BASE_URL, runtime: 'ollama', family: 'sim', parameterB: 7, contextLength: 16384, supportsTools: true, supportsJsonSchema: false, execution: 'local' };
+	}
+
+	get cloudModel(): IOnyxDiscoveredModel {
+		return { id: SIM_CLOUD_MODEL_ID, baseUrl: SIM_BASE_URL, runtime: 'ollama', family: 'sim', parameterB: 480, contextLength: 131072, supportsTools: true, supportsJsonSchema: false, execution: 'cloud', remoteHost: 'https://ollama.com:443' };
 	}
 
 	announce(): void {

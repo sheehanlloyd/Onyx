@@ -32,13 +32,17 @@ const COMPLETION_TIMEOUT_MS = 15_000;
 const GIT_RECENT_CACHE_MS = 60_000;
 
 interface IOpenAIModelList {
-	readonly data?: readonly { readonly id: string }[];
+	/** `owned_by` is how llama.cpp's server (`llamacpp`) and vLLM (`vllm`) name themselves in their model list. */
+	readonly data?: readonly { readonly id: string; readonly owned_by?: string }[];
 }
 
 interface IOllamaTagsResponse {
 	readonly models?: readonly {
 		readonly name: string;
 		readonly digest?: string;
+		/** Set for a model Ollama forwards to a remote service instead of running: the remote name and where it is served. */
+		readonly remote_model?: string;
+		readonly remote_host?: string;
 		readonly details?: {
 			readonly family?: string;
 			readonly parameter_size?: string; // e.g. "14.8B"
@@ -718,7 +722,10 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		const lmStudioList = ollamaTags?.models
 			? undefined
 			: await this._fetchJson<ILmStudioModelList>(`${ollamaRootUrl(baseUrl)}/api/v0/models`);
-		const runtime: OnyxRuntimeKind = ollamaTags?.models ? 'ollama' : lmStudioList?.data ? 'lmstudio' : kindHint;
+		// What the server says it is. A well-known port is a hint for a name to show, never an identification.
+		const ownedBy = list.data.map(entry => entry.owned_by).find(owner => owner === 'llamacpp' || owner === 'vllm');
+		const identified: OnyxRuntimeKind | undefined = ollamaTags?.models ? 'ollama' : lmStudioList?.data ? 'lmstudio' : ownedBy === 'llamacpp' ? 'llamacpp' : ownedBy === 'vllm' ? 'vllm' : undefined;
+		const runtime: OnyxRuntimeKind = identified ?? kindHint;
 		// The runtime's own version, for trace provenance (L3); only Ollama reports one today.
 		const ollamaVersion = runtime === 'ollama' ? (await this._fetchJson<{ readonly version?: string }>(`${ollamaRootUrl(baseUrl)}/api/version`))?.version : undefined;
 
@@ -746,6 +753,10 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				// The four known runtimes all accept OpenAI `response_format:
 				// json_schema`; an unidentified server cannot be assumed to.
 				supportsJsonSchema: runtime !== 'generic',
+				// Where the model runs, in the runtime's own account (B14). Ollama marks a model it forwards
+				// with a remote host, and names cloud models with a `cloud` tag; a server that did not
+				// identify itself has said nothing, and nothing is assumed for it.
+				...executionOf(identified, entry.id, tag),
 				digest: tag?.digest,
 				runtimeVersion: ollamaVersion,
 			});
@@ -863,6 +874,17 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 			running.kill();
 		}
 	}
+}
+
+/** What an identified runtime reports about where one of its models runs. */
+function executionOf(identified: OnyxRuntimeKind | undefined, modelId: string, tag: { readonly remote_model?: string; readonly remote_host?: string } | undefined): { readonly execution?: 'local' | 'cloud'; readonly remoteHost?: string } {
+	if (!identified) {
+		return {};
+	}
+	if (identified === 'ollama' && (tag?.remote_host || tag?.remote_model || /(^|[:-])cloud$/.test(modelId))) {
+		return { execution: 'cloud', remoteHost: tag?.remote_host };
+	}
+	return { execution: 'local' };
 }
 
 function clamp(value: number, min: number, max: number): number {

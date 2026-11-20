@@ -25,12 +25,20 @@ have the resources to handle it. Onyx's own surface is the paths listed in
 Onyx's security posture is different from a cloud AI editor's, and the
 differences run in both directions.
 
-**What being local removes.** Your code is never transmitted to a third party.
-There is no vendor account, no API key at rest, no server-side prompt log, no
-retention policy to read, and no provider breach that can expose your source.
-Onyx makes no outbound network requests except to the model runtime endpoints you
-configure, which default to `127.0.0.1`. Being able to say that precisely is the
-main security argument for the whole design.
+**What being local removes.** Onyx has no vendor account, no server-side prompt
+log, no retention policy to read, and no service of its own that your code is
+sent to. It makes no outbound network requests except to model runtime
+endpoints: the ones it discovers on `127.0.0.1` and the ones you configure.
+
+**What that does and does not establish.** With the default settings, prompts go
+only to a runtime on this machine, and only for models that runtime identifies
+and reports as ones it runs itself. Onyx does not use a model the runtime
+reports as cloud-backed, a server that does not say what it is, an endpoint on
+the internet, or (without a separate opt-in) one on your network. All of that
+rests on what the runtime reports. Onyx cannot establish what a runtime, or
+anything between Onyx and it, does with a request after receiving it, and a
+loopback address is evidence of where a request was sent and of nothing else.
+The README's "Where inference happens" lists exactly which fields are read.
 
 **What being local does not remove.** Onyx runs a language model's output against
 your machine, and a model is not a trusted party:

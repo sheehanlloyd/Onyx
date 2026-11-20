@@ -13,6 +13,7 @@ import { OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../
 import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
 import { IOnyxBudgetedMessage, IOnyxTurnPlan } from '../../../common/onyxContextBudget.js';
 import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
+import { decideInferenceUse, IOnyxInferenceLocation, IOnyxInferencePolicy } from '../../../common/onyxInferenceLocation.js';
 import { OnyxTimelineOutput } from '../../../common/onyxTerminalOutput.js';
 import { buildApprovalRequest, IOnyxCommandInvocation, IOnyxTerminalApprovalRequest, normalizeCommand, OnyxTerminalDecision } from '../../../common/onyxTerminalPolicy.js';
 import { IOnyxModelProfile } from '../../../common/onyxTypes.js';
@@ -230,6 +231,13 @@ class OnyxMutantNoEvictionLoop extends OnyxAgentLoop {
 	}
 }
 
+/** B14: the address is taken for the location. Whatever is reached through loopback is used as local. */
+class OnyxMutantAddressIsLocalityModelService extends OnyxModelService {
+	protected override _decideUse(location: IOnyxInferenceLocation, policy: IOnyxInferencePolicy): ReturnType<typeof decideInferenceUse> {
+		return location.transport === 'loopback' ? { allowed: true } : super._decideUse(location, policy);
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -249,6 +257,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B12-no-stream-deadline': { ModelService: OnyxMutantNoDeadlineModelService },
 	'B13-no-output-cap': { AgentLoop: OnyxMutantNoOutputCapLoop },
 	'B13-no-eviction': { AgentLoop: OnyxMutantNoEvictionLoop },
+	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };

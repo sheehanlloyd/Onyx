@@ -63,7 +63,9 @@ suite('OnyxSim', () => {
 			while (generateEpisode(seed).persona !== persona) {
 				seed++;
 			}
-			const episode: OnyxSimEpisode = { ...generateEpisode(seed), userSteps: [], faults: [] };
+			// The persona's own turns, on the default model: no user steps, no faults, and not the cloud-backed
+			// model, which the product refuses before any request (B14).
+			const episode: OnyxSimEpisode = { ...generateEpisode(seed), userSteps: [], faults: [], selectedModel: undefined };
 			const result = await runEpisode(episode);
 			outcomes[persona] = { status: result.status, turns: result.turns, requests: result.trace.split('\n').filter(line => line.includes('"kind":"request"')).length };
 		}
