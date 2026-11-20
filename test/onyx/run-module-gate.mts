@@ -192,10 +192,21 @@ function blocks(result: IGateResult): boolean {
 	return result.outcome === 'fail' || result.outcome === 'missing' || result.outcome === 'unexpected-skip' || result.outcome === 'unexpected-pass';
 }
 
+/**
+ * The package manager the checks will run with, as it answers on PATH. The
+ * gate's commands call `pnpm`; the repository pins its version in package.json
+ * and refuses any other at install time.
+ */
+function packageManagerOnPath(): string {
+	const result = spawnSync('pnpm', ['--version'], { cwd: repoRoot, encoding: 'utf8' });
+	return result.status === 0 ? `pnpm ${result.stdout.trim()}` : 'pnpm is not on PATH (enable it with `corepack enable pnpm`)';
+}
+
 function main(): number {
 	const freshness = isFresh();
 	const state = sourceState();
-	console.log(`module gate ${moduleNumber} · ${state.revision.slice(0, 11)}${state.dirtyEntries ? ` with ${state.dirtyEntries} dirty source entries` : ' (clean source tree)'}`);
+	const packageManager = packageManagerOnPath();
+	console.log(`module gate ${moduleNumber} · ${state.revision.slice(0, 11)}${state.dirtyEntries ? ` with ${state.dirtyEntries} dirty source entries` : ' (clean source tree)'} · node ${process.version} · ${packageManager}`);
 	if (!freshness.fresh) {
 		console.error(`refusing to run on stale output: ${freshness.reason}`);
 		fs.mkdirSync(outDir, { recursive: true });
@@ -233,6 +244,7 @@ function main(): number {
 		ranAt: new Date().toISOString(),
 		platform: `${process.platform}-${process.arch}`,
 		node: process.version,
+		packageManager,
 		build: freshness.stamp?.build,
 		results,
 		passed,

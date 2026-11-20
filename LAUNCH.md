@@ -14,9 +14,10 @@ Gatekeeper-clean install experience.
 ## 1. Build the app
 
 ```bash
-export PATH="/opt/homebrew/opt/node@24/bin:$PATH"
-npm ci
-npm run gulp vscode-darwin-arm64-min      # minified production build
+export PATH="/opt/homebrew/opt/node@24/bin:$PATH"   # Node 24.22.1 or a newer 24.x
+corepack enable pnpm                                # pnpm 12.16.0, pinned in package.json
+GIT_LFS_SKIP_SMUDGE=1 pnpm_config_frozen_lockfile=true pnpm install --frozen-lockfile
+pnpm run gulp vscode-darwin-arm64-min     # minified production build
 # → emits ../VSCode-darwin-arm64/Onyx.app (name comes from product.json)
 ```
 
@@ -66,10 +67,10 @@ hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
 
 ## Pre-flight checklist
 
-- [ ] `npm run typecheck-client`, `npm run valid-layers-check`,
-      `npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx`,
-      `npm run stylelint`, and `./scripts/test.sh --grep Onyx` all green
-- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtimes (45 checks;
+- [ ] `pnpm run typecheck-client`, `pnpm run valid-layers-check`,
+      `pnpm run oxlint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx`,
+      `pnpm run stylelint`, and `./scripts/test.sh --grep Onyx` all green
+- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtimes (47 checks;
       stop a real Ollama/LM Studio on :11434/:1234 first — it refuses otherwise)
 - [ ] The full unit suite (`./scripts/test.sh`) is at zero failures
 - [ ] Fresh-profile launch: onboarding opens on **Connect a Local Runtime**

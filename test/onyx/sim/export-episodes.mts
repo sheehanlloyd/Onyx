@@ -14,7 +14,7 @@
  *
  * `--check` writes nothing and exits non-zero when a file differs from the
  * source, so the JSON copies cannot drift from the TypeScript tables.
- * Needs a current `npm run transpile-client` (it imports from `out/`).
+ * Needs a current `pnpm run transpile-client` (it imports from `out/`).
  */
 
 import fs from 'node:fs';

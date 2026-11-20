@@ -4,7 +4,7 @@ Every number Onyx publishes comes from one script:
 
 ```bash
 export PATH="/opt/homebrew/opt/node@24/bin:$PATH"
-npm run transpile-client                 # the harness imports the real modules from out/
+pnpm run transpile-client                # the harness imports the real modules from out/
 node test/onyx/run-benchmarks.mts
 ```
 

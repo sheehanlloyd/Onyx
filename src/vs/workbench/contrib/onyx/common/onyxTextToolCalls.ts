@@ -91,12 +91,12 @@ function firstString(source: Record<string, unknown>, keys: readonly string[]): 
 
 /** `{"type":"function","function":{"name":…}}` — the OpenAI shape, written as prose. */
 function nestedFunctionName(source: Record<string, unknown>): string | undefined {
-	const fn = source['function'];
+	const fn = source.function;
 	return fn && typeof fn === 'object' ? firstString(fn as Record<string, unknown>, ['name']) : undefined;
 }
 
 function extractParameters(source: Record<string, unknown>): object {
-	const fn = source['function'];
+	const fn = source.function;
 	const holder = (fn && typeof fn === 'object' ? fn as Record<string, unknown> : source);
 	for (const key of ['parameters', 'arguments', 'args', 'input', 'parameter']) {
 		const value = holder[key];

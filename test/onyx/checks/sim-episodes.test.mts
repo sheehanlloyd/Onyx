@@ -10,7 +10,7 @@
  * real SSE path: the scripted tool call on the first request, the scripted
  * answer on the second.
  *
- * Needs a current `npm run transpile-client` (the exporter imports from out/).
+ * Needs a current `pnpm run transpile-client` (the exporter imports from out/).
  *
  *   node --test test/onyx/checks/sim-episodes.test.mts
  */

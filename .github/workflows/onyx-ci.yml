@@ -80,85 +80,90 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      # node_modules is the slowest step by far and only changes with the
-      # lockfile. The paths are every directory build/npm/dirs.ts installs
-      # into (the v1 key cached five of them and lost extensions/node_modules
-      # and the nested server/test trees; A7).
-      - name: Cache node_modules
-        id: cache-node-modules
+      # pnpm comes from corepack, which ships with Node 24 and reads the
+      # version from `packageManager` in package.json, so the pin lives in one
+      # place. build/npm/preinstall.ts refuses any other package manager or
+      # version.
+      - name: Setup pnpm
+        id: pnpm
+        run: |
+          corepack enable pnpm
+          echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+          echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+      # The cache holds pnpm's content-addressed store, never node_modules.
+      # The install below always runs, so its postinstall always runs too: a
+      # warm cache only spares the downloads and the native builds the store
+      # already holds. The npm workflow cached node_modules and skipped the
+      # install on a hit, which is why it needed a step to regenerate what
+      # postinstall writes outside node_modules (A7); that failure mode is
+      # gone, and so is the step. An older store is restored when the
+      # lockfiles change, and pnpm fetches only what it lacks.
+      - name: Cache pnpm store
+        id: cache-pnpm-store
         uses: actions/cache@v4
         with:
-          path: |
-            node_modules
-            build/node_modules
-            build/*/node_modules
-            extensions/node_modules
-            extensions/*/node_modules
-            extensions/*/server/node_modules
-            remote/node_modules
-            remote/*/node_modules
-            test/*/node_modules
-            test/integration/*/node_modules
-          key: onyx-node-modules-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', 'build/npm/dirs.ts', '.nvmrc') }}
+          path: ${{ steps.pnpm.outputs.store }}
+          key: onyx-pnpm-store-v1-${{ runner.os }}-${{ runner.arch }}-pnpm${{ steps.pnpm.outputs.version }}-${{ hashFiles('.nvmrc', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'build/pnpm-lock.yaml', 'build/pnpm-workspace.yaml', 'remote/pnpm-lock.yaml', 'remote/pnpm-workspace.yaml') }}
+          restore-keys: |
+            onyx-pnpm-store-v1-${{ runner.os }}-${{ runner.arch }}-pnpm${{ steps.pnpm.outputs.version }}-
 
+      # Frozen, always: an unfrozen install rewrites pnpm-lock.yaml in place
+      # and is refused by the release-age policy in pnpm-workspace.yaml (A9).
+      # `pnpm_config_frozen_lockfile` carries the setting into the installs
+      # that postinstall runs in build/ and remote/.
       - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci
+        run: pnpm install --frozen-lockfile
         env:
+          pnpm_config_frozen_lockfile: 'true'
           GIT_LFS_SKIP_SMUDGE: '1'
+          # The suites attach to the workbench's own Electron; nothing here
+          # uses the Chromium that @playwright/browser-chromium would fetch.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
           # @vscode/ripgrep downloads its binary through the GitHub releases
           # API, which answers 403 to anonymous calls from a busy runner IP.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # What the cache restored, and what postinstall generates outside it.
-      # Printed before anything consumes them so a warm-cache failure can be
-      # read off the log instead of guessed at (A7).
-      - name: Inventory of restored dependencies
-        run: |
-          echo "cache hit: ${{ steps.cache-node-modules.outputs.cache-hit }}"
-          for artifact in node_modules/.postinstall-state .build/typings/electron.d.ts build/node_modules extensions/node_modules remote/node_modules; do
-            if [ -e "$artifact" ]; then echo "present  $artifact"; else echo "MISSING  $artifact"; fi
-          done
+      # A store restored from an older lockfile keeps packages nothing uses
+      # any more; drop them before the cache step saves it under the new key.
+      - name: Prune the pnpm store
+        if: steps.cache-pnpm-store.outputs.cache-hit != 'true'
+        run: pnpm store prune
 
-      # The cache holds node_modules directories only. postinstall also writes
-      # .build/typings/electron.d.ts, which src/tsconfig.base.json maps the
-      # `electron` module to, and a cache hit skips postinstall: that is why
-      # the warm runs on main failed at typecheck (A7). Regenerate what the
-      # cache cannot hold, and reinstall outright if the restored tree has no
-      # postinstall state at all.
-      - name: Regenerate what the cache does not hold
+      # What the install produced, printed before anything consumes it, so a
+      # warm-cache failure can be read off the log instead of guessed at (A7).
+      # The lockfiles must be exactly as committed: a frozen install that
+      # changed one is a broken install.
+      - name: Inventory of installed dependencies
         run: |
-          missing=$(node --input-type=module -e "
-            import fs from 'node:fs';
-            import { dirs } from './build/npm/dirs.ts';
-            const missing = dirs.filter(dir => fs.existsSync((dir ? dir + '/' : '') + 'package.json') && !fs.existsSync((dir ? dir + '/' : '') + 'node_modules'));
-            if (!fs.existsSync('node_modules/.postinstall-state')) { missing.unshift('node_modules/.postinstall-state'); }
-            console.log(missing.join(' '));
-          ")
-          if [ -n "$missing" ]; then
-            echo "restored dependencies are incomplete ($missing); reinstalling"
-            npm ci
-          fi
-          node build/npm/electronTypes.ts
-          test -f .build/typings/electron.d.ts
-        env:
-          GIT_LFS_SKIP_SMUDGE: '1'
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "node $(node --version), pnpm ${{ steps.pnpm.outputs.version }}"
+          echo "store cache hit: ${{ steps.cache-pnpm-store.outputs.cache-hit }} (${{ steps.pnpm.outputs.store }})"
+          missing=0
+          for artifact in node_modules/.modules.yaml build/node_modules/.modules.yaml remote/node_modules/.modules.yaml extensions/node_modules .build/typings/electron.d.ts; do
+            if [ -e "$artifact" ]; then echo "present  $artifact"; else echo "MISSING  $artifact"; missing=1; fi
+          done
+          git diff --exit-code --stat -- pnpm-lock.yaml build/pnpm-lock.yaml remote/pnpm-lock.yaml
+          exit $missing
 
       - name: Type check
-        run: npm run typecheck-client
+        run: pnpm run typecheck-client
 
       - name: Layer check
-        run: npm run valid-layers-check
+        run: pnpm run valid-layers-check
 
+      # Upstream replaced ESLint with oxlint in 1.147.0. oxlint.config.ts
+      # converts eslint.config.js, so the same rules run under the same names,
+      # the local plugin and the header rule included.
       - name: Lint Onyx sources
-        run: npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx
+        run: pnpm run oxlint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx
 
       - name: Stylelint
-        run: npm run stylelint
+        run: pnpm run stylelint
 
       - name: Compile
-        run: npm run compile
+        run: pnpm run compile
 
       - name: Onyx unit tests
         run: ./scripts/test.sh --grep Onyx
@@ -170,7 +175,7 @@ jobs:
       # autocomplete, the model library, commit messages, review, both code
       # actions, staged edits (Onyx Changes), the gated terminal tool, the
       # offline docs mirror, playbooks, run resume, the refactor engine, the
-      # repo benchmark, speculative decoding and the architecture map — 45
+      # repo benchmark, speculative decoding and the architecture map — 47
       # checks asserted on the run journal and the live DOM. It runs on every
       # push and pull request (A7): the editor is driven through commands,
       # Quick Open, DOM focus and the keyboard, never through synthesized
@@ -236,19 +241,32 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup pnpm
+        run: |
+          corepack enable pnpm
+          pnpm --version
         env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+      # Frozen, and frozen in the build/ and remote/ installs that postinstall
+      # runs (see the `onyx` job above).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          pnpm_config_frozen_lockfile: 'true'
           GIT_LFS_SKIP_SMUDGE: '1'
+          # The suites attach to the workbench's own Electron; nothing here
+          # uses the Chromium that @playwright/browser-chromium would fetch.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build the packaged app
-        run: npm run gulp vscode-darwin-arm64-min
+        run: pnpm run gulp vscode-darwin-arm64-min
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compile built-in extensions for the end-to-end suite
-        run: npm run compile
+        run: pnpm run compile
 
       - name: Fresh output stamp
         run: node test/onyx/run-fresh.mts --stamp-only

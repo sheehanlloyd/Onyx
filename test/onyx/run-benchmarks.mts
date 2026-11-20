@@ -20,7 +20,7 @@
  * that is not running is skipped with a printed reason, so the first half
  * still runs in CI and on any other laptop.
  *
- * Requires a current `npm run transpile-client` (it imports from `out/`).
+ * Requires a current `pnpm run transpile-client` (it imports from `out/`).
  *
  * Every safety invariant it measures is also an assertion (A7, R-23): a
  * parser marker leak, a fuzz crash, a hunk round-trip failure or a miss on
@@ -1208,7 +1208,7 @@ function benchmarkCoverage() {
 
 async function main() {
 	if (!fs.existsSync(out('vs/platform/onyxRuntime/common/onyxBm25.js'))) {
-		throw new Error('run `npm run transpile-client` first — these benchmarks import from out/');
+		throw new Error('run `pnpm run transpile-client` first — these benchmarks import from out/');
 	}
 	if (!asJson) {
 		console.log('Onyx benchmarks — measured on this machine, against this repository\n');

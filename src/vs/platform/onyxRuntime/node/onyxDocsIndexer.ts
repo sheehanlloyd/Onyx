@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 import { basename, dirname, extname, join, relative } from '../../../base/common/path.js';
+import { Promises } from '../../../base/node/pfs.js';
 import { OnyxBm25Index } from '../common/onyxBm25.js';
 import { extractDocSnippet, extractJsDocSections, jsDocSectionsToIndexText } from '../common/onyxDocsExtract.js';
 import { IOnyxDocsHit, IOnyxDocsIndexStats } from '../common/onyxRuntime.js';
@@ -152,7 +153,7 @@ export class OnyxDocsIndexer {
 			}
 			for (const readmeName of ['README.md', 'readme.md', 'Readme.md']) {
 				const readmePath = join(packageRoot, readmeName);
-				if (fs.existsSync(readmePath)) {
+				if (await Promises.exists(readmePath)) {
 					totalBytes += await this._addFile(index, readmePath, MAX_MD_FILE_BYTES);
 					break;
 				}

@@ -1,9 +1,16 @@
 # Onyx plan state
 Plan version: v4
-Current module: 1      Status: gate passed
-Revision: 8b85d0efe70 (branch `module-1`; this file's commit follows it and changes nothing else)
-Isolated checkout: branch `module-1` in a sibling clone of the owner's folder (clone directory `onyx-module-1`), draft PR sheehanlloyd/Onyx#1; the four audit documents are excluded there via `.git/info/exclude` and never committed
-Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53)
+Current module: 1      Status: gate passed, re-run on the new upstream base (DEC-05); Module 2 not started
+Revision: 881936cd52c (branch `upstream-1.147.0`, pull request sheehanlloyd/Onyx#2; this file's commit follows it and changes only documents, one workflow comment and the gate's result files)
+Isolated checkout: branch `upstream-1.147.0` in a sibling clone of the owner's folder (clone directory `onyx-module-1`); the four audit documents are excluded there via `.git/info/exclude` and never committed
+Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
+Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-11-20 the base was 36d38757a15 (August 2026)
+Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; the gate machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
+
+## DEC-05 (upstream baseline)
+Decision: confirmed by the owner on 2026-11-20: move the fork to upstream release 1.147.0. Completed the same day as its own step between Module 1 and Module 2; report in `docs/progress/DEC-05.md`, merge record in `REBASE.md`.
+Module 1 (sheehanlloyd/Onyx#1) was merged into `main` first, with a merge commit (a7d60ac2856), so the pre-registration commit and the Module 1 gate revision 8b85d0efe70 stay ancestors of `main`; the push-to-main run 44676758550 was green before the upstream branch was pushed.
+The move is one `git merge` of the tag (7,778 upstream commits, no rewritten history) and six commits on top. The pull request is merged into `main` with a merge commit only after two consecutive green CI runs.
 
 ## Module 1
 Items done:
@@ -24,20 +31,21 @@ Items done:
 | L1 | l1-sim-rig → #1 | L1.md | R-41, sim-episodes, sim-tables-sync |
 | L2 | l2-harness-contract → #1 | L2.md, docs/research/HARNESS-CONTRACT.md | R-41 (R-42), sim-smoke, sim-tables-sync |
 | L3 | codex/l3-trace-provenance → #1 | L3.md, docs/research/README.md, PREREGISTRATION.md | R-43, R-43-unit, e2e (two R-43 checks) |
+| DEC-05 | upstream-1.147.0 → #2 | DEC-05.md | the whole Module 1 gate, re-run on the merged tree |
 Items remaining: none
 Scope dispositions:
-  A8: release mode included as a harness, expected to fail until B1 and B3 (5 of 15 checks: the four read tools are absent, so read → staged edit → accept cannot run); baseline mode passes
-  A9: trial run on upstream 1.147.0 (pnpm 12.16.0, Node 24.22.1 required); recommendation recorded, decision is DEC-05's
+  A8: release mode included as a harness, expected to fail until B1 and B3 (5 of 15 checks: the four read tools are absent, so read → staged edit → accept cannot run); baseline mode passes. Same five failures and the same eight advertised tools on the 1.147.0 build as on the August base
+  A9: the trial's recommendation was accepted (DEC-05). The trial ran before A11 and L1 to L3 existed and never ran lint or the end-to-end suite, so it predicted five of the nineteen conflicts and none of the six problems that merged without a conflict; `REBASE.md` lists all of them with the check that found each
   L1: the rig does not instantiate the inline-edit controller, the Changes view, diagnostics export, child processes or the memory tool; the contract names the owner item per invariant
   L3: the manifest-driven seed (a lab run without a profile edit) is L9's launcher; the report builder that shares the manifest rule is L19 (the validator in test/onyx/lab/manifest.mts is the single implementation); B12 fills the stream-end class for stalled streams; L4 supplies the harness configuration content
-Baseline exceptions still open (test/onyx/sim/baseline-exceptions.json): I-02/repository-allowlist → B2; I-03/no-time-budget → B12, B10; I-03/status-overwritten → B10; I-04/no-output-cap → B13; I-04/over-budget → B13; I-05/command-after-stop → B10; I-05/stage-after-stop → B10; I-08/inexact-anchor-staged → B6; I-08/ambiguous-anchor-staged → B6, B7; I-11/truncated-reported-complete → B12; I-13/oversized-proposal → B7
+Baseline exceptions still open (test/onyx/sim/baseline-exceptions.json, unchanged by the move): I-02/repository-allowlist → B2; I-03/no-time-budget → B12, B10; I-03/status-overwritten → B10; I-04/no-output-cap → B13; I-04/over-budget → B13; I-05/command-after-stop → B10; I-05/stage-after-stop → B10; I-08/inexact-anchor-staged → B6; I-08/ambiguous-anchor-staged → B6, B7; I-11/truncated-reported-complete → B12; I-13/oversized-proposal → B7
 Mutants added: none (L12 defines the corpus; Modules 2 and 3 add one per fixed defect)
-Gate: `ONYX_PACKAGED_APP=<path to the rebuilt Onyx.app> node test/onyx/run-module-gate.mts --module 1`, 2026-11-20T02:56:20Z, exit 0, docs/progress/gate-module-1.json — "23 checks: 22 passed, 1 expected failure(s), 0 skipped, 0 blocking", fresh output stamped from 8b85d0efe70 with a clean tree, packaged app rebuilt from the same revision first (`npm run gulp vscode-darwin-arm64-min`, exit 0)
-Integration suite (Section 11, run once more after the gate, 2026-11-20T02:56Z to 03:08Z): node v24.20.0; typecheck-client, transpile-client, valid-layers-check, eslint (Onyx paths), stylelint all exit 0; `./scripts/test.sh --grep Onyx` "180 passing, 2 pending" (the two pending are the opt-in campaign and trace-dump tests); `run-benchmarks.mts --skip-models` exit 0; `run-e2e.mts` "all 47 checks passed"; packaged release mode "5 of 15 checks failed" (the named B1/B3 exception, the only failure); packaged baseline mode passed
-Simulation campaign: ONYX_SIM_EPISODES=2000 ONYX_SIM_SEED=1 → 2,000 episodes in 7.4 s (269.7 episodes/s), 28,888 boundaries, statuses completed 1827 / failed 86 / cancelled 87, every violation class in the table (R-42), none outside it
-CI (onyx-ci.yml on module-1): 44637992357 cold (v2 key) green; 44641307251 warm (cache hit) green; 44643548593 warm green; 44645309171 red at hygiene (home-directory paths in the previous STATE.md, fixed in 8b85d0efe70); 44662540238 (8b85d0efe70) green; packaged smoke workflow green on every one of those pushes; the push of this file is the next run
-Human actions waiting: DEC-05. Recommendation (A9.md): keep the current base through Module 1 and rebase onto upstream 1.147.0 at the start of Module 2, because upstream moved to pnpm 12.16.0 and Node 24.22.1 and the trial's merge, install and build succeeded only on that toolchain; the drill workflow keeps the merge-tree and symbol report current meanwhile
+Gate: `ONYX_PACKAGED_APP=<path to the rebuilt Onyx.app> node test/onyx/run-module-gate.mts --module 1`, 2026-11-20T05:49:07Z, exit 0, docs/progress/gate-module-1.json — "23 checks: 22 passed, 1 expected failure(s), 0 skipped, 0 blocking", fresh output stamped from 881936cd52c with a clean tree (node v24.22.3, pnpm 12.16.0), packaged app rebuilt from the same revision first (`pnpm run gulp vscode-darwin-arm64-min`, exit 0; the app reports Onyx 1.147.0, Electron 43.8.9, product.json commit 881936cd52c). The one expected failure is packaged release mode, owner B1 and B3, as before the move
+Integration suite (Section 11, run once more after the gate, 2026-11-20T05:51Z to 06:01Z): node v24.22.3, pnpm 12.16.0; typecheck-client, transpile-client, valid-layers-check, oxlint (Onyx paths, 153 files), stylelint all exit 0; `./scripts/test.sh --grep Onyx` "181 passing, 2 pending" (one more than before the move: the OnyxChatDefaults regression; the two pending are the opt-in campaign and trace-dump tests); `run-benchmarks.mts --skip-models` exit 0; `run-e2e.mts` "all 47 checks passed"; packaged release mode "5 of 15 checks failed" (the named B1/B3 exception, the only failure); packaged baseline mode passed
+Simulation campaign: ONYX_SIM_EPISODES=2000 ONYX_SIM_SEED=1 → 2,000 episodes in 2.8 s (719.8 episodes/s), 28,888 boundaries, statuses completed 1827 / failed 86 / cancelled 87: the same boundaries and status mix as before the move. All eleven classes in the table were seen (R-42), none outside it
+CI on sheehanlloyd/Onyx#2: 44679483500 (the merge commit alone, ed8f992f0cc) red as expected, at hygiene (a new upstream URL in product.json) and at `npm ci` (no package-lock.json any more); 44682021132 (881936cd52c) green on a cold pnpm store, 47 end-to-end checks on Linux; packaged smoke 44682021232 and upstream drill 44682086587 green on the same revision; the push of this file is the second run, on the warm store, and the pull request is merged only if it is green
+Human actions waiting: none
 Notes for the next session:
-  Module 2 enters when this gate is recorded as passed for the current revision: it is (above). Start with B1; the packaged release-mode smoke becomes its acceptance.
-  Never write an absolute path into a committed doc; the hygiene check fails on home directories, and the owner's checkout and the trial clone are both sibling folders of this one.
-  The owner's checkout stays untouched (its index is absent by design); every commit happens in the isolated clone.
+  Module 2 enters on this base: the gate is recorded as passed for 881936cd52c on upstream 1.147.0. Start with B1; the packaged release-mode smoke becomes its acceptance.
+  Toolchain: `corepack enable pnpm`, then always `GIT_LFS_SKIP_SMUDGE=1 pnpm_config_frozen_lockfile=true pnpm install --frozen-lockfile`; an unfrozen install rewrites the lockfile. The gate calls `pnpm`, so it must be on PATH. Lint is `pnpm run oxlint <paths>` and fails on warnings. `REBASE.md`, "Toolchain".
+  Upstream's Agent Host (the Copilot SDK harness) still starts with the product; only the default for a new chat was moved back to the local harness. B3's capability contract should decide whether its session types stay selectable. Never write an absolute path into a committed doc, and the owner's checkout stays untouched.

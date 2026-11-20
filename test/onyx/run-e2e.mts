@@ -13,12 +13,13 @@
  * and asserts on the run journal Onyx writes per workspace. Exits non-zero on
  * the first failed assertion.
  *
- * Requires a current `npm run compile` (or `transpile-client` plus built-in
+ * Requires a current `pnpm run compile` (or `transpile-client` plus built-in
  * extensions) - it runs the app, it does not build it.
  */
 
 import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -92,9 +93,30 @@ async function waitUntil(condition: () => boolean, timeoutMs = 20_000, stepMs = 
 	return condition();
 }
 
+/**
+ * The installed @playwright/cli, run with this Node. Resolved from the
+ * repository's own dependencies, the way the launch skill's paste helper does,
+ * so no package manager's runner (npx, pnpm exec) sits between the suite and
+ * the driver.
+ */
+const playwrightCli = createRequire(import.meta.url).resolve('@playwright/cli/playwright-cli.js');
+
 function pw(...args: string[]) {
-	return execFileSync('npx', ['@playwright/cli', `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+	return execFileSync(process.execPath, [playwrightCli, `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
+
+/**
+ * Flags that keep the workbench under test away from the developer's login
+ * keychain. On macOS the workbench reads its "Safe Storage" key at startup,
+ * synchronously, on the main thread. When the key was created by a different
+ * Electron binary (any Electron upgrade of an unsigned build), macOS asks the
+ * user for permission and the call blocks until they answer; the debugging
+ * endpoint is served from that thread, so it answers once and then hangs, and
+ * the driver times out "retrieving websocket url". That was the whole of the
+ * end-to-end break after the move to upstream 1.147.0 (Electron 43). A mock
+ * keychain removes the prompt and the dependency on per-machine state.
+ */
+const isolationArgs = process.platform === 'darwin' ? ['--use-mock-keychain'] : [];
 
 function git(...args: string[]) {
 	return execFileSync('git', ['-C', workspace, '-c', 'user.email=onyx-e2e@localhost', '-c', 'user.name=onyx-e2e', ...args], { encoding: 'utf8' });
@@ -172,7 +194,8 @@ function seedWorkspace() {
 
 async function isListening(port: number): Promise<boolean> {
 	try {
-		const response = await fetch(`http://127.0.0.1:${port}/json/version`);
+		// A blocked main process accepts the connection and never answers.
+		const response = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(3000) });
 		return response.ok;
 	} catch {
 		return false;
@@ -182,13 +205,8 @@ async function isListening(port: number): Promise<boolean> {
 async function waitForCdp(timeoutMs: number) {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
-		try {
-			const response = await fetch(`http://127.0.0.1:${cdpPort}/json/version`);
-			if (response.ok) {
-				return true;
-			}
-		} catch {
-			// not up yet
+		if (await isListening(cdpPort)) {
+			return true;
 		}
 		await sleep(500);
 	}
@@ -417,6 +435,7 @@ async function main() {
 		`--user-data-dir=${userDataDir}`,
 		`--extensions-dir=${extensionsDir}`,
 		`--remote-debugging-port=${cdpPort}`,
+		...isolationArgs,
 		'--disable-workspace-trust',
 		'--skip-release-notes',
 		workspace,
@@ -430,7 +449,16 @@ async function main() {
 	if (!await waitForCdp(120_000)) {
 		throw new Error('the workbench never opened a CDP endpoint');
 	}
-	pw('attach', `--cdp=http://127.0.0.1:${cdpPort}`);
+	try {
+		pw('attach', `--cdp=http://127.0.0.1:${cdpPort}`);
+	} catch (error) {
+		// Name the cause when the endpoint came up and then went silent,
+		// instead of leaving a 30-second driver timeout to be guessed at.
+		if (!await isListening(cdpPort)) {
+			throw new Error(`the debugging endpoint on :${cdpPort} answered and then stopped: the workbench's main process is blocked, which on macOS means a system prompt (the login keychain) is waiting for an answer`, { cause: error });
+		}
+		throw error;
+	}
 	await sleep(6000);
 
 	// Onboarding: "Connect a Local Runtime" then "Make It Yours".
@@ -767,6 +795,25 @@ try {
 	await main();
 } catch (error) {
 	console.error(`\nE2E aborted: ${error instanceof Error ? error.message : String(error)}`);
+	// A failed driver command carries what it printed; without it an abort
+	// names the command and nothing about why it failed.
+	const output = error as { stdout?: unknown; stderr?: unknown };
+	for (const [stream, text] of [['stdout', output.stdout], ['stderr', output.stderr]] as const) {
+		if (typeof text === 'string' && text.trim()) {
+			console.error(`--- ${stream} of the failed command (last 2000 characters)\n${text.trim().slice(-2000)}`);
+		}
+	}
+	if (error instanceof Error && error.cause instanceof Error) {
+		console.error(`caused by: ${error.cause.message}`);
+	}
+	// What the window showed when the run stopped. The run directory is
+	// removed afterwards unless --keep was passed.
+	try {
+		pw('screenshot', `--filename=${path.join(runDir, 'abort.png')}`);
+		console.error(`screenshot at the abort: ${path.join(runDir, 'abort.png')}${keep ? '' : ' (pass --keep to keep it)'}`);
+	} catch {
+		// no attached session to capture
+	}
 	failures.push('harness');
 } finally {
 	try {

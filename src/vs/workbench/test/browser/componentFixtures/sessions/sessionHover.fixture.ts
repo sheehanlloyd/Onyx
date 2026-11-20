@@ -13,18 +13,14 @@ import { OperatingSystem } from '../../../../../base/common/platform.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { mock } from '../../../../../base/test/common/mock.js';
+import { getSessionApplication } from '../../../../services/sessions/common/sessionApplication.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
-// eslint-disable-next-line local/code-import-patterns
-import { computePullRequestIcon, GitHubPullRequestState } from '../../../../../sessions/contrib/github/common/types.js';
-// eslint-disable-next-line local/code-import-patterns
-import { getSessionSummaryHoverData } from '../../../../../sessions/contrib/sessions/browser/sessionHoverContent.js';
-// eslint-disable-next-line local/code-import-patterns
-import { ISessionsProvidersService } from '../../../../../sessions/services/sessions/browser/sessionsProvidersService.js';
-// eslint-disable-next-line local/code-import-patterns
-import { IGitHubInfo, IGitHubPullRequestRef, ISession, ISessionFileChange, ISessionFolder, ISessionType, ISessionWorkspace, SessionTypeAuthRequirement } from '../../../../../sessions/services/sessions/common/session.js';
-// eslint-disable-next-line local/code-import-patterns
-import { ISessionsProvider } from '../../../../../sessions/services/sessions/common/sessionsProvider.js';
+import { computePullRequestIcon, GitHubPullRequestState } from '../../../../contrib/sessions/common/github/types.js';
+import { getSessionSummaryHoverData } from '../../../../contrib/sessions/browser/sessionHoverContent.js';
+import { ISessionsProvidersService } from '../../../../contrib/sessions/browser/sessionsProvidersService.js';
+import { IChat, IGitHubInfo, IGitHubPullRequestRef, ISession, ISessionFileChange, ISessionFolder, ISessionType, ISessionWorkspace, SessionTypeAuthRequirement } from '../../../../services/sessions/common/session.js';
+import { ISessionsProvider } from '../../../../contrib/sessions/common/sessionsProvider.js';
 import { ISessionSummaryHoverData, SessionSummaryHoverWidget } from '../../../../contrib/chat/browser/agentSessions/sessionSummaryHover.js';
 import { ComponentFixtureContext, defineComponentFixture, defineThemedFixtureGroup } from '../fixtureUtils.js';
 
@@ -53,6 +49,9 @@ interface ISessionSpec {
 	readonly changes?: readonly { readonly insertions: number; readonly deletions: number }[];
 	readonly sessionType?: string;
 	readonly isQuickChat?: boolean;
+	/** A session still classified as external. */
+	readonly isExternal?: boolean;
+	readonly application?: string;
 }
 
 function createWorkspace(spec: IWorkspaceSpec): ISessionWorkspace {
@@ -99,7 +98,12 @@ function createSession(spec: ISessionSpec): ISession {
 		override readonly workspace: IObservable<ISessionWorkspace | undefined> = constObservable(spec.workspace ? createWorkspace(spec.workspace) : undefined);
 		override readonly worktreePending: IObservable<boolean> = constObservable(!!spec.worktreePending);
 		override readonly isQuickChat: IObservable<boolean> = constObservable(!!spec.isQuickChat);
-		override readonly changes: IObservable<readonly ISessionFileChange[]> = constObservable(changes);
+		override readonly isExternal: IObservable<boolean> = constObservable(!!spec.isExternal);
+		override readonly application = constObservable(getSessionApplication(spec.application ?? 'vscode'));
+		override readonly mainChat = constObservable(new class extends mock<IChat>() {
+			override readonly changes = constObservable(changes);
+			override readonly changesets = constObservable([]);
+		}());
 	}();
 }
 
@@ -250,6 +254,23 @@ export default defineThemedFixtureGroup({ path: 'sessions/' }, {
 		render: ctx => renderSessionHover(ctx, {
 			title: '',
 			isQuickChat: true,
+		}),
+	}),
+	// Picked up from another application, so the hover closes by naming where
+	// the session came from.
+	SessionHover_ExternalSession: defineComponentFixture({
+		render: ctx => renderSessionHover(ctx, {
+			title: 'Fix authentication redirect loop',
+			workspace: { root: '/home/user/projects/vscode', branch: 'main' },
+			isExternal: true,
+			application: 'copilot-cli',
+		}),
+	}),
+	SessionHover_CreatedInApplication: defineComponentFixture({
+		render: ctx => renderSessionHover(ctx, {
+			title: 'Fix authentication redirect loop',
+			workspace: { root: '/home/user/projects/vscode', branch: 'main' },
+			application: 'copilot-cli',
 		}),
 	}),
 	SessionHover_LongValues: defineComponentFixture({

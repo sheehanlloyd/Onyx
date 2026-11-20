@@ -1,9 +1,14 @@
 # Contributing to Onyx
 
-> **Cloning:** 98 SQLite test fixtures under `extensions/copilot/test/simulation/cache/` are Git LFS
+> **Cloning:** the SQLite test fixtures under `extensions/copilot/test/simulation/cache/` are Git LFS
 > pointers that Onyx never reads. Clone and install with `GIT_LFS_SKIP_SMUDGE=1` (CI does), or without
-> `git-lfs` installed; the pointers check out as 3-line text files and `npm ci` completes without the
+> `git-lfs` installed; the pointers check out as 3-line text files and the install completes without the
 > fixture warning. Nothing in Onyx needs the fixture contents. See `REBASE.md`, "Git LFS fixtures".
+
+> **Toolchain:** Node 24.22.1 or a newer 24.x, and pnpm 12.16.0, which `corepack enable pnpm` provides
+> from the pin in `package.json`. Install with
+> `GIT_LFS_SKIP_SMUDGE=1 pnpm_config_frozen_lockfile=true pnpm install --frozen-lockfile`; an unfrozen
+> install rewrites the lockfile. npm is refused by the preinstall check.
 
 
 > **Note:** the `CONTRIBUTING.md` in the repository root belongs to upstream
@@ -58,9 +63,9 @@ decision inside a view, it belongs in `common/` with a test.
 Run the gates. All of them pass on `main`; a PR that breaks one will not merge.
 
 ```bash
-npm run typecheck-client
-npm run valid-layers-check
-npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx
+pnpm run typecheck-client
+pnpm run valid-layers-check
+pnpm run oxlint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx
 ./scripts/test.sh --grep Onyx
 ```
 
