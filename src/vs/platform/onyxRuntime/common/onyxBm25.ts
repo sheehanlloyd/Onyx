@@ -61,6 +61,15 @@ export interface IOnyxBm25Hit {
 	readonly score: number;
 }
 
+/** One document as the index holds it: what is needed to put it back without reading the file again. */
+export interface IOnyxBm25Document {
+	readonly path: string;
+	/** The document's length in terms. */
+	readonly length: number;
+	/** term → term frequency in this document. */
+	readonly terms: Readonly<Record<string, number>>;
+}
+
 interface ISerializedIndex {
 	readonly version: 1;
 	readonly docs: Record<string, { tf: Record<string, number>; length: number }>;
@@ -145,6 +154,24 @@ export class OnyxBm25Index {
 			.map(([path, score]) => ({ path, score }))
 			.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))
 			.slice(0, limit);
+	}
+
+	/** The documents, one at a time, so a large index can be written out in pieces. */
+	*documents(): IterableIterator<IOnyxBm25Document> {
+		for (const [path, doc] of this._docs) {
+			yield { path, length: doc.length, terms: Object.fromEntries(doc.termFrequencies) };
+		}
+	}
+
+	/** Puts back a document that {@link documents} gave out. */
+	restoreDocument(document: IOnyxBm25Document): void {
+		this.removeDocument(document.path);
+		const termFrequencies = new Map(Object.entries(document.terms));
+		for (const term of termFrequencies.keys()) {
+			this._documentFrequencies.set(term, (this._documentFrequencies.get(term) ?? 0) + 1);
+		}
+		this._docs.set(document.path, { termFrequencies, length: document.length });
+		this._totalLength += document.length;
 	}
 
 	serialize(): string {

@@ -8,6 +8,7 @@ import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurati
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
+import { ONYX_INDEX_MAX_FILES } from './onyxIndexOptions.js';
 
 export const enum OnyxSettingId {
 	Endpoints = 'onyx.endpoints',
@@ -25,6 +26,7 @@ export const enum OnyxSettingId {
 	TerminalPassEnvironment = 'onyx.terminal.passEnvironment',
 	InferenceStrictLocal = 'onyx.inference.strictLocal',
 	InferenceAllowLan = 'onyx.inference.allowLan',
+	IndexMaxFiles = 'onyx.index.maxFiles',
 }
 
 export interface IOnyxEndpointSetting {
@@ -174,6 +176,15 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.APPLICATION,
 			default: false,
 			markdownDescription: localize('onyx.inference.allowLan', "Use inference endpoints on your local network. Off by default: adding a network address to `onyx.endpoints` lists its models and does not send them anything. With this on, prompts and code are sent to that machine, and whatever else can reach it can use it too."),
+		},
+		[OnyxSettingId.IndexMaxFiles]: {
+			type: 'integer',
+			// A user setting: a workspace cannot raise the memory Onyx uses for it.
+			scope: ConfigurationScope.APPLICATION,
+			default: ONYX_INDEX_MAX_FILES.default,
+			minimum: ONYX_INDEX_MAX_FILES.minimum,
+			maximum: ONYX_INDEX_MAX_FILES.maximum,
+			markdownDescription: localize('onyx.index.maxFiles', "The most files of one workspace folder that Onyx's content index holds. Files that `files.exclude`, `search.exclude` or the folder's `.gitignore` leave out are not indexed. When a folder has more files than this, source folders are indexed first and tests, documentation and examples last, and search results from the index say how much of the folder it holds. The index keeps roughly one and a half times the size of the indexed text in memory, and stops at 256 MB of text whatever this number is."),
 		},
 		[OnyxSettingId.TerminalPassEnvironment]: {
 			type: 'boolean',

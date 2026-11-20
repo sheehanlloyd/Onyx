@@ -21,7 +21,7 @@ import { IWorkbenchEnvironmentService } from '../../../../services/environment/c
 import { buildCoChangeIndex, coChangedWith } from '../../common/onyxCoChange.js';
 import { blendRetrievalSignals } from '../../common/onyxRetrievalBlend.js';
 import { qualifyWorkspacePath, resolveWorkspacePath } from '../../common/onyxWorkspacePaths.js';
-import { bm25PersistPath } from './onyxWorkspaceIndex.js';
+import { bm25PersistPath, indexCoverageNotes } from './onyxWorkspaceIndex.js';
 
 export const ONYX_RETRIEVAL_TOOL_ID = 'onyx_repoSymbols';
 
@@ -175,7 +175,9 @@ export class OnyxRetrievalToolContribution extends Disposable {
 		if (blended.length === 0) {
 			return '';
 		}
-		return blended.map(file => `- ${file.path} (${file.reasons.join(', ')})`).join('\n');
+		// Part of this ranking is by content, and the content index may not hold every file.
+		const coverage = contentHits.length ? (await indexCoverageNotes(this._runtimeService, this._environmentService, this._workspaceService)).map(note => `[${note}]`) : [];
+		return [...blended.map(file => `- ${file.path} (${file.reasons.join(', ')})`), ...coverage].join('\n');
 	}
 
 	/**

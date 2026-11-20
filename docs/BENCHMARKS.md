@@ -114,9 +114,28 @@ no run produced.
 
 **What is measured.** Ten plain-English questions about this repository, each
 paired with the file that actually implements the answer (for example
-*"approval before running a shell command"* → `onyxTerminalPolicy.ts`). Every
-`.ts` file under `src/vs` is indexed with Onyx's own `OnyxBm25Index`. A
+*"approval before running a shell command"* → `onyxTerminalPolicy.ts`). A
 question scores a hit if the right file is in the top 5.
+
+**The corpus is the product's.** Since C7 the index is built by the production
+indexer over the whole repository, under the exclusions the workbench gives it
+when this folder is open (the default `files.exclude` and `search.exclude`
+with this repository's `.vscode/settings.json` merged over them, and the root
+`.gitignore`) and under the default cap. The report states how many files that
+is and how many were eligible. On 2026-11-20 it was 18,205 of 18,205: source,
+tests, documentation and the built-in extensions.
+
+**The current result, and the chart.** On that corpus the index finds 7 of the
+10 files. The chart in the README shows 9 of 10: it was drawn in August 2026,
+when the benchmark indexed only the `.ts` files under `src/vs` (8,673 of them
+then) and the tree was smaller. The difference is the tree, not the corpus:
+the August method run on today's tree (11,863 files) also finds 7, and misses
+the same three. They are `onyxChangeSetService.ts`, which ranks tenth behind
+the README and other prose that describe staging; `onyxTerminalPolicy.ts`,
+behind upstream's own tool-approval tests and the progress reports; and
+`onyxRouterService.ts`, behind upstream's local-model bridge, which arrived
+with the move to 1.147. The chart is redrawn when the retrieval benchmark is
+next published with a manifest (C8).
 
 **The comparison.** The same corpus is searched for the question as a literal
 substring — what an agent without an index falls back to. Natural-language

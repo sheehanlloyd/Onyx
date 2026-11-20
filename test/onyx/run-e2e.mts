@@ -399,6 +399,42 @@ function readRunIndex(): { title: string; task: string; status: string; runId: s
 	}
 }
 
+/** True while the first-run dialog covers the window. It is modal: every click lands on it. */
+function onboardingShown(): boolean {
+	try {
+		return pwValue(pw('run-code', 'async (page) => page.evaluate(() => String(!!document.querySelector(".onboarding-a-overlay.visible")))')) === 'true';
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Steps through the first-run dialog ("Connect a Local Runtime", then "Make It
+ * Yours") if it is up, waiting up to `waitMs` for it to appear. It appears some
+ * time after the window does. On a slow machine that was later than the fixed
+ * pause this runner used to allow, and the dialog then took every later click.
+ */
+async function dismissOnboarding(waitMs: number): Promise<void> {
+	const deadline = Date.now() + waitMs;
+	for (; ;) {
+		if (onboardingShown()) {
+			for (let step = 0; step < 6 && onboardingShown(); step++) {
+				try {
+					pw('click', 'button.onboarding-a-btn-primary');
+				} catch {
+					// the dialog moved to its next step under the click
+				}
+				await sleep(1200);
+			}
+			return;
+		}
+		if (Date.now() >= deadline) {
+			return;
+		}
+		await sleep(1000);
+	}
+}
+
 async function send(prompt: string) {
 	const focusScript = path.join(repoRoot, '.agents', 'skills', 'launch', 'playwrightScripts', 'focus-chat-input.ts');
 	const paste = path.join(repoRoot, '.agents', 'skills', 'launch', 'scripts', 'monaco-paste.sh');
@@ -478,19 +514,13 @@ async function main() {
 	await sleep(6000);
 
 	// Onboarding: "Connect a Local Runtime" then "Make It Yours".
-	for (let i = 0; i < 2; i++) {
-		try {
-			pw('click', 'button.onboarding-a-btn-primary');
-		} catch {
-			break; // already dismissed
-		}
-		await sleep(1500);
-	}
+	await dismissOnboarding(30_000);
 	await sleep(2000);
 
 	// Give the TypeScript server time to load the project before asking for symbols.
 	await sleep(15000);
 
+	await dismissOnboarding(0);
 	await send('TOOLTEST exercise the tool loop');
 	await sleep(9000);
 	await send('SYMTEST computeTotal EXPAND');

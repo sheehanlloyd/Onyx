@@ -32,6 +32,7 @@
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -127,14 +128,29 @@ function sourceFiles(root: string, extensions: ReadonlySet<string>, cap: number)
 }
 
 // ---------------------------------------------------------------- retrieval
+/** The workbench's defaults for `files.exclude` and `search.exclude`, which a workspace's own settings are merged over. */
+const DEFAULT_FILES_EXCLUDE = { '**/.git': true, '**/.svn': true, '**/.hg': true, '**/.jj': true, '**/.DS_Store': true, '**/Thumbs.db': true };
+const DEFAULT_SEARCH_EXCLUDE = { '**/node_modules': true, '**/bower_components': true, '**/*.code-search': true };
+
 /**
  * Retrieval quality on this repository: for each query, does the file that
  * actually defines the thing appear in the top 5? BM25 is compared against the
  * substring search a naive agent would run.
+ *
+ * The corpus is the one the product searches (C7). The index is built by the
+ * production indexer over the whole repository, under the exclusions the
+ * workbench would give it when this folder is open (the default exclude
+ * settings with this repository's `.vscode/settings.json` merged over them,
+ * and the root `.gitignore`) and the default cap. How much of the repository
+ * that covers is a row of the report, so a hit rate is never read against a
+ * corpus the product does not have.
  */
 async function benchmarkRetrieval() {
-	section('Retrieval — BM25 index vs substring search (this repository)');
-	const { OnyxBm25Index, tokenize } = await import(out('vs/platform/onyxRuntime/common/onyxBm25.js'));
+	section('Retrieval — the production content index vs substring search (this repository)');
+	const { tokenize } = await import(out('vs/platform/onyxRuntime/common/onyxBm25.js'));
+	const { OnyxWorkspaceIndexer } = await import(out('vs/platform/onyxRuntime/node/onyxWorkspaceIndexer.js'));
+	const { workspaceIndexOptions } = await import(out('vs/workbench/contrib/onyx/common/onyxIndexOptions.js'));
+	const { parse: parseJsonWithComments } = await import(out('vs/base/common/json.js'));
 
 	// Natural-language queries paired with the file a correct answer must find.
 	const queries: [query: string, mustFind: string][] = [
@@ -150,55 +166,74 @@ async function benchmarkRetrieval() {
 		['elide the middle of an oversized tool result', 'onyxContextCompression.ts'],
 	];
 
-	const files = sourceFiles(path.join(repoRoot, 'src', 'vs'), new Set(['.ts']), 12_000);
-	const index = new OnyxBm25Index();
-	const contents = new Map<string, string>();
-	const buildStart = performance.now();
-	for (const file of files) {
-		try {
-			const text = fs.readFileSync(file, 'utf8');
-			const relative = path.relative(repoRoot, file);
-			contents.set(relative, text);
-			index.addDocument(relative, text);
-		} catch {
-			// unreadable file: skip
-		}
+	let workspaceSettings: Record<string, Record<string, boolean | { when?: string }> | undefined> = {};
+	try {
+		workspaceSettings = parseJsonWithComments(fs.readFileSync(path.join(repoRoot, '.vscode', 'settings.json'), 'utf8')) ?? {};
+	} catch {
+		// no workspace settings: the defaults alone
 	}
-	const buildMs = performance.now() - buildStart;
-	record('retrieval', 'files indexed', index.documentCount, 'files');
-	record('retrieval', 'index build time', buildMs, 'ms', `${Math.round(index.documentCount / (buildMs / 1000))} files/s`);
+	const options = workspaceIndexOptions(
+		{ ...DEFAULT_FILES_EXCLUDE, ...workspaceSettings['files.exclude'] },
+		{ ...DEFAULT_SEARCH_EXCLUDE, ...workspaceSettings['search.exclude'] },
+		undefined);
 
-	let bm25Hits = 0;
-	let substringHits = 0;
-	let bm25TotalMs = 0;
-	for (const [query, mustFind] of queries) {
-		const searchStart = performance.now();
-		const hits = index.search(query, 5);
-		bm25TotalMs += performance.now() - searchStart;
-		if (hits.some((hit: { path: string }) => hit.path.endsWith(mustFind))) {
-			bm25Hits++;
-		}
-		// What a substring search over the same corpus returns: every file
-		// containing the query verbatim, which for a natural-language query is
-		// almost always nothing.
-		const substringMatches: string[] = [];
-		for (const [relative, text] of contents) {
-			if (text.includes(query)) {
-				substringMatches.push(relative);
-				if (substringMatches.length >= 5) {
-					break;
-				}
+	const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'onyx-bench-index-'));
+	const indexer = new OnyxWorkspaceIndexer(repoRoot, path.join(scratch, 'bm25.json'), options);
+	try {
+		const stats: { files: number; eligibleFiles: number; truncated: boolean; buildMs: number } = await indexer.ensure();
+		const indexed: string[] = indexer.indexedPaths();
+		record('retrieval', 'files indexed', stats.files, 'files', `production indexer; cap ${options.maxFiles} files; ${options.exclude.length} exclude patterns and the root .gitignore`);
+		record('retrieval', 'files eligible', stats.eligibleFiles, 'files', stats.truncated ? 'the caps cut the index short' : 'all of them indexed');
+		record('retrieval', 'index coverage', stats.eligibleFiles ? (stats.files / stats.eligibleFiles) * 100 : 0, '%', 'files indexed of files eligible');
+		record('retrieval', 'index build time', stats.buildMs, 'ms', `${Math.round(stats.files / (Math.max(1, stats.buildMs) / 1000))} files/s`);
+
+		const contents = new Map<string, string>();
+		for (const relative of indexed) {
+			try {
+				contents.set(relative, fs.readFileSync(path.join(repoRoot, relative), 'utf8'));
+			} catch {
+				// gone since it was indexed: skip
 			}
 		}
-		if (substringMatches.some(match => match.endsWith(mustFind))) {
-			substringHits++;
+
+		let bm25Hits = 0;
+		let substringHits = 0;
+		let bm25TotalMs = 0;
+		const missed: string[] = [];
+		for (const [query, mustFind] of queries) {
+			const searchStart = performance.now();
+			const hits: { path: string }[] = await indexer.search(query, 5);
+			bm25TotalMs += performance.now() - searchStart;
+			if (hits.some(hit => hit.path.endsWith(mustFind))) {
+				bm25Hits++;
+			} else {
+				missed.push(mustFind);
+			}
+			// What a substring search over the same corpus returns: every file
+			// containing the query verbatim, which for a natural-language query is
+			// almost always nothing.
+			const substringMatches: string[] = [];
+			for (const [relative, text] of contents) {
+				if (text.includes(query)) {
+					substringMatches.push(relative);
+					if (substringMatches.length >= 5) {
+						break;
+					}
+				}
+			}
+			if (substringMatches.some(match => match.endsWith(mustFind))) {
+				substringHits++;
+			}
 		}
+		record('retrieval', 'BM25 hit@5', (bm25Hits / queries.length) * 100, '%', `${bm25Hits}/${queries.length} natural-language queries${missed.length ? `; missed: ${missed.join(', ')}` : ''}`);
+		record('retrieval', 'substring search hit@5', (substringHits / queries.length) * 100, '%', `${substringHits}/${queries.length}`);
+		record('retrieval', 'median query latency', bm25TotalMs / queries.length, 'ms');
+		// Keep the tokenizer honest: a query the index cannot help with.
+		record('retrieval', 'tokens per query (mean)', queries.reduce((total, [query]) => total + tokenize(query).length, 0) / queries.length, 'tokens');
+	} finally {
+		indexer.dispose();
+		fs.rmSync(scratch, { recursive: true, force: true });
 	}
-	record('retrieval', 'BM25 hit@5', (bm25Hits / queries.length) * 100, '%', `${bm25Hits}/${queries.length} natural-language queries`);
-	record('retrieval', 'substring search hit@5', (substringHits / queries.length) * 100, '%', `${substringHits}/${queries.length}`);
-	record('retrieval', 'median query latency', bm25TotalMs / queries.length, 'ms');
-	// Keep the tokenizer honest: a query the index cannot help with.
-	record('retrieval', 'tokens per query (mean)', queries.reduce((total, [query]) => total + tokenize(query).length, 0) / queries.length, 'tokens');
 }
 
 // ------------------------------------------------------------- architecture

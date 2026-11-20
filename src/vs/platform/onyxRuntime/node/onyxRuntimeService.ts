@@ -16,7 +16,7 @@ import { IOnyxCommandProcess, OnyxCommandRunner } from './onyxCommandRunner.js';
 import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
 import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -370,14 +370,25 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	}
 
 	private readonly _indexers = new Map<string, OnyxWorkspaceIndexer>();
+	private readonly _indexOptions = new Map<string, IOnyxIndexOptions>();
 
 	private _indexer(rootPath: string, persistPath: string): OnyxWorkspaceIndexer {
 		let indexer = this._indexers.get(rootPath);
 		if (!indexer) {
-			indexer = new OnyxWorkspaceIndexer(rootPath, persistPath);
+			indexer = new OnyxWorkspaceIndexer(rootPath, persistPath, this._indexOptions.get(rootPath));
 			this._indexers.set(rootPath, indexer);
 		}
 		return indexer;
+	}
+
+	async configureWorkspaceIndex(rootPath: string, options: IOnyxIndexOptions): Promise<void> {
+		const before = JSON.stringify(this._indexOptions.get(rootPath) ?? {});
+		this._indexOptions.set(rootPath, options);
+		if (before !== JSON.stringify(options)) {
+			// An index made under other rules is not this index. The next use loads or builds one under these.
+			this._indexers.get(rootPath)?.dispose();
+			this._indexers.delete(rootPath);
+		}
 	}
 
 	async ensureWorkspaceIndex(rootPath: string, persistPath: string): Promise<IOnyxIndexStats> {

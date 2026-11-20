@@ -18,7 +18,7 @@ import { ILanguageModelToolsService, IToolData, IToolImpl, IToolInvocation, IToo
 import { formatGrepMatch, ONYX_GREP_LINE_MAX_CHARS, ONYX_GREP_MAX_MATCHES, ONYX_GREP_MAX_MATCHES_PER_FILE, ONYX_GREP_SUGGESTIONS } from '../../common/onyxReadTools.js';
 import { qualifyWorkspacePath, workspacePathProblem } from '../../common/onyxWorkspacePaths.js';
 import { IOnyxWorkspaceAccessService } from './onyxWorkspaceAccess.js';
-import { bm25PersistPath } from './onyxWorkspaceIndex.js';
+import { bm25PersistPath, indexCoverageNotes } from './onyxWorkspaceIndex.js';
 
 export const ONYX_GREP_TOOL_ID = 'onyx_grep';
 
@@ -168,10 +168,12 @@ export class OnyxGrepToolContribution extends Disposable {
 		if (lines.length === 0) {
 			const suggestions = await this._suggestions(pattern);
 			const scope = include ? ` in files matching "${include}"` : '';
+			// The suggestions come from the index alone, so they are only as wide as the index is.
+			const coverage = suggestions.length ? (await indexCoverageNotes(this._runtimeService, this._environmentService, this._workspaceService)).map(note => `\n[${note}]`).join('') : '';
 			return {
 				content: [{
 					kind: 'text', value: suggestions.length
-						? `No lines match "${pattern}"${scope}. These files are not matches; they rank highest for the same words in the content index:\n${suggestions.join('\n')}`
+						? `No lines match "${pattern}"${scope}. These files are not matches; they rank highest for the same words in the content index:\n${suggestions.join('\n')}${coverage}`
 						: `No lines match "${pattern}"${scope}. Ignored and excluded files are not searched.`
 				}]
 			};

@@ -72,11 +72,12 @@ test('R-23: the unmodified tree passes every invariant and exits zero', { timeou
 
 test('R-23: an injected marker leak in the parser fails the process and names the invariant', { timeout: 120_000 }, () => {
 	const leaking = overlay(parserModule, source => {
-		const declaration = 'function parseInlineEdits(reply) {';
-		assert.equal(source.includes(declaration), true, `${parserModule} no longer declares ${declaration}`);
+		// The parameter's name is the parser's business: the real parser keeps it, under another name.
+		const declaration = /function parseInlineEdits\((?<parameter>\w+)\) \{/;
+		assert.equal(declaration.test(source), true, `${parserModule} no longer declares function parseInlineEdits(…)`);
 		// The defect: the "parser" returns the reply verbatim as a rewrite, so
 		// every marker in the model's text reaches the edit.
-		return source.replace(declaration, 'function parseInlineEditsLeaking(reply) {')
+		return source.replace(declaration, 'function parseInlineEditsLeaking($<parameter>) {')
 			+ '\nfunction parseInlineEdits(reply) { return { kind: \'rewrite\', text: reply }; }\n';
 	});
 	try {

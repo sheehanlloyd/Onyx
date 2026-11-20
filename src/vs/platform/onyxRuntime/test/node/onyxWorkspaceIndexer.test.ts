@@ -73,6 +73,147 @@ suite('OnyxWorkspaceIndexer', () => {
 		});
 	}));
 
+	test('C7: when the cap cuts, source directories are indexed before tests, documentation and examples, the workspace\'s own before a nested project\'s, and the index says how much of what was eligible it holds', () => withTree({
+		'docs/guide.md': 'guideword\n',
+		'examples/demo.ts': 'export const exampleword = 1;\n',
+		'src/core/engine.ts': 'export const engineword = 1;\n',
+		'src/core/engine.test.ts': 'export const enginetestword = 1;\n',
+		'src/ui/view.ts': 'export const viewword = 1;\n',
+		'test/integration/run.ts': 'export const integrationword = 1;\n',
+		'tools/release.ts': 'export const releaseword = 1;\n',
+		'aaa-first-alphabetically/fixtures/sample.ts': 'export const fixtureword = 1;\n',
+		'aaa-plugins/alpha/src/plugin.ts': 'export const pluginword = 1;\n',
+	}, async (root, persistPath) => {
+		const build = async (maxFiles: number) => {
+			const indexer = new OnyxWorkspaceIndexer(root, join(persistPath, '..', `cap-${maxFiles}.json`), { maxFiles });
+			const stats = await indexer.ensure();
+			const indexed = indexer.indexedPaths();
+			indexer.dispose();
+			return { indexed, files: stats.files, eligibleFiles: stats.eligibleFiles, truncated: stats.truncated };
+		};
+		const roomy = await build(100);
+		assert.deepStrictEqual({ two: await build(2), four: await build(4), roomy: { ...roomy, indexed: roomy.indexed.length } }, {
+			// The source folder at the root of the workspace, ahead of one that sorts before it but sits inside another project.
+			two: { indexed: ['src/core/engine.ts', 'src/ui/view.ts'], files: 2, eligibleFiles: 9, truncated: true },
+			// Then the nested project's source, then the file that is neither source nor test. Tests, docs, examples and fixtures wait.
+			four: { indexed: ['aaa-plugins/alpha/src/plugin.ts', 'src/core/engine.ts', 'src/ui/view.ts', 'tools/release.ts'], files: 4, eligibleFiles: 9, truncated: true },
+			roomy: { indexed: 9, files: 9, eligibleFiles: 9, truncated: false },
+		});
+	}));
+
+	test('C7: the root .gitignore and the workspace\'s exclude patterns are honoured, for the build and for later updates; changing the patterns rebuilds the index', () => withTree({
+		'.gitignore': ['# build output', 'generated/', '*.snap.ts', '/root-only.ts', '!kept-anyway.ts'].join('\n'),
+		'src/app.ts': 'export const appword = 1;\n',
+		'src/app.snap.ts': 'export const snapword = 1;\n',
+		'src/root-only.ts': 'export const nestedrootonlyword = 1;\n',
+		'root-only.ts': 'export const rootonlyword = 1;\n',
+		'generated/client.ts': 'export const generatedword = 1;\n',
+		'packages/a/generated/types.ts': 'export const nestedgeneratedword = 1;\n',
+		'third_party/lib.ts': 'export const thirdpartyword = 1;\n',
+	}, async (root, persistPath) => {
+		const indexer = new OnyxWorkspaceIndexer(root, persistPath, { exclude: ['**/third_party/**'] });
+		const built = await indexer.ensure();
+		const afterBuild = indexer.indexedPaths();
+		// A watcher reports changes to files that are excluded: they stay out.
+		await fs.promises.writeFile(join(root, 'generated/client.ts'), 'export const generatedword = 2; // changed\n');
+		await indexer.update(['generated/client.ts', 'third_party/lib.ts', 'src/app.ts']);
+		const afterUpdate = indexer.indexedPaths();
+		await indexer.flush();
+		indexer.dispose();
+
+		const same = new OnyxWorkspaceIndexer(root, persistPath, { exclude: ['**/third_party/**'] });
+		const sameStats = await same.ensure();
+		same.dispose();
+		const widened = new OnyxWorkspaceIndexer(root, persistPath, { exclude: [] });
+		const widenedStats = await widened.ensure();
+		const widenedPaths = widened.indexedPaths();
+		widened.dispose();
+
+		assert.deepStrictEqual({
+			afterBuild, eligible: built.eligibleFiles, afterUpdate,
+			samePatterns: sameStats.source,
+			otherPatterns: { source: widenedStats.source, paths: widenedPaths },
+		}, {
+			// `/root-only.ts` is anchored to the root: the file of that name under src/ is indexed.
+			afterBuild: ['src/app.ts', 'src/root-only.ts'],
+			eligible: 2,
+			afterUpdate: ['src/app.ts', 'src/root-only.ts'],
+			samePatterns: 'loaded',
+			otherPatterns: { source: 'built', paths: ['src/app.ts', 'src/root-only.ts', 'third_party/lib.ts'] },
+		});
+	}));
+
+	test('C7: a pattern that names a folder keeps what is under it out of later updates too; an edited .gitignore takes effect at the next use; the eligible count follows the tree', () => withTree({
+		'.gitignore': 'scratch/\n',
+		'src/app.ts': 'export const appword = 1;\n',
+		'src/legacy/old.ts': 'export const legacyword = 1;\n',
+		'vendored/lib/deep.ts': 'export const vendoredword = 1;\n',
+		'scratch/notes.ts': 'export const scratchword = 1;\n',
+	}, async (root, persistPath) => {
+		// The way the workbench's own exclude settings are written: the folder, not what is under it.
+		const indexer = new OnyxWorkspaceIndexer(root, persistPath, { exclude: ['**/vendored'] });
+		const built = await indexer.ensure();
+		const afterBuild = indexer.indexedPaths();
+
+		await fs.promises.writeFile(join(root, 'src/added.ts'), 'export const addedword = 1;\n');
+		await indexer.update(['vendored/lib/deep.ts', 'scratch/notes.ts', 'src/added.ts']);
+		const afterUpdate = { paths: indexer.indexedPaths(), files: indexer.stats.files, eligibleFiles: indexer.stats.eligibleFiles };
+
+		// The ignore file changes while the index is in use, and the watcher reports it.
+		await fs.promises.writeFile(join(root, '.gitignore'), 'scratch/\nsrc/legacy/\n');
+		await indexer.update(['.gitignore']);
+		const afterIgnore = { finds: await paths(indexer, 'legacyword'), paths: indexer.indexedPaths(), source: indexer.stats.source, eligibleFiles: indexer.stats.eligibleFiles };
+		indexer.dispose();
+
+		assert.deepStrictEqual({ afterBuild, eligible: built.eligibleFiles, afterUpdate, afterIgnore }, {
+			afterBuild: ['src/app.ts', 'src/legacy/old.ts'],
+			eligible: 2,
+			afterUpdate: { paths: ['src/added.ts', 'src/app.ts', 'src/legacy/old.ts'], files: 3, eligibleFiles: 3 },
+			afterIgnore: { finds: [], paths: ['src/added.ts', 'src/app.ts'], source: 'built', eligibleFiles: 2 },
+		});
+	}));
+
+	test('C7: the index is persisted a document to a line, so it is written and read a batch at a time; a file cut off part-way is rebuilt, not loaded', () => withTree({
+		'src/alpha.ts': 'export const alphaword = 1;\n',
+		'src/beta.ts': 'export const betaword = 2;\n',
+		'src/gamma.ts': 'export const gammaword = 3;\n',
+	}, async (root, persistPath) => {
+		const first = new OnyxWorkspaceIndexer(root, persistPath, { maxFiles: 50 });
+		await first.ensure();
+		await first.flush();
+		first.dispose();
+		const written = await fs.promises.readFile(persistPath, 'utf8');
+		const lines = written.split('\n').filter(line => line.length > 0);
+		const header = JSON.parse(lines[0]) as { format: number; root: string; limits: { maxFiles: number }; exclusions: string[]; truncated: boolean; eligibleFiles: number };
+		const documents = lines.slice(1).map(line => (JSON.parse(line) as [path: string, mtimeMs: number, size: number, length: number, terms: Record<string, number>]));
+		const left = (await fs.promises.readdir(join(persistPath, '..'))).sort();
+
+		// A write that stopped part-way: the last document's line is incomplete.
+		await fs.promises.writeFile(persistPath, written.slice(0, written.length - 12));
+		const second = new OnyxWorkspaceIndexer(root, persistPath, { maxFiles: 50 });
+		const reloaded = await second.ensure();
+		const found = await paths(second, 'gammaword');
+		second.dispose();
+
+		assert.deepStrictEqual({
+			header: { format: header.format, rootIsRecorded: header.root === root, maxFiles: header.limits.maxFiles, exclusions: header.exclusions, truncated: header.truncated, eligibleFiles: header.eligibleFiles },
+			documents: documents.map(([path, , size, length, terms]) => ({ path, size, length, terms: Object.keys(terms).length > 0 })),
+			left,
+			cutOff: { source: reloaded.source, files: reloaded.files, found },
+		}, {
+			header: { format: 3, rootIsRecorded: true, maxFiles: 50, exclusions: [], truncated: false, eligibleFiles: 3 },
+			// One term each: the tokenizer drops the keywords and the digit.
+			documents: [
+				{ path: 'src/alpha.ts', size: 28, length: 1, terms: true },
+				{ path: 'src/beta.ts', size: 27, length: 1, terms: true },
+				{ path: 'src/gamma.ts', size: 28, length: 1, terms: true },
+			],
+			// The file is written beside itself and moved into place: nothing half-written is left behind.
+			left: ['bm25.json'],
+			cutOff: { source: 'built', files: 3, found: ['src/gamma.ts'] },
+		});
+	}));
+
 	test('R-19: that the caps cut the walk short survives persistence, and a file that is not this index is rebuilt, not trusted', () => withTree({
 		'a.ts': 'export const firstword = 1;\n',
 		'b.ts': 'export const two = 2;\n',
