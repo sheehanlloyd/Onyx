@@ -48,6 +48,12 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	overrides: {
 		// The title bar's "Sign In" pill: signing in buys nothing in a local-only product.
 		'chat.titleBar.signIn.enabled': false,
+		// A new chat belongs to the local harness, where the Onyx agent is the
+		// default. Upstream turned both of these on after the August 2026 base:
+		// with them on, every new chat is an Agent Host Copilot session, whose
+		// first message opens a GitHub sign-in dialog and never reaches Onyx.
+		'chat.defaultToCopilotHarness': false,
+		'chat.editor.preferCopilotHarness': false,
 	},
 }]);
 
