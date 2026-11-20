@@ -392,7 +392,7 @@ export class OnyxDiagnosticsRedactor {
 /** The string fields of a measurement record that are exported, and how. Every other string field is left out. */
 const RECORD_STRING_FIELDS: Readonly<Record<string, 'name' | 'display' | 'url'>> = {
 	id: 'name', key: 'name', runtime: 'name', kind: 'name', family: 'name', quantization: 'name', digest: 'name',
-	arch: 'name', platform: 'name', promptStyle: 'name', thermal: 'name', version: 'name',
+	arch: 'name', platform: 'name', promptStyle: 'name', thermal: 'name', version: 'name', source: 'name',
 	// Names the system or the runtime gives itself, which contain spaces: `Apple M3 Max`, `LM Studio`.
 	displayName: 'display', cpuModel: 'display',
 	baseUrl: 'url',

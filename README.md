@@ -256,7 +256,7 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
 <img src="docs/images/onyx-control-plane.png" alt="The Onyx control plane: an adversarial review run with file:line findings" width="900" />
 
 - **The Onyx Control Plane (`⌘⌃O`)** streams every routing decision, model turn
-  and tool call live — with pause, stop and redirect — plus a token-exact context
+  and tool call live — with pause, stop and redirect — plus an estimated context
   budget and an inspector that replays any past run down to the exact wire
   prompt.
 - **A ledger instead of a bill.** Per model, for this session and all

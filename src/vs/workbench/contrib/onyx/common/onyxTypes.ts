@@ -26,7 +26,10 @@ export type OnyxPromptStyle = 'compact' | 'full';
 export interface IOnyxModelProfile {
 	/** 0..1 — how reliably the model emits well-formed tool calls. */
 	readonly toolCallQuality: number;
+	/** The context to budget against, in tokens: the smallest of the numbers in `context` (B13). */
 	readonly contextLength: number;
+	/** Where `contextLength` came from: what the architecture allows, what the server allocates, what was observed to fit. */
+	readonly context?: { readonly architectural?: number; readonly serverConfigured?: number; readonly observed?: number; readonly source: 'observed' | 'server' | 'architectural' | 'default' };
 	/** Maximum number of tools to expose in a single request. */
 	readonly maxTools: number;
 	readonly temperature: number;
@@ -63,6 +66,8 @@ export interface IOnyxObservedStats {
 	/** On-your-repo benchmark: mean score and task count per task kind. */
 	readonly benchScores: Record<string, number>;
 	readonly benchSamples: Record<string, number>;
+	/** The largest request size, in estimated tokens, known to be too much for the runtime: learned from an overflow error (B13). */
+	readonly observedContextTokens?: number;
 }
 
 /** One event in a run's journal. */

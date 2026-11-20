@@ -17,6 +17,7 @@ import { nullExtensionDescription } from '../../../../services/extensions/common
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IChatMessage, IChatResponsePart, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse } from '../../../chat/common/languageModels.js';
 import { getOnyxEndpointSettings, normalizeEndpointBaseUrl, OnyxSettingId } from '../../common/onyxConfiguration.js';
+import { isContextOverflowError } from '../../common/onyxContextBudget.js';
 import { humanizeRuntimeError } from '../../common/onyxRuntimeErrors.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
@@ -44,6 +45,9 @@ export interface IOnyxKnownModel {
 	/** From the system's secret storage (B11). Held in memory for requests; never written to a file by Onyx. */
 	readonly apiKey?: string;
 }
+
+/** The runtime rejected the request because the prompt did not fit its context (B13). */
+export class OnyxContextOverflowError extends Error { }
 
 /** How one chat request ended: what `ILanguageModelChatResponse.result` resolves with for an Onyx model. */
 export interface IOnyxStreamOutcome {
@@ -403,7 +407,8 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						settled = true;
 						// Transport failures reach the user as sentences, not as
 						// undici's `terminated` / `ECONNREFUSED`.
-						const error = new Error(humanizeRuntimeError(event.message, model.discovered.id));
+						const message = humanizeRuntimeError(event.message, model.discovered.id);
+						const error = isContextOverflowError(event.message) ? new OnyxContextOverflowError(message) : new Error(message);
 						source.reject(error);
 						this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
 						this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: 'error', errorMessage: event.message, wasCold });
@@ -425,6 +430,8 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				tools: tools.length ? toWireTools(tools.slice(0, model.profile.maxTools)) : undefined,
 				temperature: model.profile.temperature,
 				seed: model.profile.seed,
+				// The output cap the loop set aside room for (B13). A caller that sets none sends none.
+				maxTokens: typeof options.modelOptions?.maxTokens === 'number' && options.modelOptions.maxTokens > 0 ? options.modelOptions.maxTokens : undefined,
 				// Residency: ask Ollama to hold the weights between requests, so
 				// the next request pays prompt-processing, not model loading.
 				keepAlive: model.discovered.runtime === 'ollama' ? this._keepAliveFor(model) : undefined,

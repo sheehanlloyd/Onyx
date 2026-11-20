@@ -34,8 +34,15 @@ export interface IOnyxDiscoveredModel {
 	readonly parameterB?: number;
 	/** Quantization label, e.g. `Q4_K_M`. */
 	readonly quantization?: string;
-	/** Context window length in tokens, when the runtime reports it. */
+	/** Context window length in tokens, when the runtime reports it: what the model's architecture allows. */
 	readonly contextLength?: number;
+	/**
+	 * The context the server is configured to allocate for this model, when
+	 * it says (B13): Ollama's `num_ctx` parameter, LM Studio's loaded context
+	 * length. Often far smaller than what the architecture allows, and the
+	 * number a prompt actually has to fit.
+	 */
+	readonly serverContextLength?: number;
 	/** Whether the runtime declares tool/function-calling support for this model. */
 	readonly supportsTools?: boolean;
 	/** Whether the runtime declares vision support for this model. */

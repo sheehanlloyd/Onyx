@@ -34,6 +34,12 @@ export interface IOnyxProfileService {
 	setOverride(modelKey: string, patch: Partial<IOnyxModelProfile>): void;
 	/** Records whether one grammar-constrained turn produced a valid envelope. */
 	reportConstrainedOutcome(modelKey: string, ok: boolean): void;
+	/**
+	 * Records that the runtime rejected a request of about `observedTokens`
+	 * as too long (B13). The model's context is budgeted at no more than that
+	 * from then on, until it is measured (L5) or the record is cleared.
+	 */
+	reportContextOverflow(modelKey: string, observedTokens: number): void;
 	/** Records one on-your-repo benchmark score (0..1) for a task kind. */
 	reportBenchScore(modelKey: string, taskKind: string, score: number): void;
 	/** Everything measured and overridden, for the diagnostics bundle. */
@@ -64,6 +70,7 @@ interface IMutableStats {
 	/** Mean on-your-repo benchmark score per task kind, with its sample count. */
 	benchScores: Record<string, number>;
 	benchSamples: Record<string, number>;
+	observedContextTokens?: number;
 }
 
 export class OnyxProfileService extends Disposable implements IOnyxProfileService {
@@ -88,8 +95,8 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 	}
 
 	getProfile(modelKey: string, discovered: IOnyxDiscoveredModel): IOnyxModelProfile {
-		let profile = seedProfile(discovered);
 		const stats = this._stats.get(modelKey);
+		let profile = seedProfile(discovered, stats?.observedContextTokens);
 		if (stats && stats.sampleCount >= 3) {
 			// Observed parse failures outweigh the size-class guess in both directions.
 			const observedQuality = 1 - stats.toolCallParseFailureRate;
@@ -147,6 +154,15 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		stats.acceptSampleCount++;
 		stats.acceptRate = ema(stats.acceptRate === 0 && stats.acceptSampleCount === 1 ? (accepted ? 1 : 0) : stats.acceptRate, accepted ? 1 : 0);
 		this._didChange();
+	}
+
+	reportContextOverflow(modelKey: string, observedTokens: number): void {
+		const stats = this._getOrCreateStats(modelKey);
+		const observed = Math.max(1, Math.floor(observedTokens));
+		// Only ever narrower: one overflow at a small size outweighs any number of larger requests that fit.
+		stats.observedContextTokens = stats.observedContextTokens === undefined ? observed : Math.min(stats.observedContextTokens, observed);
+		this._persistScheduler.schedule();
+		this._onDidChangeProfiles.fire();
 	}
 
 	reportConstrainedOutcome(modelKey: string, ok: boolean): void {
