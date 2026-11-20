@@ -20,7 +20,7 @@ import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
 import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudgetedKind, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
 import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
-import { buildToolEnvelopeFormat, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
+import { buildToolEnvelopeFormat, OnyxEnvelopeAnswerStream, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
 import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
 import { classifyStreamEnd, digestValue, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxPlaybookService } from '../playbooks/onyxPlaybookService.js';
@@ -281,6 +281,15 @@ export class OnyxAgentLoop {
 			// A reasoning model's thinking is taken out before the text reaches anything that reads it (C4):
 			// from `<think>` tags in the text, or from the part of its own a runtime sends it in.
 			const reasoning = this._createReasoningFilter();
+			// A constrained turn is one JSON object. Its answer is read out and shown as it arrives (C6); a
+			// tool action shows nothing until it runs.
+			const envelopeAnswer = constrained ? this._createEnvelopeAnswerStream() : undefined;
+			const showAnswer = (text: string) => {
+				const shown = envelopeAnswer?.push(text);
+				if (shown) {
+					progress([{ kind: 'markdownContent', content: new MarkdownString(shown) }]);
+				}
+			};
 			let streamOutcome: Partial<IOnyxStreamOutcome> | undefined;
 			try {
 				for await (const part of response.stream) {
@@ -289,6 +298,7 @@ export class OnyxAgentLoop {
 							const answer = reasoning.push(item.value);
 							if (answer) {
 								textStream.append(answer);
+								showAnswer(answer);
 							}
 						} else if (item.type === 'thinking') {
 							reasoning.addReasoning(Array.isArray(item.value) ? item.value.join('') : item.value);
@@ -319,6 +329,7 @@ export class OnyxAgentLoop {
 			const thought = reasoning.finish();
 			if (thought.text) {
 				textStream.append(thought.text);
+				showAnswer(thought.text);
 			}
 			if (thought.reasoning) {
 				// Shown, and that is all: it is not parsed, not run and not sent back to the model.
@@ -369,13 +380,17 @@ export class OnyxAgentLoop {
 				} else if (envelope.kind === 'answer') {
 					assistantText = envelope.text;
 					textToolCall = undefined;
-					if (assistantText) {
-						progress([{ kind: 'markdownContent', content: new MarkdownString(assistantText) }]);
+					// Most of the answer was shown as it streamed; what is left is whatever was not.
+					const shown = envelopeAnswer?.shown ?? '';
+					const rest = assistantText.startsWith(shown) ? assistantText.slice(shown.length) : shown ? '' : assistantText;
+					if (rest) {
+						progress([{ kind: 'markdownContent', content: new MarkdownString(rest) }]);
 					}
 				} else {
-					// Degrade honestly: show what the model said instead of guessing.
+					// Degrade honestly: show what the model said instead of guessing. If an answer was already
+					// streaming, it has been shown and is not repeated as raw JSON.
 					run.activity({ kind: 'note', label: 'Constrained turn did not match the envelope', ok: false });
-					if (assistantText) {
+					if (assistantText && !envelopeAnswer?.shown) {
 						progress([{ kind: 'markdownContent', content: new MarkdownString(assistantText) }]);
 					}
 				}
@@ -506,6 +521,11 @@ export class OnyxAgentLoop {
 	/** What decides, as a reply streams, how much of it is withheld in case it is a tool call written as text. */
 	protected _createTextStream(offeredToolNames: readonly string[], emit: (text: string) => void): OnyxAssistantTextStream {
 		return new OnyxAssistantTextStream(offeredToolNames, emit);
+	}
+
+	/** What reads a constrained turn's answer out of its envelope while the envelope is still arriving. */
+	protected _createEnvelopeAnswerStream(): OnyxEnvelopeAnswerStream {
+		return new OnyxEnvelopeAnswerStream();
 	}
 
 	/** What separates a reasoning model's thinking from its answer as the reply streams. */

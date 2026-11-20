@@ -95,7 +95,10 @@ const gatesDir = path.resolve(argValue('--gates') ?? path.join(path.dirname(file
 const outDir = path.resolve(argValue('--out') ?? path.join(repoRoot, 'docs', 'progress'));
 const only = argValue('--only')?.split(',').map(id => id.trim()).filter(Boolean);
 
-/** Scope states recorded in docs/SUPPORT.md as `| C9 | included |`-style rows or `C9: deferred` lines. */
+/**
+ * Scope states recorded in docs/SUPPORT.md as table rows whose first cell begins with the item's id
+ * (`| C9 bounded line diff | included | …`) or as `C9: deferred` lines. Keyed by the id.
+ */
 function readScopeStates(): Map<string, string> {
 	const states = new Map<string, string>();
 	const support = path.join(repoRoot, 'docs', 'SUPPORT.md');
@@ -103,7 +106,7 @@ function readScopeStates(): Map<string, string> {
 		return states;
 	}
 	for (const line of fs.readFileSync(support, 'utf8').split('\n')) {
-		const match = /^\|\s*`?(?<item>[A-Z]\d{1,2}(?: [a-z ]+)?)`?\s*\|\s*\**(?<state>planned|included|deferred)\**/i.exec(line)
+		const match = /^\|\s*`?(?<item>[A-Z]\d{1,2})\b[^|]*\|\s*\**(?<state>planned|included|deferred)\**/i.exec(line)
 			?? /^\s*[-*]?\s*`?(?<item>[A-Z]\d{1,2})`?\s*[:—-]\s*\**(?<state>planned|included|deferred)\**/i.exec(line);
 		if (match?.groups) {
 			states.set(match.groups.item.trim(), match.groups.state.toLowerCase());

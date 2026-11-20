@@ -12,6 +12,7 @@ import { IOnyxStreamOutcome, OnyxModelService } from '../../../browser/model/ony
 import { OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
 import { IOnyxBudgetedMessage, IOnyxTurnPlan } from '../../../common/onyxContextBudget.js';
+import { OnyxEnvelopeAnswerStream } from '../../../common/onyxConstrainedToolCalls.js';
 import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
 import { IOnyxReasoningSplit, OnyxReasoningFilter } from '../../../common/onyxReasoning.js';
 import { OnyxAssistantTextStream } from '../../../common/onyxTextToolCalls.js';
@@ -270,6 +271,22 @@ class OnyxMutantHoldEveryFenceLoop extends OnyxAgentLoop {
 	}
 }
 
+/** C6: nothing of a constrained turn is shown until the whole envelope has arrived. */
+class OnyxMutantSilentEnvelopeAnswerStream extends OnyxEnvelopeAnswerStream {
+	override get shown(): string {
+		return '';
+	}
+	override push(_chunk: string): string {
+		return '';
+	}
+}
+
+class OnyxMutantConstrainedAnswerWithheldLoop extends OnyxAgentLoop {
+	protected override _createEnvelopeAnswerStream(): OnyxEnvelopeAnswerStream {
+		return new OnyxMutantSilentEnvelopeAnswerStream();
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -292,6 +309,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },
+	'C6-constrained-answer-withheld': { AgentLoop: OnyxMutantConstrainedAnswerWithheldLoop },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };

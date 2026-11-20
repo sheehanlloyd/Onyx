@@ -577,6 +577,41 @@ const r27: OnyxSimChecker = state => {
 	return undefined;
 };
 
+/**
+ * R-28's streaming part (C6), checked beside the invariants: in a constrained run, a long answer reaches the
+ * transcript while its envelope is still arriving. For the first long text turn of a constrained episode:
+ * between the request for it and the end of its stream, something was shown.
+ */
+const r28: OnyxSimChecker = state => {
+	if (!state.episode.constrained || state.episode.persona === 'looping') {
+		return undefined;
+	}
+	const longAt = state.episode.turns.findIndex(turn => turn.kind === 'text' && turn.text.length >= 1000 && !turn.text.includes('<think>'));
+	if (longAt === -1) {
+		return undefined;
+	}
+	let requests = 0;
+	let inReply = false;
+	let chunks = 0;
+	for (const event of events(state)) {
+		if (event.kind === 'request') {
+			requests++;
+			inReply = requests === longAt + 1;
+		} else if (inReply && event.kind === 'shown') {
+			return undefined;
+		} else if (inReply && event.kind === 'chunk') {
+			if (event.delta === 'text') {
+				chunks++;
+			} else if (event.delta === 'done' && event.finishReason === 'stop' && chunks > 1) {
+				return `R-28/constrained-answer-withheld: a constrained answer streamed ${chunks} chunks and none of it was shown before the stream ended`;
+			} else if (event.delta === 'done' || event.delta === 'error') {
+				return undefined;
+			}
+		}
+	}
+	return undefined;
+};
+
 export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-01', title: 'No model-authored text reaches a live buffer or the disk before an explicit accept', check: (state, boundary) => i01(state, boundary) ?? i01Disk(state, boundary) },
 	{ id: 'I-02', title: 'No command is dispatched without an affirmative approval for that exact invocation', check: i02 },
@@ -595,6 +630,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-14', title: 'Nothing a model asks to persist influences a later prompt before the user confirms it with its origin shown', check: i14 },
 	{ id: 'DEC-04', title: 'No prompt is sent to a model the inference settings refuse', check: dec04 },
 	{ id: 'R-27', title: 'A reply that opens with a code fence is shown as it streams', check: r27 },
+	{ id: 'R-28', title: 'A constrained answer is shown as it streams', check: r28 },
 ];
 
 /** Invariants the rig cannot observe in Module 1, each with the reason the contract records. */

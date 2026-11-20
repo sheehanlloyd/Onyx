@@ -96,6 +96,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		private readonly _commandScript: (command: string) => IOnyxSimCommandScript,
 		private readonly _commandRefusal: OnyxCommandRefusal | undefined = undefined,
 		private readonly _runtimeContextTokens: number | undefined = undefined,
+		private readonly _enforcesJsonSchema = false,
 	) {
 		super();
 	}
@@ -115,7 +116,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 
 	get model(): IOnyxDiscoveredModel {
 		// An Ollama on this machine that reports the model as one it runs itself.
-		return { id: SIM_MODEL_ID, baseUrl: SIM_BASE_URL, runtime: 'ollama', family: 'sim', parameterB: 7, contextLength: 16384, supportsTools: true, supportsJsonSchema: false, execution: 'local' };
+		return { id: SIM_MODEL_ID, baseUrl: SIM_BASE_URL, runtime: 'ollama', family: 'sim', parameterB: 7, contextLength: 16384, supportsTools: true, supportsJsonSchema: this._enforcesJsonSchema, execution: 'local' };
 	}
 
 	get cloudModel(): IOnyxDiscoveredModel {
@@ -137,6 +138,24 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 
 	async listModels(): Promise<readonly IOnyxDiscoveredModel[]> {
 		return [this.model];
+	}
+
+	/**
+	 * What a runtime that enforces the envelope schema makes of a scripted turn: the model cannot write
+	 * anything but the envelope, so an answer arrives inside one and a tool call arrives as a tool action,
+	 * as text. Thinking, cut-off streams and errors are not the grammar's to shape.
+	 */
+	private _constrain(turn: OnyxSimModelTurn, constrained: boolean): OnyxSimModelTurn {
+		if (!constrained) {
+			return turn;
+		}
+		if (turn.kind === 'text' && !turn.text.includes('<think>')) {
+			return { ...turn, text: JSON.stringify({ action: 'answer', answer: turn.text }) };
+		}
+		if (turn.kind === 'toolCall' && turn.argumentsText === undefined) {
+			return { kind: 'text', text: JSON.stringify({ action: 'tool', tool: turn.tool, arguments: turn.arguments }), reasoning: turn.reasoning };
+		}
+		return turn;
 	}
 
 	/** The next scripted turn; the looping persona repeats its last turn, every other persona falls back to a plain answer. */
@@ -179,7 +198,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			this._emit({ operationId, kind: 'error', message: 'the runtime service was disposed' });
 			return;
 		}
-		const turn = this._nextTurn();
+		const turn = this._constrain(this._nextTurn(), params.responseFormat !== undefined);
 		const op = this._trace.canonical('op', operationId);
 		const emit = async (event: IOnyxStreamEvent, size: number, finishReason?: string) => {
 			await this._scheduler.boundary('betweenChunks');

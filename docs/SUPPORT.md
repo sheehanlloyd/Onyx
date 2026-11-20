@@ -115,7 +115,8 @@ holds back only this:
 | anything nothing has decided | shown after 400 characters |
 
 In a constrained turn (a model whose tool calls are forced into a JSON envelope) the answer is inside the
-envelope; see C6 for how that streams.
+envelope. It is read out and shown as it arrives, escapes decoded (C6); a tool action shows nothing until it
+runs. An answer whose envelope turns out not to match is shown once, not twice.
 
 ## Reasoning models (C4)
 
@@ -337,7 +338,7 @@ tested. The module gate runner reads this table (`| item | state |`).
 
 | Item | State | Owner module | Fallback if deferred (must be tested) |
 |---|---|---|---|
-| C6 incremental constrained-answer streaming | planned | 2 | Explicit buffering status; no streaming claim; R-28 argument validation stays mandatory |
+| C6 incremental constrained-answer streaming | included | 2 | Not needed: included. A constrained turn's answer is read out of its envelope and shown as it arrives (R-28's streaming case, `OnyxConstrainedStreaming`). The envelope schema is unchanged: per-tool `anyOf` schemas were not adopted, so no runtime subset had to be probed for them; what the pinned runtime enforces of a schema is measured by the datasheet (L5) |
 | C7 broader index coverage | planned | 2 | Document the cap and partial coverage; freshness metadata stays mandatory |
 | C9 bounded line diff | planned | 3 | B7 enforces 1,000 lines per side, 1,000,000 LCS cells, 256 KiB before every quadratic diff; R-38 |
 | C10 benign repeated-dot names | planned | 3 | Conservative filename refusal; traversal and symlink refusals stay mandatory |

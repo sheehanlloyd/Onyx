@@ -242,7 +242,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			}
 			return { exitCode: 0, output: command.startsWith('cat ') ? (episode.files[command.slice(4).trim()] ?? '') : `ran: ${command}\n` };
 		};
-		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal, episode.runtimeContextTokens));
+		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal, episode.runtimeContextTokens, episode.constrained === true));
 		this.dialogs = new OnyxSimDialogService(episode.dialogDefault, this, this.trace);
 		this.tools = new OnyxSimToolsService(this, this.trace);
 
@@ -257,7 +257,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IOnyxRuntimeService, this.runtime);
 		instantiationService.stub(IDialogService, this.dialogs);
 		instantiationService.stub(ILanguageModelToolsService, this.tools);
-		const profile: IOnyxModelProfile = { toolCallQuality: 0.9, contextLength: 16384, maxTools: 8, temperature: 0.2, promptStyle: 'full', family: 'sim', parameterB: 7, supportsVision: false, ...episode.profile };
+		// A constrained episode is a model whose tool calls are unreliable enough to be forced into the envelope.
+		const profile: IOnyxModelProfile = { toolCallQuality: episode.constrained ? 0.5 : 0.9, contextLength: 16384, maxTools: 8, temperature: 0.2, promptStyle: 'full', family: 'sim', parameterB: 7, supportsVision: false, ...episode.profile };
 		this.profile = profile;
 		this._profiles = new OnyxSimProfileService(profile);
 		instantiationService.stub(IOnyxProfileService, this._profiles);
