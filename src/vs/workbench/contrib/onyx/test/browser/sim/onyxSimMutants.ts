@@ -10,6 +10,7 @@ import { IOnyxToolExclusion } from '../../../common/onyxToolSlots.js';
 import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMemoryTool.js';
 import { OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
+import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
 import { OnyxTimelineOutput } from '../../../common/onyxTerminalOutput.js';
 import { buildApprovalRequest, IOnyxCommandInvocation, IOnyxTerminalApprovalRequest, normalizeCommand, OnyxTerminalDecision } from '../../../common/onyxTerminalPolicy.js';
 import { IOnyxModelProfile } from '../../../common/onyxTypes.js';
@@ -164,6 +165,33 @@ class OnyxMutantOutlivingCommandTerminal extends OnyxTerminalService {
 	protected override async _killRunningForShutdown(): Promise<void> { }
 }
 
+/**
+ * B11: the redaction before the allowlist. An event is kept whole; only the `value` of a prompt message
+ * part and the text of a steering note are replaced. Tool parameters, labels, reasons, commands, output,
+ * paths and the model's reply all stay.
+ */
+class OnyxMutantValueOnlyRedactor extends OnyxDiagnosticsRedactor {
+	override event(event: unknown): Record<string, unknown> | undefined {
+		if (typeof event !== 'object' || event === null) {
+			return undefined;
+		}
+		const copy = JSON.parse(JSON.stringify(event)) as { kind?: string; data?: { kind?: string; reason?: unknown; messages?: { content?: { value?: unknown }[] }[] } };
+		if (copy.kind === 'promptSnapshot') {
+			for (const message of copy.data?.messages ?? []) {
+				for (const part of message.content ?? []) {
+					if (typeof part.value === 'string') {
+						part.value = `[redacted ${part.value.length} chars]`;
+					}
+				}
+			}
+		}
+		if (copy.kind === 'note' && copy.data?.kind === 'steer' && typeof copy.data.reason === 'string') {
+			copy.data.reason = `[redacted ${copy.data.reason.length} chars]`;
+		}
+		return copy;
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -177,6 +205,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B5-full-environment': { TerminalService: OnyxMutantFullEnvironmentTerminal },
 	'B5-cwd-ignored': { TerminalService: OnyxMutantCwdIgnoredTerminal },
 	'B5-command-outlives-window': { TerminalService: OnyxMutantOutlivingCommandTerminal },
+	'B11-value-only-redaction': { DiagnosticsRedactor: OnyxMutantValueOnlyRedactor },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };

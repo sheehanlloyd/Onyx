@@ -108,8 +108,9 @@ hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
       then shows the exact `lms load --speculative-draft-model …` command
 - [ ] `Onyx: Run in Parallel` races models in worktrees and leaves none behind
       (`git worktree list` shows only the repository itself afterwards)
-- [ ] `Onyx: Export Diagnostics` writes a readable zip and the redaction
-      checkbox is unchecked by default
+- [ ] `Onyx: Export Diagnostics` writes a readable zip, the content
+      checkbox is unchecked by default, and the bundle's `README.txt` says
+      which kind of bundle it is
 - [ ] With no runtime: the designed "No local model yet" state in chat and the
       control plane, no errors in the console; killing the runtime mid-answer
       shows a plain-language message, never `terminated`
