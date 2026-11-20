@@ -42,6 +42,11 @@ import { OnyxDocsToolContribution } from '../browser/intelligence/onyxDocsTool.j
 import { IOnyxPlaybookService, OnyxPlaybookService } from '../browser/playbooks/onyxPlaybookService.js';
 import { OnyxPlaybookToolContribution } from '../browser/playbooks/onyxPlaybookTool.js';
 import { OnyxRetrievalToolContribution } from '../browser/intelligence/onyxRetrievalTool.js';
+import { OnyxReadFileToolContribution } from '../browser/intelligence/onyxReadFileTool.js';
+import { OnyxListDirectoryToolContribution } from '../browser/intelligence/onyxListDirectoryTool.js';
+import { OnyxFindFilesToolContribution } from '../browser/intelligence/onyxFindFilesTool.js';
+import { OnyxGrepToolContribution } from '../browser/intelligence/onyxGrepTool.js';
+import { IOnyxWorkspaceAccessService, OnyxWorkspaceAccessService } from '../browser/intelligence/onyxWorkspaceAccess.js';
 import { OnyxWorkspaceIndexContribution } from '../browser/intelligence/onyxWorkspaceIndex.js';
 import { OnyxBenchmark } from '../browser/benchmark/onyxBenchmark.js';
 import { OnyxRepoBenchmark } from '../browser/benchmark/onyxRepoBenchmark.js';
@@ -93,6 +98,7 @@ registerSingleton(IOnyxChangeSetService, OnyxChangeSetService, InstantiationType
 registerSingleton(IOnyxTerminalService, OnyxTerminalService, InstantiationType.Delayed);
 registerSingleton(IOnyxSpeculativeService, OnyxSpeculativeService, InstantiationType.Delayed);
 registerSingleton(IOnyxPlaybookService, OnyxPlaybookService, InstantiationType.Delayed);
+registerSingleton(IOnyxWorkspaceAccessService, OnyxWorkspaceAccessService, InstantiationType.Delayed);
 
 /**
  * Registers the `onyx` language model vendor and provider with the chat stack
@@ -185,6 +191,10 @@ registerWorkbenchContribution2(OnyxModelsContribution.ID, OnyxModelsContribution
 registerWorkbenchContribution2(OnyxChatAgentContribution.ID, OnyxChatAgentContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxStatusBarContribution.ID, OnyxStatusBarContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxInlineCompletionsContribution.ID, OnyxInlineCompletionsContribution, WorkbenchPhase.Eventually);
+registerWorkbenchContribution2(OnyxReadFileToolContribution.ID, OnyxReadFileToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxListDirectoryToolContribution.ID, OnyxListDirectoryToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxFindFilesToolContribution.ID, OnyxFindFilesToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxGrepToolContribution.ID, OnyxGrepToolContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxRetrievalToolContribution.ID, OnyxRetrievalToolContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxEditToolContribution.ID, OnyxEditToolContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxTerminalToolContribution.ID, OnyxTerminalToolContribution, WorkbenchPhase.AfterRestored);

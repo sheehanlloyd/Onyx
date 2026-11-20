@@ -48,8 +48,18 @@ function code() {
 		DISABLE_TEST_EXTENSION=""
 	fi
 
+	# Onyx: a development launch runs the tools the packaged product ships.
+	# The Copilot extension under extensions/copilot is not part of that
+	# product (build/lib/extensions.ts excludes it), so it is disabled here
+	# too. Opt in for upstream work with ONYX_DEV_COPILOT=1 (and compile it
+	# with `pnpm run compile-copilot`).
+	DISABLE_COPILOT_EXTENSION="--disable-extension=GitHub.copilot-chat"
+	if [[ -n "${ONYX_DEV_COPILOT}" ]]; then
+		DISABLE_COPILOT_EXTENSION=""
+	fi
+
 	# Launch Code
-	exec "$CODE" . $DISABLE_TEST_EXTENSION "$@"
+	exec "$CODE" . $DISABLE_TEST_EXTENSION $DISABLE_COPILOT_EXTENSION "$@"
 }
 
 function code-wsl()

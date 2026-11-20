@@ -1,8 +1,8 @@
 {
-	"name": "e2e-readedittest-no-read-tool",
+	"name": "b1-read-only-profile",
 	"seed": 0,
 	"persona": "well-behaved",
-	"prompt": "READEDITTEST src/math.ts",
+	"prompt": "What does addNumbers do?",
 	"files": {
 		"src/math.ts": "export function addNumbers(a: number, b: number): number {\n\treturn a + b;\n}\n\nexport function multiply(a: number, b: number): number {\n\treturn a * b;\n}\n\nexport function total(values: number[]): number {\n\treturn values.reduce((sum, value) => addNumbers(sum, value), 0);\n}\n",
 		"src/util.ts": "export function clamp(value: number, min: number, max: number): number {\n\treturn Math.min(max, Math.max(min, value));\n}\n",
@@ -11,11 +11,32 @@
 	"target": "src/math.ts",
 	"turns": [
 		{
+			"kind": "toolCall",
+			"tool": "readFile",
+			"arguments": {
+				"path": "src/math.ts"
+			},
+			"id": "read_1"
+		},
+		{
+			"kind": "toolCall",
+			"tool": "editFile",
+			"arguments": {
+				"path": "src/math.ts",
+				"search": "\treturn a + b;",
+				"replace": "\treturn b + a;"
+			},
+			"id": "edit_1"
+		},
+		{
 			"kind": "text",
-			"text": "I have no read tool: readFile was not offered, so I cannot read the file before editing it."
+			"text": "It adds two numbers."
 		}
 	],
 	"dialogDefault": "allow-once",
 	"userSteps": [],
-	"faults": []
+	"faults": [],
+	"profile": {
+		"maxTools": 3
+	}
 }

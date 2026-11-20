@@ -313,23 +313,40 @@ async function main() {
 	const toolCalls = readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall').map(event => String(event.data?.label ?? ''));
 	check('contract', 'the model read the file through the read tool before editing', toolCalls.includes('readFile'), `tool calls: ${toolCalls.join(', ') || 'none'}`);
 	check('contract', 'the edit was staged, not written', fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8') === MATH_TS && stagedSummary().includes('reviews them in Onyx Changes'), 'file changed on disk, or nothing was staged');
-	pw('press', 'F1');
-	await sleep(800);
-	pw('run-code', 'async (page) => { await page.fill(".quick-input-box input", ">Open Onyx Control Plane"); }');
-	await sleep(800);
-	pw('press', 'Enter');
-	const readChanges = () => pw('run-code', 'async (page) => page.evaluate(() => ({ files: Array.from(document.querySelectorAll(".onyx-change-file-path")).map(el => el.textContent), hunks: Array.from(document.querySelectorAll(".onyx-change-hunk .onyx-change-line-removed, .onyx-change-hunk del")).map(el => el.textContent) }))');
+	const openControlPlane = async () => {
+		pw('press', 'F1');
+		await sleep(800);
+		pw('run-code', 'async (page) => { await page.fill(".quick-input-box input", ">Open Onyx Control Plane"); }');
+		await sleep(800);
+		pw('press', 'Enter');
+	};
+	await openControlPlane();
+	// A staged file is listed collapsed; its hunks render once its header is
+	// expanded. A removed line reads "− <text>" and an added one "+ <text>".
+	const readChanges = () => pw('run-code', 'async (page) => page.evaluate(() => JSON.stringify({ files: Array.from(document.querySelectorAll(".onyx-change-file-path")).map(el => el.textContent), removed: Array.from(document.querySelectorAll(".onyx-change-hunk .onyx-change-line.removed")).map(el => el.textContent), added: Array.from(document.querySelectorAll(".onyx-change-hunk .onyx-change-line.added")).map(el => el.textContent) }))');
+	const editorText = () => pw('run-code', 'async (page) => page.evaluate(() => Array.from(document.querySelectorAll(".editor-instance .view-line")).map(l => l.textContent || "").join(" / ").slice(0, 600))');
+	const editCalls = () => readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall' && event.data?.label === 'editFile').length;
 	await waitUntil(() => readChanges().includes('src/math.ts'), 15_000);
+	pw('run-code', 'async (page) => { const header = await page.$(".onyx-change-file-header[aria-expanded=false]"); if (header) { await header.click(); } }');
+	await waitUntil(() => readChanges().includes('return a + b;'), 10_000);
 	const changes = readChanges();
-	check('contract', 'the staged hunk shows the content the model read (R-31)', changes.includes('src/math.ts') && changes.includes('return a + b;'), changes.slice(0, 200));
+	// The hunk under review is the line the model read (R-31): removed once
+	// as it is in the file, added once with the edit, and nothing else.
+	const hunk = /"removed\\?":\s*\[(?<removed>[^\]]*)\],\s*\\?"added\\?":\s*\[(?<added>[^\]]*)\]/.exec(changes)?.groups;
+	const oneLineEach = !!hunk && hunk.removed.includes('return a + b;') && !hunk.removed.includes('edited-by-mock') && hunk.added.includes('return a + b; // edited-by-mock') && !hunk.removed.includes(',') && !hunk.added.includes(',');
+	check('contract', 'the staged hunk shows the content the model read (R-31)', changes.includes('src/math.ts') && oneLineEach, changes.slice(0, 400));
 	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
 	await sleep(1500);
-	check('contract', 'rejecting leaves the file untouched', fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8') === MATH_TS);
+	check('contract', 'rejecting leaves the file untouched', fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8') === MATH_TS && !editorText().includes('edited-by-mock'));
+	const editCallsBefore = editCalls();
 	await send('READEDITTEST src/math.ts');
-	await waitUntil(() => readChanges().includes('src/math.ts'), 40_000);
+	await waitUntil(() => editCalls() > editCallsBefore, 40_000);
+	// Sending focused the chat, which hides the Control Plane and its Changes view.
+	await openControlPlane();
+	const stagedAgain = await waitUntil(() => editCalls() > editCallsBefore && readChanges().includes('src/math.ts'), 20_000);
 	pw('run-code', 'async (page) => { const button = await page.$(".onyx-changes-summary button"); if (button) { await button.click(); } }'); // Accept All
-	const accepted = await waitUntil(() => pw('run-code', 'async (page) => page.evaluate(() => Array.from(document.querySelectorAll(".editor-instance .view-line")).some(l => (l.textContent || "").includes("edited-by-mock")))').includes('true'), 15_000);
-	check('contract', 'accepting applies the reviewed hunk to the buffer', accepted);
+	const accepted = await waitUntil(() => editorText().includes('edited-by-mock'), 15_000);
+	check('contract', 'accepting applies the reviewed hunk to the buffer', stagedAgain && accepted, `staged again: ${stagedAgain}; changes: ${readChanges().slice(0, 200)}; editor: ${editorText().slice(0, 300)}`);
 
 	// Terminal: an actual approval dialog naming the exact command.
 	await send('TERMTEST echo onyx-packaged-terminal-ok');

@@ -16,17 +16,13 @@ import { localize } from '../../../../../nls.js';
 import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePart, ILanguageModelChatMetadata, ILanguageModelsService } from '../../../chat/common/languageModels.js';
 import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
-import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
+import { ILanguageModelToolsService } from '../../../chat/common/tools/languageModelToolsService.js';
 import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
 import { buildToolEnvelopeFormat, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
 import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
 import { classifyStreamEnd, digestValue, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
-import { ONYX_EDIT_TOOL_ID } from '../changes/onyxEditTool.js';
-import { ONYX_DOCS_TOOL_ID } from '../intelligence/onyxDocsTool.js';
-import { ONYX_MEMORY_TOOL_ID } from '../intelligence/onyxMemoryTool.js';
-import { ONYX_PLAYBOOK_TOOL_ID } from '../playbooks/onyxPlaybookTool.js';
-import { ONYX_RETRIEVAL_TOOL_ID } from '../intelligence/onyxRetrievalTool.js';
-import { ONYX_TERMINAL_TOOL_ID } from '../terminal/onyxTerminalTool.js';
+import { IOnyxPlaybookService } from '../playbooks/onyxPlaybookService.js';
+import { IOnyxToolExclusion, ONYX_MIN_EDIT_SLOTS, OnyxToolSlotSelection, requestedOptionalTools, selectToolSlots } from '../../common/onyxToolSlots.js';
 import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
 import { qualifyWorkspacePath } from '../../common/onyxWorkspacePaths.js';
@@ -73,6 +69,7 @@ export class OnyxAgentLoop {
 		@IOnyxProfileService private readonly _profileService: IOnyxProfileService,
 		@IOnyxPromptCacheService private readonly _promptCacheService: IOnyxPromptCacheService,
 		@IOnyxProjectConfigService private readonly _projectConfigService: IOnyxProjectConfigService,
+		@IOnyxPlaybookService private readonly _playbookService: IOnyxPlaybookService,
 		@ILogService private readonly _logService: ILogService,
 	) { }
 
@@ -134,7 +131,25 @@ export class OnyxAgentLoop {
 		profile: IOnyxModelProfile,
 		run: ReturnType<IOnyxControlPlaneService['beginRun']>,
 	): Promise<IChatAgentResult> {
-		const { tools, toolIdsByName } = this._selectTools(request, metadata, profile);
+		const selection = this._selectTools(request, metadata, profile);
+		if (selection.kind === 'refused') {
+			// An editing agent with part of its tool set looks usable and is not
+			// (R-36): say which capability is missing and why, and run nothing.
+			run.activity({ kind: 'note', label: 'Agent run refused: an essential tool is unavailable', reason: selection.message, ok: false });
+			run.complete('failed');
+			return {
+				errorDetails: {
+					message: localize('onyx.agent.missingEssentialTools', "This agent run was not started because it needs {0}. Onyx does not run an editing agent with part of its tool set; enable what is missing and try again.",
+						selection.missing.map(entry => localize('onyx.agent.missingEssentialTool', "{0} ({1})", entry.name, entry.reason)).join(', ')),
+				},
+			};
+		}
+		const tools: IRequestTool[] = selection.tools.map(tool => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema }));
+		const toolIdsByName = new Map(selection.tools.map(tool => [tool.name, tool.id]));
+		if (selection.kind === 'read-only') {
+			run.activity({ kind: 'note', label: 'Read-only run', reason: selection.reason });
+			progress([{ kind: 'markdownContent', content: new MarkdownString(localize('onyx.agent.readOnlyRun', "This model's profile has room for {0} tools and agent editing needs {1}, so this run can read the workspace but cannot propose edits or run commands.\n\n", selection.tools.length, ONYX_MIN_EDIT_SLOTS)) }]);
+		}
 
 		// Grammar-constrained tool calling: when this model keeps mangling the
 		// tool_calls channel but its runtime can enforce a JSON schema, every
@@ -426,28 +441,47 @@ export class OnyxAgentLoop {
 		}]);
 	}
 
-	private _selectTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined, profile: IOnyxModelProfile): { tools: IRequestTool[]; toolIdsByName: Map<string, string> } {
+	/**
+	 * The tools this run advertises. Capability gating and the user's and the
+	 * project's exclusions come first (`_candidateTools`); the slot policy
+	 * (`selectToolSlots`) then reserves the six essential tools, fills the
+	 * spare slots in the documented order, and refuses when an essential tool
+	 * is unavailable.
+	 */
+	protected _selectTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined, profile: IOnyxModelProfile): OnyxSelectedTools {
+		return selectToolSlots({
+			...this._candidateTools(request, metadata),
+			maxTools: profile.maxTools,
+			requested: requestedOptionalTools(request.message, this._playbookService.playbooks.get().map(entry => entry.playbook.name)),
+		});
+	}
+
+	/** Every tool the registry offers this model, split into what may be advertised and what was excluded, with the reason. */
+	protected _candidateTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined): { available: IOnyxSelectableTool[]; excluded: IOnyxToolExclusion[] } {
 		const enabled = request.userSelectedTools;
 		const disabledByProject = new Set(this._projectConfigService.resolved.get().config.disabledTools ?? []);
-		const all = [...this._toolsService.getTools(metadata)]
-			.filter(tool => !enabled || enabled[tool.id] !== false)
-			.filter(tool => !disabledByProject.has(tool.id) && !disabledByProject.has(tool.toolReferenceName ?? ''))
+		const candidates = [...this._toolsService.getTools(metadata)]
 			.filter(tool => tool.id.startsWith('onyx_') || !(REPLACED_CORE_TOOLS.test(tool.id) || REPLACED_CORE_TOOLS.test(tool.toolReferenceName ?? '')))
-			.filter(tool => !!tool.modelDescription);
-		all.sort((a, b) => toolPriority(a) - toolPriority(b));
+			.filter(tool => !!tool.modelDescription)
+			// Onyx's own tools claim their names first, so a development
+			// extension that registers a tool called readFile cannot displace one.
+			.sort((a, b) => Number(b.id.startsWith('onyx_')) - Number(a.id.startsWith('onyx_')));
 
-		const tools: IRequestTool[] = [];
-		const toolIdsByName = new Map<string, string>();
-		for (const tool of all.slice(0, profile.maxTools)) {
-			const name = sanitizeToolName(tool.toolReferenceName ?? tool.id, toolIdsByName);
-			toolIdsByName.set(name, tool.id);
-			tools.push({
-				name,
-				description: tool.modelDescription,
-				inputSchema: tool.inputSchema,
-			});
+		const available: IOnyxSelectableTool[] = [];
+		const excluded: IOnyxToolExclusion[] = [];
+		const namesTaken = new Map<string, string>();
+		for (const tool of candidates) {
+			const name = sanitizeToolName(tool.toolReferenceName ?? tool.id, namesTaken);
+			namesTaken.set(name, tool.id);
+			if (enabled && enabled[tool.id] === false) {
+				excluded.push({ name, reason: 'turned off in the chat tool picker' });
+			} else if (disabledByProject.has(tool.id) || disabledByProject.has(tool.toolReferenceName ?? '')) {
+				excluded.push({ name, reason: 'disabled by "disabledTools" in .onyx/config.json' });
+			} else {
+				available.push({ id: tool.id, name, description: tool.modelDescription, inputSchema: tool.inputSchema });
+			}
 		}
-		return { tools, toolIdsByName };
+		return { available, excluded };
 	}
 
 	private _resolveModelIdentifier(request: IChatAgentRequest): string | undefined {
@@ -513,31 +547,15 @@ function snapshotForJournal(turn: number, modelIdentifier: string, messages: rea
 	};
 }
 
-/** Lower is more important; the cap keeps the tools a small model needs most. */
-function toolPriority(tool: IToolData): number {
-	if (tool.id === ONYX_RETRIEVAL_TOOL_ID || tool.id === ONYX_MEMORY_TOOL_ID || tool.id === ONYX_EDIT_TOOL_ID || tool.id === ONYX_TERMINAL_TOOL_ID || tool.id === ONYX_DOCS_TOOL_ID) {
-		// Onyx's own tools are pinned: symbol-aware lookup is the highest-value
-		// read, the memory tool is how learned facts survive the session, and
-		// the staged edit + gated terminal tools are the agent's only write
-		// paths — all must survive even the tightest small-model tool cap.
-		return 0;
-	}
-	if ((tool.toolReferenceName ?? tool.id) === 'readFile') {
-		// The read path is how a small model quotes code for its edits; it is
-		// picked explicitly, never left to a regex tie-break.
-		return 1;
-	}
-	if (tool.id === ONYX_PLAYBOOK_TOOL_ID) {
-		return 1;
-	}
-	const id = tool.id.toLowerCase();
-	if (/edit|apply|replace/.test(id)) { return 0; }
-	if (/read|open/.test(id)) { return 1; }
-	if (/search|grep|find|list/.test(id)) { return 2; }
-	if (/terminal|run|execute/.test(id)) { return 3; }
-	if (/todo|task/.test(id)) { return 4; }
-	return 5;
+/** A tool that passed gating and exclusions, under the unique name the model will see. */
+export interface IOnyxSelectableTool {
+	readonly id: string;
+	readonly name: string;
+	readonly description: string;
+	readonly inputSchema: IRequestTool['inputSchema'];
 }
+
+export type OnyxSelectedTools = OnyxToolSlotSelection<IOnyxSelectableTool>;
 
 /**
  * Core tools that write into the workspace or a shell without Onyx's review
