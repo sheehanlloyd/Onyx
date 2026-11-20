@@ -99,6 +99,35 @@ offers **Run Once** or **Deny**. An answer covers that one invocation.
 | A check task (`onyx.verification.task`, or `verificationTask` in `.onyx/config.json`) | Asks before each run, naming the task and who configured it. The dialog cannot show the commands a task runs and says so |
 | Past decisions | Kept in machine-local workspace storage, at most 200, shown by `Onyx: Show Terminal Approval History`. A record, never a permission. Nothing about approval is written to a tracked file |
 
+## Streams, tool arguments and the content index (B12)
+
+**How a reply ended is said, not assumed.**
+
+| Ending | What it means | What Onyx does |
+|---|---|---|
+| complete | the runtime sent a finish reason or `[DONE]` | the reply is used |
+| truncated | the response body ended without either | the run ends as failed; the chat says the reply was cut off; nothing from that reply is parsed for a tool call, run or staged |
+| stalled | nothing arrived for 10 minutes before the first byte, or for 3 minutes after it | the request is stopped; the run ends as failed; the chat says the model stopped responding |
+| cancelled | the user stopped it | as before |
+| failed | an HTTP error, or the connection was reset | the run ends as failed with the runtime's message |
+
+The deadlines are enforced where the request is made (the shared process) and again in the window, fifteen
+seconds later, in case the first cannot report. They are not settings in this release. Text that streamed
+before a cut stays in the chat; the journal's turn record says `truncated` or `stalled`.
+
+**Tool arguments are checked before the tool is called.** A call's arguments are validated against the schema
+the tool was advertised with: `type`, `required`, `enum`, nested `properties`, `items`, and
+`additionalProperties: false`. A call that does not match is answered with what is wrong (for example
+`arguments.timeoutSeconds must be number, got string`) and does not reach the tool. Nothing is coerced:
+`"30"` is not a number.
+
+**The content index says where it came from.** The persisted BM25 index records its format, the root it was
+built for, when, under which caps, whether the caps cut the walk short, and the modification time and size of
+every file in it. On load, a file in another format or for another root is discarded and the index is
+rebuilt. Otherwise the tree is walked with a stat per file, and files that changed, appeared or went away
+since the index was written are read again or removed. `truncated` survives a restart. The caps are 5,000
+files and 64 MB in total, 256 KB a file; a tree larger than that is partly indexed and the index says so.
+
 ## Command execution and its limits (B5)
 
 An approved command is started by one module, `src/vs/platform/onyxRuntime/node/onyxCommandRunner.ts`, and by

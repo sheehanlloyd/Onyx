@@ -85,7 +85,8 @@ export class OnyxWorkspaceIndexContribution extends Disposable {
 			}
 			try {
 				const stats = await this._runtimeService.ensureWorkspaceIndex(folder.uri.fsPath, bm25PersistPath(this._environmentService, this._workspaceService, folder).fsPath);
-				this._logService.info(`[onyx] content index for ${folder.name}: ${stats.files} files${stats.buildMs ? ` in ${stats.buildMs}ms` : ' (persisted)'}${stats.truncated ? ', truncated by caps' : ''}`);
+				const origin = stats.source === 'built' ? 'built' : stats.source === 'loaded' ? 'loaded, unchanged' : `loaded and reconciled (${stats.reconciled?.added ?? 0} added, ${stats.reconciled?.updated ?? 0} updated, ${stats.reconciled?.removed ?? 0} removed)`;
+				this._logService.info(`[onyx] content index for ${folder.name}: ${stats.files} files, ${origin} in ${stats.buildMs}ms${stats.truncated ? ', truncated by caps: part of the workspace is not indexed' : ''}`);
 			} catch (error) {
 				this._logService.warn('[onyx] content index build failed', error);
 			}

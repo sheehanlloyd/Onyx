@@ -16,7 +16,7 @@ import { IOnyxCommandProcess, OnyxCommandRunner } from './onyxCommandRunner.js';
 import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
 import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -172,6 +172,19 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	async startChatCompletion(operationId: string, params: IOnyxChatParams): Promise<void> {
 		const controller = new AbortController();
 		this._operations.set(operationId, controller);
+		// A request that says nothing for too long is ended as stalled, not left to hang (B12). The clock is
+		// restarted by every read; the first byte gets the longer deadline.
+		let stalled = false;
+		let watchdog: ReturnType<typeof setTimeout> | undefined;
+		const expect = (withinMs: number) => {
+			clearTimeout(watchdog);
+			watchdog = setTimeout(() => {
+				stalled = true;
+				controller.abort();
+			}, withinMs);
+		};
+		const idleMs = params.idleTimeoutMs ?? ONYX_STREAM_DEADLINES.idleMs;
+		expect(params.firstByteTimeoutMs ?? ONYX_STREAM_DEADLINES.firstByteMs);
 		try {
 			const response = await fetch(`${normalizeBaseUrl(params.baseUrl)}/chat/completions`, {
 				method: 'POST',
@@ -200,14 +213,18 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				return;
 			}
 
-			await this._pumpSse(operationId, response.body, params.seed);
+			await this._pumpSse(operationId, response.body, params.seed, () => expect(idleMs));
 		} catch (err) {
 			if (!controller.signal.aborted) {
 				this._emitError(operationId, err instanceof Error ? err.message : String(err));
+			} else if (stalled) {
+				this._logService.warn('[onyxRuntime] chat completion stalled: nothing arrived within the deadline');
+				this._onDidStream.fire({ operationId, kind: 'done', finishReason: undefined, ending: 'stalled' });
 			} else {
-				this._onDidStream.fire({ operationId, kind: 'done', finishReason: 'cancelled' });
+				this._onDidStream.fire({ operationId, kind: 'done', finishReason: 'cancelled', ending: 'cancelled' });
 			}
 		} finally {
+			clearTimeout(watchdog);
 			this._operations.delete(operationId);
 		}
 	}
@@ -352,7 +369,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		return indexer;
 	}
 
-	async ensureWorkspaceIndex(rootPath: string, persistPath: string): Promise<{ files: number; buildMs: number; truncated: boolean }> {
+	async ensureWorkspaceIndex(rootPath: string, persistPath: string): Promise<IOnyxIndexStats> {
 		return this._indexer(rootPath, persistPath).ensure();
 	}
 
@@ -588,7 +605,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		});
 	}
 
-	private async _pumpSse(operationId: string, body: ReadableStream<Uint8Array>, requestedSeed?: number): Promise<void> {
+	private async _pumpSse(operationId: string, body: ReadableStream<Uint8Array>, requestedSeed: number | undefined, onBytes: () => void): Promise<void> {
 		const decoder = new TextDecoder();
 		let buffered = '';
 		let sawDone = false;
@@ -603,6 +620,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				if (done) {
 					break;
 				}
+				onBytes();
 				buffered += decoder.decode(value, { stream: true });
 
 				// One network read usually carries several SSE events; coalescing
@@ -667,8 +685,13 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					break;
 				}
 			}
+			// A body that ends without a finish reason and without [DONE] was cut off, whatever it carried (B12).
+			const ending = finishReason !== undefined || sawDone ? 'complete' : 'truncated';
+			if (ending === 'truncated') {
+				this._logService.warn('[onyxRuntime] chat completion truncated: the body ended without a finish reason or [DONE]');
+			}
 			// Honoured only when the runtime echoed the seed it was sent; a silent runtime leaves it unknown.
-			this._onDidStream.fire({ operationId, kind: 'done', finishReason, fingerprint, seedHonoured: requestedSeed !== undefined && echoedSeed === requestedSeed ? true : undefined });
+			this._onDidStream.fire({ operationId, kind: 'done', finishReason, ending, fingerprint, seedHonoured: requestedSeed !== undefined && echoedSeed === requestedSeed ? true : undefined });
 		} finally {
 			reader.releaseLock();
 		}

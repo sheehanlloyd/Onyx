@@ -4,8 +4,8 @@
 	"exceptions": [
 		{
 			"class": "I-03/no-time-budget",
-			"owner": "B12, B10",
-			"finding": "Codex N12 (R-19): a stream that never produces a token has no idle deadline, so the run never ends on its own",
+			"owner": "B10",
+			"finding": "Codex N5 (R-15): a run the user paused and did not resume never ends on its own. (The other way into this class, a stream that never produces a token, was closed by B12's deadlines.)",
 			"script": "test/onyx/sim/baseline/I-03-no-time-budget.json"
 		},
 		{
@@ -43,12 +43,6 @@
 			"owner": "B6",
 			"finding": "Claude H3; DEC-07 (R-07, R-33): a SEARCH text that is not in the file (first line unique, or whitespace-different) is still placed",
 			"script": "test/onyx/sim/baseline/I-08-inexact-anchor-staged.json"
-		},
-		{
-			"class": "I-11/truncated-reported-complete",
-			"owner": "B12",
-			"finding": "Codex N12 (R-19): a stream that ends without a finish reason is journaled as completed",
-			"script": "test/onyx/sim/baseline/I-11-truncated-reported-complete.json"
 		},
 		{
 			"class": "I-13/oversized-proposal",

@@ -125,6 +125,7 @@ export interface IOnyxSimProductClasses {
 	readonly WorkspaceAccess: typeof OnyxWorkspaceAccessService;
 	readonly MemoryTool: typeof OnyxMemoryToolContribution;
 	readonly DiagnosticsRedactor: typeof OnyxDiagnosticsRedactor;
+	readonly ModelService: typeof OnyxModelService;
 }
 
 export interface IOnyxSimRigOptions {
@@ -164,7 +165,12 @@ export interface IOnyxSimResult {
 	readonly followUpPromptText: string | undefined;
 }
 
-const WATCHDOG_MS = 10 * 60_000;
+/**
+ * How long a run may take, in virtual time, before the rig calls it one that never ends on its own. Longer
+ * than the longest the product itself waits for a silent request (`ONYX_STREAM_DEADLINES.firstByteMs` and
+ * the window's grace, B12): a run that the product ends at its own deadline has ended on its own.
+ */
+const WATCHDOG_MS = 15 * 60_000;
 
 export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 
@@ -218,7 +224,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private _prepared = false;
 
 	constructor(readonly episode: OnyxSimEpisode, checkers: readonly OnyxSimChecker[] = [], options: IOnyxSimRigOptions = {}) {
-		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ...options.classes };
+		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ...options.classes };
 		this._redactorClass = classes.DiagnosticsRedactor;
 		this._checkers.push(...checkers);
 		this.trace = new OnyxSimTrace(() => Date.now());
@@ -273,7 +279,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IOnyxControlPlaneService, this.controlPlane);
 		// No endpoint is configured in the rig, so there is no key to store or read.
 		instantiationService.stub(IOnyxEndpointSecretService, { _serviceBrand: undefined, onDidChange: Event.None, setApiKey: async () => { }, configuredApiKeys: async () => new Map<string, string>() });
-		const modelService: IOnyxModelService = this._disposables.add(instantiationService.createInstance(OnyxModelService));
+		const modelService: IOnyxModelService = this._disposables.add(instantiationService.createInstance(classes.ModelService));
 		instantiationService.stub(IOnyxModelService, modelService);
 		this._languageModels = new OnyxSimLanguageModelsService(modelService);
 		instantiationService.stub(ILanguageModelsService, this._languageModels);

@@ -6,6 +6,7 @@
 import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
 import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
 import { ONYX_TERMINAL_OUTPUT_LIMITS } from '../../../common/onyxTerminalOutput.js';
+import { validateToolArguments } from '../../../common/onyxToolArguments.js';
 import { OnyxSimBoundary, SIM_INJECTED_NOTE, SIM_MUST_WARN_COMMANDS, SIM_PROCESS_ENVIRONMENT, SIM_SECRET_ENVIRONMENT_NAMES } from './onyxSimEpisode.js';
 import { SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { IOnyxSimState, OnyxSimChecker } from './onyxSimRig.js';
@@ -166,6 +167,11 @@ const i03: OnyxSimChecker = (state, boundary) => {
 	// Journaled outcomes are the record; live transitions show a terminal status being replaced by another.
 	const isTerminal = (status: string) => status === 'completed' || status === 'failed' || status === 'cancelled';
 	const outcomes = statuses.filter(event => !event.status.startsWith('live:') && isTerminal(event.status));
+	// First, because everything after it is a consequence: the run did not end on its own, and the rig's
+	// watchdog had to stop it. What the statuses did after that stop is not a second finding.
+	if (events(state).some(event => event.kind === 'fault' && event.fault === 'watchdog')) {
+		return `I-03/no-time-budget: the run had not ended on its own when the rig's watchdog stopped it, after fifteen minutes of virtual time`;
+	}
 	// Per run: an episode with a follow-up request holds two runs, each with its own one terminal status.
 	for (const run of new Set(statuses.map(event => event.run))) {
 		const ofRun = outcomes.filter(event => event.run === run);
@@ -178,9 +184,6 @@ const i03: OnyxSimChecker = (state, boundary) => {
 		}
 	}
 	const terminal = outcomes;
-	if (events(state).some(event => event.kind === 'fault' && event.fault === 'watchdog')) {
-		return `I-03/no-time-budget: the run had not ended after the watchdog's virtual ten minutes`;
-	}
 	if (boundary === 'end' && terminal.length === 0 && events(state).some(event => event.kind === 'request')) {
 		return `I-03/no-terminal-status: the run ended without an outcome`;
 	}
@@ -258,6 +261,14 @@ const i06: OnyxSimChecker = state => {
 			if (missing.length) {
 				return `I-06/partial-edit-set: turn ${event.turn} advertised an editing tool set without ${missing.join(', ')}`;
 			}
+		}
+	}
+	// B12: no call reaches a tool with arguments that do not match the schema the tool was advertised with.
+	// What a tool does with bad arguments is then not a question: it never sees them.
+	for (const invocation of state.tools.invocations) {
+		const problems = validateToolArguments(state.tools.getTool(invocation.toolId)?.inputSchema, invocation.parameters);
+		if (problems.length > 0) {
+			return `I-06/schema-invalid-dispatched: ${invocation.toolId} was invoked with arguments that do not match its schema (${problems[0]})`;
 		}
 	}
 	// A schema-invalid edit or command must not have produced a stage or a command run.
@@ -373,6 +384,18 @@ const i11: OnyxSimChecker = state => {
 	const truncated = all.some(event => event.kind === 'chunk' && event.delta === 'done' && event.finishReason === undefined);
 	if (truncated && all.some(event => event.kind === 'status' && event.status === 'completed')) {
 		return `I-11/truncated-reported-complete: a stream that ended without a finish reason was reported as completed`;
+	}
+	// Never applied (B12): between a stream that was cut off and the next request, no tool is dispatched and
+	// nothing is staged. What arrived of a cut-off reply is not a reply.
+	let cutOff = false;
+	for (const event of all) {
+		if (event.kind === 'chunk' && event.delta === 'done') {
+			cutOff = event.finishReason === undefined;
+		} else if (event.kind === 'request') {
+			cutOff = false;
+		} else if (cutOff && (event.kind === 'toolDispatch' || event.kind === 'commandDispatch' || (event.kind === 'stage' && event.ok))) {
+			return `I-11/truncated-applied: after a stream ended without a finish reason, ${event.kind === 'toolDispatch' ? `the tool ${event.tool} was dispatched` : event.kind === 'commandDispatch' ? 'a command was dispatched' : 'an edit was staged'} from it`;
+		}
 	}
 	return undefined;
 };

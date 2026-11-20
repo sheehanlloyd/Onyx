@@ -121,6 +121,40 @@
 			]
 		},
 		{
+			"id": "R-19",
+			"title": "B12 honest stream termination and index freshness: each ending is reported as what it was, a silent request is stopped at its deadline, a cut-off reply is never applied or called complete, and a persisted index is reconciled with the tree or rebuilt",
+			"layer": "node, service",
+			"regressions": [
+				"R-19"
+			],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxStreamTermination.test.ts",
+				"src/vs/platform/onyxRuntime/test/node/onyxWorkspaceIndexer.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxStreamEndings.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxStreamTermination|OnyxWorkspaceIndexer|OnyxStreamEndings"
+			]
+		},
+		{
+			"id": "R-28-mandatory",
+			"title": "B12 argument validation: a call whose arguments do not match the tool's schema is answered and never dispatched",
+			"layer": "pure, service",
+			"regressions": [
+				"R-28"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxStreamEndings.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxStreamEndings"
+			]
+		},
+		{
 			"id": "R-20",
 			"title": "B11 diagnostics that redact what they say they redact: a journal, settings and logs seeded with a sentinel in every content channel produce a default bundle, and a zip, with none of them; the API key is absent even with content included",
 			"layer": "service",

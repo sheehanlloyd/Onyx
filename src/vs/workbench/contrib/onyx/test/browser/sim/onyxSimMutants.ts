@@ -3,11 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ILanguageModelChatMetadata } from '../../../../chat/common/languageModels.js';
+import { IChatResponseToolUsePart, ILanguageModelChatMetadata } from '../../../../chat/common/languageModels.js';
 import { IChatAgentRequest } from '../../../../chat/common/participants/chatAgents.js';
 import { IOnyxSelectableTool, OnyxAgentLoop, OnyxSelectedTools } from '../../../browser/agent/onyxAgentLoop.js';
 import { IOnyxToolExclusion } from '../../../common/onyxToolSlots.js';
 import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMemoryTool.js';
+import { IOnyxStreamOutcome, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
 import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
@@ -192,6 +193,27 @@ class OnyxMutantValueOnlyRedactor extends OnyxDiagnosticsRedactor {
 	}
 }
 
+/** B12: a stream that ends without a finish reason is a reply like any other, and the run completes. */
+class OnyxMutantTruncatedIsCompleteLoop extends OnyxAgentLoop {
+	protected override _incompleteEnding(_outcome: Partial<IOnyxStreamOutcome> | undefined): 'truncated' | 'stalled' | undefined {
+		return undefined;
+	}
+}
+
+/** B12: a call's arguments go to the tool as the model wrote them, whatever the schema says. */
+class OnyxMutantUnvalidatedArgumentsLoop extends OnyxAgentLoop {
+	protected override _argumentProblems(_toolUse: IChatResponseToolUsePart, _schema: object | undefined): string[] {
+		return [];
+	}
+}
+
+/** B12: no deadline. A request that says nothing is waited on for ever. */
+class OnyxMutantNoDeadlineModelService extends OnyxModelService {
+	protected override _streamDeadlines(): { readonly firstByteMs: number; readonly idleMs: number } {
+		return { firstByteMs: Number.POSITIVE_INFINITY, idleMs: Number.POSITIVE_INFINITY };
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -206,6 +228,9 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B5-cwd-ignored': { TerminalService: OnyxMutantCwdIgnoredTerminal },
 	'B5-command-outlives-window': { TerminalService: OnyxMutantOutlivingCommandTerminal },
 	'B11-value-only-redaction': { DiagnosticsRedactor: OnyxMutantValueOnlyRedactor },
+	'B12-truncated-is-complete': { AgentLoop: OnyxMutantTruncatedIsCompleteLoop },
+	'B12-unvalidated-arguments': { AgentLoop: OnyxMutantUnvalidatedArgumentsLoop },
+	'B12-no-stream-deadline': { ModelService: OnyxMutantNoDeadlineModelService },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };

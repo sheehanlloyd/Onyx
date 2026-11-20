@@ -163,6 +163,36 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		]),
 	},
 	{
+		id: 'B12-truncated-is-complete',
+		fixedBy: 'B12',
+		defect: 'A stream whose body ended without a finish reason or `[DONE]` was reported as done; the run was journaled as completed (Codex N12; R-19)',
+		detects: 'I-11/truncated-reported-complete',
+		resurrects: 'OnyxMutantTruncatedIsCompleteLoop',
+		script: script('B12-truncated-is-complete', 'Change addNumbers', [
+			{ kind: 'truncated', text: 'I will change the function so that it' },
+		]),
+	},
+	{
+		id: 'B12-unvalidated-arguments',
+		fixedBy: 'B12',
+		defect: 'Tool arguments were handed to the tool without being checked against its schema: a terminal call with `timeoutSeconds: "forever"` ran with the default timeout (R-28)',
+		detects: 'I-06/schema-invalid-dispatched',
+		resurrects: 'OnyxMutantUnvalidatedArgumentsLoop',
+		script: script('B12-unvalidated-arguments', 'Run the tests', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test', timeoutSeconds: 'forever' } },
+		]),
+	},
+	{
+		id: 'B12-no-stream-deadline',
+		fixedBy: 'B12',
+		defect: 'A request that never produced a byte was waited on with no deadline, so the run never ended on its own (Codex N12; R-19)',
+		detects: 'I-03/no-time-budget',
+		resurrects: 'OnyxMutantNoDeadlineModelService',
+		script: script('B12-no-stream-deadline', 'Change addNumbers', [
+			{ kind: 'stall' },
+		]),
+	},
+	{
 		id: 'B3-uncontracted-tools',
 		fixedBy: 'B3',
 		defect: 'Whatever core\'s tool registry holds reaches the model: `runTask`, `createAndRunTask`, a rename that writes without staging, the browser tools, MCP and extension tools, each with core\'s own confirmations or none (Claude H2; R-05)',

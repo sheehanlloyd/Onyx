@@ -90,6 +90,43 @@ export interface IOnyxChatParams {
 	readonly responseFormat?: unknown;
 	/** Sent as `seed` when a profile or a manifest sets one (L3); the stream's `done` says whether the runtime echoed it. */
 	readonly seed?: number;
+	/** How long to wait for the first byte of the response. Default {@link ONYX_STREAM_DEADLINES}. */
+	readonly firstByteTimeoutMs?: number;
+	/** How long the stream may then stay silent before it is called stalled. Default {@link ONYX_STREAM_DEADLINES}. */
+	readonly idleTimeoutMs?: number;
+}
+
+/**
+ * How long a chat request may say nothing (B12). The first byte gets longer:
+ * a cold model is loaded and a long prompt evaluated before anything is
+ * sent. After that, silence for this long means the runtime is stuck, and
+ * the request is ended as `stalled` rather than left to hang.
+ */
+export const ONYX_STREAM_DEADLINES = {
+	firstByteMs: 600_000,
+	idleMs: 180_000,
+} as const;
+
+/**
+ * How a chat stream ended (B12). `complete`: the runtime sent a finish
+ * reason or `[DONE]`. `truncated`: the body ended without either. `stalled`:
+ * nothing arrived within the deadline. `cancelled`: the caller stopped it.
+ * A stream that failed ends with the `error` event instead.
+ */
+export type OnyxStreamEnding = 'complete' | 'truncated' | 'stalled' | 'cancelled';
+
+/** What an index says about itself: how big, how it came to be, and whether the caps cut it short. */
+export interface IOnyxIndexStats {
+	readonly files: number;
+	readonly buildMs: number;
+	/** True when caps stopped the walk before the workspace was fully covered. Survives persistence. */
+	readonly truncated: boolean;
+	/** Built from the tree just now, loaded from its file unchanged, or loaded and brought up to date with the tree. */
+	readonly source: 'built' | 'loaded' | 'reconciled';
+	/** When the index was built from the tree, as epoch milliseconds. */
+	readonly builtAt: number;
+	/** What bringing a loaded index up to date changed. */
+	readonly reconciled?: { readonly added: number; readonly updated: number; readonly removed: number };
 }
 
 export interface IOnyxCompletionParams {
@@ -154,7 +191,7 @@ export type IOnyxStreamEvent =
 	| { readonly operationId: string; readonly kind: 'delta'; readonly text: string }
 	| { readonly operationId: string; readonly kind: 'toolCallDelta'; readonly index: number; readonly id?: string; readonly name?: string; readonly argumentsDelta?: string }
 	| { readonly operationId: string; readonly kind: 'usage'; readonly promptTokens: number; readonly completionTokens: number }
-	| { readonly operationId: string; readonly kind: 'done'; readonly finishReason: string | undefined; readonly seedHonoured?: boolean; readonly fingerprint?: string }
+	| { readonly operationId: string; readonly kind: 'done'; readonly ending: OnyxStreamEnding; readonly finishReason: string | undefined; readonly seedHonoured?: boolean; readonly fingerprint?: string }
 	| { readonly operationId: string; readonly kind: 'error'; readonly message: string };
 
 /** One commit summarized for on-your-repo benchmark selection. */
@@ -318,7 +355,7 @@ export interface IOnyxRuntimeService {
 	 * (loading the persisted copy at `persistPath` or building fresh) and
 	 * returns its stats.
 	 */
-	ensureWorkspaceIndex(rootPath: string, persistPath: string): Promise<{ files: number; buildMs: number; truncated: boolean }>;
+	ensureWorkspaceIndex(rootPath: string, persistPath: string): Promise<IOnyxIndexStats>;
 
 	/** Searches the workspace index; empty until {@link ensureWorkspaceIndex} has run. */
 	searchWorkspaceIndex(rootPath: string, persistPath: string, query: string, limit: number): Promise<readonly { path: string; score: number }[]>;
