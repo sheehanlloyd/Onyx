@@ -55,6 +55,23 @@
 			]
 		},
 		{
+			"id": "R-06",
+			"title": "B4 warnings that know about egress: the sixteen-command bypass list and the script example earn their categories, every warning reaches the prompt as \"looks like\", and each still asks with Run Once or Deny",
+			"layer": "service",
+			"regressions": [
+				"R-06"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxTerminalPolicy.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxShellWords.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxTerminalPolicy|OnyxShellWords|OnyxTerminalApproval"
+			]
+		},
+		{
 			"id": "R-05-R-59",
 			"title": "B3 tool capability contract at the service layer: the wire carries only contracted tools by default and with the network opt-in (R-05); a stored note needs a confirmation that shows its origin (R-59)",
 			"layer": "service",

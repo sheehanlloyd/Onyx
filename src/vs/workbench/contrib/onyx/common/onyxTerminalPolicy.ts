@@ -10,10 +10,12 @@
  * The alpha contract (B2): every shell invocation asks. There is no session
  * grant, no persistent grant and no allowlist; repository content confers no
  * authority. An approval covers one invocation: these exact command bytes, in
- * this working directory, with this timeout. The classifier below does not
- * decide whether a command may run. It exists to make the approval prompt
- * honest about what the command looks like, and it is not a sandbox.
+ * this working directory, with this timeout. The classifier does not decide
+ * whether a command may run. It exists to make the approval prompt honest
+ * about what the command looks like, and it is not a sandbox.
  */
+
+import { classifyShellCommand, IOnyxCommandWarning, OnyxCommandCategory } from './onyxCommandClassifier.js';
 
 /** What the user can decide about one invocation. */
 export type OnyxTerminalDecision =
@@ -30,60 +32,37 @@ export interface IOnyxCommandInvocation {
 }
 
 export interface IOnyxCommandClassification {
-	/** Whitespace-normalized command, used for matching the heuristics and for one-line labels only. */
+	/** Whitespace-normalized command, for one-line labels only. Never what is approved or dispatched. */
 	readonly normalized: string;
+	/** Whether the prompt uses its warning style: at least one warning is elevated. */
 	readonly dangerous: boolean;
-	/** Human-readable reasons, one per matched heuristic. */
+	/** What the command looks like, one line per warning, in the order found. */
 	readonly reasons: readonly string[];
+	/** The categories the warnings fall into. */
+	readonly categories: readonly OnyxCommandCategory[];
+	readonly warnings: readonly IOnyxCommandWarning[];
 }
 
-interface IDangerRule {
-	readonly pattern: RegExp;
-	readonly reason: string;
-}
-
-/**
- * Each rule names one recognizable way a shell command destroys state,
- * escalates privilege, or executes unreviewed remote content. Matching is on
- * the normalized command text, case-insensitive only where the tool is
- * case-insensitive.
- *
- * These rules match inside quotes too, which over-warns on things like
- * `echo "curl | sh"`. That is deliberate and not a bug to fix: correctly
- * parsing shell quoting is hard, and any gap becomes a way to smuggle a real
- * `curl | sh` past the prompt. The cost of over-warning is one extra look;
- * the cost of under-warning is an unreviewed command running on your machine.
- */
-const DANGER_RULES: readonly IDangerRule[] = [
-	{ pattern: /\brm\s+(-[a-z]*[rf][a-z]*\s+)+/i, reason: 'recursive or forced delete (rm -r/-f)' },
-	{ pattern: /\brm\s+.*(\/\s*$|\s+\/(\s|$)|~\/?(\s|$))/, reason: 'delete targets the home directory or filesystem root' },
-	{ pattern: /\b(curl|wget)\b[^|;&]*\|\s*(sudo\s+)?(ba|z|da|fi)?sh\b/i, reason: 'pipes downloaded content straight into a shell' },
-	{ pattern: /\bbase64\b[^|]*\|\s*(ba|z)?sh\b/i, reason: 'decodes hidden content into a shell' },
-	{ pattern: /\bsudo\b/, reason: 'requests root privileges (sudo)' },
-	{ pattern: /\bgit\s+push\b.*(--force\b|-f\b|\+\S+:)/, reason: 'force-pushes over remote history' },
-	{ pattern: /\bgit\s+(reset\s+--hard|clean\s+-[a-z]*f)/, reason: 'discards uncommitted work (git reset --hard / clean -f)' },
-	{ pattern: /\bchmod\s+(-[a-z]+\s+)*0?777\b/i, reason: 'makes files world-writable (chmod 777)' },
-	{ pattern: /\bdd\b.*\bof=\/dev\//i, reason: 'writes raw bytes to a device' },
-	{ pattern: /\bmkfs\b|\bdiskutil\s+(erase|partition)/i, reason: 'formats a disk' },
-	{ pattern: /:\s*\(\s*\)\s*{\s*:\s*\|\s*:\s*&\s*}\s*;\s*:/, reason: 'fork bomb' },
-	{ pattern: /\b(shutdown|reboot|halt)\b/i, reason: 'shuts down or restarts the machine' },
-	{ pattern: /\bkill\s+(-9\s+)?-1\b/, reason: 'kills every process' },
-	{ pattern: />\s*\/dev\/(sd|disk|nvme)/i, reason: 'overwrites a raw disk device' },
-	{ pattern: /\b(npm|pnpm|yarn)\s+publish\b/, reason: 'publishes a package to a registry' },
-	{ pattern: /\blaunchctl\s+(load|unload|bootstrap)|\bsystemctl\s+(enable|disable|mask)/i, reason: 'changes system services' },
-	{ pattern: /\b(defaults\s+write|scutil|nvram)\b/i, reason: 'changes system settings' },
-	{ pattern: /\bhistory\s+-c\b|\bunset\s+HISTFILE\b/, reason: 'covers its tracks by clearing shell history' },
-];
-
-/** Collapses whitespace for matching and for one-line labels. Never used for what is approved or dispatched. */
+/** Collapses whitespace for one-line labels. Never used for what is approved or dispatched. */
 export function normalizeCommand(command: string): string {
 	return command.trim().replace(/\s+/g, ' ');
 }
 
+/**
+ * What a command looks like (B4): a tokenizing pass over the whole pipeline
+ * (`onyxCommandClassifier.ts`), not a regular expression over the string. It
+ * informs the approval prompt. It does not decide anything, and a command it
+ * says nothing about has not been shown to be harmless.
+ */
 export function classifyCommand(command: string): IOnyxCommandClassification {
-	const normalized = normalizeCommand(command);
-	const reasons = DANGER_RULES.filter(rule => rule.pattern.test(normalized)).map(rule => rule.reason);
-	return { normalized, dangerous: reasons.length > 0, reasons };
+	const warnings = classifyShellCommand(command);
+	return {
+		normalized: normalizeCommand(command),
+		dangerous: warnings.some(warning => warning.elevated),
+		reasons: warnings.map(warning => warning.reason),
+		categories: [...new Set(warnings.map(warning => warning.category))],
+		warnings,
+	};
 }
 
 export interface IOnyxTerminalApprovalRequest {
@@ -133,8 +112,9 @@ export function buildApprovalRequest(invocation: IOnyxCommandInvocation): IOnyxT
 	if (notes.length) {
 		detailLines.push(`Shown exactly as it will run: the command ${notes.join(', ')}.`);
 	}
-	if (classification.dangerous) {
-		detailLines.push('', ...classification.reasons.map(reason => `⚠ looks like: ${reason}`));
+	if (classification.warnings.length) {
+		// Every warning is shown, elevated or not: egress and persistence are always named (B4).
+		detailLines.push('', ...classification.warnings.map(warning => `${warning.elevated ? '⚠' : '•'} looks like: ${warning.reason}`));
 	}
 	return {
 		message: classification.dangerous

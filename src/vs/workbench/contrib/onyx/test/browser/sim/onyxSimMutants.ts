@@ -41,6 +41,20 @@ class OnyxMutantPriorityTruncatingLoop extends OnyxAgentLoop {
 	}
 }
 
+/**
+ * B4: the regex classifier. A handful of patterns for deletes, privilege and `curl | sh`, with no notion
+ * of egress, persistence or an interpreter one-liner, so those commands reach the prompt with no warning.
+ */
+class OnyxMutantRegexWarningsTerminal extends OnyxTerminalService {
+	protected override _approvalRequest(invocation: IOnyxCommandInvocation): IOnyxTerminalApprovalRequest {
+		const current = buildApprovalRequest(invocation);
+		const regexRules = [/\brm\s+(-[a-z]*[rf][a-z]*\s+)+/i, /\b(curl|wget)\b[^|;&]*\|\s*(sudo\s+)?(ba|z|da|fi)?sh\b/i, /\bsudo\b/, /\bgit\s+push\b.*(--force\b|-f\b)/, /\bgit\s+(reset\s+--hard|clean\s+-[a-z]*f)/];
+		const flagged = regexRules.some(rule => rule.test(normalizeCommand(invocation.command)));
+		const detail = current.detail.split('\n').filter(line => flagged || !line.includes('looks like:')).join('\n');
+		return { ...current, detail, dangerous: flagged };
+	}
+}
+
 /** B3: tool selection before the capability contract. Whatever the registry holds, short of the names core's own terminal and edit tools use, is offered. */
 class OnyxMutantUncontractedToolsLoop extends OnyxAgentLoop {
 	protected override _candidateTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined): { available: IOnyxSelectableTool[]; excluded: IOnyxToolExclusion[] } {
@@ -120,6 +134,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B2-reused-approval': { TerminalService: OnyxMutantReusedApprovalTerminal },
 	'B2-normalized-approval': { TerminalService: OnyxMutantNormalizedApprovalTerminal },
 	'B2-unasked-check-task': { TerminalService: OnyxMutantUnaskedCheckTerminal },
+	'B4-regex-warnings': { TerminalService: OnyxMutantRegexWarningsTerminal },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };

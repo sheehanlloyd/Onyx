@@ -156,9 +156,11 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
   The same command asks again the next time, because a path such as
   `npm test` or `python3 script.py` says nothing about what the script behind
   it does today. A check task named by the repository asks before each run as
-  well. Commands matching 18 patterns (`rm -rf`, `curl | sh`, `sudo`,
-  force-push, raw disk writes, publishing) are named in the dialog as what
-  they look like; that is a warning to read, not a verdict. Output streams to
+  well. The dialog also says what a command looks like: every command in
+  the pipeline is classified by its executable and arguments as destructive,
+  privilege, remote code, network egress, persistence or unseen code
+  (`curl --data-binary @.env …`, `crontab`, `python3 script.py`). That is a
+  warning to read, not a verdict, and silence is not a finding of safety. Output streams to
   the timeline, and a hard timeout plus `Onyx: Kill Running Terminal Command`
   end anything that hangs. `Onyx: Show Terminal Approval History` lists past
   decisions, which are a record and never a permission.
