@@ -1,6 +1,6 @@
 # Onyx plan state
 Plan version: v4
-Current module: 1      Status: gate passed, re-run on the new upstream base (DEC-05); Module 2 not started
+Current module: 2      Status: in progress (session started 2026-11-20 on `main` at 44fdc073e34; Module 1's gate is recorded below as passed for this base)
 Revision: 881936cd52c (branch `upstream-1.147.0`, pull request sheehanlloyd/Onyx#2; this file's commit follows it and changes only documents, one workflow comment and the gate's result files)
 Isolated checkout: branch `upstream-1.147.0` in a sibling clone of the owner's folder (clone directory `onyx-module-1`); the four audit documents are excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
