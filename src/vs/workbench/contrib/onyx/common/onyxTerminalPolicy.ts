@@ -29,6 +29,11 @@ export interface IOnyxCommandInvocation {
 	readonly command: string;
 	readonly cwd: string;
 	readonly timeoutMs: number;
+	/**
+	 * Whether the whole environment is passed, including variables whose
+	 * names look like secrets (`onyx.terminal.passEnvironment`). Off unless set.
+	 */
+	readonly passEnvironment?: boolean;
 }
 
 export interface IOnyxCommandClassification {
@@ -108,6 +113,9 @@ export function buildApprovalRequest(invocation: IOnyxCommandInvocation): IOnyxT
 		`Working directory: ${invocation.cwd}`,
 		`Stops after: ${seconds} s`,
 	];
+	if (invocation.passEnvironment) {
+		detailLines.push('Environment: every variable is passed to this command, including ones named like secrets (onyx.terminal.passEnvironment is on).');
+	}
 	const notes = whitespaceNotes(invocation.command);
 	if (notes.length) {
 		detailLines.push(`Shown exactly as it will run: the command ${notes.join(', ')}.`);

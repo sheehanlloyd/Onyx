@@ -54,6 +54,31 @@ your machine, and a model is not a trusted party:
   a script it starts will do, and you are the last line of defence. Read what
   you approve.
 
+- **An approved command runs as you.** It is started with `/bin/sh -c` in the
+  workspace folder, or in a directory inside it that the model named and the
+  dialog showed, with your user's permissions. The limits Onyx puts on it are
+  these and no others:
+  - It is killed, with its whole process group, when its timeout passes
+    (60 seconds unless the model asks for more, 10 minutes at most), when you
+    stop it, when the window closes, and when Onyx's runtime process ends. A
+    process that deliberately leaves its group (`setsid`, a daemon) is not
+    reached. If the window crashes instead of closing, the timeout is what
+    ends the command.
+  - Its output is bounded on the way in: the first and last parts are kept,
+    200,000 characters at most, of which the model sees 12,000; the rest is
+    counted and discarded. What the command writes to disk is not bounded.
+  - Environment variables whose names contain `TOKEN`, `SECRET`, `KEY`,
+    `PASSWORD` or `CREDENTIAL` are not passed to it, unless you turn on
+    `onyx.terminal.passEnvironment` (a user setting; a workspace cannot set
+    it). This is defense in depth only. A credential under another name, in a
+    file such as `~/.aws/credentials` or `~/.npmrc`, in your keychain or behind
+    a credential helper is as reachable as it is from any shell you open.
+  - There is no sandbox, no network restriction and no file-system
+    restriction. The working directory is where the command starts, not a
+    boundary on what it can touch.
+  - On Windows, commands are refused: there is no tested way to end a process
+    tree there in this release, so nothing is started.
+
 - **A model can propose a bad edit.** The agent has exactly one write path, and it
   does not write to disk. Edits are staged into a review surface where you see
   each hunk and accept or reject it. If the underlying file changed while an edit

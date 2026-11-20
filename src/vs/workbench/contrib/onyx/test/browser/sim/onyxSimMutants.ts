@@ -9,7 +9,8 @@ import { IOnyxSelectableTool, OnyxAgentLoop, OnyxSelectedTools } from '../../../
 import { IOnyxToolExclusion } from '../../../common/onyxToolSlots.js';
 import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMemoryTool.js';
 import { OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
-import { IOnyxExecutionRequest, OnyxTerminalService } from '../../../browser/terminal/onyxTerminalTool.js';
+import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
+import { OnyxTimelineOutput } from '../../../common/onyxTerminalOutput.js';
 import { buildApprovalRequest, IOnyxCommandInvocation, IOnyxTerminalApprovalRequest, normalizeCommand, OnyxTerminalDecision } from '../../../common/onyxTerminalPolicy.js';
 import { IOnyxModelProfile } from '../../../common/onyxTypes.js';
 import { IOnyxSimProductClasses } from './onyxSimRig.js';
@@ -126,6 +127,43 @@ class OnyxMutantUnaskedCheckTerminal extends OnyxTerminalService {
 	}
 }
 
+/** B5: the output buffer before its cap. What a command prints is kept, all of it, for as long as the command runs. */
+class OnyxMutantUnboundedTimelineOutput extends OnyxTimelineOutput {
+	private _held = '';
+	override push(text: string): string[] {
+		this._held += text;
+		return super.push(text);
+	}
+	override get retainedChars(): number {
+		return this._held.length;
+	}
+}
+
+class OnyxMutantUnboundedOutputTerminal extends OnyxTerminalService {
+	protected override _createTimelineOutput(): OnyxTimelineOutput {
+		return new OnyxMutantUnboundedTimelineOutput();
+	}
+}
+
+/** B5: the command inherits the whole environment, whatever the user's setting says. */
+class OnyxMutantFullEnvironmentTerminal extends OnyxTerminalService {
+	protected override _passEnvironment(): boolean {
+		return true;
+	}
+}
+
+/** B5: the directory a call names is ignored, valid or not; every command runs in the workspace root. */
+class OnyxMutantCwdIgnoredTerminal extends OnyxTerminalService {
+	protected override async _resolveWorkingDirectory(): Promise<OnyxWorkingDirectory> {
+		return { ok: true, path: this._workspaceService.getWorkspace().folders[0].uri.fsPath };
+	}
+}
+
+/** B5: a closing window stops nothing; the command it started runs on. */
+class OnyxMutantOutlivingCommandTerminal extends OnyxTerminalService {
+	protected override async _killRunningForShutdown(): Promise<void> { }
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -135,6 +173,10 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B2-normalized-approval': { TerminalService: OnyxMutantNormalizedApprovalTerminal },
 	'B2-unasked-check-task': { TerminalService: OnyxMutantUnaskedCheckTerminal },
 	'B4-regex-warnings': { TerminalService: OnyxMutantRegexWarningsTerminal },
+	'B5-unbounded-output': { TerminalService: OnyxMutantUnboundedOutputTerminal },
+	'B5-full-environment': { TerminalService: OnyxMutantFullEnvironmentTerminal },
+	'B5-cwd-ignored': { TerminalService: OnyxMutantCwdIgnoredTerminal },
+	'B5-command-outlives-window': { TerminalService: OnyxMutantOutlivingCommandTerminal },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };

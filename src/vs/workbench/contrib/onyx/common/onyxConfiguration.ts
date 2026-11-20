@@ -22,6 +22,7 @@ export const enum OnyxSettingId {
 	EnergyPolicy = 'onyx.energy.policy',
 	BackgroundReview = 'onyx.review.background',
 	NetworkTools = 'onyx.agent.networkTools',
+	TerminalPassEnvironment = 'onyx.terminal.passEnvironment',
 }
 
 export interface IOnyxEndpointSetting {
@@ -142,6 +143,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.APPLICATION,
 			default: false,
 			markdownDescription: localize('onyx.agent.networkTools', "Let the Onyx agent use the reviewed network tools: opening a page in the integrated browser, reading a page it opened, and fetching a URL. Off by default, because nothing else in Onyx leaves this machine. When on, every network call still asks first, showing the tool and its arguments, and the tools compete for the same tool slots as everything else. Run **Onyx: Show Agent Tools** to see what is exposed and why."),
+		},
+		[OnyxSettingId.TerminalPassEnvironment]: {
+			type: 'boolean',
+			// A user setting: a workspace cannot turn it on for itself.
+			scope: ConfigurationScope.APPLICATION,
+			default: false,
+			markdownDescription: localize('onyx.terminal.passEnvironment', "Pass every environment variable to commands the Onyx agent runs. Off by default: variables whose names contain `TOKEN`, `SECRET`, `KEY`, `PASSWORD` or `CREDENTIAL` are withheld, so a command the agent proposed does not start with your credentials in its environment. This is defense in depth only. It does not touch a secret stored under another name, in a file or in a credential helper, and an approved command can still read anything your account can."),
 		},
 		[OnyxSettingId.BackgroundReview]: {
 			type: 'boolean',

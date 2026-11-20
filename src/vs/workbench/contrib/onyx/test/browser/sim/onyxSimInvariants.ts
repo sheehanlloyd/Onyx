@@ -5,6 +5,7 @@
 
 import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
 import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
+import { ONYX_TERMINAL_OUTPUT_LIMITS } from '../../../common/onyxTerminalOutput.js';
 import { OnyxSimBoundary, SIM_MUST_WARN_COMMANDS } from './onyxSimEpisode.js';
 import { SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { IOnyxSimState, OnyxSimChecker } from './onyxSimRig.js';
@@ -275,6 +276,10 @@ const i06: OnyxSimChecker = state => {
 		.filter(invocation => invocation.toolId === 'onyx_terminal')
 		.map(invocation => (invocation.parameters as Record<string, unknown>).command)
 		.filter((command): command is string => typeof command === 'string' && command.trim().length > 0);
+	const terminalCalls = state.tools.invocations
+		.filter(invocation => invocation.toolId === 'onyx_terminal')
+		.map(invocation => invocation.parameters as Record<string, unknown>)
+		.map(parameters => ({ command: parameters.command, cwd: parameters.cwd, matched: false }));
 	for (const event of events(state)) {
 		if (event.kind === 'commandDispatch' && !event.command.startsWith('Task: ')) {
 			const index = validCommands.indexOf(event.command);
@@ -282,6 +287,20 @@ const i06: OnyxSimChecker = state => {
 				return `I-06/invalid-command-ran: "${event.command}" reached the executor without a terminal call that carried it`;
 			}
 			validCommands.splice(index, 1);
+			// B5: a call that names a directory of the workspace runs there. Running it somewhere else is an
+			// effect the call did not ask for.
+			const candidates = terminalCalls.filter(call => !call.matched && call.command === event.command);
+			const asked = candidates.find(call => expectedWorkingDirectory(call.cwd) === event.cwd) ?? candidates[0];
+			if (asked) {
+				asked.matched = true;
+				const wanted = expectedWorkingDirectory(asked.cwd);
+				if (wanted === undefined) {
+					return `I-06/cwd-not-honoured: "${event.command}" was asked to run in ${JSON.stringify(asked.cwd)}, which is no directory of the workspace, and ran in ${event.cwd}`;
+				}
+				if (event.cwd !== wanted) {
+					return `I-06/cwd-not-honoured: "${event.command}" was asked to run in ${wanted} and ran in ${event.cwd}`;
+				}
+			}
 		}
 	}
 	return undefined;
@@ -384,8 +403,54 @@ const i13: OnyxSimChecker = state => {
 			return `I-13/oversized-proposal: ${stage.path} staged ${stage.proposedChars} chars, above the 256 KiB cap`;
 		}
 	}
+	// Output (B5): what the terminal service holds while a command prints, and what it hands to the model,
+	// stay under their documented caps however much the command prints and however large each event is.
+	const peak = state.peakRetainedOutputChars;
+	if (peak !== undefined && peak > ONYX_TERMINAL_OUTPUT_LIMITS.retainedChars) {
+		return `I-13/unbounded-output: the terminal service held ${peak} chars of command output, above the ${ONYX_TERMINAL_OUTPUT_LIMITS.retainedChars} cap`;
+	}
+	for (const result of state.tools.results) {
+		if (result.toolId === 'onyx_terminal' && result.text.length > ONYX_TERMINAL_OUTPUT_LIMITS.modelChars + TERMINAL_RESULT_FRAME_CHARS) {
+			return `I-13/unbounded-output: a terminal result of ${result.text.length} chars went to the model, above the ${ONYX_TERMINAL_OUTPUT_LIMITS.modelChars} cap`;
+		}
+	}
+	// A command the agent started does not outlive the window that started it.
+	if (state.commandsOutlivingWindow.length > 0) {
+		return `I-13/command-outlives-window: ${state.commandsOutlivingWindow.length} command(s) were still running after the window announced it was closing`;
+	}
 	return undefined;
 };
+
+/** Room for the frame around a terminal result's output: the status line, the elision note, the environment note. */
+const TERMINAL_RESULT_FRAME_CHARS = 600;
+
+/** I-10 (the child-process half): a variable that is a secret by name reaches a command only when the user said so. */
+const i10: OnyxSimChecker = state => {
+	if (state.episode.passEnvironment === true) {
+		return undefined;
+	}
+	for (const event of events(state)) {
+		if (event.kind === 'commandDispatch' && (event.secretEnvironment ?? 0) > 0) {
+			return `I-10/secret-environment-reached-child: "${event.command}" was started with ${event.secretEnvironment} seeded secret variable(s) and onyx.terminal.passEnvironment is off`;
+		}
+	}
+	return undefined;
+};
+
+/** Where a terminal call's `cwd` argument says to run, on the simulated disk; undefined when it names no directory of the workspace. */
+function expectedWorkingDirectory(cwd: unknown): string | undefined {
+	if (cwd === undefined || cwd === '' || cwd === '.') {
+		return '/ws';
+	}
+	if (typeof cwd !== 'string' || cwd.startsWith('/') || cwd.split('/').includes('..') || cwd.includes('\\')) {
+		return undefined;
+	}
+	const relative = cwd.replace(/\/+$/, '');
+	return SIM_WORKSPACE_DIRECTORIES.includes(relative) ? `/ws/${relative}` : undefined;
+}
+
+/** The directories of the fixture workspace a command may be asked to run in. */
+const SIM_WORKSPACE_DIRECTORIES: readonly string[] = ['src'];
 
 /** I-14: nothing a model asks to persist can influence a later prompt before the user confirms it with its origin shown. */
 const i14: OnyxSimChecker = state => {
@@ -413,6 +478,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-07', title: 'No tool reads or writes outside the workspace roots', check: i07 },
 	{ id: 'I-08', title: 'An edit that cannot be placed exactly and uniquely changes nothing and gives a visible reason', check: i08 },
 	{ id: 'I-09', title: 'Accepting a hunk applies that hunk or nothing, and user edits survive', check: i09 },
+	{ id: 'I-10', title: 'Scrubbed environment variables never reach a child process', check: i10 },
 	{ id: 'I-11', title: 'A truncated, stalled or malformed stream is never reported as complete and never applied', check: i11 },
 	{ id: 'I-12', title: 'The trace is complete and ordered', check: i12 },
 	{ id: 'I-13', title: 'Retained output, proposal size and queue lengths stay under their caps', check: i13 },
@@ -421,7 +487,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 
 /** Invariants the rig cannot observe in Module 1, each with the reason the contract records. */
 export const UNOBSERVABLE_IN_RIG: readonly { readonly id: string; readonly reason: string }[] = [
-	{ id: 'I-10', reason: 'No diagnostics export and no child process exist in the rig; B5 and B11 add them and R-20 covers the export.' },
+	{ id: 'I-10', reason: 'The child-process half is checked since B5. No diagnostics export exists in the rig; R-20 covers the export (B11).' },
 ];
 
 export function allCheckers(): OnyxSimChecker[] {

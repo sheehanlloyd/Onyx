@@ -72,6 +72,55 @@
 			]
 		},
 		{
+			"id": "R-18",
+			"title": "B5 bounded, killable command execution: fifty megabytes of output stay bounded at the process boundary and in the window; a timeout, a cancel, a dispose and a closing window each kill the command",
+			"layer": "node, service",
+			"regressions": [
+				"R-18"
+			],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxCommandExecution.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxTerminalExecution.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxCommandExecution|OnyxTerminalExecution"
+			]
+		},
+		{
+			"id": "R-40",
+			"title": "B5 runner seam: darwin and linux take the POSIX path and run, win32 refuses and starts nothing",
+			"layer": "node",
+			"regressions": [
+				"R-40"
+			],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxCommandRunner.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxCommandRunner"
+			]
+		},
+		{
+			"id": "R-40-source-scan",
+			"title": "B5 runner seam: no Onyx product file outside the seam names a shell path or a signal, or starts a process itself",
+			"layer": "pure",
+			"regressions": [
+				"R-40"
+			],
+			"files": [
+				"test/onyx/checks/r40-runner-seam.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r40-runner-seam.test.mts"
+			]
+		},
+		{
 			"id": "R-05-R-59",
 			"title": "B3 tool capability contract at the service layer: the wire carries only contracted tools by default and with the network opt-in (R-05); a stored note needs a confirmation that shows its origin (R-59)",
 			"layer": "service",
