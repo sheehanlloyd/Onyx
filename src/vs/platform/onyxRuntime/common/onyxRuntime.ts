@@ -197,8 +197,26 @@ export interface IOnyxCommandResult {
 	readonly timedOut: boolean;
 	readonly killed: boolean;
 	readonly durationMs: number;
-	/** Combined output, capped; the live stream carries the full text. */
+	/** Combined output, capped: the start and the end of what the command printed when it printed more. */
 	readonly output: string;
+	/** Everything the command printed, in characters, including what was left out of `output`. */
+	readonly outputChars: number;
+	readonly outputTruncated: boolean;
+	/** Names of the environment variables that were withheld because they look like secrets. Names only. */
+	readonly withheldEnvironment: readonly string[];
+	/** Set when nothing was started, with the reason. */
+	readonly refusal: OnyxCommandRefusal | undefined;
+}
+
+/** Why a command was not started: this platform has no tested way to run and end one in this release (DEC-02). */
+export type OnyxCommandRefusal = 'unsupported-platform';
+
+export interface IOnyxCommandOptions {
+	/**
+	 * Pass the whole environment to the command. Without it, variables whose
+	 * names look like secrets are withheld (`onyx.terminal.passEnvironment`).
+	 */
+	readonly passEnvironment?: boolean;
 }
 
 /**
@@ -354,16 +372,22 @@ export interface IOnyxRuntimeService {
 	 */
 	analyzeArchitecture(rootPath: string, persistPath: string, force: boolean): Promise<IOnyxArchitectureMap>;
 
-	/** Live stdout/stderr of commands started via {@link execCommand}. */
+	/**
+	 * Live stdout/stderr of commands started via {@link execCommand}. Bounded:
+	 * no event carries more than `ONYX_COMMAND_OUTPUT_LIMITS.eventChars`, and
+	 * one command streams at most `streamedChars`; the rest is counted in the
+	 * result and not sent.
+	 */
 	readonly onDidCommandOutput: Event<IOnyxCommandOutputEvent>;
 
 	/**
 	 * Runs one shell command in `cwd` with a hard timeout, streaming output on
 	 * {@link onDidCommandOutput}. Runs here because the renderer cannot spawn
 	 * processes. The caller is responsible for having obtained approval — this
-	 * method executes, it does not decide.
+	 * method executes, it does not decide. Every command still running when
+	 * this service is disposed, or when its process exits, is killed.
 	 */
-	execCommand(operationId: string, cwd: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult>;
+	execCommand(operationId: string, cwd: string, command: string, timeoutMs: number, options?: IOnyxCommandOptions): Promise<IOnyxCommandResult>;
 
 	/** Kills a running command (its whole process group) started via {@link execCommand}. */
 	killCommand(operationId: string): Promise<void>;

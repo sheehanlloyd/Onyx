@@ -15,7 +15,8 @@ import { FileSystemProviderCapabilities, FileType, IFileService, IFileSystemProv
 import { InMemoryFileSystemProvider } from '../../../../../../platform/files/common/inMemoryFilesystemProvider.js';
 import { FileSystemFileSearchProvider } from '../../../../../services/search/common/fileSystemFileSearchProvider.js';
 import { IFileMatch, IFileQuery, ISearchComplete, ISearchService, ITextQuery, OneLineRange, QueryType, TextSearchMatch } from '../../../../../services/search/common/search.js';
-import { IOnyxChatParams, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { commandEnvironment } from '../../../../../../platform/onyxRuntime/common/onyxCommandExecution.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../../../chat/common/tools/languageModelToolsService.js';
 import { ITaskService } from '../../../../tasks/common/taskService.js';
@@ -28,7 +29,7 @@ import { IOnyxPinService } from '../../../browser/intelligence/onyxPinService.js
 import { IOnyxRequestMeasurement } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxDiscoveredPlaybook, IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
-import { OnyxSimBoundary, OnyxSimModelTurn } from './onyxSimEpisode.js';
+import { OnyxSimBoundary, OnyxSimModelTurn, SIM_PROCESS_ENVIRONMENT, SIM_SECRET_ENVIRONMENT_NAMES } from './onyxSimEpisode.js';
 import { digest, OnyxSimTrace } from './onyxSimTrace.js';
 
 /**
@@ -77,9 +78,10 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	readonly onDidCommandOutput = this._onDidCommandOutput.event;
 
 	readonly requests: IOnyxChatParams[] = [];
-	readonly commands: { readonly operationId: string; readonly cwd: string; readonly command: string; readonly timeoutMs: number }[] = [];
+	readonly commands: { readonly operationId: string; readonly cwd: string; readonly command: string; readonly timeoutMs: number; readonly passEnvironment: boolean }[] = [];
 	private readonly _cancelled = new Set<string>();
 	private readonly _killed = new Set<string>();
+	private readonly _running = new Set<string>();
 	private _turnIndex = 0;
 	private _disposedByFault = false;
 
@@ -89,8 +91,18 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		private readonly _scheduler: IOnyxSimScheduler,
 		private readonly _trace: OnyxSimTrace,
 		private readonly _commandScript: (command: string) => IOnyxSimCommandScript,
+		private readonly _commandRefusal: OnyxCommandRefusal | undefined = undefined,
 	) {
 		super();
+	}
+
+	/** Commands that were dispatched and have neither finished nor been killed. */
+	runningCommands(): string[] {
+		return [...this._running].filter(operationId => !this._killed.has(operationId));
+	}
+
+	wasKilled(operationId: string): boolean {
+		return this._killed.has(operationId);
 	}
 
 	get endpoint(): IOnyxEndpoint {
@@ -238,10 +250,29 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		}
 	}
 
-	async execCommand(operationId: string, cwd: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult> {
-		this.commands.push({ operationId, cwd, command, timeoutMs });
+	async execCommand(operationId: string, cwd: string, command: string, timeoutMs: number, options?: IOnyxCommandOptions): Promise<IOnyxCommandResult> {
+		if (this._commandRefusal) {
+			// The runner refuses before anything is started: there is no dispatch to record.
+			return { exitCode: undefined, timedOut: false, killed: false, durationMs: 0, output: '', outputChars: 0, outputTruncated: false, withheldEnvironment: [], refusal: this._commandRefusal };
+		}
+		const passEnvironment = options?.passEnvironment === true;
+		// The command's environment, by the product's own rule over the seeded process environment.
+		const child = commandEnvironment(SIM_PROCESS_ENVIRONMENT, passEnvironment);
+		const secretEnvironment = SIM_SECRET_ENVIRONMENT_NAMES.filter(name => child.environment[name] !== undefined).length;
+		this.commands.push({ operationId, cwd, command, timeoutMs, passEnvironment });
 		const op = this._trace.canonical('op', operationId);
-		this._trace.record({ kind: 'commandDispatch', op, command, cwd });
+		this._trace.record({ kind: 'commandDispatch', op, command, cwd, ...(secretEnvironment > 0 ? { secretEnvironment } : {}) });
+		this._running.add(operationId);
+		try {
+			// The command is running: this is when a window can close under it.
+			await this._scheduler.boundary('commandRunning');
+			return await this._runCommand(operationId, op, command, child.withheld);
+		} finally {
+			this._running.delete(operationId);
+		}
+	}
+
+	private async _runCommand(operationId: string, op: string, command: string, withheldEnvironment: readonly string[]): Promise<IOnyxCommandResult> {
 		const scripted = this._commandScript(command);
 		const fault = this._scheduler.takeFault('afterToolDispatch');
 		let output = scripted.output;
@@ -266,7 +297,8 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			this._onDidCommandOutput.fire({ operationId, stream: 'stdout', text: piece });
 		}
 		const killed = this._killed.has(operationId);
-		const result: IOnyxCommandResult = { exitCode: killed ? undefined : exitCode, timedOut, killed, durationMs: 5, output };
+		// A runtime that hands back everything it has, however much: the renderer's own bounds must hold regardless.
+		const result: IOnyxCommandResult = { exitCode: killed ? undefined : exitCode, timedOut, killed, durationMs: 5, output, outputChars: output.length, outputTruncated: false, withheldEnvironment, refusal: undefined };
 		this._trace.record({ kind: 'commandResult', op, exitCode: result.exitCode, timedOut, killed });
 		return result;
 	}

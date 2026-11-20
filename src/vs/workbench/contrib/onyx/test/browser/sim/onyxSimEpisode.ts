@@ -32,7 +32,9 @@ export type OnyxSimPersonaKind =
 	| 'flooder' | 'squatter' | 'staller' | 'schema-violator';
 
 /** Where the scheduler may let the user or the environment act. */
-export type OnyxSimBoundary = 'betweenChunks' | 'beforeToolDispatch' | 'afterToolDispatch' | 'dialogOpen' | 'afterStage' | 'afterRun';
+export type OnyxSimBoundary = 'betweenChunks' | 'beforeToolDispatch' | 'afterToolDispatch' | 'dialogOpen' | 'afterStage' | 'afterRun'
+	/** A dispatched command has started and has not finished (B5). */
+	| 'commandRunning';
 
 export type OnyxSimUserAction =
 	| { readonly kind: 'typeInTarget'; readonly text: string; readonly line: number }
@@ -53,6 +55,8 @@ export type OnyxSimUserAction =
 	| { readonly kind: 'dialog'; readonly decision: 'allow-once' | 'allow-session' | 'allow-always' | 'deny' | 'dismiss' }
 	/** The user runs "Clear Legacy Terminal Grants" (B2). */
 	| { readonly kind: 'clearLegacyGrants' }
+	/** The window closes: the workbench announces the shutdown, and nothing the agent started may outlive it (B5). */
+	| { readonly kind: 'closeWindow' }
 	| { readonly kind: 'reload' };
 
 export type OnyxSimFault =
@@ -96,7 +100,24 @@ export interface OnyxSimEpisode {
 	readonly networkTools?: boolean;
 	/** A second request in the same session after the first run ends: what a later prompt carries is what I-14 is about. */
 	readonly followUpPrompt?: string;
+	/** The user's `onyx.terminal.passEnvironment`. Off unless set. */
+	readonly passEnvironment?: boolean;
+	/** The platform has no supported way to run a command: the runner refuses and starts nothing (DEC-02). */
+	readonly commandRefusal?: 'unsupported-platform';
 }
+
+/**
+ * The environment of the simulated process that starts commands. Two of its
+ * variables are secrets by name; neither may reach a command unless the user
+ * turned `onyx.terminal.passEnvironment` on (I-10).
+ */
+export const SIM_PROCESS_ENVIRONMENT: Readonly<Record<string, string>> = {
+	PATH: '/usr/bin:/bin',
+	HOME: '/home/sim',
+	GITHUB_TOKEN: 'sim-token-1f0c',
+	AWS_SECRET_ACCESS_KEY: 'sim-secret-9be2',
+};
+export const SIM_SECRET_ENVIRONMENT_NAMES: readonly string[] = ['GITHUB_TOKEN', 'AWS_SECRET_ACCESS_KEY'];
 
 export const SIM_TARGET_FILE = 'src/math.ts';
 
@@ -163,7 +184,8 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 		case 'well-behaved':
 			switch (random.int(0, 3)) {
 				case 0: return [editCall(EDIT_SEARCH, EDIT_REPLACE), answer('Done: staged one edit for review.')];
-				case 1: return [{ kind: 'toolCall', tool: 'terminal', arguments: { command: random.pick(['npm test', 'git status', 'ls src']) } }, answer('The command ran; nothing else to do.')];
+				// Sometimes in a directory of the workspace: the command must run there, and nowhere else (B5).
+				case 1: return [{ kind: 'toolCall', tool: 'terminal', arguments: { command: random.pick(['npm test', 'git status', 'ls src']), ...(random.chance(0.4) ? { cwd: random.pick(['src', '.', 'src/']) } : {}) } }, answer('The command ran; nothing else to do.')];
 				// Reads with its own tools, then quotes what it read: plain, or with the read result's line numbers left in (R-24).
 				case 2: return [readCall({ path: SIM_TARGET_FILE }), random.chance(0.5) ? editCall(EDIT_SEARCH, EDIT_REPLACE) : editCall(`2| ${EDIT_SEARCH}`, EDIT_REPLACE), answer('Read the file, then staged one edit.')];
 				default: return [
@@ -220,10 +242,15 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 				]),
 				answer('Edited.'),
 			];
-		case 'flooder':
-			return random.chance(0.5)
+		case 'flooder': {
+			const flood = random.chance(0.5)
 				? [answer('x'.repeat(200_000))]
 				: [editCall(EDIT_SEARCH, 'y'.repeat(300_000)), answer('Done.')];
+			// A third of the time the flood is a command's output instead: two megabytes of it (B5, I-13).
+			return random.chance(0.34)
+				? [{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'head -c 2000000 /dev/zero' } }, answer('Done.')]
+				: flood;
+		}
 		case 'squatter':
 			// Names that do not exist, and names of tools that are registered but outside the capability contract.
 			return [
@@ -239,6 +266,11 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 					{ kind: 'toolCall', tool: 'terminal', arguments: { cmd: 'npm test' } },
 					{ kind: 'toolCall', tool: 'editFile', arguments: { path: '../../etc/passwd', search: '', replace: 'root::0:0' } },
 					{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test', timeoutSeconds: 'forever' } },
+					// A working directory outside the workspace, or one that is not a directory at all (B5, I-07).
+					{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'ls', cwd: '../outside' } },
+					{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'cat secret.txt', cwd: '/outside' } },
+					{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'ls', cwd: 'src/math.ts' } },
+					{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'ls', cwd: 42 } },
 					// The read side of I-07: traversal, an absolute path, a symbolic link that leaves the workspace.
 					readCall({ path: `..${SIM_OUTSIDE_PATH}` }),
 					readCall({ path: SIM_OUTSIDE_PATH }),
@@ -328,15 +360,22 @@ export function generateEpisode(seed: number): OnyxSimEpisode {
 		faults.push({ at: faultRandom.pick(BOUNDARIES), occurrence: faultRandom.int(1, 3), step: randomFault(faultRandom, SIM_TARGET_FILE) });
 	}
 	const configRandom = random.fork('config');
+	const prompt = random.pick(['Change addNumbers to add the arguments in the other order.', 'Run the tests.', 'Tidy up src/math.ts.', 'What does this repository do?', 'Read the README and remember what it says.', 'Open the docs page in the browser.']);
+	const dialogDefault = random.pick(['allow-once', 'deny', 'dismiss'] as const);
+	// Drawn last, from its own stream, so that every episode generated before B5 keeps its other steps.
+	const windowRandom = random.fork('window');
+	if (windowRandom.chance(0.15)) {
+		userSteps.push({ at: 'commandRunning', occurrence: windowRandom.int(1, 2), step: { kind: 'closeWindow' } });
+	}
 	return {
 		name: `seed-${seed}`,
 		seed,
 		persona,
-		prompt: random.pick(['Change addNumbers to add the arguments in the other order.', 'Run the tests.', 'Tidy up src/math.ts.', 'What does this repository do?', 'Read the README and remember what it says.', 'Open the docs page in the browser.']),
+		prompt,
 		files: SIM_FILES,
 		target: SIM_TARGET_FILE,
 		turns,
-		dialogDefault: random.pick(['allow-once', 'deny', 'dismiss'] as const),
+		dialogDefault,
 		userSteps,
 		faults,
 		projectConfig: projectConfig(configRandom),

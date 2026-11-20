@@ -23,7 +23,8 @@ import { IOnyxRuntimeService } from '../../../../../../platform/onyxRuntime/comm
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService } from '../../../../../../platform/workspace/common/workspaceTrust.js';
 import { testWorkspace } from '../../../../../../platform/workspace/test/common/testWorkspace.js';
-import { TestContextService, TestWorkspaceTrustManagementService } from '../../../../../test/common/workbenchTestServices.js';
+import { TestContextService, TestLifecycleService, TestWorkspaceTrustManagementService } from '../../../../../test/common/workbenchTestServices.js';
+import { ILifecycleService } from '../../../../../services/lifecycle/common/lifecycle.js';
 import { workbenchInstantiationService } from '../../../../../test/browser/workbenchTestServices.js';
 import { ITextFileService, TextFileEditorModelState } from '../../../../../services/textfile/common/textfiles.js';
 import { ChatAgentLocation } from '../../../../chat/common/constants.js';
@@ -100,6 +101,10 @@ export interface IOnyxSimState {
 	/** Staged proposals observed after each tool result: path, hunk count and the proposal's size. */
 	readonly stageEvents: readonly { readonly path: string; readonly hunks: number; readonly proposedChars: number; readonly search: string | undefined; readonly baseAtStage: string | undefined; readonly proposedBefore: string | undefined }[];
 	readonly profile: IOnyxModelProfile;
+	/** The most command output the terminal service held at once, in characters, over the whole episode. */
+	readonly peakRetainedOutputChars: number | undefined;
+	/** Commands that were still running, not killed, after the window announced it was closing. */
+	readonly commandsOutlivingWindow: readonly string[];
 }
 
 export type OnyxSimChecker = (state: IOnyxSimState, boundary: OnyxSimBoundary | 'end') => string | undefined;
@@ -140,7 +145,9 @@ export interface IOnyxSimResult {
 	/** Every dialog the user was shown: what it said, which buttons it offered and what the user decided. */
 	readonly dialogs: readonly { readonly message: string; readonly detail: string; readonly buttons: readonly string[]; readonly decision: string }[];
 	/** Every command the runtime was asked to execute, as dispatched. */
-	readonly commands: readonly { readonly cwd: string; readonly command: string; readonly timeoutMs: number }[];
+	readonly commands: readonly { readonly cwd: string; readonly command: string; readonly timeoutMs: number; readonly passEnvironment: boolean }[];
+	/** The most command output the terminal service held at once, in characters. */
+	readonly peakRetainedOutputChars: number | undefined;
 	/** Tasks the task service was asked to run. */
 	readonly tasksRan: readonly string[];
 	/** The repository configuration file as it is on disk at the end. */
@@ -167,7 +174,9 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private readonly _createLoop: () => OnyxAgentLoop;
 	private _followUpFirstRequest: number | undefined;
 	private readonly _provider: OnyxSimFileSystemProvider;
-	private readonly _terminal: IOnyxTerminalService;
+	private readonly _terminal: OnyxTerminalService;
+	private readonly _lifecycle: TestLifecycleService;
+	readonly commandsOutlivingWindow: string[] = [];
 	readonly sanctionedBuffer = new Map<string, string>();
 	readonly sanctionedDisk = new Map<string, string>();
 	readonly pendingBuffer = new Map<string, string>();
@@ -205,8 +214,15 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this._checkers.push(...checkers);
 		this.trace = new OnyxSimTrace(() => Date.now());
 
-		const commandScript = (command: string): IOnyxSimCommandScript => ({ exitCode: 0, output: command.startsWith('cat ') ? (episode.files[command.slice(4).trim()] ?? '') : `ran: ${command}\n` });
-		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript));
+		const commandScript = (command: string): IOnyxSimCommandScript => {
+			// A command that prints: `head -c <n> /dev/zero` gives n characters, up to four megabytes.
+			const printed = /^head -c (?<chars>\d+) \/dev\/zero$/.exec(command)?.groups?.chars;
+			if (printed !== undefined) {
+				return { exitCode: 0, output: 'x'.repeat(Math.min(Number(printed), 4_000_000)) };
+			}
+			return { exitCode: 0, output: command.startsWith('cat ') ? (episode.files[command.slice(4).trim()] ?? '') : `ran: ${command}\n` };
+		};
+		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal));
 		this.dialogs = new OnyxSimDialogService(episode.dialogDefault, this, this.trace);
 		this.tools = new OnyxSimToolsService(this, this.trace);
 
@@ -239,7 +255,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		configuration.setUserConfiguration('search', { useIgnoreFiles: true, followSymlinks: true, exclude: { '**/node_modules': true } });
 		configuration.setUserConfiguration('files', { exclude: { '**/.git': true } });
 		configuration.setUserConfiguration('editor', { wordSeparators: '`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?' });
-		configuration.setUserConfiguration('onyx', { agent: { networkTools: episode.networkTools === true } });
+		configuration.setUserConfiguration('onyx', { agent: { networkTools: episode.networkTools === true }, terminal: { passEnvironment: episode.passEnvironment === true } });
+		this._lifecycle = instantiationService.get(ILifecycleService) as TestLifecycleService;
 		instantiationService.stub(ISearchService, this.search);
 		instantiationService.stub(IOnyxWorkspaceAccessService, instantiationService.createInstance(classes.WorkspaceAccess));
 
@@ -333,6 +350,10 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private _close(path: string): void {
 		this._references.get(path)?.dispose();
 		this._references.delete(path);
+	}
+
+	get peakRetainedOutputChars(): number | undefined {
+		return this._terminal.outputRetention?.peakChars;
 	}
 
 	// --- scheduler ---------------------------------------------------------
@@ -494,6 +515,19 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			case 'clearLegacyGrants':
 				await this.clearLegacyGrants();
 				break;
+			case 'closeWindow': {
+				// The workbench announces the shutdown and waits for whoever joined it. A command the agent
+				// started and nobody killed by then outlives its window.
+				const running = this.runtime.runningCommands();
+				this._lifecycle.fireShutdown();
+				await Promise.allSettled(this._lifecycle.shutdownJoiners);
+				for (const operationId of running) {
+					if (!this.runtime.wasKilled(operationId)) {
+						this.commandsOutlivingWindow.push(this.trace.canonical('op', operationId));
+					}
+				}
+				break;
+			}
 			case 'reload':
 				// A window reload drops every live buffer; the disk and the persisted staged set survive.
 				for (const path of [...this._references.keys()]) {
@@ -618,6 +652,13 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		return cleared;
 	}
 
+	/** Makes `path` in the workspace a symbolic link to the directory `target` outside it. */
+	async linkDirectory(path: string, target: string): Promise<void> {
+		await this._fileService.createFolder(URI.file(target));
+		await this._fileService.createFolder(this._uri(path));
+		this._provider.addLink(this._uri(path).path, target);
+	}
+
 	/** The repository's `.onyx/config.json` as it is on the in-memory disk now. */
 	async projectConfigOnDisk(): Promise<string | undefined> {
 		return this.disk('.onyx/config.json');
@@ -696,7 +737,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			advertised: this.runtime.requests.map(request => (request.tools ?? []).map(tool => tool.function.name)),
 			errorMessage,
 			dialogs: [...this.dialogs.prompts],
-			commands: this.runtime.commands.map(command => ({ cwd: command.cwd, command: command.command, timeoutMs: command.timeoutMs })),
+			commands: this.runtime.commands.map(command => ({ cwd: command.cwd, command: command.command, timeoutMs: command.timeoutMs, passEnvironment: command.passEnvironment })),
+			peakRetainedOutputChars: this.peakRetainedOutputChars,
 			tasksRan: [...this.tasks.ran],
 			projectConfigOnDisk: await this.projectConfigOnDisk(),
 			memoryNotes: this.memory.getNotes().map(note => note.text),

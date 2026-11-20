@@ -3,19 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { execFile, spawn } from 'child_process';
+import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import { join } from '../../../base/common/path.js';
 import { Emitter } from '../../../base/common/event.js';
-import { Disposable } from '../../../base/common/lifecycle.js';
+import { Disposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { ILogService } from '../../log/common/log.js';
 import { OnyxArchitectureScanner } from './onyxArchitectureScanner.js';
+import { IOnyxCommandProcess, OnyxCommandRunner } from './onyxCommandRunner.js';
 import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
 import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
-import { IOnyxChatParams, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -99,7 +100,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	readonly onDidCommandOutput = this._onDidCommandOutput.event;
 
 	private readonly _operations = new Map<string, AbortController>();
-	private readonly _runningCommands = new Map<string, { kill: () => void }>();
+	private readonly _runningCommands = new Map<string, IOnyxCommandProcess>();
 	private readonly _modelDetailCache = new Map<string, Partial<IOnyxDiscoveredModel>>();
 	private readonly _gitRecentCache = new Map<string, { at: number; files: readonly string[] }>();
 	private readonly _gitGroupsCache = new Map<string, { at: number; groups: readonly (readonly string[])[] }>();
@@ -109,8 +110,14 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 
 	constructor(
 		@ILogService private readonly _logService: ILogService,
+		private readonly _commandRunner: OnyxCommandRunner = new OnyxCommandRunner(),
 	) {
 		super();
+		// This process can exit without disposing its services. The kill is
+		// synchronous, so it still happens from an exit handler.
+		const onExit = () => this._killAllCommands();
+		process.once('exit', onExit);
+		this._register(toDisposable(() => process.removeListener('exit', onExit)));
 	}
 
 	override dispose(): void {
@@ -120,6 +127,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		for (const controller of this._operations.values()) {
 			controller.abort();
 		}
+		this._killAllCommands();
 		for (const indexer of this._indexers.values()) {
 			indexer.dispose();
 		}
@@ -799,66 +807,32 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		return scanner.analyze(force);
 	}
 
-	async execCommand(operationId: string, cwd: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult> {
-		const startedAt = Date.now();
-		return new Promise<IOnyxCommandResult>(resolve => {
-			// Its own process group (detached) so a kill reaches the whole tree,
-			// not just the shell that spawned it.
-			const child = spawn('/bin/sh', ['-c', command], { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
-			let output = '';
-			let done = false;
-			let timedOut = false;
-			let killed = false;
-
-			const killTree = () => {
-				try {
-					if (child.pid) {
-						process.kill(-child.pid, 'SIGKILL');
-					}
-				} catch {
-					child.kill('SIGKILL');
-				}
-			};
-			this._runningCommands.set(operationId, { kill: () => { killed = true; killTree(); } });
-
-			const timer = setTimeout(() => {
-				timedOut = true;
-				killTree();
-			}, Math.max(1000, timeoutMs));
-
-			const onData = (stream: 'stdout' | 'stderr') => (data: Buffer) => {
-				const text = data.toString();
-				if (output.length < MAX_COMMAND_OUTPUT_CHARS) {
-					output += text;
-				}
-				this._onDidCommandOutput.fire({ operationId, stream, text });
-			};
-			child.stdout?.on('data', onData('stdout'));
-			child.stderr?.on('data', onData('stderr'));
-
-			const finish = (exitCode: number | undefined) => {
-				if (done) {
-					return;
-				}
-				done = true;
-				clearTimeout(timer);
-				this._runningCommands.delete(operationId);
-				resolve({ exitCode, timedOut, killed, durationMs: Date.now() - startedAt, output: output.slice(0, MAX_COMMAND_OUTPUT_CHARS) });
-			};
-			child.on('error', err => {
-				output += `\n${err.message}`;
-				finish(undefined);
-			});
-			child.on('close', code => finish(code ?? undefined));
-		});
+	/**
+	 * Starts nothing itself: which shell, which spawn options and how the
+	 * process tree ends are the runner's (`onyxCommandRunner.ts`, DEC-02).
+	 */
+	async execCommand(operationId: string, cwd: string, command: string, timeoutMs: number, options?: IOnyxCommandOptions): Promise<IOnyxCommandResult> {
+		const running = this._commandRunner.start(
+			{ cwd, command, timeoutMs, passEnvironment: options?.passEnvironment === true },
+			(stream, text) => this._onDidCommandOutput.fire({ operationId, stream, text }));
+		this._runningCommands.set(operationId, running);
+		try {
+			return await running.result;
+		} finally {
+			this._runningCommands.delete(operationId);
+		}
 	}
 
 	async killCommand(operationId: string): Promise<void> {
 		this._runningCommands.get(operationId)?.kill();
 	}
-}
 
-const MAX_COMMAND_OUTPUT_CHARS = 200_000;
+	private _killAllCommands(): void {
+		for (const running of this._runningCommands.values()) {
+			running.kill();
+		}
+	}
+}
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.max(min, Math.min(value, max));

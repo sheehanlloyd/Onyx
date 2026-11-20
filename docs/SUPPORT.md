@@ -99,6 +99,26 @@ offers **Run Once** or **Deny**. An answer covers that one invocation.
 | A check task (`onyx.verification.task`, or `verificationTask` in `.onyx/config.json`) | Asks before each run, naming the task and who configured it. The dialog cannot show the commands a task runs and says so |
 | Past decisions | Kept in machine-local workspace storage, at most 200, shown by `Onyx: Show Terminal Approval History`. A record, never a permission. Nothing about approval is written to a tracked file |
 
+## Command execution and its limits (B5)
+
+An approved command is started by one module, `src/vs/platform/onyxRuntime/node/onyxCommandRunner.ts`, and by
+nothing else in Onyx (R-40).
+
+| Question | Answer in the alpha |
+|---|---|
+| Shell | `/bin/sh -c` on macOS and Linux, in its own process group |
+| Windows | Refused: the runner returns `unsupported-platform` and starts nothing. The tool tells the model so (DEC-02; Milestone M2 fills this in) |
+| Working directory | The first workspace folder, or the directory inside the workspace that the call names as `cwd`. It goes through the same gate as the read tools: an absolute path, a `..` segment, a path that is not a directory and a symbolic link that leaves the workspace are refused before anyone is asked. The dialog shows the directory |
+| Timeout | 60 s by default, 600 s at most, 1 s at least. The whole process group is killed |
+| Killed when | the timeout passes; the user stops it (`Onyx: Kill Running Terminal Command`, or Stop on the run); the window closes or reloads; Onyx's runtime service is disposed or its process exits. A window that crashes does not announce itself: the timeout ends the command |
+| Not reached by a kill | A process that left the group (`setsid`, a daemon). If such a process holds the output pipes open, the result is reported two seconds after the kill anyway |
+| Output, per event | 8,192 characters at most |
+| Output, streamed per command | 262,144 characters at most; the rest is counted, not sent |
+| Output, in the result | 200,000 characters at most: the start and the end, with the number of characters left out |
+| Output, held by the window while the command runs | less than one timeline note: 800 characters. The timeline shows the first 4,800 characters in six notes |
+| Output, to the model and the journal | 12,000 characters: the start and the end, with the total stated when it was cut |
+| Environment | Variables whose names match `/(TOKEN\|SECRET\|KEY\|PASSWORD\|CREDENTIAL)/i` are withheld. `onyx.terminal.passEnvironment` (user setting, default off) passes everything, and the approval prompt then says so. Defense in depth only; see `.github/SECURITY.md` |
+
 ## Read-side tools and their limits (B1)
 
 The agent reads the workspace with Onyx's own tools. They go through the workbench's file and search services;

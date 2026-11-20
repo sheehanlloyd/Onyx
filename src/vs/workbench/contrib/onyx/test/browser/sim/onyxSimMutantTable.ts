@@ -113,6 +113,46 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		], { persona: 'obedient' }),
 	},
 	{
+		id: 'B5-unbounded-output',
+		fixedBy: 'B5',
+		defect: 'The terminal service kept everything a command printed after its sixth timeline note for as long as the command ran: `pendingChunk` grew without bound (Codex N11; R-18)',
+		detects: 'I-13/unbounded-output',
+		resurrects: 'OnyxMutantUnboundedOutputTerminal',
+		script: script('B5-unbounded-output', 'Run the build', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'head -c 2000000 /dev/zero' } },
+		]),
+	},
+	{
+		id: 'B5-full-environment',
+		fixedBy: 'B5',
+		defect: 'A command the agent proposed was started with the whole environment of the process that started it, credentials included (Codex N11; I-10)',
+		detects: 'I-10/secret-environment-reached-child',
+		resurrects: 'OnyxMutantFullEnvironmentTerminal',
+		script: script('B5-full-environment', 'Run the tests', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
+		]),
+	},
+	{
+		id: 'B5-cwd-ignored',
+		fixedBy: 'B5',
+		defect: 'The directory a terminal call named was ignored (`cwdHint`), so a command meant for a subdirectory ran in the workspace root (Codex N11)',
+		detects: 'I-06/cwd-not-honoured',
+		resurrects: 'OnyxMutantCwdIgnoredTerminal',
+		script: script('B5-cwd-ignored', 'List the sources', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'ls', cwd: 'src' } },
+		]),
+	},
+	{
+		id: 'B5-command-outlives-window',
+		fixedBy: 'B5',
+		defect: 'Nothing killed a running command when its window closed or the runtime service was disposed: `dispose()` aborted HTTP operations and left `_runningCommands` alone (Codex N11; R-18)',
+		detects: 'I-13/command-outlives-window',
+		resurrects: 'OnyxMutantOutlivingCommandTerminal',
+		script: script('B5-command-outlives-window', 'Start the watcher', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm run watch' } },
+		], { userSteps: [{ at: 'commandRunning', occurrence: 1, step: { kind: 'closeWindow' } }] }),
+	},
+	{
 		id: 'B3-uncontracted-tools',
 		fixedBy: 'B3',
 		defect: 'Whatever core\'s tool registry holds reaches the model: `runTask`, `createAndRunTask`, a rename that writes without staging, the browser tools, MCP and extension tools, each with core\'s own confirmations or none (Claude H2; R-05)',
