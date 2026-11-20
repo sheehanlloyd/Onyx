@@ -8,9 +8,12 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { ITaskService } from '../../../tasks/common/taskService.js';
 import { Task, TaskGroup } from '../../../tasks/common/tasks.js';
+import { localize } from '../../../../../nls.js';
 import { OnyxSettingId } from '../../common/onyxConfiguration.js';
+import { ONYX_PROJECT_CONFIG_PATH } from '../../common/onyxProjectConfig.js';
 import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
 import { IOnyxRunHandle } from '../controlPlane/onyxControlPlaneService.js';
+import { IOnyxTerminalService } from '../terminal/onyxTerminalTool.js';
 
 /**
  * The Phase-4 slice of verification: after an agent run that changed things,
@@ -25,6 +28,7 @@ export class OnyxTaskVerification {
 		@ITaskService private readonly _taskService: ITaskService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IOnyxProjectConfigService private readonly _projectConfigService: IOnyxProjectConfigService,
+		@IOnyxTerminalService private readonly _terminalService: IOnyxTerminalService,
 		@ILogService private readonly _logService: ILogService,
 	) { }
 
@@ -57,6 +61,20 @@ export class OnyxTaskVerification {
 		}
 
 		const label = task._label ?? configured;
+		// A task runs whatever the workspace's task configuration says, and the
+		// repository can name the task. Neither is the user's consent to this
+		// run, so it asks like any other execution (B2): once, for this run.
+		const approved = await this._terminalService.confirmExecution({
+			subject: `Task: ${label}`,
+			configuredBy: this._configurationService.getValue<string>(OnyxSettingId.VerificationTask)
+				? localize('onyx.verification.configuredByUser', "your setting onyx.verification.task")
+				: localize('onyx.verification.configuredByRepository', "{0} (repository-authored)", ONYX_PROJECT_CONFIG_PATH),
+			runId: handle.runId,
+		});
+		if (!approved) {
+			handle.activity({ kind: 'note', label: `Checks not run: ${label} was not approved`, ok: undefined });
+			return;
+		}
 		handle.activity({ kind: 'note', label: `Running checks: ${label}` });
 		const startedAt = Date.now();
 		try {

@@ -20,8 +20,9 @@ import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { IOnyxRuntimeService } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
+import { IWorkspaceTrustManagementService } from '../../../../../../platform/workspace/common/workspaceTrust.js';
 import { testWorkspace } from '../../../../../../platform/workspace/test/common/testWorkspace.js';
-import { TestContextService } from '../../../../../test/common/workbenchTestServices.js';
+import { TestContextService, TestWorkspaceTrustManagementService } from '../../../../../test/common/workbenchTestServices.js';
 import { workbenchInstantiationService } from '../../../../../test/browser/workbenchTestServices.js';
 import { ITextFileService, TextFileEditorModelState } from '../../../../../services/textfile/common/textfiles.js';
 import { ChatAgentLocation } from '../../../../chat/common/constants.js';
@@ -37,7 +38,7 @@ import { IOnyxPromptCacheService, OnyxPromptCacheService } from '../../../browse
 import { IOnyxChangeSetService, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
 import { OnyxEditToolContribution } from '../../../browser/changes/onyxEditTool.js';
 import { IOnyxEnergyService } from '../../../browser/compute/onyxEnergyService.js';
-import { IOnyxProjectConfigService } from '../../../browser/config/onyxProjectConfigService.js';
+import { IOnyxProjectConfigService, OnyxProjectConfigService } from '../../../browser/config/onyxProjectConfigService.js';
 import { IOnyxControlPlaneService, OnyxControlPlaneService } from '../../../browser/controlPlane/onyxControlPlaneService.js';
 import { OnyxFindFilesToolContribution } from '../../../browser/intelligence/onyxFindFilesTool.js';
 import { OnyxGrepToolContribution } from '../../../browser/intelligence/onyxGrepTool.js';
@@ -52,7 +53,7 @@ import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileServic
 import { IOnyxRouterService, OnyxRouterService } from '../../../browser/routing/onyxRouterService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../../../browser/terminal/onyxTerminalTool.js';
 import { OnyxSimBoundary, OnyxSimEpisode, OnyxSimFault, OnyxSimUserAction } from './onyxSimEpisode.js';
-import { IOnyxSimCommandScript, IOnyxSimScheduler, OnyxSimDialogService, OnyxSimEnergyService, OnyxSimFileSystemProvider, OnyxSimLanguageModelsService, OnyxSimPinService, OnyxSimPlaybookService, OnyxSimProfileService, OnyxSimProjectConfigService, OnyxSimRuntimeService, OnyxSimSearchService, OnyxSimToolsService, SIM_MODEL_KEY, simTaskService, simWorkspaceUri } from './onyxSimFakes.js';
+import { IOnyxSimCommandScript, IOnyxSimScheduler, OnyxSimDialogService, OnyxSimEnergyService, OnyxSimFileSystemProvider, OnyxSimLanguageModelsService, OnyxSimPinService, OnyxSimPlaybookService, OnyxSimProfileService, OnyxSimRuntimeService, OnyxSimSearchService, OnyxSimTaskService, OnyxSimToolsService, SIM_MODEL_KEY, simWorkspaceUri } from './onyxSimFakes.js';
 import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
 import { digest, OnyxSimTrace } from './onyxSimTrace.js';
 
@@ -112,6 +113,8 @@ export interface IOnyxSimProductClasses {
 
 export interface IOnyxSimRigOptions {
 	readonly classes?: Partial<IOnyxSimProductClasses>;
+	/** Whether the workspace is trusted (Workspace Trust). Default true; trust must change nothing about approval (R-02). */
+	readonly workspaceTrusted?: boolean;
 }
 
 export interface IOnyxSimResult {
@@ -129,6 +132,14 @@ export interface IOnyxSimResult {
 	readonly advertised: readonly (readonly string[])[];
 	/** What the agent loop returned to the chat: an error message when the run was refused or failed. */
 	readonly errorMessage: string | undefined;
+	/** Every dialog the user was shown: what it said, which buttons it offered and what the user decided. */
+	readonly dialogs: readonly { readonly message: string; readonly detail: string; readonly buttons: readonly string[]; readonly decision: string }[];
+	/** Every command the runtime was asked to execute, as dispatched. */
+	readonly commands: readonly { readonly cwd: string; readonly command: string; readonly timeoutMs: number }[];
+	/** Tasks the task service was asked to run. */
+	readonly tasksRan: readonly string[];
+	/** The repository configuration file as it is on disk at the end. */
+	readonly projectConfigOnDisk: string | undefined;
 }
 
 const WATCHDOG_MS = 10 * 60_000;
@@ -142,7 +153,9 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly changeSet: IOnyxChangeSetService;
 	readonly controlPlane: IOnyxControlPlaneService;
 	readonly search: OnyxSimSearchService;
+	readonly tasks: OnyxSimTaskService;
 	private readonly _provider: OnyxSimFileSystemProvider;
+	private readonly _terminal: IOnyxTerminalService;
 	readonly sanctionedBuffer = new Map<string, string>();
 	readonly sanctionedDisk = new Map<string, string>();
 	readonly pendingBuffer = new Map<string, string>();
@@ -199,15 +212,15 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		const profile: IOnyxModelProfile = { toolCallQuality: 0.9, contextLength: 16384, maxTools: 8, temperature: 0.2, promptStyle: 'full', family: 'sim', parameterB: 7, supportsVision: false, ...episode.profile };
 		this.profile = profile;
 		instantiationService.stub(IOnyxProfileService, new OnyxSimProfileService(profile));
-		const projectConfig = new OnyxSimProjectConfigService();
-		if (episode.projectConfig) {
-			projectConfig.setConfig({ terminalAllowlist: episode.projectConfig.terminalAllowlist ? [...episode.projectConfig.terminalAllowlist] : undefined, disabledTools: episode.projectConfig.disabledTools ? [...episode.projectConfig.disabledTools] : undefined });
-		}
-		instantiationService.stub(IOnyxProjectConfigService, projectConfig);
+		// The real project config service: the episode's repository configuration is a `.onyx/config.json`
+		// on the in-memory disk, read the way the product reads it.
+		instantiationService.stub(IOnyxProjectConfigService, this._disposables.add(instantiationService.createInstance(OnyxProjectConfigService)));
+		instantiationService.stub(IWorkspaceTrustManagementService, this._disposables.add(new TestWorkspaceTrustManagementService(options.workspaceTrusted ?? true)));
 		instantiationService.stub(IOnyxEnergyService, new OnyxSimEnergyService());
 		instantiationService.stub(IOnyxPinService, new OnyxSimPinService());
 		instantiationService.stub(IOnyxPlaybookService, new OnyxSimPlaybookService());
-		instantiationService.stub(ITaskService, simTaskService);
+		this.tasks = new OnyxSimTaskService(this.trace);
+		instantiationService.stub(ITaskService, this.tasks);
 		// The product's own search defaults: ignore files are honoured and symbolic links are followed. The
 		// read tools must stay inside the workspace under exactly these settings.
 		const configuration = instantiationService.get(IConfigurationService) as TestConfigurationService;
@@ -228,7 +241,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IOnyxMemoryService, this._disposables.add(instantiationService.createInstance(OnyxMemoryService)));
 		this.changeSet = this._disposables.add(instantiationService.createInstance(OnyxChangeSetService));
 		instantiationService.stub(IOnyxChangeSetService, this.changeSet);
-		instantiationService.stub(IOnyxTerminalService, this._disposables.add(instantiationService.createInstance(classes.TerminalService)));
+		this._terminal = this._disposables.add(instantiationService.createInstance(classes.TerminalService));
+		instantiationService.stub(IOnyxTerminalService, this._terminal);
 		this._disposables.add(instantiationService.createInstance(OnyxReadFileToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxListDirectoryToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxFindFilesToolContribution));
@@ -450,6 +464,9 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			case 'dialog':
 				this.dialogs.decideNext(action.decision);
 				break;
+			case 'clearLegacyGrants':
+				await this.clearLegacyGrants();
+				break;
 			case 'reload':
 				// A window reload drops every live buffer; the disk and the persisted staged set survive.
 				for (const path of [...this._references.keys()]) {
@@ -541,6 +558,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			this.sanctionedBuffer.set(path, content);
 			this.sanctionedDisk.set(path, content);
 		}
+		if (this.episode.projectConfig) {
+			await this._fileService.writeFile(this._uri('.onyx/config.json'), VSBuffer.fromString(JSON.stringify(this.episode.projectConfig, undefined, '\t') + '\n'));
+		}
+		// The project config service reads the file on a short timer after it starts; let that pass.
+		await timeout(400);
 		// Outside the workspace root, and a symbolic link to it from inside:
 		// neither may ever be read on the model's behalf (I-07, read side).
 		await this._fileService.writeFile(URI.file(SIM_OUTSIDE_PATH), VSBuffer.fromString(`${SIM_OUTSIDE_CANARY}\n`));
@@ -560,6 +582,18 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		}
 		const result = await this.tools.invokeTool({ callId: `direct-${this.tools.invocations.length + 1}`, toolId: tool.id, parameters: parameters as Record<string, unknown>, context: undefined }, async () => 0, token);
 		return { text: result.content.map(part => part.kind === 'text' ? part.value : '').join(''), ok: !result.toolResultError };
+	}
+
+	/** The user's "Clear Legacy Terminal Grants" command (B2), then time for the configuration to be read again. */
+	async clearLegacyGrants(): Promise<number> {
+		const cleared = await this._terminal.clearLegacyGrants();
+		await timeout(400);
+		return cleared;
+	}
+
+	/** The repository's `.onyx/config.json` as it is on the in-memory disk now. */
+	async projectConfigOnDisk(): Promise<string | undefined> {
+		return this.disk('.onyx/config.json');
 	}
 
 	/** Types into a workspace file through its live text model, leaving it unsaved. */
@@ -624,6 +658,10 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			toolResults: [...this.tools.results],
 			advertised: this.runtime.requests.map(request => (request.tools ?? []).map(tool => tool.function.name)),
 			errorMessage,
+			dialogs: [...this.dialogs.prompts],
+			commands: this.runtime.commands.map(command => ({ cwd: command.cwd, command: command.command, timeoutMs: command.timeoutMs })),
+			tasksRan: [...this.tasks.ran],
+			projectConfigOnDisk: await this.projectConfigOnDisk(),
 		};
 	}
 

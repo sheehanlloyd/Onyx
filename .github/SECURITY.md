@@ -35,15 +35,21 @@ main security argument for the whole design.
 **What being local does not remove.** Onyx runs a language model's output against
 your machine, and a model is not a trusted party:
 
-- **A model can propose a destructive command.** The terminal tool never executes
-  anything without an approval prompt. Commands are classified against eighteen
-  patterns for destructive, privilege-escalating, and remote-code-executing
-  shapes; a command that matches cannot be added to any allowlist and cannot be
-  auto-approved — the "always allow" option is not offered for it. The classifier
-  deliberately over-warns rather than under-warns, including inside quoted
-  strings, because a parser gap is an evasion path. It is an honesty mechanism
-  for the approval prompt, **not a sandbox**: a shell command can hide its intent,
-  and you are the last line of defence. Read what you approve.
+- **A model can propose a destructive command.** The terminal tool asks before
+  every invocation, with Run Once or Deny, and an answer covers that one
+  invocation: its exact command bytes, its working directory and its timeout.
+  There is no "for this session" and no "always" in this release. Nothing a
+  repository contains confers authority: a `terminalAllowlist` in
+  `.onyx/config.json` is read as suggestions, a check task named there asks
+  before each run, and Workspace Trust changes none of this. Commands are
+  classified against eighteen patterns for destructive, privilege-escalating
+  and remote-code-executing shapes, and a match is named in the dialog as what
+  the command looks like. The classifier deliberately over-warns rather than
+  under-warns, including inside quoted strings, because a parser gap is an
+  evasion path. It is an honesty mechanism for the approval prompt, **not a
+  sandbox**: a shell command can hide its intent, the dialog cannot show what
+  a script it starts will do, and you are the last line of defence. Read what
+  you approve.
 
 - **A model can propose a bad edit.** The agent has exactly one write path, and it
   does not write to disk. Edits are staged into a review surface where you see

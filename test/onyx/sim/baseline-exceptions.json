@@ -3,12 +3,6 @@
 	"campaign": "1,000 seeded episodes from seed 1 plus the scripted scenarios, unmodified harness",
 	"exceptions": [
 		{
-			"class": "I-02/repository-allowlist",
-			"owner": "B2",
-			"finding": "Cursor red flag 2; Claude B2; Codex (R-01, R-02): a repository `terminalAllowlist` entry runs a command with no approval dialog for that invocation",
-			"script": "test/onyx/sim/baseline/I-02-repository-allowlist.json"
-		},
-		{
 			"class": "I-03/no-time-budget",
 			"owner": "B12, B10",
 			"finding": "Codex N12 (R-19): a stream that never produces a token has no idle deadline, so the run never ends on its own",

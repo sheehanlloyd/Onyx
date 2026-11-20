@@ -60,9 +60,18 @@ export interface IOnyxTraceTurn {
 
 export interface IOnyxTraceApproval {
 	readonly kind: 'approval';
+	/** The exact command text the user was shown, or the subject of a non-terminal execution (`Task: …`). */
 	readonly command: string;
+	/** The working directory and timeout the approval covers; null for an execution that has neither. Absent in journals written before B2. */
+	readonly cwd?: string | null;
+	readonly timeoutMs?: number | null;
 	readonly decision: string;
-	/** Where the authority came from: the dialog, or a grant the alpha removes (B2). */
+	/**
+	 * Where the authority came from. Since B2 it is always the dialog: every
+	 * invocation asks. The other two values appear only in journals written
+	 * before B2, when a repository allowlist or a session grant could run a
+	 * command without one.
+	 */
 	readonly source: 'dialog' | 'workspace-allowlist' | 'session';
 }
 

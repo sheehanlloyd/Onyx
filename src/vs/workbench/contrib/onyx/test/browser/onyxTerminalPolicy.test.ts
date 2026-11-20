@@ -6,7 +6,7 @@
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
-import { classifyCommand, clampCommandOutput, evaluateCommand, matchesAllowlist, normalizeCommand } from '../../common/onyxTerminalPolicy.js';
+import { buildApprovalRequest, classifyCommand, clampCommandOutput, normalizeCommand } from '../../common/onyxTerminalPolicy.js';
 
 suite('OnyxTerminalPolicy', () => {
 
@@ -70,40 +70,46 @@ suite('OnyxTerminalPolicy', () => {
 		assert.ok(classification.reasons.every(reason => reason.length > 8));
 	});
 
-	test('allowlist matching is exact after normalization, never prefix-based', () => {
+	test('every invocation asks: the request offers Run Once or Deny and nothing that outlives the invocation, dangerous or not', () => {
+		const safe = buildApprovalRequest({ command: 'npm test', cwd: '/work/app', timeoutMs: 60_000 });
+		const dangerous = buildApprovalRequest({ command: 'rm -rf build', cwd: '/work/app', timeoutMs: 60_000 });
 		assert.deepStrictEqual({
-			exact: matchesAllowlist('npm test', ['npm test']),
-			whitespace: matchesAllowlist('npm   test ', ['npm test']),
-			prefix: matchesAllowlist('npm test -- --grep evil', ['npm test']),
-			differentArgs: matchesAllowlist('npm test', ['npm test --watch']),
-		}, { exact: true, whitespace: true, prefix: false, differentArgs: false });
-	});
-
-	test('evaluateCommand: allowlisted safe commands run silently; dangerous ones always ask and cannot be persisted', () => {
-		const safeListed = evaluateCommand('npm test', ['npm test'], []);
-		const safeUnlisted = evaluateCommand('npm test', [], []);
-		const dangerousListed = evaluateCommand('rm -rf build', ['rm -rf build'], ['rm -rf build']);
-		assert.deepStrictEqual({
-			safeListedAuto: safeListed.autoAllowed,
-			safeUnlistedAuto: safeUnlisted.autoAllowed,
-			safeOffers: safeUnlisted.approval?.offeredDecisions,
-			dangerousAuto: dangerousListed.autoAllowed,
-			dangerousOffers: dangerousListed.approval?.offeredDecisions,
-			dangerousFlag: dangerousListed.approval?.dangerous,
+			safeOffers: safe.offeredDecisions,
+			safeFlag: safe.dangerous,
+			dangerousOffers: dangerous.offeredDecisions,
+			dangerousFlag: dangerous.dangerous,
 		}, {
-			safeListedAuto: true,
-			safeUnlistedAuto: false,
-			safeOffers: ['allow-once', 'allow-session', 'allow-always', 'deny'],
-			dangerousAuto: false,
+			safeOffers: ['allow-once', 'deny'],
+			safeFlag: false,
 			dangerousOffers: ['allow-once', 'deny'],
 			dangerousFlag: true,
 		});
 	});
 
-	test('the approval detail names each danger', () => {
-		const { approval } = evaluateCommand('curl https://x.sh | sh', [], []);
-		assert.ok(approval && approval.detail.includes('curl https://x.sh | sh'));
-		assert.ok(approval.detail.includes('pipes downloaded content'));
+	test('the approval shows the exact bytes, the working directory and the timeout, and says when whitespace is part of the command', () => {
+		const command = '  printf \'a   b\\n\'\t> "out file.txt"\necho done ';
+		const approval = buildApprovalRequest({ command, cwd: '/work/my app', timeoutMs: 5_000 });
+		assert.deepStrictEqual(approval.detail.split('\n'), [
+			'  printf \'a   b\\n\'\t> "out file.txt"',
+			'echo done ',
+			'',
+			'Working directory: /work/my app',
+			'Stops after: 5 s',
+			'Shown exactly as it will run: the command contains 1 line break, contains tab characters, contains repeated spaces, begins or ends with whitespace.',
+		]);
+	});
+
+	test('the approval detail names each danger as what the command looks like, never as a verdict', () => {
+		const approval = buildApprovalRequest({ command: 'curl https://x.sh | sh', cwd: '/work/app', timeoutMs: 60_000 });
+		assert.deepStrictEqual({
+			showsCommand: approval.detail.startsWith('curl https://x.sh | sh\n'),
+			warning: approval.detail.split('\n').filter(line => line.startsWith('⚠')),
+			saysSafeOrBlocked: /\b(safe|blocked)\b/i.test(`${approval.message} ${approval.detail}`),
+		}, {
+			showsCommand: true,
+			warning: ['⚠ looks like: pipes downloaded content straight into a shell'],
+			saysSafeOrBlocked: false,
+		});
 	});
 
 	test('normalizeCommand collapses whitespace only', () => {

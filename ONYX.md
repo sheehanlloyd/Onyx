@@ -277,9 +277,11 @@ Integration points consumed (imports only, never patched):
       view lists each file with per-hunk accept/reject, accept/reject-all, a
       change-risk badge, crash-surviving persistence and rebase-on-drift; the
       `editFile` tool (SEARCH/REPLACE) is the agent's only write path
-- [x] Approval-gated terminal tool: the agent proposes shell commands; a
-      designed dialog offers once / session / always / deny, "always" persists
-      to `.onyx/config.json`'s `terminalAllowlist`, dangerous-command
+- [x] Approval-gated terminal tool: the agent proposes shell commands; every
+      invocation asks with Run Once or Deny and an answer covers that
+      invocation's exact bytes, working directory and timeout (B2). There is
+      no session or persistent grant, and `.onyx/config.json`'s legacy
+      `terminalAllowlist` is read as suggestions only. Dangerous-command
       heuristics are named in the prompt, output streams to the timeline, and
       a hard timeout plus `Onyx: Kill Running Terminal Command` end it
 - [x] Offline documentation mirror: workspace markdown, dependency READMEs and

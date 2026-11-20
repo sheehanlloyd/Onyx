@@ -31,7 +31,7 @@ buffers, the disk and the staged set after each step.
 | ID | Guarantee | Observable definition | Boundary | Baseline (2026-11-19) |
 |---|---|---|---|---|
 | **I-01** | No model-authored text reaches a live buffer or the disk before an explicit accept of that proposal generation and hunk | For every workspace file: the live buffer equals the content the user sanctioned (the start, their own typing, what they accepted, or the text a clean editor still shows until it reloads a disk change), and the disk equals what the user saved or what changed on disk outside the editor. Fields: `buffer`/`disk` digests, `sanctionedBuffer`, `sanctionedDisk`, `pendingBuffer` | every boundary | holds in the rig's scope: `editFile` stages. The inline-edit path (B9) is not instantiated in the rig; its violation is reproduced by the end-to-end suite and owned by B9 |
-| **I-02** | No command is dispatched without an affirmative approval recorded for that exact invocation | Every `commandDispatch` is preceded by one unconsumed `dialog` event with an `allow-*` decision; an approval covers one dispatch | after tool dispatch | **violated** by the repository `terminalAllowlist` (class `I-02/repository-allowlist`, owner B2) |
+| **I-02** | No command is dispatched without an affirmative approval recorded for that exact invocation | Every `commandDispatch` (a terminal command, or a check task) consumes one earlier `dialog` event that the user answered by pressing a button; an approval covers one dispatch; and the dispatched command text and working directory appear verbatim in the detail of the dialog that approved it. Classes: `I-02/repository-allowlist`, `I-02/reused-approval`, `I-02/unapproved-task`, `I-02/approval-for-other-bytes` | after tool dispatch | **violated** at the baseline by the repository `terminalAllowlist` (class `I-02/repository-allowlist`). Fixed by B2: every invocation asks; the class left the exceptions table and the campaign shows none (Module 2) |
 | **I-03** | Every run ends in exactly one terminal status, within its turn and time budget, and that status never changes afterwards | Exactly one journaled outcome among completed/failed/cancelled; the live run's status, once terminal, never becomes another terminal value; the run ends before the rig's virtual ten-minute watchdog. Fields: `status` (journal and `live:` transitions), `fault: watchdog` | every boundary and end | **violated**: Stop then "completed" (`I-03/status-overwritten`, owner B10); a stream that never produces a token has no deadline (`I-03/no-time-budget`, owners B12 and B10) |
 | **I-04** | No request exceeds the effective context budget, and every request carries an output cap | For every `request`: `promptChars ≤ contextLength × 4` and `maxTokens` is set | between chunks (at request time) | **violated**: no `max_tokens` on any chat request (`I-04/no-output-cap`, owner B13); sixteen turns of large tool results exceed the window (`I-04/over-budget`, owner B13) |
 | **I-05** | After Stop, no further tool is dispatched and no further proposal is staged | After a `userAction: stop`, no `toolDispatch`, `commandDispatch` or `stage` event follows | every boundary | **violated**: Stop is honoured only at the gate after a tool turn (`I-05/command-after-stop`, `I-05/stage-after-stop`, owner B10) |
@@ -94,7 +94,7 @@ campaign must report and a script that reproduces it; the exporter writes one de
 `test/onyx/sim/mutants/`. No product code imports a mutant and no setting selects one (R-44).
 
 ```bash
-./scripts/test.sh --grep "OnyxSim mutants"                                  # each mutant: its script, then 150 seeded episodes
+./scripts/test.sh --grep "OnyxSim mutants"                                  # each mutant: its script, then up to 1,000 seeded episodes
 ONYX_SIM_MUTANT_EPISODES=2000 ./scripts/test.sh --grep "OnyxSim mutants"    # the module gate's size
 ```
 
@@ -105,3 +105,7 @@ or when the unmutated harness is flagged by the mutant's script.
 |---|---|---|---|
 | `B1-naive-read-path` | B1 | A read tool joins the model's path onto the workspace folder with no refusal of traversal, absolute paths or a symbolic link out of the workspace | `I-07/read-escape` |
 | `B1-priority-truncation` | B1 | Tools sorted by a priority number and cut at the profile's cap: an editing agent left with part of its tool set | `I-06/partial-edit-set` |
+| `B2-repository-allowlist` | B2 | A command listed in the repository's `.onyx/config.json` runs with no approval dialog | `I-02/repository-allowlist` |
+| `B2-reused-approval` | B2 | A session or "always" answer: a command text approved once runs unasked from then on | `I-02/reused-approval` |
+| `B2-normalized-approval` | B2 | The dialog shows a whitespace-collapsed copy of the command while the original bytes run | `I-02/approval-for-other-bytes` |
+| `B2-unasked-check-task` | B2 | A check task named by the repository runs after a tool-using run without being asked about | `I-02/unapproved-task` |

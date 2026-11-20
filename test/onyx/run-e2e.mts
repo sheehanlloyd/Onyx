@@ -697,16 +697,38 @@ async function main() {
 		if (!detail) { return 'no-dialog'; }
 		const text = await detail.textContent();
 		const buttons = await page.$$('.monaco-dialog-box a.monaco-text-button');
+		const labels = [];
+		for (const button of buttons) { labels.push(((await button.textContent()) || '').trim()); }
 		for (const button of buttons) {
-			if ((await button.textContent())?.includes('Run Once')) { await button.click(); return 'approved:' + text; }
+			if ((await button.textContent())?.includes('Run Once')) { await button.click(); return 'approved:' + text + ' buttons=' + labels.sort().join('+'); }
 		}
-		return 'no-run-once:' + text;
+		return 'no-run-once:' + text + ' buttons=' + labels.sort().join('+');
 	}`);
 	check('the terminal tool asks before running', approval.includes('approved:'), approval.slice(0, 160));
 	check('the approval names the exact command', approval.includes('echo onyx-e2e-terminal-ok'), approval.slice(0, 160));
+	check('the approval offers Run Once and Deny, and nothing that outlives the invocation (B2)', /buttons=Deny\+Run Once"/.test(approval), approval.slice(0, 400));
 	await sleep(6000);
 	const terminalNotes = readRuns().flatMap(run => run.events).filter(event => event.kind === 'note').map(event => String(event.data?.label ?? ''));
 	check('the command ran and its exit landed on the timeline', terminalNotes.some(label => label.startsWith('Running: echo onyx-e2e-terminal-ok')) && terminalNotes.some(label => label.startsWith('Exited with code 0')), terminalNotes.slice(-6).join(' | '));
+
+	// R-03 and R-04, end to end: the identical command asks again, and a
+	// denial keeps it from running. The first approval covered one invocation.
+	await send('TERMTEST echo onyx-e2e-terminal-ok');
+	await sleep(6000);
+	const secondApproval = pw('run-code', `async (page) => {
+		const detail = await page.$('.monaco-dialog-box .dialog-message-detail');
+		if (!detail) { return 'no-dialog'; }
+		const text = await detail.textContent();
+		const buttons = await page.$$('.monaco-dialog-box a.monaco-text-button');
+		for (const button of buttons) {
+			if ((await button.textContent())?.includes('Deny')) { await button.click(); return 'denied:' + text; }
+		}
+		return 'no-deny:' + text;
+	}`);
+	check('R-03: the same command asks again; the earlier approval covers nothing', secondApproval.includes('denied:') && secondApproval.includes('echo onyx-e2e-terminal-ok'), secondApproval.slice(0, 200));
+	await sleep(5000);
+	const notesAfterDenial = readRuns().flatMap(run => run.events).filter(event => event.kind === 'note').map(event => String(event.data?.label ?? ''));
+	check('R-04: the denied command was not dispatched', notesAfterDenial.filter(label => label.startsWith('Running: echo onyx-e2e-terminal-ok')).length === 1 && notesAfterDenial.includes('Command denied by the user'), notesAfterDenial.slice(-6).join(' | '));
 
 	// --- Offline docs mirror: the docs tool finds the workspace's own docs.
 	await send('DOCTEST clamp helper bounds');

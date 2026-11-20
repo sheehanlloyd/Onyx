@@ -5,25 +5,32 @@
 
 /**
  * The approval policy behind the agent's terminal tool. Everything here is a
- * pure decision — what a command is allowed to do is decided by these
- * functions and reviewed by these tests, never ad hoc at the call site. The
- * heuristics do not try to be a sandbox (a shell command can hide anything);
- * they exist to make the approval prompt honest about what the user is being
- * asked to approve.
+ * pure decision, reviewed by tests and never made ad hoc at the call site.
+ *
+ * The alpha contract (B2): every shell invocation asks. There is no session
+ * grant, no persistent grant and no allowlist; repository content confers no
+ * authority. An approval covers one invocation: these exact command bytes, in
+ * this working directory, with this timeout. The classifier below does not
+ * decide whether a command may run. It exists to make the approval prompt
+ * honest about what the command looks like, and it is not a sandbox.
  */
 
-/** How a command may proceed, in increasing order of persistence. */
+/** What the user can decide about one invocation. */
 export type OnyxTerminalDecision =
 	/** Run this one invocation. */
 	| 'allow-once'
-	/** Run, and stop asking for this exact command until the window closes. */
-	| 'allow-session'
-	/** Run, and persist this exact command to the workspace allowlist. */
-	| 'allow-always'
 	| 'deny';
 
+/** One shell invocation as the user approves it and as it is dispatched. */
+export interface IOnyxCommandInvocation {
+	/** The exact command text. Never trimmed, collapsed or otherwise rewritten between approval and dispatch. */
+	readonly command: string;
+	readonly cwd: string;
+	readonly timeoutMs: number;
+}
+
 export interface IOnyxCommandClassification {
-	/** Whitespace-normalized command — the identity used for allowlists. */
+	/** Whitespace-normalized command, used for matching the heuristics and for one-line labels only. */
 	readonly normalized: string;
 	readonly dangerous: boolean;
 	/** Human-readable reasons, one per matched heuristic. */
@@ -44,7 +51,7 @@ interface IDangerRule {
  * These rules match inside quotes too, which over-warns on things like
  * `echo "curl | sh"`. That is deliberate and not a bug to fix: correctly
  * parsing shell quoting is hard, and any gap becomes a way to smuggle a real
- * `curl | sh` past the prompt. The cost of over-warning is one extra click;
+ * `curl | sh` past the prompt. The cost of over-warning is one extra look;
  * the cost of under-warning is an unreviewed command running on your machine.
  */
 const DANGER_RULES: readonly IDangerRule[] = [
@@ -68,7 +75,7 @@ const DANGER_RULES: readonly IDangerRule[] = [
 	{ pattern: /\bhistory\s+-c\b|\bunset\s+HISTFILE\b/, reason: 'covers its tracks by clearing shell history' },
 ];
 
-/** Collapses whitespace so cosmetic differences cannot dodge an allowlist or a heuristic. */
+/** Collapses whitespace for matching and for one-line labels. Never used for what is approved or dispatched. */
 export function normalizeCommand(command: string): string {
 	return command.trim().replace(/\s+/g, ' ');
 }
@@ -79,51 +86,63 @@ export function classifyCommand(command: string): IOnyxCommandClassification {
 	return { normalized, dangerous: reasons.length > 0, reasons };
 }
 
-/**
- * Whether a command is covered by an allowlist. Matching is exact on the
- * normalized text: "always allow this exact command" must never quietly grow
- * into "always allow anything that starts the same way".
- */
-export function matchesAllowlist(command: string, allowlist: readonly string[]): boolean {
-	const normalized = normalizeCommand(command);
-	return allowlist.some(entry => normalizeCommand(entry) === normalized);
-}
-
 export interface IOnyxTerminalApprovalRequest {
 	/** What the approval dialog asks, ready to render. */
 	readonly message: string;
+	/** The exact command, where it would run and for how long, and what it looks like. */
 	readonly detail: string;
 	readonly dangerous: boolean;
-	/** Which decisions the dialog may offer (dangerous commands cannot be persisted). */
+	/** The decisions the dialog offers. In the alpha: run this invocation once, or deny it. */
 	readonly offeredDecisions: readonly OnyxTerminalDecision[];
 }
 
-/**
- * Decides whether a command may run without asking, and if not, exactly what
- * to ask. A dangerous command is never covered by any allowlist and cannot be
- * persisted — the "always" option simply is not offered for it.
- */
-export function evaluateCommand(command: string, workspaceAllowlist: readonly string[], sessionAllowlist: readonly string[]): { readonly autoAllowed: boolean; readonly approval?: IOnyxTerminalApprovalRequest } {
-	const classification = classifyCommand(command);
-	if (!classification.dangerous && (matchesAllowlist(command, workspaceAllowlist) || matchesAllowlist(command, sessionAllowlist))) {
-		return { autoAllowed: true };
+/** Whitespace in a command that a dialog can render invisibly; the prompt says so when it is there. */
+function whitespaceNotes(command: string): string[] {
+	const notes: string[] = [];
+	const lineBreaks = (command.match(/\n/g) ?? []).length;
+	if (lineBreaks > 0) {
+		notes.push(`contains ${lineBreaks} line break${lineBreaks === 1 ? '' : 's'}`);
 	}
-	const detailLines = [classification.normalized];
+	if (command.includes('\t')) {
+		notes.push('contains tab characters');
+	}
+	if (/ {2,}/.test(command)) {
+		notes.push('contains repeated spaces');
+	}
+	if (command !== command.trim()) {
+		notes.push('begins or ends with whitespace');
+	}
+	return notes;
+}
+
+/**
+ * What to ask for one invocation. Every invocation asks, whatever it is and
+ * wherever its text came from. The detail shows the command exactly as it
+ * will be dispatched: the same string, not a normalized copy.
+ */
+export function buildApprovalRequest(invocation: IOnyxCommandInvocation): IOnyxTerminalApprovalRequest {
+	const classification = classifyCommand(invocation.command);
+	const seconds = Math.round(invocation.timeoutMs / 1000);
+	const detailLines = [
+		invocation.command,
+		'',
+		`Working directory: ${invocation.cwd}`,
+		`Stops after: ${seconds} s`,
+	];
+	const notes = whitespaceNotes(invocation.command);
+	if (notes.length) {
+		detailLines.push(`Shown exactly as it will run: the command ${notes.join(', ')}.`);
+	}
 	if (classification.dangerous) {
-		detailLines.push('', ...classification.reasons.map(reason => `⚠ ${reason}`));
+		detailLines.push('', ...classification.reasons.map(reason => `⚠ looks like: ${reason}`));
 	}
 	return {
-		autoAllowed: false,
-		approval: {
-			message: classification.dangerous
-				? 'The agent wants to run a command that looks dangerous'
-				: 'The agent wants to run a terminal command',
-			detail: detailLines.join('\n'),
-			dangerous: classification.dangerous,
-			offeredDecisions: classification.dangerous
-				? ['allow-once', 'deny']
-				: ['allow-once', 'allow-session', 'allow-always', 'deny'],
-		},
+		message: classification.dangerous
+			? 'The agent wants to run a command that looks dangerous'
+			: 'The agent wants to run a terminal command',
+		detail: detailLines.join('\n'),
+		dangerous: classification.dangerous,
+		offeredDecisions: ['allow-once', 'deny'],
 	};
 }
 

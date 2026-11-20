@@ -82,18 +82,28 @@ function digestOf(text: string): string {
 
 /** I-02: no command is dispatched without an affirmative approval recorded for that exact invocation. */
 const i02: OnyxSimChecker = state => {
-	let approvalsAvailable = 0;
+	// Dialog trace events and the dialog fake's prompts are recorded together, in the same order.
+	const prompts = state.dialogs.prompts;
+	let promptIndex = 0;
+	const approvals: string[] = [];
 	for (const event of events(state)) {
 		if (event.kind === 'dialog') {
-			if (event.decision === 'allow-once' || event.decision === 'allow-session' || event.decision === 'allow-always') {
-				approvalsAvailable++;
+			const prompt = prompts[promptIndex++];
+			if (event.granted) {
+				approvals.push(prompt?.detail ?? '');
 			}
 		} else if (event.kind === 'commandDispatch') {
-			if (approvalsAvailable === 0) {
-				const grant = state.episode.projectConfig?.terminalAllowlist?.length ? 'repository-allowlist' : 'session-or-always-grant';
+			const approvedDetail = approvals.shift();
+			if (approvedDetail === undefined) {
+				// Named by where the missing authority would have come from: a check task, the repository's list, or an earlier answer.
+				const listed = (state.episode.projectConfig?.terminalAllowlist ?? []).some(entry => entry.trim().replace(/\s+/g, ' ') === event.command.trim().replace(/\s+/g, ' '));
+				const grant = event.command.startsWith('Task: ') ? 'unapproved-task' : listed ? 'repository-allowlist' : 'reused-approval';
 				return `I-02/${grant}: "${event.command}" ran without an approval for that invocation`;
 			}
-			approvalsAvailable--;
+			// The approval is for one invocation: what was dispatched must be, byte for byte, what the dialog showed.
+			if (!approvedDetail.includes(event.command) || (event.cwd !== undefined && !approvedDetail.includes(event.cwd))) {
+				return `I-02/approval-for-other-bytes: "${event.command}" ran on an approval whose dialog showed something else`;
+			}
 		}
 	}
 	return undefined;
@@ -186,10 +196,21 @@ const i06: OnyxSimChecker = state => {
 				return `I-06/invalid-edit-staged: an edit with a non-string path or replace was staged`;
 			}
 		}
-		if (invocation.toolId === 'onyx_terminal' && typeof parameters.command !== 'string') {
-			if (events(state).some(event => event.kind === 'commandDispatch')) {
-				return `I-06/invalid-command-ran: a terminal call without a string command reached the executor`;
+	}
+	// Every command that reached the executor is, byte for byte, the command of a terminal call that carried
+	// one. A call without a string command produces an error result, so it accounts for no dispatch. (A check
+	// task is not a terminal call; I-02 covers its approval.)
+	const validCommands = state.tools.invocations
+		.filter(invocation => invocation.toolId === 'onyx_terminal')
+		.map(invocation => (invocation.parameters as Record<string, unknown>).command)
+		.filter((command): command is string => typeof command === 'string' && command.trim().length > 0);
+	for (const event of events(state)) {
+		if (event.kind === 'commandDispatch' && !event.command.startsWith('Task: ')) {
+			const index = validCommands.indexOf(event.command);
+			if (index === -1) {
+				return `I-06/invalid-command-ran: "${event.command}" reached the executor without a terminal call that carried it`;
 			}
+			validCommands.splice(index, 1);
 		}
 	}
 	return undefined;
@@ -203,7 +224,7 @@ const i07: OnyxSimChecker = state => {
 		}
 	}
 	for (const event of events(state)) {
-		if (event.kind === 'commandDispatch' && !event.cwd.startsWith('/ws')) {
+		if (event.kind === 'commandDispatch' && event.cwd !== undefined && !event.cwd.startsWith('/ws')) {
 			return `I-07/cwd-escape: a command ran in ${event.cwd}`;
 		}
 	}

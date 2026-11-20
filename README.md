@@ -129,7 +129,9 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
 ### Nothing touches your code without you
 
 <img src="docs/images/onyx-changes.png" alt="Onyx Changes: agent edits staged for per-hunk review — nothing touches a file until accepted" width="420" />
-<img src="docs/images/onyx-terminal-approval.png" alt="The agent proposing a shell command, with Run Once, Run for This Session, Always Run This Command and Deny" width="900" />
+<img src="docs/images/onyx-terminal-approval.png" alt="The agent proposing a shell command in an approval dialog. Screenshot from August 2026: it still shows the Run for This Session and Always Run buttons, which the alpha removed" width="900" />
+
+*The screenshot predates the alpha's approval contract: the dialog now offers Run Once and Deny only.*
 
 - **Agent edits stage before they land.** Every edit goes to Onyx Changes: diff
   per file, per-hunk accept and reject, accept-all and reject-all, and a risk
@@ -142,17 +144,24 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
   told which. It is never applied somewhere it no longer fits.
   </details>
 
-- **A terminal the agent has to ask for.** Each proposed command is shown
-  verbatim with **Run Once / Run for This Session / Always Run This Command /
-  Deny**.
+- **A terminal the agent has to ask for, every time.** Each proposed command is
+  shown exactly as it will run, with its working directory and timeout, and
+  two choices: **Run Once** or **Deny**. An answer covers that one invocation.
 
-  <details><summary>How dangerous commands are handled</summary>
+  <details><summary>What an approval does and does not cover</summary>
 
-  Commands matching 18 patterns (`rm -rf`, `curl | sh`, `sudo`, force-push, raw
-  disk writes, publishing) are named as dangerous and **never get an "always"
-  option** — they cannot enter any allowlist. "Always" for safe commands
-  persists into `.onyx/config.json`, output streams to the timeline, and a hard
-  timeout plus `Onyx: Kill Running Terminal Command` end anything that hangs.
+  There is no "for this session" and no "always" in this release, and nothing
+  a repository contains can run a command: a `terminalAllowlist` in
+  `.onyx/config.json` is read as a list of suggestions and grants nothing.
+  The same command asks again the next time, because a path such as
+  `npm test` or `python3 script.py` says nothing about what the script behind
+  it does today. A check task named by the repository asks before each run as
+  well. Commands matching 18 patterns (`rm -rf`, `curl | sh`, `sudo`,
+  force-push, raw disk writes, publishing) are named in the dialog as what
+  they look like; that is a warning to read, not a verdict. Output streams to
+  the timeline, and a hard timeout plus `Onyx: Kill Running Terminal Command`
+  end anything that hangs. `Onyx: Show Terminal Approval History` lists past
+  decisions, which are a record and never a permission.
   </details>
 
 - **Risk badges before you accept.** Each changed file is scored on churn,
@@ -436,7 +445,7 @@ the harness above, on this machine.
 | Account required | Yes | No | No | **No — nothing to sign in to** |
 | Your code leaves the machine | Yes, by design | No | Depends on the model you configure | **No** |
 | Agent edits before they land | Varies by product | n/a — no editor | Varies by product | **Always staged; per-hunk accept/reject; survives a crash; rebased if the file moves** |
-| Shell commands | Varies by product | n/a | Varies by product | **Never runs without an explicit dialog; dangerous patterns named and un-allowlistable** |
+| Shell commands | Varies by product | n/a | Varies by product | **Every invocation asks, with Run Once or Deny; no session or persistent grant, and repository files grant nothing; dangerous-looking patterns are named in the dialog** |
 | Which model handles a request | You select one, or an automatic mode routes per request | You decide, per request | You decide, per config | **Routed automatically from measurements of your hardware and your repository, with the reason shown** |
 | Speed and cost readout | Dollars, or nothing | `--verbose` in a terminal | Varies | **tok/s, TTFT, context usage and a B·s energy proxy, per model, live** |
 | Documentation lookup | The vendor's index, online | n/a | Varies | **A local BM25 mirror of your markdown, dependency READMEs and JSDoc — no network** |
