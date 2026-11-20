@@ -8,6 +8,7 @@ import { VSBuffer } from '../../../../../../base/common/buffer.js';
 import { CancellationTokenSource } from '../../../../../../base/common/cancellation.js';
 import { DisposableStore, IReference } from '../../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../../base/common/uri.js';
+import { autorun } from '../../../../../../base/common/observable.js';
 import { ITextModel } from '../../../../../../editor/common/model.js';
 import { IModelService } from '../../../../../../editor/common/services/model.js';
 import { ITextModelService, IResolvedTextEditorModel } from '../../../../../../editor/common/services/resolverService.js';
@@ -72,10 +73,19 @@ export interface IOnyxSimState {
 	buffer(path: string): string | undefined;
 	/** Current content on the in-memory disk. */
 	disk(path: string): Promise<string | undefined>;
-	/** What the user's own actions have made the file: the content the harness must preserve. */
-	readonly userAuthored: ReadonlyMap<string, string>;
+	/** The buffer content the user sanctioned per path: the start, their own typing, and what they accepted. */
+	readonly sanctionedBuffer: ReadonlyMap<string, string>;
+	/** The disk content the user sanctioned per path: the start, their saves, and disk changes outside the editor. */
+	readonly sanctionedDisk: ReadonlyMap<string, string>;
+	/** A second acceptable buffer content per path: the text a clean editor still shows until it reloads a disk change. */
+	readonly pendingBuffer: ReadonlyMap<string, string>;
+	/** Text the user typed; it must survive every accept and rebase (I-09). */
+	readonly typedTexts: readonly string[];
 	readonly stopped: boolean;
-	readonly acceptedHunks: readonly { readonly path: string; readonly hunk: number | 'all' }[];
+	readonly acceptedHunks: readonly { readonly path: string; readonly hunk: number | 'all'; readonly newLines: readonly string[] }[];
+	/** Staged proposals observed after each tool result: path, hunk count and the proposal's size. */
+	readonly stageEvents: readonly { readonly path: string; readonly hunks: number; readonly proposedChars: number; readonly search: string | undefined; readonly baseAtStage: string | undefined; readonly proposedBefore: string | undefined }[];
+	readonly profile: IOnyxModelProfile;
 }
 
 export type OnyxSimChecker = (state: IOnyxSimState, boundary: OnyxSimBoundary | 'end') => string | undefined;
@@ -99,8 +109,14 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly tools: OnyxSimToolsService;
 	readonly changeSet: IOnyxChangeSetService;
 	readonly controlPlane: IOnyxControlPlaneService;
-	readonly userAuthored = new Map<string, string>();
-	readonly acceptedHunks: { path: string; hunk: number | 'all' }[] = [];
+	readonly sanctionedBuffer = new Map<string, string>();
+	readonly sanctionedDisk = new Map<string, string>();
+	readonly pendingBuffer = new Map<string, string>();
+	readonly typedTexts: string[] = [];
+	readonly acceptedHunks: { path: string; hunk: number | 'all'; newLines: readonly string[] }[] = [];
+	readonly stageEvents: { path: string; hunks: number; proposedChars: number; search: string | undefined; baseAtStage: string | undefined; proposedBefore: string | undefined }[] = [];
+	private readonly _lastProposed = new Map<string, string>();
+	readonly profile: IOnyxModelProfile;
 	stopped = false;
 
 	private readonly _disposables = new DisposableStore();
@@ -141,6 +157,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IDialogService, this.dialogs);
 		instantiationService.stub(ILanguageModelToolsService, this.tools);
 		const profile: IOnyxModelProfile = { toolCallQuality: 0.9, contextLength: 16384, maxTools: 8, temperature: 0.2, promptStyle: 'full', family: 'sim', parameterB: 7, supportsVision: false, ...episode.profile };
+		this.profile = profile;
 		instantiationService.stub(IOnyxProfileService, new OnyxSimProfileService(profile));
 		const projectConfig = new OnyxSimProjectConfigService();
 		if (episode.projectConfig) {
@@ -181,7 +198,17 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 				this.trace.record({ kind: 'activity', run, activity: data.kind ?? event.kind, label: data.label ?? '', ok: data.ok });
 			}
 		}));
-		this._disposables.add(this.controlPlane.onDidBeginRun(run => { this._runId = run.runId; }));
+		this._disposables.add(this.controlPlane.onDidBeginRun(run => {
+			this._runId = run.runId;
+			// Status transitions of the live run, not only journaled outcomes: a
+			// stop sets "cancelled" directly, and what follows it is what I-03 checks.
+			this._disposables.add(autorun(reader => {
+				const status = run.status.read(reader);
+				if (status !== 'running') {
+					this.trace.record({ kind: 'status', run: this.trace.canonical('run', run.runId), status: `live:${status}` });
+				}
+			}));
+		}));
 	}
 
 	private _uri(path: string): URI {
@@ -251,11 +278,21 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 
 	private async _inject(fault: OnyxSimFault): Promise<void> {
 		switch (fault.kind) {
-			case 'fileChangedOnDisk':
+			case 'fileChangedOnDisk': {
 				this.trace.record({ kind: 'fault', fault: fault.kind, detail: fault.path });
+				// A clean buffer follows the disk (the editor reloads it); a dirty one keeps the user's text.
+				const dirtyBefore = this._textFileService.isDirty(this._uri(fault.path));
 				await this._fileService.writeFile(this._uri(fault.path), VSBuffer.fromString(fault.content));
-				this.userAuthored.set(fault.path, fault.content);
+				this.sanctionedDisk.set(fault.path, fault.content);
+				if (!dirtyBefore) {
+					const previous = this.sanctionedBuffer.get(fault.path);
+					if (previous !== undefined) {
+						this.pendingBuffer.set(fault.path, previous);
+					}
+					this.sanctionedBuffer.set(fault.path, fault.content);
+				}
 				break;
+			}
 			case 'serviceDispose':
 				this.trace.record({ kind: 'fault', fault: fault.kind });
 				this.runtime.simulateDispose();
@@ -278,23 +315,31 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 				model.pushStackElement();
 				model.pushEditOperations(null, [{ range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 1 }, text: action.text }], () => null);
 				model.pushStackElement();
-				this.userAuthored.set(this.episode.target, model.getValue());
+				this.typedTexts.push(action.text.replace(/\n$/, ''));
+				this.sanctionedBuffer.set(this.episode.target, model.getValue());
 				break;
 			}
-			case 'acceptHunk':
+			case 'acceptHunk': {
+				const staged = this.changeSet.files.get().find(file => file.proposal.path === action.path);
+				const hunk = staged?.hunks[action.hunk];
 				if (await this.changeSet.acceptHunk(action.path, action.hunk)) {
-					this.acceptedHunks.push({ path: action.path, hunk: action.hunk });
+					this.acceptedHunks.push({ path: action.path, hunk: action.hunk, newLines: hunk?.newLines ?? [] });
+					this._sanction(action.path);
 				}
 				break;
+			}
 			case 'rejectHunk':
 				this.changeSet.rejectHunk(action.path, action.hunk);
 				break;
-			case 'acceptAll':
-				for (const file of this.changeSet.files.get()) {
-					this.acceptedHunks.push({ path: file.proposal.path, hunk: 'all' });
-				}
+			case 'acceptAll': {
+				const staged = this.changeSet.files.get();
 				await this.changeSet.acceptAll();
+				for (const file of staged) {
+					this.acceptedHunks.push({ path: file.proposal.path, hunk: 'all', newLines: file.hunks.flatMap(hunk => hunk.newLines) });
+					this._sanction(file.proposal.path);
+				}
 				break;
+			}
 			case 'rejectAll':
 				this.changeSet.rejectAll();
 				break;
@@ -332,14 +377,20 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			case 'save':
 			case 'autosaveTick':
 				if (this._references.has(this.episode.target)) {
+					// Saving a clean model writes nothing; only a dirty save changes what the user sanctioned on disk.
+					const wasDirty = this._textFileService.isDirty(this._uri(this.episode.target));
 					await this._textFileService.save(this._uri(this.episode.target));
+					const saved = this.buffer(this.episode.target);
+					if (wasDirty && saved !== undefined) {
+						this.sanctionedDisk.set(this.episode.target, saved);
+					}
 				}
 				break;
 			case 'undo': {
 				const model = this._modelService.getModel(this._uri(this.episode.target));
 				if (model) {
 					model.undo();
-					this.userAuthored.set(this.episode.target, model.getValue());
+					this.sanctionedBuffer.set(this.episode.target, model.getValue());
 				}
 				break;
 			}
@@ -355,10 +406,48 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		}
 	}
 
+	/** After an accept, what the buffer now holds is what the user sanctioned; an accepted create sanctions the disk. */
+	private _sanction(path: string): void {
+		const buffer = this.buffer(path);
+		if (buffer !== undefined) {
+			this.sanctionedBuffer.set(path, buffer);
+		} else {
+			this.disk(path).then(content => { if (content !== undefined) { this.sanctionedDisk.set(path, content); this.sanctionedBuffer.set(path, content); } });
+		}
+	}
+
+	/** Records new staged proposals since the last look, with the search text of the edit call that produced them. */
+	private _observeStaging(): void {
+		const files = this.changeSet.files.get();
+		const lastEdit = [...this.tools.invocations].reverse().find(invocation => invocation.toolId === 'onyx_editFile');
+		const search = typeof (lastEdit?.parameters as { search?: unknown } | undefined)?.search === 'string' ? (lastEdit!.parameters as { search: string }).search : undefined;
+		for (const staged of files) {
+			const previous = this._lastProposed.get(staged.proposal.path);
+			if (previous === staged.proposal.proposed) {
+				continue; // unchanged since the last look
+			}
+			this._lastProposed.set(staged.proposal.path, staged.proposal.proposed);
+			if (previous !== undefined && staged.hunks.length <= 0) {
+				continue;
+			}
+			this.stageEvents.push({ path: staged.proposal.path, hunks: staged.hunks.length, proposedChars: staged.proposal.proposed.length, search, baseAtStage: staged.proposal.base, proposedBefore: previous });
+			this.trace.record({ kind: 'stage', path: staged.proposal.path, hunks: staged.hunks.length, ok: true });
+		}
+		for (const path of [...this._lastProposed.keys()]) {
+			if (!files.some(staged => staged.proposal.path === path)) {
+				this._lastProposed.delete(path);
+			}
+		}
+	}
+
 	/** Records buffer and disk changes since the last boundary and runs the checkers. */
 	private async _observe(boundary: OnyxSimBoundary | 'end'): Promise<void> {
+		this._observeStaging();
 		for (const path of Object.keys(this.episode.files)) {
 			const buffer = this.buffer(path);
+			if (buffer !== undefined && this.pendingBuffer.has(path) && buffer === this.sanctionedBuffer.get(path)) {
+				this.pendingBuffer.delete(path); // the editor reloaded the disk change
+			}
 			const disk = await this.disk(path);
 			const bufferKey = `buffer:${path}`;
 			const diskKey = `disk:${path}`;
@@ -391,7 +480,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	async run(): Promise<IOnyxSimResult> {
 		for (const [path, content] of Object.entries(this.episode.files)) {
 			await this._fileService.writeFile(this._uri(path), VSBuffer.fromString(content));
-			this.userAuthored.set(path, content);
+			this.sanctionedBuffer.set(path, content);
+			this.sanctionedDisk.set(path, content);
 		}
 		await this._open(this.episode.target);
 		this.runtime.announce();

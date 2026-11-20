@@ -506,6 +506,11 @@ What runs where — [.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.
   observed to fail and again before it is observed to pass.
 - **On manual dispatch:** the same jobs. Later items add the module gate and the
   packaged-app smoke here.
+- **The harness contract.** What the agent must never do, for every model output, user action and
+  environment fault, with the observable definition of each guarantee and the simulation rig that checks
+  them: [docs/research/HARNESS-CONTRACT.md](./docs/research/HARNESS-CONTRACT.md). The baseline exceptions the
+  unmodified harness still violates, each with an owner and a reproducing script, are in
+  `test/onyx/sim/baseline-exceptions.json`.
 - **Locally:** the commands above, plus `node test/onyx/run-fresh.mts -- <command>`
   to refresh `out/` and stamp it before any red or green run, and
   `node --test --test-concurrency=1 "test/onyx/checks/*.test.mts"` for the self-checks

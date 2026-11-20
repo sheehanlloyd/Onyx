@@ -247,10 +247,11 @@
 		},
 		{
 			"id": "R-41",
-			"title": "L1 simulation rig: byte-identical traces per seed, every persona terminates, scenarios as scripts, shrinking",
+			"title": "L1/L2 simulation suite: R-41, R-42, personas, scenarios, shrinking",
 			"layer": "service",
 			"regressions": [
-				"R-41"
+				"R-41",
+				"R-42"
 			],
 			"files": [
 				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts"
@@ -263,18 +264,22 @@
 		},
 		{
 			"id": "sim-smoke",
-			"title": "L1 smoke campaign: 2,000 seeded episodes in the unit-test runner",
+			"title": "L1/L2 campaign: 2,000 seeded episodes with every invariant checker, R-42 at gate size",
 			"layer": "service",
 			"command": [
 				"./scripts/test.sh",
 				"--grep",
-				"OnyxSim smoke"
+				"OnyxSim"
 			],
 			"env": {
 				"ONYX_SIM_EPISODES": "2000",
 				"ONYX_SIM_SEED": "1"
 			},
-			"timeoutMs": 600000
+			"timeoutMs": 600000,
+			"regressions": [
+				"R-41",
+				"R-42"
+			]
 		},
 		{
 			"id": "sim-episodes",
@@ -287,6 +292,16 @@
 				"node",
 				"--test",
 				"test/onyx/checks/sim-episodes.test.mts"
+			]
+		},
+		{
+			"id": "sim-tables-sync",
+			"title": "L1/L2 episode and baseline JSON tables match their TypeScript sources",
+			"layer": "node",
+			"command": [
+				"node",
+				"test/onyx/sim/export-episodes.mts",
+				"--check"
 			]
 		}
 	]
