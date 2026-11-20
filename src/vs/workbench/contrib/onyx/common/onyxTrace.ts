@@ -21,7 +21,7 @@
 
 export const ONYX_TRACE_VERSION = 2;
 
-export type OnyxStreamEnd = 'stop' | 'tool_calls' | 'length' | 'cancelled' | 'truncated' | 'error' | 'unknown';
+export type OnyxStreamEnd = 'stop' | 'tool_calls' | 'length' | 'cancelled' | 'truncated' | 'stalled' | 'error' | 'unknown';
 
 export interface IOnyxTraceTool {
 	readonly name: string;
@@ -95,17 +95,24 @@ export function digestValue(value: unknown): string {
 	return traceDigest(JSON.stringify(value) ?? 'undefined');
 }
 
-/** Classifies how a stream ended from the finish reason the runtime reported (B12 acts on this). */
-export function classifyStreamEnd(finishReason: string | undefined, error: boolean): OnyxStreamEnd {
+/**
+ * How a stream ended, for the trace. The runtime's own account of the ending
+ * comes first (B12): a stream that was cut off or went silent is `truncated`
+ * or `stalled` whatever else is known about it.
+ */
+export function classifyStreamEnd(finishReason: string | undefined, error: boolean, ending?: 'complete' | 'truncated' | 'stalled' | 'cancelled'): OnyxStreamEnd {
 	if (error) {
 		return 'error';
+	}
+	if (ending === 'truncated' || ending === 'stalled' || ending === 'cancelled') {
+		return ending;
 	}
 	switch (finishReason) {
 		case 'stop': return 'stop';
 		case 'tool_calls': return 'tool_calls';
 		case 'length': return 'length';
 		case 'cancelled': return 'cancelled';
-		case undefined: return 'truncated';
+		case undefined: return ending === 'complete' ? 'unknown' : 'truncated';
 		default: return 'unknown';
 	}
 }

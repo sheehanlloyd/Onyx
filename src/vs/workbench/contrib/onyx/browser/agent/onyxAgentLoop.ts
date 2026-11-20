@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../../platform/markers/common/markers.js';
-import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxRuntimeService, OnyxStreamEnding } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { localize } from '../../../../../nls.js';
 import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePart, ILanguageModelChatMetadata, ILanguageModelsService } from '../../../chat/common/languageModels.js';
@@ -24,6 +24,7 @@ import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
 import { classifyStreamEnd, digestValue, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxPlaybookService } from '../playbooks/onyxPlaybookService.js';
 import { IOnyxTerminalService } from '../terminal/onyxTerminalTool.js';
+import { validateToolArguments } from '../../common/onyxToolArguments.js';
 import { admitTool, needsApprovalPerCall, ONYX_NETWORK_TOOLS_SETTING } from '../../common/onyxToolContract.js';
 import { IOnyxToolExclusion, ONYX_MIN_EDIT_SLOTS, OnyxToolSlotSelection, requestedOptionalTools, selectToolSlots } from '../../common/onyxToolSlots.js';
 import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
@@ -31,7 +32,7 @@ import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector
 import { qualifyWorkspacePath } from '../../common/onyxWorkspacePaths.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
-import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
+import { IOnyxModelService, IOnyxStreamOutcome } from '../model/onyxLanguageModelProvider.js';
 import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxRouterService } from '../routing/onyxRouterService.js';
@@ -208,13 +209,13 @@ export class OnyxAgentLoop {
 				: { tools };
 			const requestDigest = digestValue(messages);
 			const traceToolCalls: IOnyxTraceToolCall[] = [];
-			const recordTurn = (responseText: string, finishReason: string | undefined, error: boolean, seedHonoured: boolean | undefined) => run.record({
+			const recordTurn = (responseText: string, finishReason: string | undefined, error: boolean, seedHonoured: boolean | undefined, ending?: OnyxStreamEnding) => run.record({
 				kind: 'traceTurn',
 				v: ONYX_TRACE_VERSION,
 				turn: turn + 1,
 				requestDigest,
 				responseText: responseText.length > MAX_SNAPSHOT_CHARS ? `${responseText.slice(0, MAX_SNAPSHOT_CHARS)}… [truncated]` : responseText,
-				streamEnd: classifyStreamEnd(finishReason, error),
+				streamEnd: classifyStreamEnd(finishReason, error, ending),
 				toolCalls: traceToolCalls,
 				seed: { requested: profile.seed ?? null, honoured: profile.seed === undefined ? 'unknown' : seedHonoured ?? 'unknown' },
 			});
@@ -232,7 +233,7 @@ export class OnyxAgentLoop {
 					}
 				},
 			);
-			let streamOutcome: { finishReason?: string; seedHonoured?: boolean } | undefined;
+			let streamOutcome: Partial<IOnyxStreamOutcome> | undefined;
 			try {
 				for await (const part of response.stream) {
 					for (const item of Array.isArray(part) ? part : [part]) {
@@ -243,10 +244,34 @@ export class OnyxAgentLoop {
 						}
 					}
 				}
-				streamOutcome = await response.result as { finishReason?: string; seedHonoured?: boolean } | undefined;
+				streamOutcome = await response.result as Partial<IOnyxStreamOutcome> | undefined;
 			} catch (err) {
 				recordTurn(textStream.finish().raw, undefined, true, undefined);
 				throw err;
+			}
+
+			// A reply that was cut off or went silent is not a reply (B12, I-11). Whatever arrived of it stays
+			// visible as it streamed; none of it is parsed for a tool call, run, staged or called complete.
+			const incomplete = this._incompleteEnding(streamOutcome);
+			if (incomplete) {
+				recordTurn(textStream.finish().raw, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured, incomplete);
+				run.activity({
+					kind: 'note',
+					label: incomplete === 'truncated' ? 'The model\'s reply was cut off before it finished' : 'The model stopped responding',
+					reason: incomplete === 'truncated'
+						? 'the stream ended without a finish signal; nothing from this reply was run or staged'
+						: 'nothing arrived within the deadline and the request was stopped; nothing from this reply was run or staged',
+					ok: false,
+				});
+				run.complete('failed');
+				return {
+					errorDetails: {
+						message: incomplete === 'truncated'
+							? localize('onyx.agent.replyTruncated', "The model's reply ended before it was finished: the connection closed without a finish signal. Nothing from that reply was run or staged. You can send the request again.")
+							: localize('onyx.agent.replyStalled', "The model stopped sending anything, so the request was stopped. Nothing from that reply was run or staged. Check that the runtime is still running, then send the request again."),
+						responseIsIncomplete: true,
+					},
+				};
 			}
 
 			let { text: assistantText, toolCall: textToolCall, raw: rawTurnText } = textStream.finish();
@@ -309,7 +334,7 @@ export class OnyxAgentLoop {
 				const toolUse: IChatResponseToolUsePart = unwrapped.name === rawToolUse.name && unwrapped.parameters === rawToolUse.parameters
 					? rawToolUse
 					: { ...rawToolUse, name: unwrapped.name, parameters: unwrapped.parameters };
-				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, run, progress, token);
+				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, tools, run, progress, token);
 				run.noteToolResult(toolUse.name, resultText);
 				traceToolCalls.push({ name: toolUse.name, argumentsDigest: digestValue(toolUse.parameters), resultDigest: traceDigest(resultText), ok });
 				// Small models drown in raw tool output; keep head and tail
@@ -400,11 +425,28 @@ export class OnyxAgentLoop {
 		}
 	}
 
-	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, run: ReturnType<IOnyxControlPlaneService['beginRun']>, progress: (parts: IChatProgress[]) => void, token: CancellationToken): Promise<{ text: string; ok: boolean }> {
+	/** `truncated` or `stalled` when the stream's own account says the reply is incomplete; undefined otherwise. */
+	protected _incompleteEnding(outcome: Partial<IOnyxStreamOutcome> | undefined): 'truncated' | 'stalled' | undefined {
+		return outcome?.ending === 'truncated' || outcome?.ending === 'stalled' ? outcome.ending : undefined;
+	}
+
+	/** What is wrong with a call's arguments, against the schema the tool was advertised with. Nothing is coerced. */
+	protected _argumentProblems(toolUse: IChatResponseToolUsePart, schema: object | undefined): string[] {
+		return validateToolArguments(schema, toolUse.parameters);
+	}
+
+	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, tools: readonly IRequestTool[], run: ReturnType<IOnyxControlPlaneService['beginRun']>, progress: (parts: IChatProgress[]) => void, token: CancellationToken): Promise<{ text: string; ok: boolean }> {
 		const toolId = toolIdsByName.get(toolUse.name);
 		if (!toolId) {
 			run.activity({ kind: 'toolCall', label: toolUse.name, reason: 'unknown tool requested by the model', ok: false });
 			return { text: `Error: unknown tool '${toolUse.name}'. Available tools: ${[...toolIdsByName.keys()].join(', ')}`, ok: false };
+		}
+		// The arguments are checked against the schema the model was shown, here, before any tool sees them
+		// (B12, I-06): a call that does not match is answered and never dispatched.
+		const problems = this._argumentProblems(toolUse, tools.find(tool => tool.name === toolUse.name)?.inputSchema);
+		if (problems.length > 0) {
+			run.activity({ kind: 'toolCall', label: toolUse.name, reason: `arguments do not match the tool's schema: ${problems[0]}`, ok: false });
+			return { text: `Error: the arguments for ${toolUse.name} do not match its schema: ${problems.join('; ')}. Nothing was run. Call the tool again with corrected arguments.`, ok: false };
 		}
 		run.activity({ kind: 'toolCall', label: toolUse.name });
 		const parameters = typeof toolUse.parameters === 'object' && toolUse.parameters !== null ? toolUse.parameters : {};

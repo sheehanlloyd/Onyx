@@ -16,7 +16,7 @@ import { InMemoryFileSystemProvider } from '../../../../../../platform/files/com
 import { FileSystemFileSearchProvider } from '../../../../../services/search/common/fileSystemFileSearchProvider.js';
 import { IFileMatch, IFileQuery, ISearchComplete, ISearchService, ITextQuery, OneLineRange, QueryType, TextSearchMatch } from '../../../../../services/search/common/search.js';
 import { commandEnvironment } from '../../../../../../platform/onyxRuntime/common/onyxCommandExecution.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../../../chat/common/tools/languageModelToolsService.js';
 import { ITaskService } from '../../../../tasks/common/taskService.js';
@@ -171,7 +171,8 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			if (fault?.kind === 'earlyEndOfStream') {
 				this._trace.record({ kind: 'fault', fault: fault.kind });
 				this._trace.record({ kind: 'chunk', op, delta: 'done', size: 0 });
-				this._emit({ operationId, kind: 'done', finishReason: undefined });
+				// The body ended without a finish reason and without [DONE]: the runtime says so (B12).
+				this._emit({ operationId, kind: 'done', finishReason: undefined, ending: 'truncated' });
 				return false;
 			}
 			if (fault?.kind === 'timeout') {
@@ -191,7 +192,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 					if (!await emit({ operationId, kind: 'delta', text: piece }, piece.length)) { return; }
 				}
 				if (!await emit({ operationId, kind: 'usage', promptTokens: 420, completionTokens: 25 }, 0)) { return; }
-				await emit({ operationId, kind: 'done', finishReason: 'stop', seedHonoured: params.seed !== undefined ? true : undefined }, 0, 'stop');
+				await emit({ operationId, kind: 'done', finishReason: 'stop', ending: 'complete', seedHonoured: params.seed !== undefined ? true : undefined }, 0, 'stop');
 				return;
 			}
 			case 'toolCall':
@@ -206,7 +207,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 					}
 				}
 				if (!await emit({ operationId, kind: 'usage', promptTokens: 420, completionTokens: 25 }, 0)) { return; }
-				await emit({ operationId, kind: 'done', finishReason: 'tool_calls', seedHonoured: params.seed !== undefined ? true : undefined }, 0, 'tool_calls');
+				await emit({ operationId, kind: 'done', finishReason: 'tool_calls', ending: 'complete', seedHonoured: params.seed !== undefined ? true : undefined }, 0, 'tool_calls');
 				return;
 			}
 			case 'textToolCall': {
@@ -214,19 +215,20 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 				for (const piece of split(text, 4)) {
 					if (!await emit({ operationId, kind: 'delta', text: piece }, piece.length)) { return; }
 				}
-				await emit({ operationId, kind: 'done', finishReason: 'stop' }, 0, 'stop');
+				await emit({ operationId, kind: 'done', finishReason: 'stop', ending: 'complete' }, 0, 'stop');
 				return;
 			}
 			case 'truncated': {
 				for (const piece of split(turn.text, 3)) {
 					if (!await emit({ operationId, kind: 'delta', text: piece }, piece.length)) { return; }
 				}
-				// The body ended without [DONE]: today's runtime reports that as done with no reason.
-				await emit({ operationId, kind: 'done', finishReason: undefined }, 0);
+				// The body ended without a finish reason and without [DONE].
+				await emit({ operationId, kind: 'done', finishReason: undefined, ending: 'truncated' }, 0);
 				return;
 			}
 			case 'stall':
-				// Nothing arrives until a timeout fault, a cancel, or the rig's watchdog ends it.
+				// Nothing arrives, ever, not even the runtime's own word that the request stalled: the window's
+				// deadline, a cancel, or the rig's watchdog ends it.
 				return;
 			case 'error':
 				await emit({ operationId, kind: 'error', message: turn.message }, 0);
@@ -246,7 +248,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		if (!this._cancelled.has(operationId)) {
 			this._cancelled.add(operationId);
 			this._trace.record({ kind: 'chunk', op: this._trace.canonical('op', operationId), delta: 'done', size: 0, finishReason: 'cancelled' });
-			this._emit({ operationId, kind: 'done', finishReason: 'cancelled' });
+			this._emit({ operationId, kind: 'done', finishReason: 'cancelled', ending: 'cancelled' });
 		}
 	}
 
@@ -315,7 +317,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	async getMachineProfile(): Promise<IOnyxMachineProfile> { return { totalMemoryBytes: 32 * 1024 ** 3, freeMemoryBytes: 16 * 1024 ** 3, cpuModel: 'sim', cpuCount: 8, arch: 'arm64', platform: 'darwin' }; }
 	async getPowerState(): Promise<IOnyxPowerState> { return { onBattery: false, thermal: 'nominal', cpuSpeedLimit: undefined }; }
 	async warmUpModel(): Promise<void> { }
-	async ensureWorkspaceIndex(): Promise<{ files: number; buildMs: number; truncated: boolean }> { return { files: 0, buildMs: 0, truncated: false }; }
+	async ensureWorkspaceIndex(): Promise<IOnyxIndexStats> { return { files: 0, buildMs: 0, truncated: false, source: 'built', builtAt: 0 }; }
 	async searchWorkspaceIndex(): Promise<readonly { path: string; score: number }[]> { return []; }
 	async updateWorkspaceIndex(): Promise<void> { }
 	async worktreeCreate(): Promise<{ readonly worktreePath: string }> { throw new Error('not simulated'); }

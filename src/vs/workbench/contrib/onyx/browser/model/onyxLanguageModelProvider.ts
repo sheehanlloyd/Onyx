@@ -6,13 +6,13 @@
 import { AsyncIterableSource } from '../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { localize } from '../../../../../nls.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { createDecorator, IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
-import { IOnyxDiscoveredModel, IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxDiscoveredModel, IOnyxRuntimeService, ONYX_STREAM_DEADLINES, OnyxStreamEnding } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { nullExtensionDescription } from '../../../../services/extensions/common/extensions.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IChatMessage, IChatResponsePart, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse } from '../../../chat/common/languageModels.js';
@@ -44,6 +44,21 @@ export interface IOnyxKnownModel {
 	/** From the system's secret storage (B11). Held in memory for requests; never written to a file by Onyx. */
 	readonly apiKey?: string;
 }
+
+/** How one chat request ended: what `ILanguageModelChatResponse.result` resolves with for an Onyx model. */
+export interface IOnyxStreamOutcome {
+	readonly finishReason: string | undefined;
+	readonly seedHonoured: boolean | undefined;
+	/** `truncated` and `stalled` mean the reply is incomplete: nothing from it may be run, staged or called complete (B12). */
+	readonly ending: OnyxStreamEnding;
+}
+
+/**
+ * The window's own allowance on top of the runtime's deadlines. The runtime
+ * ends a silent request itself; this clock is for a runtime service that
+ * cannot, so a run never waits on one for ever.
+ */
+const WINDOW_DEADLINE_GRACE_MS = 15_000;
 
 /** Telemetry-free, local-only measurements for one completed request. */
 export interface IOnyxRequestMeasurement {
@@ -313,10 +328,37 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		let streamedChars = 0;
 		let toolCallCount = 0;
 
-		const result = new Promise<{ finishReason: string | undefined; seedHonoured: boolean | undefined }>((resolve, reject) => {
-			store.add(this._runtimeService.onDidStream(event => {
-				if (event.operationId !== operationId) {
+		const result = new Promise<IOnyxStreamOutcome>((resolve, reject) => {
+			let settled = false;
+			let watchdog: ReturnType<typeof setTimeout> | undefined;
+			store.add(toDisposable(() => clearTimeout(watchdog)));
+			const deadlines = this._streamDeadlines();
+			const expect = (withinMs: number) => {
+				clearTimeout(watchdog);
+				if (!Number.isFinite(withinMs)) {
 					return;
+				}
+				watchdog = setTimeout(() => {
+					if (settled) {
+						return;
+					}
+					// Nothing arrived, not even the runtime's own word that the request stalled.
+					settled = true;
+					this._logService.warn(`[onyx] ${model.key}: nothing arrived within ${withinMs} ms; the request is stopped as stalled`);
+					this._runtimeService.cancel(operationId);
+					this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
+					source.resolve();
+					this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: 'stalled', wasCold });
+					resolve({ finishReason: undefined, seedHonoured: undefined, ending: 'stalled' });
+				}, withinMs);
+			};
+			expect(deadlines.firstByteMs);
+			store.add(this._runtimeService.onDidStream(event => {
+				if (event.operationId !== operationId || settled) {
+					return;
+				}
+				if (event.kind !== 'done' && event.kind !== 'error') {
+					expect(deadlines.idleMs);
 				}
 				switch (event.kind) {
 					case 'delta':
@@ -339,7 +381,11 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						completionTokens = event.completionTokens;
 						break;
 					case 'done': {
-						const toolParts = accumulator.complete();
+						settled = true;
+						// A reply that was cut off or went silent carries no tool call worth running: what arrived
+						// of one is incomplete by definition, even when it happens to parse.
+						const incomplete = event.ending === 'truncated' || event.ending === 'stalled';
+						const toolParts = incomplete ? [] : accumulator.complete();
 						toolCallCount = toolParts.length;
 						if (toolParts.length) {
 							source.emitOne(toolParts);
@@ -347,10 +393,14 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						source.resolve();
 						this._lastUsedAt.set(model.key, Date.now());
 						this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: event.finishReason, wasCold });
-						resolve({ finishReason: event.finishReason, seedHonoured: event.seedHonoured });
+						if (incomplete) {
+							this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
+						}
+						resolve({ finishReason: event.finishReason, seedHonoured: event.seedHonoured, ending: event.ending });
 						break;
 					}
 					case 'error': {
+						settled = true;
 						// Transport failures reach the user as sentences, not as
 						// undici's `terminated` / `ECONNREFUSED`.
 						const error = new Error(humanizeRuntimeError(event.message, model.discovered.id));
@@ -383,6 +433,11 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		}).finally(() => store.dispose());
 
 		return { stream: source.asyncIterable, result };
+	}
+
+	/** How long this window waits for a request to say something before it stops it as stalled. */
+	protected _streamDeadlines(): { readonly firstByteMs: number; readonly idleMs: number } {
+		return { firstByteMs: ONYX_STREAM_DEADLINES.firstByteMs + WINDOW_DEADLINE_GRACE_MS, idleMs: ONYX_STREAM_DEADLINES.idleMs + WINDOW_DEADLINE_GRACE_MS };
 	}
 
 	private _resolveModel(modelId: string, messages: readonly IChatMessage[]): IOnyxKnownModel | undefined {

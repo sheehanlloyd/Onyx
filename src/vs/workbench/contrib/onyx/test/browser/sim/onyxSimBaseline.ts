@@ -58,8 +58,8 @@ function scenario(name: string): OnyxSimEpisode {
 export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 	{
 		class: 'I-03/no-time-budget',
-		owner: 'B12, B10',
-		finding: 'Codex N12 (R-19): a stream that never produces a token has no idle deadline, so the run never ends on its own',
+		owner: 'B10',
+		finding: 'Codex N5 (R-15): a run the user paused and did not resume never ends on its own. (The other way into this class, a stream that never produces a token, was closed by B12\'s deadlines.)',
 		script: script({
 			name: 'I-03-no-time-budget',
 			seed: 28,
@@ -95,16 +95,27 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 		script: script({
 			name: 'I-03-status-overwritten',
 			seed: 30,
-			persona: 'staller',
+			persona: 'well-behaved',
 			prompt: 'Run the',
 			target: 'src/math.ts',
 			turns: [
 				{
-					kind: 'stall',
+					kind: 'text',
+					text: 'Done.',
 				},
 			],
 			dialogDefault: 'dismiss',
-			userSteps: [],
+			// Stop while the reply is streaming. (Until B12 this script was a stream that never said anything,
+			// stopped by the rig's watchdog; such a run now ends at the product's own deadline.)
+			userSteps: [
+				{
+					at: 'betweenChunks',
+					occurrence: 1,
+					step: {
+						kind: 'stop',
+					},
+				},
+			],
 			faults: [],
 		}),
 	},
@@ -243,27 +254,6 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 				},
 			],
 			dialogDefault: 'allow-once',
-			userSteps: [],
-			faults: [],
-		}),
-	},
-	{
-		class: 'I-11/truncated-reported-complete',
-		owner: 'B12',
-		finding: 'Codex N12 (R-19): a stream that ends without a finish reason is journaled as completed',
-		script: script({
-			name: 'I-11-truncated-reported-complete',
-			seed: 12,
-			persona: 'truncating',
-			prompt: 'Change a',
-			target: 'src/math.ts',
-			turns: [
-				{
-					kind: 'truncated',
-					text: '<thin',
-				},
-			],
-			dialogDefault: 'dismiss',
 			userSteps: [],
 			faults: [],
 		}),
