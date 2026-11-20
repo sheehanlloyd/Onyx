@@ -241,6 +241,25 @@
 			}
 		},
 		{
+			"id": "C7-index-coverage",
+			"title": "C7 broader index coverage (included): source folders are indexed first, the exclude settings and the root .gitignore are honoured at build and on update, coverage is counted, and the index is persisted in batches",
+			"layer": "node, pure",
+			"regressions": [],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxWorkspaceIndexer.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxIndexOptions.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxWorkspaceIndexer C7|OnyxIndexOptions"
+			],
+			"scope": {
+				"item": "C7",
+				"when": "included"
+			}
+		},
+		{
 			"id": "R-20",
 			"title": "B11 diagnostics that redact what they say they redact: a journal, settings and logs seeded with a sentinel in every content channel produce a default bundle, and a zip, with none of them; the API key is absent even with content included",
 			"layer": "service",

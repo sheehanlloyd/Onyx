@@ -229,8 +229,59 @@ the tool was advertised with: `type`, `required`, `enum`, nested `properties`, `
 built for, when, under which caps, whether the caps cut the walk short, and the modification time and size of
 every file in it. On load, a file in another format or for another root is discarded and the index is
 rebuilt. Otherwise the tree is walked with a stat per file, and files that changed, appeared or went away
-since the index was written are read again or removed. `truncated` survives a restart. The caps are 5,000
-files and 64 MB in total, 256 KB a file; a tree larger than that is partly indexed and the index says so.
+since the index was written are read again or removed. `truncated` survives a restart. What the index covers,
+its caps and what they cost are in the next section.
+
+## The content index: what it covers (C7)
+
+The content index ranks files by their words. It feeds the blended ranking of the `repoSymbols` tool and the
+suggestions `grep` lists when nothing matches. For each workspace folder:
+
+**What is left out.** Folders of generated or vendored code by name (`node_modules`, `out`, `dist`, `build`,
+`target`, `vendor` and the like, and every hidden folder); files that are not source or text by extension;
+files over 256 KB; whatever `files.exclude` and `search.exclude` leave out for the folder; whatever the
+folder's root `.gitignore` leaves out. The same rules apply when a file changes later, so a change to a file
+that is left out does not bring it in. Changing those settings or editing `.gitignore` makes a new index.
+
+**What the exclusion rules do not do.** A setting that depends on a sibling file (`"when"`) is not applied, so
+those files are indexed. A pattern that brings files back (`!pattern`, in the settings or in `.gitignore`) is
+not applied, so those files stay out. Only the root `.gitignore` is read. A `.gitignore` pattern for folders
+only also leaves out a file of that name.
+
+**What is indexed first.** The folder is listed in full before anything is read, so a cap keeps a chosen part
+of it and not whatever the walk met first. Source folders come first (`src`, `lib`, `app`, `packages` and the
+like), the one nearest the root ahead of those inside nested projects; then everything else; tests,
+documentation, examples and fixtures last.
+
+**The caps and what they cost.** 20,000 files and 256 MB of text. `onyx.index.maxFiles` moves the file cap
+between 500 and 100,000; it is a user setting, so a workspace cannot raise it. Measured on this repository on
+2026-11-20 (Apple M4 Pro, 24 GB, Node 24.22.3), in a process of its own:
+
+| Files indexed | Text read | Memory retained | On disk | Build | One search |
+|---|---|---|---|---|---|
+| 5,000 (the cap before C7) | 48 MB | 74 MB | 14 MB | 1.9 s | 13 ms |
+| 12,000 | 128 MB | 185 MB | 35 MB | 4.6 s | 20 ms |
+| 18,212 (every eligible file) | 216 MB | 284 MB | 53 MB | 7.7 s | 26 ms |
+
+Memory is 1.3 to 1.6 times the text indexed, so the text cap bounds it at about 400 MB whatever the file cap
+is. The memory is the shared process's. Before C7 the caps were 5,000 files and 64 MB, which held 27% of this
+repository's eligible files, taken in walk order.
+
+**Writing and reading it.** The index is stored one document to a line and written and read in batches, to a
+file beside the real one that is then moved into place. Before C7 it was written in one piece, which held the
+shared process (the process that also relays model output) for 0.65 s at 5,000 files and 3.5 s at 18,210, and
+0.27 s and 1.4 s to read back. The longest hold is now 35 ms writing and 16 ms reading at 18,212 files. It is
+written 5 seconds after a build and at most once a minute while files change; a file that is older than the
+tree is brought up to date when it is loaded.
+
+**What it says about itself.** How many files it holds, how many were eligible, and whether a cap cut it
+short: in the log at startup, and in every result ranked from it when it does not hold everything, as a line
+such as "The content index holds 5000 of 18210 eligible files (27%)". A file past the cap is counted as
+eligible by its path alone, so that number can be high by the few files too large to index.
+
+**Limits.** A file that becomes eligible while the index is at its cap waits until the next load, even when
+it would rank ahead of one that is held. The text cap is applied when the index is built and reconciled, not
+on each later change. Search is one pass over the held documents in the shared process (26 ms here).
 
 ## Command execution and its limits (B5)
 
@@ -339,7 +390,7 @@ tested. The module gate runner reads this table (`| item | state |`).
 | Item | State | Owner module | Fallback if deferred (must be tested) |
 |---|---|---|---|
 | C6 incremental constrained-answer streaming | included | 2 | Not needed: included. A constrained turn's answer is read out of its envelope and shown as it arrives (R-28's streaming case, `OnyxConstrainedStreaming`). The envelope schema is unchanged: per-tool `anyOf` schemas were not adopted, so no runtime subset had to be probed for them; what the pinned runtime enforces of a schema is measured by the datasheet (L5) |
-| C7 broader index coverage | planned | 2 | Document the cap and partial coverage; freshness metadata stays mandatory |
+| C7 broader index coverage | included | 2 | Not needed: included. Source folders are indexed first, `files.exclude`, `search.exclude` and the root `.gitignore` are honoured, the cap is 20,000 files and 256 MB after measurement, and coverage is reported (`OnyxWorkspaceIndexer`, `OnyxIndexOptions`; "The content index: what it covers") |
 | C9 bounded line diff | planned | 3 | B7 enforces 1,000 lines per side, 1,000,000 LCS cells, 256 KiB before every quadratic diff; R-38 |
 | C10 benign repeated-dot names | planned | 3 | Conservative filename refusal; traversal and symlink refusals stay mandatory |
 | D3 Check for Updates command | planned | 5 | Manual replacement, rollback and uninstall instructions always ship |

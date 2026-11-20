@@ -422,6 +422,11 @@ These run anywhere, need no model, and are what CI measures on every push.
 
 <img src="docs/images/chart-retrieval.svg" alt="BM25 retrieval versus substring search" width="720" />
 
+The chart is the August 2026 measurement. On today's tree, measured through the
+index the product builds (18,205 files, tests and documentation included), the
+figure is 70%: 7 of the 10 files. [docs/BENCHMARKS.md](./docs/BENCHMARKS.md#retrieval--bm25-versus-substring-search)
+has the three misses and why.
+
 #### Surviving what small local models actually emit
 
 <img src="docs/images/chart-parsers.svg" alt="Parser resilience against malformed edits" width="720" />

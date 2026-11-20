@@ -361,7 +361,8 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	async getMachineProfile(): Promise<IOnyxMachineProfile> { return { totalMemoryBytes: 32 * 1024 ** 3, freeMemoryBytes: 16 * 1024 ** 3, cpuModel: 'sim', cpuCount: 8, arch: 'arm64', platform: 'darwin' }; }
 	async getPowerState(): Promise<IOnyxPowerState> { return { onBattery: false, thermal: 'nominal', cpuSpeedLimit: undefined }; }
 	async warmUpModel(): Promise<void> { }
-	async ensureWorkspaceIndex(): Promise<IOnyxIndexStats> { return { files: 0, buildMs: 0, truncated: false, source: 'built', builtAt: 0 }; }
+	async ensureWorkspaceIndex(): Promise<IOnyxIndexStats> { return { files: 0, eligibleFiles: 0, buildMs: 0, truncated: false, source: 'built', builtAt: 0 }; }
+	async configureWorkspaceIndex(): Promise<void> { }
 	async searchWorkspaceIndex(): Promise<readonly { path: string; score: number }[]> { return []; }
 	async updateWorkspaceIndex(): Promise<void> { }
 	async worktreeCreate(): Promise<{ readonly worktreePath: string }> { throw new Error('not simulated'); }

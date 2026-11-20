@@ -131,9 +131,40 @@ export const ONYX_STREAM_DEADLINES = {
  */
 export type OnyxStreamEnding = 'complete' | 'truncated' | 'stalled' | 'cancelled';
 
+/** How much of a tree one index may cover. Past either cap the index holds the highest-priority files and says it is truncated. */
+export interface IOnyxIndexLimits {
+	readonly maxFiles: number;
+	readonly maxTotalBytes: number;
+}
+
+/**
+ * The default caps (C7). Measured on this repository in November 2026 with
+ * the index as it is built here: 18,212 eligible files holding 216 MB of
+ * text. All of them indexed retain 284 MB of memory and 53 MB on disk and
+ * take about 8 seconds to build; the first 5,000 retain 74 MB, the first
+ * 12,000 retain 185 MB. Memory follows the text indexed, at 1.3 to 1.6 times
+ * its size, so the byte cap is the bound on memory: about 400 MB at 256 MB
+ * of text, whatever the file cap. The earlier caps (5,000 files, 64 MB)
+ * indexed 27% of this repository. `onyx.index.maxFiles` moves the file cap.
+ */
+export const ONYX_INDEX_LIMITS: IOnyxIndexLimits = { maxFiles: 20_000, maxTotalBytes: 256 * 1024 * 1024 };
+
+/** What decides which files a workspace index covers, beyond its built-in rules (C7). */
+export interface IOnyxIndexOptions extends Partial<IOnyxIndexLimits> {
+	/** Glob patterns, relative to the root, for files and folders to leave out: the workspace's `files.exclude` and `search.exclude`. */
+	readonly exclude?: readonly string[];
+}
+
 /** What an index says about itself: how big, how it came to be, and whether the caps cut it short. */
 export interface IOnyxIndexStats {
 	readonly files: number;
+	/**
+	 * How many files the index's rules make eligible, indexed or not.
+	 * `files / eligibleFiles` is the coverage (C7). A file past the cap is
+	 * counted by its path alone, without looking at its size, so on a truncated
+	 * index the number can be high by the few files too large to index.
+	 */
+	readonly eligibleFiles: number;
 	readonly buildMs: number;
 	/** True when caps stopped the walk before the workspace was fully covered. Survives persistence. */
 	readonly truncated: boolean;
@@ -374,6 +405,13 @@ export interface IOnyxRuntimeService {
 	 * returns its stats.
 	 */
 	ensureWorkspaceIndex(rootPath: string, persistPath: string): Promise<IOnyxIndexStats>;
+
+	/**
+	 * Sets what the index for a workspace root covers (C7). An index that is
+	 * already there under other options is dropped, and the next use loads or
+	 * builds one under these.
+	 */
+	configureWorkspaceIndex(rootPath: string, options: IOnyxIndexOptions): Promise<void>;
 
 	/** Searches the workspace index; empty until {@link ensureWorkspaceIndex} has run. */
 	searchWorkspaceIndex(rootPath: string, persistPath: string, query: string, limit: number): Promise<readonly { path: string; score: number }[]>;

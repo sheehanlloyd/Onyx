@@ -239,7 +239,9 @@ Integration points consumed (imports only, never patched):
 - [x] Embedding-free semantic retrieval: an incremental BM25 index over the
       workspace in the shared process (persisted per root, capped, build output
       excluded), blended with symbol matches and co-change into one ranking —
-      9/10 hit@5 on a fixed query set where substring search scores 0/10
+      7/10 hit@5 on a fixed query set over the production index of this
+      repository (2026-11-20; 9/10 when first measured, on a smaller tree and
+      a `.ts`-only corpus), where substring search scores 0/10
 - [x] Change-risk analysis: churn, coupling, call-graph fan-in, hunk size, test
       proximity and error-handling edits scored into a calm risk badge with a
       one-line reason, on both review and agent runs

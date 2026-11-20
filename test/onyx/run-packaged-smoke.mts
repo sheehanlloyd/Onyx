@@ -111,6 +111,42 @@ function pwValue(output: string): string {
 	}
 }
 
+/** True while the first-run dialog covers the window. It is modal: every click lands on it. */
+function onboardingShown(): boolean {
+	try {
+		return pwValue(pw('run-code', 'async (page) => page.evaluate(() => String(!!document.querySelector(".onboarding-a-overlay.visible")))')) === 'true';
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Steps through the first-run dialog ("Connect a Local Runtime", then "Make It
+ * Yours") if it is up, waiting up to `waitMs` for it to appear. It appears some
+ * time after the window does. On a slow machine that was later than the fixed
+ * pause this runner used to allow, and the dialog then took every later click.
+ */
+async function dismissOnboarding(waitMs: number): Promise<void> {
+	const deadline = Date.now() + waitMs;
+	for (; ;) {
+		if (onboardingShown()) {
+			for (let step = 0; step < 6 && onboardingShown(); step++) {
+				try {
+					pw('click', 'button.onboarding-a-btn-primary');
+				} catch {
+					// the dialog moved to its next step under the click
+				}
+				await sleep(1200);
+			}
+			return;
+		}
+		if (Date.now() >= deadline) {
+			return;
+		}
+		await sleep(1000);
+	}
+}
+
 const MATH_TS = [
 	'export function addNumbers(a: number, b: number): number {',
 	'\treturn a + b;',
@@ -275,14 +311,7 @@ async function main() {
 		throw error;
 	}
 	await sleep(6000);
-	for (let i = 0; i < 2; i++) {
-		try {
-			pw('click', 'button.onboarding-a-btn-primary');
-		} catch {
-			break;
-		}
-		await sleep(1500);
-	}
+	await dismissOnboarding(30_000);
 	await sleep(3000);
 	// The DOM title carries no product name; Electron's user agent carries the
 	// app name the bundle was built with, which is the signal that this window
@@ -299,6 +328,7 @@ async function main() {
 
 	// A first agent turn: whatever tools the packaged build advertises arrive
 	// at the mock in the request body. That is the observed inventory.
+	await dismissOnboarding(0);
 	await send('TOOLTEST inventory the tools you were given');
 	await waitUntil(() => readRunIndex().length >= 1, 30_000);
 	await sleep(4000);
@@ -345,6 +375,7 @@ async function main() {
 			await waitUntil(changesOnScreen, 8000);
 		}
 	};
+	await dismissOnboarding(0);
 	await openControlPlane();
 	// A staged file is listed collapsed; its hunks render once its header is
 	// expanded. A removed line reads "− <text>" and an added one "+ <text>".
