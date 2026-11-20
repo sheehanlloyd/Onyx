@@ -59,7 +59,7 @@ import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileServic
 import { IOnyxRouterService, OnyxRouterService } from '../../../browser/routing/onyxRouterService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../../../browser/terminal/onyxTerminalTool.js';
 import { OnyxSimBoundary, OnyxSimEpisode, OnyxSimFault, OnyxSimUserAction } from './onyxSimEpisode.js';
-import { IOnyxSimCommandScript, IOnyxSimScheduler, OnyxSimDialogService, OnyxSimEnergyService, OnyxSimFileSystemProvider, OnyxSimLanguageModelsService, OnyxSimPinService, OnyxSimPlaybookService, OnyxSimProfileService, OnyxSimRuntimeService, OnyxSimSearchService, OnyxSimTaskService, OnyxSimToolsService, SIM_CORE_TOOLS, SIM_MODEL_KEY, simWorkspaceUri } from './onyxSimFakes.js';
+import { IOnyxSimCommandScript, IOnyxSimScheduler, OnyxSimDialogService, OnyxSimEnergyService, OnyxSimFileSystemProvider, OnyxSimLanguageModelsService, OnyxSimPinService, OnyxSimPlaybookService, OnyxSimProfileService, OnyxSimRuntimeService, OnyxSimSearchService, OnyxSimTaskService, OnyxSimToolsService, SIM_CLOUD_MODEL_KEY, SIM_CORE_TOOLS, SIM_MODEL_KEY, simWorkspaceUri } from './onyxSimFakes.js';
 import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
 import { digest, OnyxSimTrace } from './onyxSimTrace.js';
 
@@ -705,7 +705,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			message: this.episode.prompt,
 			variables: { variables: [] },
 			location: ChatAgentLocation.Chat,
-			userSelectedModelId: `onyx:${SIM_MODEL_KEY}`,
+			userSelectedModelId: `onyx:${this.episode.selectedModel === 'cloud' ? SIM_CLOUD_MODEL_KEY : SIM_MODEL_KEY}`,
 		};
 		const progress = (_parts: IChatProgress[]) => { };
 		let status = 'unknown';

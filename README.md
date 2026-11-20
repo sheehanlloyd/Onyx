@@ -6,8 +6,8 @@
 
 <p align="center">
   <b>The local-first AI code editor for macOS.</b><br/>
-  Every model runs on your machine. No cloud. No telemetry.<br/>
-  No account — there is nothing to sign in to.
+  Onyx talks to a model runtime on your machine and, by default, uses only models that runtime says it runs itself.<br/>
+  No telemetry. No account — there is nothing to sign in to.
 </p>
 
 <p align="center">
@@ -100,7 +100,9 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
 
 - **One client, every runtime.** A single OpenAI-compatible client covers
   Ollama, LM Studio, llama.cpp and vLLM. Discovery finds your models
-  automatically and nothing you type leaves the machine.
+  automatically. Requests go to the runtime's address on this machine; where
+  the model then runs is what the runtime reports, and
+  [Onyx says which is which](#where-inference-happens).
 - **The harness adapts to the model.** Prompt style, tool count, temperature and
   context budget come from a per-model capability profile, seeded from model
   metadata and sharpened by measurements on your hardware and by which answers
@@ -125,6 +127,40 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
   gives you the exact command for your runtime, waits, then runs the identical
   prompt again. When there is no gain it says so, as
   [it did on this Mac](#speculative-decoding).
+
+#### Where inference happens
+
+Onyx keeps two facts apart, because they are different facts.
+
+- **Where requests are sent** is read off the address: this machine
+  (loopback), your network, or the internet.
+- **Where the model runs** is what the runtime reports about itself. A runtime
+  on this machine can forward a model to a service somewhere else, and an
+  address cannot show that.
+
+What the runtimes report, and what Onyx reads:
+
+| Runtime | How Onyx knows it is that runtime | What it reports about a model |
+|---|---|---|
+| Ollama | it answers `/api/tags` | `remote_model` and `remote_host` on a model it forwards to an upstream host instead of running. Onyx treats such a model, and any whose name ends in `-cloud` or `:cloud`, as cloud-backed. A model without them is one Ollama says it serves itself |
+| LM Studio | it answers `/api/v0/models` | its loaded and downloaded models; LM Studio runs what it lists |
+| llama.cpp, vLLM | `owned_by` in their model list | the model the server was started with |
+| anything else | it does not say | nothing. A well-known port is not an identification |
+
+By default (`onyx.inference.strictLocal`) Onyx uses a model only when the
+runtime identified itself and reports that it runs the model itself, and the
+address is this machine. It does not use a cloud-backed model even through a
+runtime on this machine, a server that does not say what it is, or an endpoint
+on the internet. An endpoint on your network needs its own opt-in
+(`onyx.inference.allowLan`); adding its address to `onyx.endpoints` lists its
+models and sends them nothing. Models that were found and are not used stay
+in the model picker, labelled, with the reason, and `Onyx: Show Where Inference
+Happens` lists every model with both facts.
+
+What cannot be established: whether a runtime, or anything standing between
+Onyx and it (a proxy on the same port, a tunnel), sends requests on somewhere
+without saying so. Onyx reports what it is told. Nothing in the product says a
+model is verified to be local, because nothing verifies it.
 
 ### Nothing touches your code without you
 

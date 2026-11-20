@@ -99,6 +99,30 @@ offers **Run Once** or **Deny**. An answer covers that one invocation.
 | A check task (`onyx.verification.task`, or `verificationTask` in `.onyx/config.json`) | Asks before each run, naming the task and who configured it. The dialog cannot show the commands a task runs and says so |
 | Past decisions | Kept in machine-local workspace storage, at most 200, shown by `Onyx: Show Terminal Approval History`. A record, never a permission. Nothing about approval is written to a tracked file |
 
+## Where inference happens (B14, DEC-04)
+
+| | Read from | Values |
+|---|---|---|
+| Transport | the endpoint's address | loopback (this machine); LAN (private and link-local ranges, `100.64.0.0/10`, names without a dot or under `.local`, `.lan`, `.internal`, `.home.arpa`); remote (everything else, and an address that cannot be read) |
+| Execution | what the runtime reports | local (the runtime identified itself and reports the model as one it runs); cloud (Ollama reports `remote_host` or `remote_model`, or the name ends in `-cloud` or `:cloud`); unknown (the server did not identify itself) |
+
+| Setting (user scope) | Default | Effect |
+|---|---|---|
+| `onyx.inference.strictLocal` | on | cloud and unknown execution are refused; a remote address is refused |
+| `onyx.inference.allowLan` | off | a LAN address is refused until this is on. Turning strict-local off does not grant it |
+
+A refused model is not in the list any chooser draws from (Auto routing, autocomplete, benchmarks, review),
+is not warmed up, and a request that names it fails with the reason. It stays in the picker with a label
+("cloud-backed · not used") and a tooltip that gives the reason and both facts. Configured endpoints are
+still probed for their model list, which is how they can be shown at all; that probe carries no prompt.
+`Onyx: Show Where Inference Happens` opens the full list.
+
+Runtimes are identified by what they answer, not by their port: Ollama by `/api/tags`, LM Studio by
+`/api/v0/models`, llama.cpp and vLLM by `owned_by` in `/v1/models`. A server on a well-known port that
+answers none of these is shown under that runtime's name and its execution is unknown.
+
+No string in the product says a model is verified to be local.
+
 ## Context: what a request is fitted into (B13)
 
 **Three numbers, and the smallest one wins.** For each model Onyx keeps what the architecture allows (as the

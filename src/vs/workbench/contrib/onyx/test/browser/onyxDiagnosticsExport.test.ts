@@ -163,7 +163,7 @@ suite('OnyxDiagnosticsExport', () => {
 			overrides: { '10.0.0.5:8000/coder': { promptStyle: 'compact', maxTools: 6, family: NEVER.profileOverrideText + ' with spaces and a /path' } },
 		};
 		instantiationService.stub(IOnyxProfileService, { _serviceBrand: undefined, exportAll: () => exported } as Partial<IOnyxProfileService> as IOnyxProfileService);
-		const known: IOnyxKnownModel = { key: '10.0.0.5:8000/coder', discovered: DISCOVERED, profile: PROFILE, apiKey: NEVER.apiKeyOnModel };
+		const known: IOnyxKnownModel = { key: '10.0.0.5:8000/coder', discovered: DISCOVERED, profile: PROFILE, apiKey: NEVER.apiKeyOnModel, location: { transport: 'lan', execution: 'local' } };
 		instantiationService.stub(IOnyxModelService, { _serviceBrand: undefined, getKnownModels: () => [known] } as Partial<IOnyxModelService> as IOnyxModelService);
 		const endpoint: IOnyxEndpoint = { baseUrl: CREDENTIALED_URL, kind: 'vllm', displayName: 'vLLM', models: [DISCOVERED] };
 		instantiationService.stub(IOnyxRuntimeService, {

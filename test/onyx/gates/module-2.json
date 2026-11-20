@@ -137,6 +137,22 @@
 			]
 		},
 		{
+			"id": "R-17",
+			"title": "B14 where inference happens: transport and reported execution are labelled separately; by default a cloud-backed model through loopback, a LAN endpoint, an unidentified server and the internet are refused and nothing is sent to them; LAN needs its own opt-in",
+			"layer": "service",
+			"regressions": [
+				"R-17"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxInferenceLocation.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxInferenceLocation"
+			]
+		},
+		{
 			"id": "R-19",
 			"title": "B12 honest stream termination and index freshness: each ending is reported as what it was, a silent request is stopped at its deadline, a cut-off reply is never applied or called complete, and a persisted index is reconciled with the tree or rebuilt",
 			"layer": "node, service",

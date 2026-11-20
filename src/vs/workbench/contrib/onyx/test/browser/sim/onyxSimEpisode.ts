@@ -110,6 +110,8 @@ export interface OnyxSimEpisode {
 	 * anything, as a runtime that truncates silently would.
 	 */
 	readonly runtimeContextTokens?: number;
+	/** The model the user picked: the default one, or the one the runtime reports as cloud-backed (B14). */
+	readonly selectedModel?: 'cloud';
 }
 
 /**
@@ -390,6 +392,8 @@ export function generateEpisode(seed: number): OnyxSimEpisode {
 		// least an eight-tool agent can work in: the instructions and tool schemas alone are about 1,400.
 		profile: configRandom.chance(0.3) ? { promptStyle: 'compact', contextLength: 4096, maxTools: configRandom.pick([8, 8, 8, 6, 5, 3, 12, 24, 0]) } : undefined,
 		...(configRandom.chance(0.25) ? { networkTools: true } : {}),
+		// Now and then the user picks the cloud-backed model from the list.
+		...(configRandom.chance(0.05) ? { selectedModel: 'cloud' as const } : {}),
 	};
 }
 

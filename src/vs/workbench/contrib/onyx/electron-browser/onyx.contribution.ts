@@ -70,6 +70,7 @@ import { IOnyxProjectConfigService, OnyxProjectConfigService } from '../browser/
 import { OnyxDiagnosticsExport } from '../browser/diagnostics/onyxDiagnosticsExport.js';
 import { IOnyxEndpointSecretService, OnyxEndpointSecretService } from '../browser/model/onyxEndpointSecrets.js';
 import { OnyxDiagnosticsRedactor } from '../common/onyxDiagnostics.js';
+import { describeExecution, describeRefusal, describeTransport } from '../common/onyxInferenceLocation.js';
 import { OnyxModelLibrary } from '../browser/models/onyxModelLibrary.js';
 import { OnyxIdleReviewContribution } from '../browser/review/onyxIdleReview.js';
 import { OnyxTournament } from '../browser/tournament/onyxTournament.js';
@@ -387,6 +388,39 @@ registerAction2(class ShowOnyxAgentToolsAction extends Action2 {
 			'',
 			`// Refused (${inventory.excluded.length}): name, why`,
 			...inventory.excluded.map(tool => `${tool.name}  ${tool.reason}`),
+		];
+		await editorService.openEditor({ resource: undefined, contents: lines.join('\n'), languageId: 'plaintext', options: { pinned: true } });
+	}
+});
+
+registerAction2(class ShowOnyxInferenceLocationsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.showInferenceLocations',
+			title: localize2('onyx.showInferenceLocations', "Onyx: Show Where Inference Happens"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const modelService = accessor.get(IOnyxModelService);
+		const editorService = accessor.get(IEditorService);
+		await modelService.refresh();
+		const shown = new OnyxDiagnosticsRedactor({ includeContent: false, secrets: [] });
+		const used = modelService.getKnownModels();
+		const refused = modelService.getRefusedModels();
+		const lines = [
+			localize('onyx.locations.title', "Where inference happens"),
+			'',
+			localize('onyx.locations.limits', "Two things are listed for each model, and they are different things. Where requests are sent is read off the address. Where the model runs is what the runtime reports about itself; Onyx cannot establish what a runtime does beyond that, and a runtime on this machine can forward a model elsewhere. Nothing below is verified."),
+			'',
+			localize('onyx.locations.used', "Used ({0})", used.length),
+			...used.flatMap(model => [`  ${model.discovered.id}  —  ${String(shown.url(model.discovered.baseUrl))}`, `    ${describeTransport(model.location.transport)}`, `    ${describeExecution(model.location, model.discovered.runtime)}`]),
+			'',
+			localize('onyx.locations.refused', "Found and not used ({0})", refused.length),
+			...refused.flatMap(({ model, refusal }) => [`  ${model.discovered.id}  —  ${String(shown.url(model.discovered.baseUrl))}`, `    ${describeRefusal(refusal)}`, `    ${describeTransport(model.location.transport)}`, `    ${describeExecution(model.location, model.discovered.runtime)}`]),
+			'',
+			localize('onyx.locations.settings', "Settings: onyx.inference.strictLocal (on by default) and onyx.inference.allowLan (off by default). Both are user settings; a workspace cannot change them."),
 		];
 		await editorService.openEditor({ resource: undefined, contents: lines.join('\n'), languageId: 'plaintext', options: { pinned: true } });
 	}

@@ -18,6 +18,7 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { IChatMessage, IChatResponsePart, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse } from '../../../chat/common/languageModels.js';
 import { getOnyxEndpointSettings, normalizeEndpointBaseUrl, OnyxSettingId } from '../../common/onyxConfiguration.js';
 import { isContextOverflowError } from '../../common/onyxContextBudget.js';
+import { classifyTransport, decideInferenceUse, describeExecution, describeRefusal, describeTransport, IOnyxInferenceLocation, IOnyxInferencePolicy, locationBadge, OnyxLocationRefusal } from '../../common/onyxInferenceLocation.js';
 import { humanizeRuntimeError } from '../../common/onyxRuntimeErrors.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
@@ -44,6 +45,14 @@ export interface IOnyxKnownModel {
 	readonly profile: IOnyxModelProfile;
 	/** From the system's secret storage (B11). Held in memory for requests; never written to a file by Onyx. */
 	readonly apiKey?: string;
+	/** Where requests go and where the runtime says the model runs (B14). */
+	readonly location: IOnyxInferenceLocation;
+}
+
+/** A discovered model that is not used under the user's inference settings, and why. */
+export interface IOnyxRefusedModel {
+	readonly model: IOnyxKnownModel;
+	readonly refusal: OnyxLocationRefusal;
 }
 
 /** The runtime rejected the request because the prompt did not fit its context (B13). */
@@ -87,8 +96,11 @@ export interface IOnyxModelService extends ILanguageModelChatProvider {
 	readonly onDidChangeModels: Event<void>;
 	/** Fires after every request completes (successfully or not) with its local measurements. */
 	readonly onDidMeasureRequest: Event<IOnyxRequestMeasurement>;
+	/** The models Onyx uses: every chooser draws from this list, so a refused model cannot be picked by any of them. */
 	getKnownModels(): readonly IOnyxKnownModel[];
 	getKnownModel(key: string): IOnyxKnownModel | undefined;
+	/** Models that were discovered and are not used, with the reason (B14). For display; nothing is sent to them. */
+	getRefusedModels(): readonly IOnyxRefusedModel[];
 	refresh(): Promise<void>;
 	/** Whether the model was used recently enough that its weights should still be resident. */
 	isWarm(modelKey: string): boolean;
@@ -110,6 +122,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	readonly onDidMeasureRequest = this._onDidMeasureRequest.event;
 
 	private _models = new Map<string, IOnyxKnownModel>();
+	private _refused = new Map<string, IOnyxRefusedModel>();
 	private _refreshing: Promise<void> | undefined;
 
 	private readonly _onDidChangeLoading = this._register(new Emitter<{ modelKey: string; loading: boolean }>());
@@ -135,7 +148,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 			this._rebuildFromDiscovery(endpoints.flatMap(e => e.models));
 		}));
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(OnyxSettingId.Endpoints) || e.affectsConfiguration(OnyxSettingId.DiscoveryEnabled)) {
+			if (e.affectsConfiguration(OnyxSettingId.Endpoints) || e.affectsConfiguration(OnyxSettingId.DiscoveryEnabled) || e.affectsConfiguration(OnyxSettingId.InferenceStrictLocal) || e.affectsConfiguration(OnyxSettingId.InferenceAllowLan)) {
 				this.refresh();
 			}
 		}));
@@ -182,20 +195,33 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 
 	private _rebuildFromDiscovery(discovered: readonly IOnyxDiscoveredModel[]): void {
 		const settings = getOnyxEndpointSettings(this._configurationService);
+		const policy = this._inferencePolicy();
 		const next = new Map<string, IOnyxKnownModel>();
+		const refused = new Map<string, IOnyxRefusedModel>();
 		for (const model of discovered) {
 			const key = modelKey(model);
 			const setting = settings.find(s => normalizeEndpointBaseUrl(s.baseUrl) === model.baseUrl);
 			const withOverrides = setting?.contextWindow ? { ...model, contextLength: setting.contextWindow } : model;
-			next.set(key, {
+			// Transport from the address; execution from what the runtime reported, and `unknown` when it
+			// reported nothing. A loopback address settles the first and says nothing about the second.
+			const location: IOnyxInferenceLocation = { transport: classifyTransport(model.baseUrl), execution: model.execution ?? 'unknown', remoteHost: model.remoteHost };
+			const known: IOnyxKnownModel = {
 				key,
 				discovered: withOverrides,
 				profile: this._profileService.getProfile(key, withOverrides),
 				apiKey: this._apiKeys.get(model.baseUrl),
-			});
+				location,
+			};
+			const decision = this._decideUse(location, policy);
+			if (decision.allowed) {
+				next.set(key, known);
+			} else {
+				refused.set(key, { model: known, refusal: decision.refusal });
+			}
 		}
-		const changed = next.size !== this._models.size || [...next.keys()].some(k => !this._models.has(k));
+		const changed = next.size !== this._models.size || [...next.keys()].some(k => !this._models.has(k)) || refused.size !== this._refused.size || [...refused.keys()].some(k => !this._refused.has(k));
 		this._models = next;
+		this._refused = refused;
 		if (changed) {
 			this._onDidChange.fire();
 		}
@@ -214,6 +240,23 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 
 	getKnownModel(key: string): IOnyxKnownModel | undefined {
 		return this._models.get(key);
+	}
+
+	getRefusedModels(): readonly IOnyxRefusedModel[] {
+		return [...this._refused.values()];
+	}
+
+	/** The user's inference settings. User-scoped: a workspace cannot loosen them. */
+	private _inferencePolicy(): IOnyxInferencePolicy {
+		return {
+			strictLocal: this._configurationService.getValue<boolean>(OnyxSettingId.InferenceStrictLocal) !== false,
+			allowLan: this._configurationService.getValue<boolean>(OnyxSettingId.InferenceAllowLan) === true,
+		};
+	}
+
+	/** Whether a model at this location is used under the user's settings. */
+	protected _decideUse(location: IOnyxInferenceLocation, policy: IOnyxInferencePolicy): ReturnType<typeof decideInferenceUse> {
+		return decideInferenceUse(location, policy);
 	}
 
 	async provideLanguageModelChatInfo(): Promise<ILanguageModelChatMetadataAndIdentifier[]> {
@@ -235,6 +278,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 					version: '1.0',
 					family: model.profile.family,
 					detail: modelDetail(model),
+					tooltip: locationTooltip(model),
 					maxInputTokens: model.profile.contextLength,
 					maxOutputTokens: 4096,
 					isDefaultForLocation: {},
@@ -244,6 +288,28 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						agentMode: model.profile.toolCallQuality > 0,
 						vision: model.profile.supportsVision,
 					},
+				},
+			});
+		}
+		// Models that were found and are not used stay visible, labelled, with the reason: choosing one
+		// explains itself instead of failing silently or vanishing (B14).
+		for (const { model, refusal } of this._refused.values()) {
+			infos.push({
+				identifier: `${ONYX_VENDOR}:${model.key}`,
+				metadata: {
+					extension: nullExtensionDescription.identifier,
+					name: model.discovered.id,
+					id: model.key,
+					vendor: ONYX_VENDOR,
+					version: '1.0',
+					family: model.profile.family,
+					detail: `${modelDetail(model)} · ${localize('onyx.location.notUsed', "not used")}`,
+					tooltip: `${describeRefusal(refusal)} ${locationTooltip(model)}`,
+					maxInputTokens: model.profile.contextLength,
+					maxOutputTokens: 4096,
+					isDefaultForLocation: {},
+					isUserSelectable: true,
+					capabilities: {},
 				},
 			});
 		}
@@ -260,7 +326,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				vendor: ONYX_VENDOR,
 				version: '1.0',
 				family: 'onyx-auto',
-				tooltip: localize('onyx.autoModel.tooltip', "Onyx routes each request to the best local model, using performance measured on this machine."),
+				tooltip: localize('onyx.autoModel.tooltip', "Onyx routes each request to the best of the models it uses, by performance measured on this machine. Models it found and does not use are listed below with the reason."),
 				maxInputTokens: Math.max(8192, ...[...this._models.values()].map(m => m.profile.contextLength)),
 				maxOutputTokens: 4096,
 				isDefaultForLocation: {},
@@ -298,6 +364,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	}
 
 	async warmUp(modelKey: string): Promise<void> {
+		// Only a model that is used: nothing, not even a warm-up, is sent to a refused one.
 		const model = this._models.get(modelKey);
 		if (!model || model.discovered.runtime !== 'ollama' || this.isWarm(modelKey)) {
 			return;
@@ -308,6 +375,11 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	}
 
 	async sendChatRequest(modelId: string, messages: IChatMessage[], _from: ExtensionIdentifier | undefined, options: ILanguageModelChatRequestOptions, token: CancellationToken): Promise<ILanguageModelChatResponse> {
+		const refused = this._refused.get(modelId.startsWith(`${ONYX_VENDOR}:`) ? modelId.slice(ONYX_VENDOR.length + 1) : modelId);
+		if (refused) {
+			// Said in full, because this is where a user who picked the model finds out why nothing happens.
+			throw new Error(`${refused.model.discovered.id}: ${describeRefusal(refused.refusal)} ${locationTooltip(refused.model)}`);
+		}
 		const model = this._resolveModel(modelId, messages);
 		if (!model) {
 			throw new Error(`Onyx model not found: ${modelId}`);
@@ -503,7 +575,17 @@ function modelDetail(model: IOnyxKnownModel): string {
 	if (model.discovered.quantization) {
 		parts.push(model.discovered.quantization);
 	}
+	// Anything other than "this machine, run by the runtime itself" is said on the row.
+	const badge = locationBadge(model.location);
+	if (badge) {
+		parts.push(badge);
+	}
 	return parts.join(' · ');
+}
+
+/** Where requests go and where the runtime says the model runs: two sentences, kept apart (DEC-04). */
+function locationTooltip(model: IOnyxKnownModel): string {
+	return `${describeTransport(model.location.transport)} ${describeExecution(model.location, runtimeLabel(model.discovered.runtime))}`;
 }
 
 function runtimeLabel(runtime: IOnyxDiscoveredModel['runtime']): string {
@@ -512,7 +594,8 @@ function runtimeLabel(runtime: IOnyxDiscoveredModel['runtime']): string {
 		case 'lmstudio': return 'LM Studio';
 		case 'llamacpp': return 'llama.cpp';
 		case 'vllm': return 'vLLM';
-		default: return 'Local';
+		// A server that speaks the API and did not say what it is. Not "local": nothing establishes that.
+		default: return 'OpenAI-compatible';
 	}
 }
 

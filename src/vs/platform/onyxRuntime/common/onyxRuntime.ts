@@ -53,6 +53,15 @@ export interface IOnyxDiscoveredModel {
 	 * unknown runtimes are assumed not to).
 	 */
 	readonly supportsJsonSchema?: boolean;
+	/**
+	 * Where the model runs, as the runtime reports it (B14, DEC-04). `local`:
+	 * the server identified itself and says it runs the model. `cloud`: the
+	 * server says the model is served from elsewhere. Absent: the server did
+	 * not say, which is not the same as local. A URL is never the evidence.
+	 */
+	readonly execution?: 'local' | 'cloud';
+	/** Where the runtime says a cloud-backed model is served from. */
+	readonly remoteHost?: string;
 	/** The runtime's content digest for the weights (Ollama reports one per tag); provenance for traces (L3). */
 	readonly digest?: string;
 	/** The runtime's reported version, when it reports one (L3). */

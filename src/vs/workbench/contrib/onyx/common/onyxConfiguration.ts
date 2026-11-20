@@ -23,6 +23,8 @@ export const enum OnyxSettingId {
 	BackgroundReview = 'onyx.review.background',
 	NetworkTools = 'onyx.agent.networkTools',
 	TerminalPassEnvironment = 'onyx.terminal.passEnvironment',
+	InferenceStrictLocal = 'onyx.inference.strictLocal',
+	InferenceAllowLan = 'onyx.inference.allowLan',
 }
 
 export interface IOnyxEndpointSetting {
@@ -159,6 +161,19 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.APPLICATION,
 			default: false,
 			markdownDescription: localize('onyx.agent.networkTools', "Let the Onyx agent use the reviewed network tools: opening a page in the integrated browser, reading a page it opened, and fetching a URL. Off by default, because nothing else in Onyx leaves this machine. When on, every network call still asks first, showing the tool and its arguments, and the tools compete for the same tool slots as everything else. Run **Onyx: Show Agent Tools** to see what is exposed and why."),
+		},
+		[OnyxSettingId.InferenceStrictLocal]: {
+			type: 'boolean',
+			// User settings: a workspace cannot loosen where prompts may go.
+			scope: ConfigurationScope.APPLICATION,
+			default: true,
+			markdownDescription: localize('onyx.inference.strictLocal', "Use a model only when its runtime identifies itself and reports that it runs the model itself, on this machine. With this on, Onyx does not use a model the runtime reports as cloud-backed (even through a runtime on this machine), a server that does not say what it is, or an endpoint on the internet. This rests on what the runtime reports: Onyx cannot establish what a runtime does beyond that. Run **Onyx: Show Where Inference Happens** to see each model and why it is or is not used."),
+		},
+		[OnyxSettingId.InferenceAllowLan]: {
+			type: 'boolean',
+			scope: ConfigurationScope.APPLICATION,
+			default: false,
+			markdownDescription: localize('onyx.inference.allowLan', "Use inference endpoints on your local network. Off by default: adding a network address to `onyx.endpoints` lists its models and does not send them anything. With this on, prompts and code are sent to that machine, and whatever else can reach it can use it too."),
 		},
 		[OnyxSettingId.TerminalPassEnvironment]: {
 			type: 'boolean',
