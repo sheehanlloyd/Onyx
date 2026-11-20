@@ -28,6 +28,7 @@
 
 import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -87,8 +88,11 @@ async function waitUntil(condition: () => boolean, timeoutMs = 20_000, stepMs = 
 	return condition();
 }
 
+/** The installed @playwright/cli, run with this Node (see run-e2e.mts). */
+const playwrightCli = createRequire(import.meta.url).resolve('@playwright/cli/playwright-cli.js');
+
 function pw(...args: string[]) {
-	return execFileSync('npx', ['@playwright/cli', `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+	return execFileSync(process.execPath, [playwrightCli, `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 const MATH_TS = [
@@ -229,6 +233,11 @@ async function main() {
 		`--user-data-dir=${userDataDir}`,
 		`--extensions-dir=${extensionsDir}`,
 		`--remote-debugging-port=${cdpPort}`,
+		// Keeps the app under test away from the login keychain: its "Safe
+		// Storage" key belongs to whichever Electron binary created it, and
+		// a rebuilt app that reads it makes macOS prompt and blocks the main
+		// thread, which hangs the debugging endpoint (see run-e2e.mts).
+		'--use-mock-keychain',
 		'--disable-workspace-trust',
 		'--skip-release-notes',
 		'--disable-updates',
@@ -240,7 +249,15 @@ async function main() {
 	if (!cdpUp) {
 		return;
 	}
-	pw('attach', `--cdp=http://127.0.0.1:${cdpPort}`);
+	try {
+		pw('attach', `--cdp=http://127.0.0.1:${cdpPort}`);
+	} catch (error) {
+		// Name the cause when the endpoint came up and then went silent.
+		if (!await fetchJson(`http://127.0.0.1:${cdpPort}/json/version`)) {
+			throw new Error(`the debugging endpoint on :${cdpPort} answered and then stopped: the app's main process is blocked, which on macOS means a system prompt (the login keychain) is waiting for an answer`, { cause: error });
+		}
+		throw error;
+	}
 	await sleep(6000);
 	for (let i = 0; i < 2; i++) {
 		try {

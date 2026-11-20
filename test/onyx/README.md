@@ -63,7 +63,7 @@ in the shape those flows parse, so both features can be driven without a model.
 generated from its JSON — never hand-written.
 
 ```bash
-npm run transpile-client                 # the harness imports the real modules from out/
+pnpm run transpile-client                # the harness imports the real modules from out/
 node test/onyx/run-benchmarks.mts        # readable report
 node test/onyx/run-benchmarks.mts --json-out /tmp/onyx-bench.json
 node test/onyx/make-charts.mts --manifest <manifest.json> /tmp/onyx-bench.json   # → docs/images/chart-*.svg
@@ -98,7 +98,7 @@ because it reloads models through the `lms` CLI.
 journal Onyx writes per workspace:
 
 ```bash
-npm run compile                    # the runner runs the app, it does not build it
+pnpm run compile                   # the runner runs the app, it does not build it
 node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 ```
 
@@ -132,13 +132,29 @@ asserting on the run journal and the live DOM (45 checks):
 - the architecture map rendering modules, timing and a model summary
 - the debug assistant's designed no-session message
 
-It needs `@playwright/cli` (a devDependency). CI runs it under Xvfb on every
+It needs `@playwright/cli` (a devDependency), which the runner resolves from
+the repository's own dependencies and runs with the same Node; no `npx` or
+`pnpm exec` sits in between. CI runs it under Xvfb on every
 push and pull request, after the unit tests, and uploads the journals on
 failure — see `.github/workflows/onyx-ci.yml`. The harness never clicks at a
 coordinate: files open through Quick Open, the editor is focused through the
 DOM, code actions are picked with the keyboard, and Onyx views open through
 their commands, so the same script drives the workbench on macOS and under a
 Linux framebuffer.
+
+On macOS the workbench is launched with `--use-mock-keychain` (the packaged
+smoke does the same). The workbench reads its "Safe Storage" key from the
+login keychain at startup, synchronously, on the main thread. That key belongs
+to whichever Electron binary created it, so after an Electron upgrade macOS
+asks for permission, the call waits for an answer, and the debugging endpoint,
+which is served from that thread, answers once and then hangs: the driver
+reports only a timeout "retrieving websocket url". A mock keychain removes the
+prompt and the dependency on one machine's keychain. If the endpoint goes
+silent anyway, the runner says so instead of passing the driver's timeout on.
+
+When a run aborts, the runner prints what the failed driver command wrote and
+saves a screenshot of the window to `abort.png` in the run directory; pass
+`--keep` to keep that directory.
 
 ## Fresh output, and the harness's own checks
 
@@ -152,7 +168,7 @@ node test/onyx/run-fresh.mts --stamp-only        # refresh and stamp, run nothin
 ```
 
 It records the revision and a digest of the dirty source tree, runs
-`npm run transpile-client`, writes `out/.onyx-fresh.json`, and only then runs
+`pnpm run transpile-client`, writes `out/.onyx-fresh.json`, and only then runs
 the command. The module gate refuses to run when that stamp does not match the
 tree.
 
