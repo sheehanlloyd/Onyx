@@ -707,7 +707,13 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			location: ChatAgentLocation.Chat,
 			userSelectedModelId: `onyx:${this.episode.selectedModel === 'cloud' ? SIM_CLOUD_MODEL_KEY : SIM_MODEL_KEY}`,
 		};
-		const progress = (_parts: IChatProgress[]) => { };
+		// What reaches the transcript, and when in the stream it does (C5).
+		const progress = (parts: IChatProgress[]) => {
+			const size = parts.reduce((total, part) => total + (part.kind === 'markdownContent' ? part.content.value.length : 0), 0);
+			if (size > 0) {
+				this.trace.record({ kind: 'shown', size });
+			}
+		};
 		let status = 'unknown';
 		let errorMessage: string | undefined;
 		const watchdog = timeout(WATCHDOG_MS).then(() => {

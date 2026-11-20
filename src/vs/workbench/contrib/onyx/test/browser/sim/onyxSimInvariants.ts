@@ -8,7 +8,7 @@ import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
 import { ONYX_TERMINAL_OUTPUT_LIMITS } from '../../../common/onyxTerminalOutput.js';
 import { SIM_CLOUD_MODEL_ID } from './onyxSimFakes.js';
 import { validateToolArguments } from '../../../common/onyxToolArguments.js';
-import { OnyxSimBoundary, SIM_INJECTED_NOTE, SIM_MUST_WARN_COMMANDS, SIM_PROCESS_ENVIRONMENT, SIM_SECRET_ENVIRONMENT_NAMES, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
+import { OnyxSimBoundary, SIM_FENCED_REPLY, SIM_INJECTED_NOTE, SIM_MUST_WARN_COMMANDS, SIM_PROCESS_ENVIRONMENT, SIM_SECRET_ENVIRONMENT_NAMES, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
 import { SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { IOnyxSimState, OnyxSimChecker } from './onyxSimRig.js';
 import { OnyxSimTraceEvent } from './onyxSimTrace.js';
@@ -543,6 +543,40 @@ const dec04: OnyxSimChecker = state => {
 	return undefined;
 };
 
+/**
+ * R-27 (C5), checked beside the invariants: a reply that opens with a code fence and is not a tool call
+ * reaches the transcript while it streams. Between the first chunk of such a reply and the end of its
+ * stream, something has been shown.
+ */
+const r27: OnyxSimChecker = state => {
+	const fencedAt = state.episode.turns.findIndex(turn => turn.kind === 'text' && turn.text === SIM_FENCED_REPLY);
+	if (fencedAt === -1 || state.episode.persona === 'looping') {
+		return undefined;
+	}
+	const all = events(state);
+	// The request for that turn, then its chunks up to the end of its stream.
+	let requests = 0;
+	let inReply = false;
+	let chunks = 0;
+	for (const event of all) {
+		if (event.kind === 'request') {
+			requests++;
+			inReply = requests === fencedAt + 1;
+		} else if (inReply && event.kind === 'shown') {
+			return undefined;
+		} else if (inReply && event.kind === 'chunk') {
+			if (event.delta === 'text') {
+				chunks++;
+			} else if (event.delta === 'done' && event.finishReason === 'stop' && chunks > 1) {
+				return `R-27/fenced-reply-withheld: a reply that opens with a code fence streamed ${chunks} chunks and none of it was shown before the stream ended`;
+			} else if (event.delta === 'done' || event.delta === 'error') {
+				return undefined; // cut short by a fault or a stop: nothing to say about streaming
+			}
+		}
+	}
+	return undefined;
+};
+
 export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-01', title: 'No model-authored text reaches a live buffer or the disk before an explicit accept', check: (state, boundary) => i01(state, boundary) ?? i01Disk(state, boundary) },
 	{ id: 'I-02', title: 'No command is dispatched without an affirmative approval for that exact invocation', check: i02 },
@@ -560,6 +594,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-13', title: 'Retained output, proposal size and queue lengths stay under their caps', check: i13 },
 	{ id: 'I-14', title: 'Nothing a model asks to persist influences a later prompt before the user confirms it with its origin shown', check: i14 },
 	{ id: 'DEC-04', title: 'No prompt is sent to a model the inference settings refuse', check: dec04 },
+	{ id: 'R-27', title: 'A reply that opens with a code fence is shown as it streams', check: r27 },
 ];
 
 /** Invariants the rig cannot observe in Module 1, each with the reason the contract records. */

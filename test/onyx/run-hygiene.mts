@@ -20,6 +20,9 @@
  *   inherited-automation  only Onyx-owned workflows (onyx-*.yml) exist under .github/workflows,
  *                    and upstream's CODEOWNERS, dependabot and issue-bot configurations are
  *                    absent, so nothing inherited can execute or request reviews (A11)
+ *   sync-duplicates  no file named `<name> 2<.ext>` (or 3, 4, …) under the Onyx paths, .github or
+ *                    docs: that is the name a file-sync service gives a conflict copy, and one
+ *                    writing into a working tree brings deleted files back under such names
  *
  * Exit code 1 when any check fails. Widen an allowlist here rather than deleting a fixture.
  */
@@ -306,12 +309,39 @@ function checkInheritedAutomation(): ICheckResult {
 	return { check: 'inherited-automation', ok: problems.length === 0, scanned, problems };
 }
 
+/**
+ * Where a file whose name ends in a space and a number is a conflict copy and never a real file: the paths
+ * Onyx owns, plus the two folders whose contents decide what automation runs and what is published.
+ */
+const SYNC_DUPLICATE_SCOPE = ['.github', 'docs', 'test/onyx', 'src/vs/workbench/contrib/onyx', 'src/vs/platform/onyxRuntime', 'extensions/theme-onyx'];
+const SYNC_DUPLICATE_NAME = / \d+(?:\.[^./ ]+)?$/;
+
+/**
+ * Found on the development machine in November 2026: the repository lived in a folder that a cloud drive
+ * synchronizes, and the drive wrote twenty-two files into the tree in one go, among them eleven upstream
+ * workflows that A11 had deleted, as `pr 2.yml` and the like. An `add` of a whole directory would have
+ * committed them.
+ */
+function checkSyncDuplicates(): ICheckResult {
+	const problems: string[] = [];
+	let scanned = 0;
+	const candidates = [...scopeFiles(SYNC_DUPLICATE_SCOPE), ...fs.readdirSync(root, { withFileTypes: true }).filter(entry => entry.isFile()).map(entry => path.join(root, entry.name))];
+	for (const file of candidates) {
+		scanned++;
+		if (SYNC_DUPLICATE_NAME.test(path.basename(file))) {
+			problems.push(`${relative(file)} has the name of a sync conflict copy: a file-sync service is writing into this working tree (delete the copy; keep the repository outside the synchronized folder)`);
+		}
+	}
+	return { check: 'sync-duplicates', ok: problems.length === 0, scanned, problems };
+}
+
 const CHECKS: Record<string, () => ICheckResult> = {
 	'nul-bytes': checkNulBytes,
 	'stale-strings': checkStaleStrings,
 	'identity-urls': checkIdentityUrls,
 	'image-manifest': checkImageManifest,
 	'inherited-automation': checkInheritedAutomation,
+	'sync-duplicates': checkSyncDuplicates,
 };
 
 const selected = only ?? Object.keys(CHECKS);

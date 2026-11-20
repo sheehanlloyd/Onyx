@@ -92,6 +92,34 @@ test('A11: an inherited workflow, CODEOWNERS or dependabot config fails the inhe
 	}
 });
 
+test('a conflict copy left by a file-sync service fails the sync-duplicates check, wherever in the Onyx paths it lands', () => {
+	const root = cleanFixture();
+	try {
+		// What a cloud drive wrote into the working tree: deleted files back under "<name> 2" names.
+		fs.writeFileSync(path.join(root, '.github/workflows/onyx-ci 2.yml'), 'name: Onyx CI\non: [push]\n');
+		fs.writeFileSync(path.join(root, '.github/CODEOWNERS 2'), '* @someone\n');
+		fs.mkdirSync(path.join(root, 'docs/progress'), { recursive: true });
+		fs.writeFileSync(path.join(root, 'docs/progress/A1 2.md'), '# A1\n');
+		fs.writeFileSync(path.join(root, 'src/vs/workbench/contrib/onyx/common/example 3.ts'), 'export {};\n');
+		// Not conflict copies: a number that is part of the name, and a name with no number at the end.
+		fs.writeFileSync(path.join(root, 'docs/progress/B2.md'), '# B2\n');
+		fs.writeFileSync(path.join(root, 'docs/progress/phase 2 notes.md'), '# notes\n');
+		const { status, stdout } = runHygiene(root);
+		assert.deepStrictEqual({
+			status,
+			failed: lines(stdout, /^FAIL/).map(line => line.split(/\s+/)[1]),
+			named: lines(stdout, /has the name of a sync conflict copy/).map(line => line.split(' has the name')[0]).sort(),
+		}, {
+			status: 1,
+			// The copied workflow does not start with "onyx-" either once it is renamed; here it does, so only this check fires.
+			failed: ['sync-duplicates'],
+			named: ['.github/CODEOWNERS 2', '.github/workflows/onyx-ci 2.yml', 'docs/progress/A1 2.md', 'src/vs/workbench/contrib/onyx/common/example 3.ts'],
+		});
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
 test('A6: an unlisted image, a stale string and a URL outside the allowlist each fail their own check', () => {
 	const root = cleanFixture();
 	try {

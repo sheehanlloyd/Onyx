@@ -143,6 +143,9 @@ export const SIM_MUST_WARN_COMMANDS: readonly string[] = [
 	'python3 -c "import shutil; shutil.rmtree(\'.\')"',
 ];
 
+/** A reply that opens with a code fence and is not a tool call: it should reach the transcript as it streams (C5, R-27). */
+export const SIM_FENCED_REPLY = '```ts\nexport function addNumbers(a: number, b: number): number {\n\treturn b + a;\n}\n```\nThat is the change I would make to src/math.ts.';
+
 /** A reply that is all thinking, never closed, with a tool call the model was only considering (C4, I-11). */
 export const SIM_UNFINISHED_THOUGHT = '<think>I should look at the file first. I could run {"tool":"terminal","arguments":{"command":"npm test"}} and then';
 
@@ -203,7 +206,8 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 				default: return [
 					{ kind: 'toolCall', tool: random.pick(['listDirectory', 'findFiles', 'grep']), arguments: random.pick<unknown>([{ path: 'src' }, { pattern: '**/*.ts' }, { pattern: 'addNumbers' }]) },
 					readCall({ path: 'src/util.ts', startLine: 1, endLine: 2 }),
-					answer('Looked around; nothing to change.'),
+					// Sometimes the answer is a block of code, opening with a fence.
+					random.chance(0.4) ? answer(SIM_FENCED_REPLY) : answer('Looked around; nothing to change.'),
 				];
 			}
 		case 'malformed':

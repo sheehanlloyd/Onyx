@@ -189,6 +189,22 @@
 			]
 		},
 		{
+			"id": "R-27",
+			"title": "C5 streaming for fenced replies: a reply that opens with a code fence is shown as soon as the fence is seen not to be JSON; a tool call written as text is still withheld to its end and run",
+			"layer": "pure",
+			"regressions": [
+				"R-27"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxFencedStreaming.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxFencedStreaming"
+			]
+		},
+		{
 			"id": "R-28-mandatory",
 			"title": "B12 argument validation: a call whose arguments do not match the tool's schema is answered and never dispatched",
 			"layer": "pure, service",
