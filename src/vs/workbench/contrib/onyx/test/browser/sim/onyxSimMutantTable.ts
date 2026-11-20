@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { OnyxSimEpisode, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
+import { OnyxSimEpisode, SIM_FENCED_REPLY, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
 
 /**
  * The resurrection mutants (L12): one per defect fixed in Modules 2 and 3.
@@ -230,6 +230,16 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		resurrects: 'OnyxMutantThinkingIsAnswerLoop',
 		script: script('C4-thinking-is-answer', 'Change addNumbers', [
 			{ kind: 'text', text: SIM_UNFINISHED_THOUGHT },
+		]),
+	},
+	{
+		id: 'C5-fence-withheld',
+		fixedBy: 'C5',
+		defect: 'Any reply opening with a code fence was withheld as a possible tool call until it was 4,000 characters long or finished, so a code answer showed nothing while it streamed (Claude H5; R-27)',
+		detects: 'R-27/fenced-reply-withheld',
+		resurrects: 'OnyxMutantHoldEveryFenceLoop',
+		script: script('C5-fence-withheld', 'Show me the change', [
+			{ kind: 'text', text: SIM_FENCED_REPLY },
 		]),
 	},
 	{

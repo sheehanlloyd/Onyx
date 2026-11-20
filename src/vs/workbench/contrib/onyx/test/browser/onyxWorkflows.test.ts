@@ -444,7 +444,7 @@ suite('OnyxWorkflows', () => {
 
 		test('only an envelope-shaped opening is withheld from the transcript', () => {
 			assert.deepStrictEqual(
-				['', '{', '``', '```js', '<tool', 'The ', 'x'.repeat(5000)].map(couldBeToolEnvelope),
+				['', '{', '``', '```js', '<tool', 'The ', 'x'.repeat(5000)].map(text => couldBeToolEnvelope(text)),
 				[true, true, true, true, true, false, false],
 			);
 		});

@@ -99,6 +99,24 @@ offers **Run Once** or **Deny**. An answer covers that one invocation.
 | A check task (`onyx.verification.task`, or `verificationTask` in `.onyx/config.json`) | Asks before each run, naming the task and who configured it. The dialog cannot show the commands a task runs and says so |
 | Past decisions | Kept in machine-local workspace storage, at most 200, shown by `Onyx: Show Terminal Approval History`. A record, never a permission. Nothing about approval is written to a tracked file |
 
+## What streams, and what is held back (C5)
+
+A model that does not use the tool channel writes its tool call as text, and Onyx recognises it and runs it
+instead of showing JSON. To do that it has to hold a reply back while the reply can still be a call. It
+holds back only this:
+
+| The reply opens with | What happens |
+|---|---|
+| a tool-call wrapper (`<tool_call>`, `<\|tool_call\|>`, `[TOOL_CALLS]`) | withheld to its end, then run |
+| a JSON object whose first key names a tool on offer (`"tool"`, `"name"`, …), or is `"function"`, `"arguments"`, `"parameters"` | withheld to its end, then run. Up to 32,000 characters, which is more than one reply can be |
+| a fence marked `json`, or not marked, with such an object inside | the same |
+| a fence in any other language (` ```ts `, ` ```python `) | shown at once, from the first line |
+| JSON that is not a call (`{"name":"my-package", …}`, `{"answer": 42}`, an array) | shown as soon as that is clear, usually within the first key |
+| anything nothing has decided | shown after 400 characters |
+
+In a constrained turn (a model whose tool calls are forced into a JSON envelope) the answer is inside the
+envelope; see C6 for how that streams.
+
 ## Reasoning models (C4)
 
 A model that thinks before it answers sends its thinking in the text, inside `<think>…</think>` (or

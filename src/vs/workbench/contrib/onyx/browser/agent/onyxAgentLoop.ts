@@ -270,7 +270,7 @@ export class OnyxAgentLoop {
 			// a tool call the model wrote as prose can be recognized and executed
 			// instead of shown to the user as raw JSON. Constrained turns stream
 			// nothing: the whole turn is one envelope, parsed when complete.
-			const textStream = new OnyxAssistantTextStream(
+			const textStream = this._createTextStream(
 				tools.map(tool => tool.name),
 				text => {
 					if (!constrained) {
@@ -501,6 +501,11 @@ export class OnyxAgentLoop {
 				location: { path: badge.path, line: 1 },
 			});
 		}
+	}
+
+	/** What decides, as a reply streams, how much of it is withheld in case it is a tool call written as text. */
+	protected _createTextStream(offeredToolNames: readonly string[], emit: (text: string) => void): OnyxAssistantTextStream {
+		return new OnyxAssistantTextStream(offeredToolNames, emit);
 	}
 
 	/** What separates a reasoning model's thinking from its answer as the reply streams. */

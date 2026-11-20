@@ -14,6 +14,7 @@ import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from
 import { IOnyxBudgetedMessage, IOnyxTurnPlan } from '../../../common/onyxContextBudget.js';
 import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
 import { IOnyxReasoningSplit, OnyxReasoningFilter } from '../../../common/onyxReasoning.js';
+import { OnyxAssistantTextStream } from '../../../common/onyxTextToolCalls.js';
 import { decideInferenceUse, IOnyxInferenceLocation, IOnyxInferencePolicy } from '../../../common/onyxInferenceLocation.js';
 import { OnyxTimelineOutput } from '../../../common/onyxTerminalOutput.js';
 import { buildApprovalRequest, IOnyxCommandInvocation, IOnyxTerminalApprovalRequest, normalizeCommand, OnyxTerminalDecision } from '../../../common/onyxTerminalPolicy.js';
@@ -255,6 +256,20 @@ class OnyxMutantThinkingIsAnswerLoop extends OnyxAgentLoop {
 	}
 }
 
+/** C5: anything that opens with a fence or a brace is withheld until it is 4,000 characters long or over. */
+class OnyxMutantHoldEveryFenceTextStream extends OnyxAssistantTextStream {
+	protected override _withhold(soFar: string): boolean {
+		const trimmed = soFar.trimStart();
+		return trimmed.length <= 4000 && (trimmed.length === 0 || trimmed.startsWith('{') || '```'.startsWith(trimmed) || trimmed.startsWith('```'));
+	}
+}
+
+class OnyxMutantHoldEveryFenceLoop extends OnyxAgentLoop {
+	protected override _createTextStream(offeredToolNames: readonly string[], emit: (text: string) => void): OnyxAssistantTextStream {
+		return new OnyxMutantHoldEveryFenceTextStream(offeredToolNames, emit);
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -276,6 +291,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B13-no-eviction': { AgentLoop: OnyxMutantNoEvictionLoop },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
+	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };
