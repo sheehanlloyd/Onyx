@@ -20,6 +20,7 @@ import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tool
 import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
 import { buildToolEnvelopeFormat, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
 import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
+import { classifyStreamEnd, digestValue, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
 import { ONYX_EDIT_TOOL_ID } from '../changes/onyxEditTool.js';
 import { ONYX_DOCS_TOOL_ID } from '../intelligence/onyxDocsTool.js';
 import { ONYX_MEMORY_TOOL_ID } from '../intelligence/onyxMemoryTool.js';
@@ -145,6 +146,22 @@ export class OnyxAgentLoop {
 			&& this._onyxModelService.getKnownModel(modelKey)?.discovered.supportsJsonSchema === true;
 		run.activity({ kind: 'route', label: modelIdentifier, reason: `${tools.length} tools exposed, ${profile.promptStyle} prompt${constrained ? ', constrained decoding' : ''}` });
 
+		// Trace v2 header (L3): what this run was configured with, so a result can be repeated.
+		const known = this._onyxModelService.getKnownModel(modelKey);
+		const maxTurns = profile.promptStyle === 'compact' ? 8 : 16;
+		const harnessConfiguration = { promptStyle: profile.promptStyle, maxTools: profile.maxTools, maxTurns, constrained, toolResultBudget: toolResultBudget(profile.promptStyle), contextLength: profile.contextLength, toolCallQuality: profile.toolCallQuality };
+		run.record({
+			kind: 'trace',
+			v: ONYX_TRACE_VERSION,
+			runId: run.runId,
+			startedAt: Date.now(),
+			harness: { configurationHash: digestValue(harnessConfiguration), configuration: harnessConfiguration },
+			model: { identifier: modelIdentifier, digest: known?.discovered.digest },
+			runtime: { name: known?.discovered.runtime ?? 'unknown', version: known?.discovered.runtimeVersion, baseUrl: known?.discovered.baseUrl ?? '' },
+			sampling: { temperature: profile.temperature, seed: profile.seed, maxTokens: undefined, responseFormat: constrained },
+			tools: tools.map(tool => ({ name: tool.name, schemaHash: digestValue(tool.inputSchema) })),
+		});
+
 		const promptBuilder = this._instantiationService.createInstance(OnyxPromptBuilder);
 		const built = await promptBuilder.build(request, history, profile, tools.map(t => t.name));
 		run.setContextBudget(built.budget);
@@ -158,7 +175,6 @@ export class OnyxAgentLoop {
 		const errorsBefore = this._countWorkspaceErrors();
 		let anyToolRan = false;
 
-		const maxTurns = profile.promptStyle === 'compact' ? 8 : 16;
 		for (let turn = 0; turn < maxTurns && !token.isCancellationRequested; turn++) {
 			run.setTurnCount(turn + 1);
 			run.activity({ kind: 'turn', label: `Model turn ${turn + 1}` });
@@ -168,6 +184,18 @@ export class OnyxAgentLoop {
 			const requestOptions = constrained
 				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools) } }
 				: { tools };
+			const requestDigest = digestValue(messages);
+			const traceToolCalls: IOnyxTraceToolCall[] = [];
+			const recordTurn = (responseText: string, finishReason: string | undefined, error: boolean, seedHonoured: boolean | undefined) => run.record({
+				kind: 'traceTurn',
+				v: ONYX_TRACE_VERSION,
+				turn: turn + 1,
+				requestDigest,
+				responseText: responseText.length > MAX_SNAPSHOT_CHARS ? `${responseText.slice(0, MAX_SNAPSHOT_CHARS)}… [truncated]` : responseText,
+				streamEnd: classifyStreamEnd(finishReason, error),
+				toolCalls: traceToolCalls,
+				seed: { requested: profile.seed, honoured: profile.seed === undefined ? 'unknown' : seedHonoured ?? 'unknown' },
+			});
 			const response = await this._languageModelsService.sendChatRequest(modelIdentifier, undefined, messages, requestOptions, token);
 			const toolUses: IChatResponseToolUsePart[] = [];
 			// Text streams through here rather than straight to the transcript so
@@ -182,16 +210,22 @@ export class OnyxAgentLoop {
 					}
 				},
 			);
-			for await (const part of response.stream) {
-				for (const item of Array.isArray(part) ? part : [part]) {
-					if (item.type === 'text') {
-						textStream.append(item.value);
-					} else if (item.type === 'tool_use') {
-						toolUses.push(item);
+			let streamOutcome: { finishReason?: string; seedHonoured?: boolean } | undefined;
+			try {
+				for await (const part of response.stream) {
+					for (const item of Array.isArray(part) ? part : [part]) {
+						if (item.type === 'text') {
+							textStream.append(item.value);
+						} else if (item.type === 'tool_use') {
+							toolUses.push(item);
+						}
 					}
 				}
+				streamOutcome = await response.result as { finishReason?: string; seedHonoured?: boolean } | undefined;
+			} catch (err) {
+				recordTurn(textStream.finish().raw, undefined, true, undefined);
+				throw err;
 			}
-			await response.result;
 
 			let { text: assistantText, toolCall: textToolCall, raw: rawTurnText } = textStream.finish();
 			if (constrained && toolUses.length === 0) {
@@ -236,6 +270,7 @@ export class OnyxAgentLoop {
 			}
 
 			if (toolUses.length === 0) {
+				recordTurn(assistantText, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured);
 				this._reportVerification(run, errorsBefore, anyToolRan);
 				run.complete('completed');
 				return {};
@@ -252,7 +287,8 @@ export class OnyxAgentLoop {
 				const toolUse: IChatResponseToolUsePart = unwrapped.name === rawToolUse.name && unwrapped.parameters === rawToolUse.parameters
 					? rawToolUse
 					: { ...rawToolUse, name: unwrapped.name, parameters: unwrapped.parameters };
-				const resultText = await this._invokeTool(request, toolUse, toolIdsByName, run, progress, token);
+				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, run, progress, token);
+				traceToolCalls.push({ name: toolUse.name, argumentsDigest: digestValue(toolUse.parameters), resultDigest: traceDigest(resultText), ok });
 				// Small models drown in raw tool output; keep head and tail
 				// (signatures and errors) and mark the elided middle.
 				messages.push({
@@ -260,6 +296,7 @@ export class OnyxAgentLoop {
 					content: [{ type: 'tool_result', toolCallId: toolUse.toolCallId, value: [{ type: 'text', value: elideMiddle(resultText, toolResultBudget(profile.promptStyle)) }] }],
 				});
 			}
+			recordTurn(assistantText, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured);
 
 			const gate = await run.gate();
 			if (!gate) { // stopped via the control plane
@@ -273,7 +310,7 @@ export class OnyxAgentLoop {
 		}
 
 		run.complete(token.isCancellationRequested ? 'cancelled' : 'completed');
-		return token.isCancellationRequested ? {} : { errorDetails: { message: `Stopped after the maximum of ${profile.promptStyle === 'compact' ? 8 : 16} agent turns.`, responseIsIncomplete: true } };
+		return token.isCancellationRequested ? {} : { errorDetails: { message: `Stopped after the maximum of ${maxTurns} agent turns.`, responseIsIncomplete: true } };
 	}
 
 	private _countWorkspaceErrors(): number {
@@ -340,11 +377,11 @@ export class OnyxAgentLoop {
 		}
 	}
 
-	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, run: ReturnType<IOnyxControlPlaneService['beginRun']>, progress: (parts: IChatProgress[]) => void, token: CancellationToken): Promise<string> {
+	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, run: ReturnType<IOnyxControlPlaneService['beginRun']>, progress: (parts: IChatProgress[]) => void, token: CancellationToken): Promise<{ text: string; ok: boolean }> {
 		const toolId = toolIdsByName.get(toolUse.name);
 		if (!toolId) {
 			run.activity({ kind: 'toolCall', label: toolUse.name, reason: 'unknown tool requested by the model', ok: false });
-			return `Error: unknown tool '${toolUse.name}'. Available tools: ${[...toolIdsByName.keys()].join(', ')}`;
+			return { text: `Error: unknown tool '${toolUse.name}'. Available tools: ${[...toolIdsByName.keys()].join(', ')}`, ok: false };
 		}
 		run.activity({ kind: 'toolCall', label: toolUse.name });
 		try {
@@ -367,11 +404,11 @@ export class OnyxAgentLoop {
 			if (failure) {
 				this._reportToolFailure(progress, toolUse.name, failure);
 			}
-			return failure ? `Error: ${failure}` : text;
+			return { text: failure ? `Error: ${failure}` : text, ok: !failure };
 		} catch (err) {
 			run.activity({ kind: 'toolResult', label: toolUse.name, ok: false, reason: shortReason(toErrorMessage(err)) });
 			this._reportToolFailure(progress, toolUse.name, toErrorMessage(err));
-			return `Error invoking ${toolUse.name}: ${toErrorMessage(err)}`;
+			return { text: `Error invoking ${toolUse.name}: ${toErrorMessage(err)}`, ok: false };
 		}
 	}
 

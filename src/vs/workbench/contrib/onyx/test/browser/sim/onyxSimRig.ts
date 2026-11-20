@@ -93,6 +93,8 @@ export type OnyxSimChecker = (state: IOnyxSimState, boundary: OnyxSimBoundary | 
 export interface IOnyxSimResult {
 	readonly episode: OnyxSimEpisode;
 	readonly trace: string;
+	/** The run's journal as the outcome service would persist it. */
+	readonly journal: string;
 	readonly violations: readonly { readonly invariant: string; readonly detail: string; readonly boundary: string }[];
 	readonly status: string;
 	readonly turns: number;
@@ -117,6 +119,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly stageEvents: { path: string; hunks: number; proposedChars: number; search: string | undefined; baseAtStage: string | undefined; proposedBefore: string | undefined }[] = [];
 	private readonly _lastProposed = new Map<string, string>();
 	readonly profile: IOnyxModelProfile;
+	/** Every journal event the control plane recorded, as the outcome service would write it (one JSON line each). */
+	readonly journalLines: string[] = [];
 	stopped = false;
 
 	private readonly _disposables = new DisposableStore();
@@ -190,6 +194,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this._loop = instantiationService.createInstance(OnyxAgentLoop);
 
 		this._disposables.add(this.controlPlane.onDidRecordEvent(({ runId, event }) => {
+			this.journalLines.push(JSON.stringify(event));
 			const run = this.trace.canonical('run', runId);
 			if (event.kind === 'outcome') {
 				this.trace.record({ kind: 'status', run, status: String((event.data as { status: string }).status) });
@@ -529,6 +534,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		return {
 			episode: this.episode,
 			trace: this.trace.render(),
+			journal: this.journalLines.join('\n') + '\n',
 			violations: this._violations,
 			status,
 			turns: this.runtime.requests.length,

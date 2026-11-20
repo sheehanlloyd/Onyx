@@ -174,7 +174,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 					if (!await emit({ operationId, kind: 'delta', text: piece }, piece.length)) { return; }
 				}
 				if (!await emit({ operationId, kind: 'usage', promptTokens: 420, completionTokens: 25 }, 0)) { return; }
-				await emit({ operationId, kind: 'done', finishReason: 'stop' }, 0, 'stop');
+				await emit({ operationId, kind: 'done', finishReason: 'stop', seedHonoured: params.seed !== undefined ? true : undefined }, 0, 'stop');
 				return;
 			}
 			case 'toolCall':
@@ -189,7 +189,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 					}
 				}
 				if (!await emit({ operationId, kind: 'usage', promptTokens: 420, completionTokens: 25 }, 0)) { return; }
-				await emit({ operationId, kind: 'done', finishReason: 'tool_calls' }, 0, 'tool_calls');
+				await emit({ operationId, kind: 'done', finishReason: 'tool_calls', seedHonoured: params.seed !== undefined ? true : undefined }, 0, 'tool_calls');
 				return;
 			}
 			case 'textToolCall': {

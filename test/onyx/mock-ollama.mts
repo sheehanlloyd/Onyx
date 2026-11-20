@@ -169,7 +169,7 @@ async function streamPull(res: http.ServerResponse, body: any) {
 async function streamEpisodeTurn(res: http.ServerResponse, body: any, turn: EpisodeTurn) {
 	res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
 	const send = (obj: unknown) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
-	const chunk = (delta: unknown) => ({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason: null }] });
+	const chunk = (delta: unknown) => ({ id: 'mock', object: 'chat.completion.chunk', model: body.model, ...seedEcho(body), choices: [{ index: 0, delta, finish_reason: null }] });
 	const finish = (reason: string) => send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: reason }] });
 	const usage = () => send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
 	await sleep(120);
@@ -221,7 +221,7 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 	}
 	res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
 	const send = (obj: unknown) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
-	const chunk = (delta: unknown) => ({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason: null }] });
+	const chunk = (delta: unknown) => ({ id: 'mock', object: 'chat.completion.chunk', model: body.model, ...seedEcho(body), choices: [{ index: 0, delta, finish_reason: null }] });
 	const messages = body.messages ?? [];
 	const system = messages.find((m: any) => m.role === 'system')?.content ?? '';
 	const lastUser = [...messages].reverse().find((m: any) => m.role === 'user');
@@ -388,5 +388,14 @@ function answerFor(system: string, body: any, hasToolResult: boolean) {
 }
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/**
+ * A request that carries `seed` gets it echoed on every chunk, with a
+ * fingerprint, which is how Onyx records that the runtime honoured the seed
+ * (L3). Real runtimes that stay silent are recorded as "unknown".
+ */
+function seedEcho(body: any): { seed?: number; system_fingerprint?: string } {
+	return typeof body.seed === 'number' ? { seed: body.seed, system_fingerprint: 'fp_mock' } : {};
+}
 
 server.listen(PORT, () => console.log(`mock ollama on :${PORT}${episode ? ` replaying episode ${episode.name} (${episode.turns.length} turns)` : ''}`));

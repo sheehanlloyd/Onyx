@@ -88,7 +88,7 @@ export interface OnyxSimEpisode {
 	readonly faults: readonly OnyxSimScheduledStep<OnyxSimFault>[];
 	/** Repository configuration, so the allowlist scenarios (R-01 to R-04) are expressible. */
 	readonly projectConfig?: { readonly terminalAllowlist?: readonly string[]; readonly disabledTools?: readonly string[] };
-	readonly profile?: { readonly promptStyle?: 'compact' | 'full'; readonly contextLength?: number; readonly maxTools?: number; readonly toolCallQuality?: number };
+	readonly profile?: { readonly promptStyle?: 'compact' | 'full'; readonly contextLength?: number; readonly maxTools?: number; readonly toolCallQuality?: number; readonly seed?: number };
 }
 
 export const SIM_TARGET_FILE = 'src/math.ts';

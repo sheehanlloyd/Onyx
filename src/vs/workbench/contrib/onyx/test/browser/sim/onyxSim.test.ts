@@ -9,6 +9,7 @@ import { runWithFakedTimers } from '../../../../../../base/test/common/timeTrave
 import { generateEpisode, OnyxSimEpisode, OnyxSimPersonaKind, serializeEpisode } from './onyxSimEpisode.js';
 import { BASELINE_EXCEPTIONS } from './onyxSimBaseline.js';
 import { allCheckers, INVARIANTS, UNOBSERVABLE_IN_RIG } from './onyxSimInvariants.js';
+import { parseTrace, validateTrace } from '../../../common/onyxTrace.js';
 import { IOnyxSimResult, OnyxSimChecker, OnyxSimRig } from './onyxSimRig.js';
 import { SIM_SCENARIOS } from './onyxSimScenarios.js';
 import { episodeSize, shrinkEpisode } from './onyxSimShrinker.js';
@@ -108,6 +109,22 @@ suite('OnyxSim', () => {
 			// Eight tool turns, then the turn cap (compact profile): "completed" with an incomplete result.
 			'audit-h6-context-budget': { status: 'completed', turns: 8, dispatched: Array.from({ length: 8 }, () => 'terminal'), staged: 0, dialogs: Array.from({ length: 8 }, () => 'allow-once') },
 			'e2e-readedittest-no-read-tool': { status: 'completed', turns: 1, dispatched: [], staged: 0, dialogs: [] },
+		});
+	});
+
+	test('R-43: every run journals a schema-valid v2 trace: one header, one turn record per request, the seed on record', async () => {
+		const outcomes: Record<string, { ok: boolean; errors: readonly string[]; turns: number; requests: number; seed: unknown; streamEnds: string[] }> = {};
+		for (const scenario of SIM_SCENARIOS.slice(0, 4)) {
+			const result = await runEpisode({ ...scenario, profile: { ...scenario.profile, seed: 42 } });
+			const trace = parseTrace(result.journal);
+			const validation = validateTrace(trace);
+			outcomes[scenario.name] = { ok: validation.ok, errors: validation.errors, turns: trace.turns.length, requests: result.turns, seed: trace.header?.sampling.seed, streamEnds: trace.turns.map(turn => turn.streamEnd) };
+		}
+		assert.deepStrictEqual(outcomes, {
+			'e2e-tooltest': { ok: true, errors: [], turns: 2, requests: 2, seed: 42, streamEnds: ['tool_calls', 'stop'] },
+			'e2e-edittest': { ok: true, errors: [], turns: 2, requests: 2, seed: 42, streamEnds: ['tool_calls', 'stop'] },
+			'e2e-termtest': { ok: true, errors: [], turns: 2, requests: 2, seed: 42, streamEnds: ['tool_calls', 'stop'] },
+			'e2e-termtest-denied': { ok: true, errors: [], turns: 2, requests: 2, seed: 42, streamEnds: ['tool_calls', 'stop'] },
 		});
 	});
 
