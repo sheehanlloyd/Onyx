@@ -64,6 +64,40 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 	], {
 		userSteps: [{ at: 'betweenChunks', occurrence: 20, step: { kind: 'stop' } }],
 	}),
+	// Codex N2: hunk 0 is invalidated by the user's typing above it, then the user accepts what was shown as
+	// hunk 0; nothing from hunk 1 may be applied and the typed text must survive (I-09).
+	scenario('audit-n2-type-above-then-accept-hunk-0', 'EDITTEST src/math.ts two hunks', [
+		{
+			kind: 'toolCalls', calls: [
+				{ tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a; // hunk 0' }, id: 'edit_1' },
+				{ tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a * b;', replace: '\treturn b * a; // hunk 1' }, id: 'edit_2' },
+			],
+		},
+		{ kind: 'text', text: 'Staged two hunks.' },
+	], {
+		userSteps: [
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'typeInTarget', text: '// user typed above hunk 0\n', line: 1 } },
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptHunk', path: 'src/math.ts', hunk: 0 } },
+		],
+	}),
+	// Claude H4: a proposal against base V, the buffer edited above the hunk so that duplicates shift; accepting
+	// must re-anchor to the right duplicate or conflict, never the first occurrence by default.
+	scenario('audit-h4-duplicates-shift-then-accept', 'EDITTEST src/math.ts the closing brace', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a * b;\n}', replace: '\treturn a * b;\n} // multiply' }, id: 'edit_1' },
+		{ kind: 'text', text: 'Staged.' },
+	], {
+		userSteps: [
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'typeInTarget', text: 'export function extra(): number {\n\treturn 0;\n}\n', line: 1 } },
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptHunk', path: 'src/math.ts', hunk: 0 } },
+		],
+	}),
+	// Claude H6 / Codex N9: an 8k-token profile and sixteen turns of large tool results; the prompt must never
+	// exceed the budget and every request must carry max_tokens (I-04).
+	scenario('audit-h6-context-budget', 'Run the checks until they pass.', Array.from({ length: 16 }, (): OnyxSimEpisode['turns'][number] => ({ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } })), {
+		dialogDefault: 'allow-once',
+		profile: { promptStyle: 'compact', contextLength: 2048, maxTools: 8 },
+		faults: Array.from({ length: 16 }, (_, index) => ({ at: 'afterToolDispatch' as const, occurrence: index + 1, step: { kind: 'outputFlood' as const, bytes: 20_000 } })),
+	}),
 	scenario('e2e-readedittest-no-read-tool', 'READEDITTEST src/math.ts', [
 		{ kind: 'text', text: 'I have no read tool: readFile was not offered, so I cannot read the file before editing it.' },
 	]),
