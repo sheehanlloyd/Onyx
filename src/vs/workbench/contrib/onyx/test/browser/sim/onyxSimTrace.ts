@@ -13,7 +13,7 @@
 
 export type OnyxSimTraceEvent =
 	| { readonly kind: 'request'; readonly turn: number; readonly model: string; readonly tools: readonly string[]; readonly messageCount: number; readonly roles: readonly string[]; readonly lastUserDigest: string; readonly promptChars: number; readonly toolsChars: number; readonly temperature: number | undefined; readonly maxTokens: number | undefined }
-	| { readonly kind: 'chunk'; readonly op: string; readonly delta: 'text' | 'toolCall' | 'usage' | 'done' | 'error'; readonly size: number; readonly finishReason?: string }
+	| { readonly kind: 'chunk'; readonly op: string; readonly delta: 'text' | 'toolCall' | 'reasoning' | 'usage' | 'done' | 'error'; readonly size: number; readonly finishReason?: string }
 	| { readonly kind: 'toolDispatch'; readonly call: string; readonly tool: string; readonly argumentsDigest: string }
 	| { readonly kind: 'toolResult'; readonly call: string; readonly tool: string; readonly ok: boolean; readonly resultDigest: string }
 	/** `secretEnvironment`: how many of the seeded secret variables the command was started with; absent when none. */

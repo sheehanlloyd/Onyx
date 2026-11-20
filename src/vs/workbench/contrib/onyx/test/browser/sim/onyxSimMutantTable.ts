@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { OnyxSimEpisode, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE } from './onyxSimEpisode.js';
+import { OnyxSimEpisode, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
 
 /**
  * The resurrection mutants (L12): one per defect fixed in Modules 2 and 3.
@@ -221,6 +221,16 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		script: script('B14-address-is-locality', 'What does this repository do?', [
 			{ kind: 'text', text: 'It adds numbers.' },
 		], { selectedModel: 'cloud' }),
+	},
+	{
+		id: 'C4-thinking-is-answer',
+		fixedBy: 'C4',
+		defect: 'No handling of `<think>` tags: a reasoning model\'s thinking was its reply, so a reply that ended mid-thought was shown as an answer and the run completed (Cursor 3.1; R-26)',
+		detects: 'I-11/unterminated-reasoning-complete',
+		resurrects: 'OnyxMutantThinkingIsAnswerLoop',
+		script: script('C4-thinking-is-answer', 'Change addNumbers', [
+			{ kind: 'text', text: SIM_UNFINISHED_THOUGHT },
+		]),
 	},
 	{
 		id: 'B3-uncontracted-tools',

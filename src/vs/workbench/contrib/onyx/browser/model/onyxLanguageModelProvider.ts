@@ -445,6 +445,14 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						streamedChars += event.text.length;
 						source.emitOne({ type: 'text', value: event.text });
 						break;
+					case 'reasoning':
+						if (firstTokenAt === undefined) {
+							firstTokenAt = Date.now();
+							this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
+						}
+						// The model's thinking, as its own kind of part: the reader shows it and never parses it (C4).
+						source.emitOne({ type: 'thinking', value: event.text });
+						break;
 					case 'toolCallDelta':
 						if (firstTokenAt === undefined) {
 							firstTokenAt = Date.now();

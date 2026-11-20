@@ -31,6 +31,7 @@ import { IOnyxToolExclusion, ONYX_MIN_EDIT_SLOTS, OnyxToolSlotSelection, request
 import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
 import { qualifyWorkspacePath } from '../../common/onyxWorkspacePaths.js';
+import { OnyxReasoningFilter } from '../../common/onyxReasoning.js';
 import { IOnyxBudgetSlice, IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService, IOnyxStreamOutcome, OnyxContextOverflowError } from '../model/onyxLanguageModelProvider.js';
@@ -277,12 +278,20 @@ export class OnyxAgentLoop {
 					}
 				},
 			);
+			// A reasoning model's thinking is taken out before the text reaches anything that reads it (C4):
+			// from `<think>` tags in the text, or from the part of its own a runtime sends it in.
+			const reasoning = this._createReasoningFilter();
 			let streamOutcome: Partial<IOnyxStreamOutcome> | undefined;
 			try {
 				for await (const part of response.stream) {
 					for (const item of Array.isArray(part) ? part : [part]) {
 						if (item.type === 'text') {
-							textStream.append(item.value);
+							const answer = reasoning.push(item.value);
+							if (answer) {
+								textStream.append(answer);
+							}
+						} else if (item.type === 'thinking') {
+							reasoning.addReasoning(Array.isArray(item.value) ? item.value.join('') : item.value);
 						} else if (item.type === 'tool_use') {
 							toolUses.push(item);
 						}
@@ -307,23 +316,37 @@ export class OnyxAgentLoop {
 
 			// A reply that was cut off or went silent is not a reply (B12, I-11). Whatever arrived of it stays
 			// visible as it streamed; none of it is parsed for a tool call, run, staged or called complete.
-			const incomplete = this._incompleteEnding(streamOutcome);
+			const thought = reasoning.finish();
+			if (thought.text) {
+				textStream.append(thought.text);
+			}
+			if (thought.reasoning) {
+				// Shown, and that is all: it is not parsed, not run and not sent back to the model.
+				run.activity({ kind: 'note', label: 'Model reasoning', reason: elideMiddle(thought.reasoning, MAX_REASONING_NOTE_CHARS) });
+			}
+			// Thinking that was opened and never closed means the reply stopped before its answer, whatever
+			// the stream said about how it ended: the output cap can cut a model off mid-thought.
+			const incomplete = this._incompleteEnding(streamOutcome) ?? (thought.unterminated ? 'thinking' : undefined);
 			if (incomplete) {
-				recordTurn(textStream.finish().raw, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured, incomplete);
+				recordTurn(textStream.finish().raw, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured, incomplete === 'thinking' ? 'truncated' : incomplete);
 				run.activity({
 					kind: 'note',
-					label: incomplete === 'truncated' ? 'The model\'s reply was cut off before it finished' : 'The model stopped responding',
-					reason: incomplete === 'truncated'
-						? 'the stream ended without a finish signal; nothing from this reply was run or staged'
-						: 'nothing arrived within the deadline and the request was stopped; nothing from this reply was run or staged',
+					label: incomplete === 'stalled' ? 'The model stopped responding' : incomplete === 'thinking' ? 'The model\'s reply ended while it was still thinking' : 'The model\'s reply was cut off before it finished',
+					reason: incomplete === 'stalled'
+						? 'nothing arrived within the deadline and the request was stopped; nothing from this reply was run or staged'
+						: incomplete === 'thinking'
+							? 'its reasoning was never closed, so there is no answer; nothing from this reply was run or staged'
+							: 'the stream ended without a finish signal; nothing from this reply was run or staged',
 					ok: false,
 				});
 				run.complete('failed');
 				return {
 					errorDetails: {
-						message: incomplete === 'truncated'
-							? localize('onyx.agent.replyTruncated', "The model's reply ended before it was finished: the connection closed without a finish signal. Nothing from that reply was run or staged. You can send the request again.")
-							: localize('onyx.agent.replyStalled', "The model stopped sending anything, so the request was stopped. Nothing from that reply was run or staged. Check that the runtime is still running, then send the request again."),
+						message: incomplete === 'stalled'
+							? localize('onyx.agent.replyStalled', "The model stopped sending anything, so the request was stopped. Nothing from that reply was run or staged. Check that the runtime is still running, then send the request again.")
+							: incomplete === 'thinking'
+								? localize('onyx.agent.replyStillThinking', "The model's reply ended while it was still thinking, before it gave an answer. Nothing from that reply was run or staged. A reasoning model can use its whole output allowance on thinking; send the request again, or use a model with a larger context.")
+								: localize('onyx.agent.replyTruncated', "The model's reply ended before it was finished: the connection closed without a finish signal. Nothing from that reply was run or staged. You can send the request again."),
 						responseIsIncomplete: true,
 					},
 				};
@@ -478,6 +501,11 @@ export class OnyxAgentLoop {
 				location: { path: badge.path, line: 1 },
 			});
 		}
+	}
+
+	/** What separates a reasoning model's thinking from its answer as the reply streams. */
+	protected _createReasoningFilter(): OnyxReasoningFilter {
+		return new OnyxReasoningFilter();
 	}
 
 	/** What may be sent this turn, and what had to go to make it fit. */
@@ -674,6 +702,9 @@ function budgetSlices(built: readonly IOnyxBudgetSlice[], plan: IOnyxTurnPlan, k
 		}
 	});
 }
+
+/** How much of a model's thinking one timeline note carries: its start and its end. */
+const MAX_REASONING_NOTE_CHARS = 4000;
 
 const MAX_SNAPSHOT_CHARS = 64 * 1024;
 

@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { stripReasoning } from './onyxReasoning.js';
+
 /**
  * Grammar-constrained tool calling for small models. A model that keeps
  * mangling the tool_calls channel can still emit valid JSON when the runtime
@@ -55,7 +57,13 @@ export type OnyxEnvelopeResult =
  * Parses a constrained turn. Tolerates prose around the JSON (some runtimes
  * only *bias* the sampling) by extracting the first balanced object.
  */
-export function parseToolEnvelope(text: string, knownTools: readonly string[]): OnyxEnvelopeResult {
+export function parseToolEnvelope(modelReply: string, knownTools: readonly string[]): OnyxEnvelopeResult {
+	// The first JSON object in a reasoning model's thinking is a thought, not the turn (C4).
+	const thought = stripReasoning(modelReply);
+	if (thought.unterminated) {
+		return { kind: 'invalid', raw: modelReply };
+	}
+	const text = thought.text;
 	const json = extractFirstJsonObject(text);
 	if (!json) {
 		return { kind: 'invalid', raw: text };

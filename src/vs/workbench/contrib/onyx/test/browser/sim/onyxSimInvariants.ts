@@ -8,7 +8,7 @@ import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
 import { ONYX_TERMINAL_OUTPUT_LIMITS } from '../../../common/onyxTerminalOutput.js';
 import { SIM_CLOUD_MODEL_ID } from './onyxSimFakes.js';
 import { validateToolArguments } from '../../../common/onyxToolArguments.js';
-import { OnyxSimBoundary, SIM_INJECTED_NOTE, SIM_MUST_WARN_COMMANDS, SIM_PROCESS_ENVIRONMENT, SIM_SECRET_ENVIRONMENT_NAMES } from './onyxSimEpisode.js';
+import { OnyxSimBoundary, SIM_INJECTED_NOTE, SIM_MUST_WARN_COMMANDS, SIM_PROCESS_ENVIRONMENT, SIM_SECRET_ENVIRONMENT_NAMES, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
 import { SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { IOnyxSimState, OnyxSimChecker } from './onyxSimRig.js';
 import { OnyxSimTraceEvent } from './onyxSimTrace.js';
@@ -390,6 +390,18 @@ const i11: OnyxSimChecker = state => {
 	const truncated = all.some(event => event.kind === 'chunk' && event.delta === 'done' && event.finishReason === undefined);
 	if (truncated && all.some(event => event.kind === 'status' && event.status === 'completed')) {
 		return `I-11/truncated-reported-complete: a stream that ended without a finish reason was reported as completed`;
+	}
+	// C4: a reply that is an unfinished thought is not an answer. When the model's reply was thinking that
+	// never closed and the request for it was made, the run does not complete, and the call the model was
+	// only considering does not run.
+	const thoughtAt = state.episode.turns.findIndex(turn => turn.kind === 'text' && turn.text === SIM_UNFINISHED_THOUGHT);
+	if (thoughtAt !== -1 && state.runtime.requests.length > thoughtAt && state.episode.persona !== 'looping') {
+		if (all.some(event => event.kind === 'status' && event.status === 'completed')) {
+			return `I-11/unterminated-reasoning-complete: a reply that ended while the model was still thinking was reported as completed`;
+		}
+		if (all.some(event => event.kind === 'commandDispatch' && event.command === 'npm test')) {
+			return `I-11/reasoning-applied: a tool call written inside the model's unfinished thinking was run`;
+		}
 	}
 	// Never applied (B12): between a stream that was cut off and the next request, no tool is dispatched and
 	// nothing is staged. What arrived of a cut-off reply is not a reply.

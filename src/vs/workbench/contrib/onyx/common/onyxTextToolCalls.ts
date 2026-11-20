@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { stripReasoning } from './onyxReasoning.js';
+
 /** A tool invocation a model wrote into its prose instead of the tool-call channel. */
 export interface IOnyxTextToolCall {
 	readonly name: string;
@@ -25,8 +27,13 @@ const ENVELOPE_PREFIXES = ['```', '<tool_call>', '<|tool_call|>', '[TOOL_CALLS]'
  * must be a tool that was actually offered, so ordinary prose that happens to
  * contain JSON is never hijacked.
  */
-export function parseTextToolCall(text: string, offeredToolNames: readonly string[]): IOnyxTextToolCall | undefined {
-	const body = unwrapEnvelope(text.trim());
+export function parseTextToolCall(modelReply: string, offeredToolNames: readonly string[]): IOnyxTextToolCall | undefined {
+	// A call written inside a reasoning model's thinking is a thought, not a call (C4).
+	const thought = stripReasoning(modelReply);
+	if (thought.unterminated) {
+		return undefined;
+	}
+	const body = unwrapEnvelope(thought.text.trim());
 	if (!body.startsWith('{') || !body.endsWith('}')) {
 		return undefined;
 	}

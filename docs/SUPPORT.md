@@ -99,6 +99,27 @@ offers **Run Once** or **Deny**. An answer covers that one invocation.
 | A check task (`onyx.verification.task`, or `verificationTask` in `.onyx/config.json`) | Asks before each run, naming the task and who configured it. The dialog cannot show the commands a task runs and says so |
 | Past decisions | Kept in machine-local workspace storage, at most 200, shown by `Onyx: Show Terminal Approval History`. A record, never a permission. Nothing about approval is written to a tracked file |
 
+## Reasoning models (C4)
+
+A model that thinks before it answers sends its thinking in the text, inside `<think>…</think>` (or
+`<thinking>…</thinking>`), or in a field of its own (`reasoning` on Ollama's OpenAI-compatible endpoint,
+`reasoning_content` on LM Studio, llama.cpp and vLLM). Onyx handles both:
+
+- The thinking is taken out before the reply reaches anything that reads it: the tool-call repair, the
+  constrained envelope, edit blocks, review findings. A tool call or an edit written inside the thinking is
+  a thought, not a call.
+- It is shown as a "Model reasoning" note on the run's timeline, at most 4,000 characters (its start and its
+  end), and is not sent back to the model in later turns.
+- A reply whose thinking was opened and never closed has no answer. The run ends as failed, the chat says the
+  reply ended while the model was still thinking, and nothing from it is run or staged. A reasoning model
+  can spend its whole output allowance (see the context section below) on thinking; that is how this
+  happens.
+
+| Model | State |
+|---|---|
+| any reasoning model | **Handled, not validated against a model.** R-26 runs on transcripts constructed from the stream shapes Ollama and LM Studio document (`src/vs/platform/onyxRuntime/test/common/onyxReasoningTranscripts.ts`). No reasoning model was installed where this was developed, so none was recorded live and none is listed as supported |
+| `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b` (the pinned models) | not reasoning models; unaffected |
+
 ## Where inference happens (B14, DEC-04)
 
 | | Read from | Values |

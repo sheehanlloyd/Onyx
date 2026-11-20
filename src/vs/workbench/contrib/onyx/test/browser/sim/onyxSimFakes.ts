@@ -205,6 +205,12 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			return true;
 		};
 		await timeout(1);
+		// Thinking sent in a field of its own arrives before the reply it leads to (C4).
+		if ((turn.kind === 'text' || turn.kind === 'toolCall') && turn.reasoning) {
+			for (const piece of split(turn.reasoning, 3)) {
+				if (!await emit({ operationId, kind: 'reasoning', text: piece }, piece.length)) { return; }
+			}
+		}
 		switch (turn.kind) {
 			case 'text': {
 				for (const piece of split(turn.text, turn.chunks ?? Math.min(8, Math.max(1, Math.ceil(turn.text.length / 24))))) {

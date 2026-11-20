@@ -13,6 +13,7 @@ import { OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../
 import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
 import { IOnyxBudgetedMessage, IOnyxTurnPlan } from '../../../common/onyxContextBudget.js';
 import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
+import { IOnyxReasoningSplit, OnyxReasoningFilter } from '../../../common/onyxReasoning.js';
 import { decideInferenceUse, IOnyxInferenceLocation, IOnyxInferencePolicy } from '../../../common/onyxInferenceLocation.js';
 import { OnyxTimelineOutput } from '../../../common/onyxTerminalOutput.js';
 import { buildApprovalRequest, IOnyxCommandInvocation, IOnyxTerminalApprovalRequest, normalizeCommand, OnyxTerminalDecision } from '../../../common/onyxTerminalPolicy.js';
@@ -238,6 +239,22 @@ class OnyxMutantAddressIsLocalityModelService extends OnyxModelService {
 	}
 }
 
+/** C4: thinking is not told apart from the answer. Whatever the model writes is its reply. */
+class OnyxMutantPassThroughReasoningFilter extends OnyxReasoningFilter {
+	override push(chunk: string): string {
+		return chunk;
+	}
+	override finish(): IOnyxReasoningSplit {
+		return { text: '', reasoning: '', unterminated: false };
+	}
+}
+
+class OnyxMutantThinkingIsAnswerLoop extends OnyxAgentLoop {
+	protected override _createReasoningFilter(): OnyxReasoningFilter {
+		return new OnyxMutantPassThroughReasoningFilter();
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -258,6 +275,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B13-no-output-cap': { AgentLoop: OnyxMutantNoOutputCapLoop },
 	'B13-no-eviction': { AgentLoop: OnyxMutantNoEvictionLoop },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
+	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };

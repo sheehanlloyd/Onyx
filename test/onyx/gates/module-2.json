@@ -171,6 +171,24 @@
 			]
 		},
 		{
+			"id": "R-26",
+			"title": "C4 reasoning models: thinking in tags or in a field of its own is taken out before anything is parsed; the tool call after it is recognised; the thinking is a note; a reply that ended mid-thought is reported and not applied",
+			"layer": "pure, node, service",
+			"regressions": [
+				"R-26"
+			],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxReasoningStream.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxReasoning.test.ts",
+				"src/vs/platform/onyxRuntime/test/common/onyxReasoningTranscripts.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxReasoning"
+			]
+		},
+		{
 			"id": "R-28-mandatory",
 			"title": "B12 argument validation: a call whose arguments do not match the tool's schema is answered and never dispatched",
 			"layer": "pure, service",

@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { stripReasoning } from './onyxReasoning.js';
+
 /** One thing a reviewer thinks is wrong with the change. */
 export interface IOnyxReviewFinding {
 	readonly file: string;
@@ -31,7 +33,13 @@ export const ONYX_REVIEW_SYSTEM_PROMPT = [
  * prose or fences often enough that a strict `JSON.parse` of the whole reply
  * would throw away good reviews, so the first balanced object wins.
  */
-export function parseReviewFindings(raw: string): IOnyxReviewFinding[] {
+export function parseReviewFindings(modelReply: string): IOnyxReviewFinding[] {
+	// Findings a reasoning model considered while thinking are not its findings (C4).
+	const thought = stripReasoning(modelReply);
+	if (thought.unterminated) {
+		return [];
+	}
+	const raw = thought.text;
 	const json = extractJsonObject(raw);
 	if (!json) {
 		return [];
