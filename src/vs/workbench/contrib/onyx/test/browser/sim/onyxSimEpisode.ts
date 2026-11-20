@@ -113,6 +113,12 @@ export interface OnyxSimEpisode {
 	readonly runtimeContextTokens?: number;
 	/** The model the user picked: the default one, or the one the runtime reports as cloud-backed (B14). */
 	readonly selectedModel?: 'cloud';
+	/**
+	 * The runtime enforces a JSON schema, and the model's tool calls are unreliable enough that the harness
+	 * constrains every turn to the tool/answer envelope (C6). The runtime then renders each scripted turn as
+	 * the envelope a grammar would force: a text turn as an answer, a tool call as a tool action.
+	 */
+	readonly constrained?: boolean;
 }
 
 /**
@@ -408,6 +414,8 @@ export function generateEpisode(seed: number): OnyxSimEpisode {
 		...(configRandom.chance(0.25) ? { networkTools: true } : {}),
 		// Now and then the user picks the cloud-backed model from the list.
 		...(configRandom.chance(0.05) ? { selectedModel: 'cloud' as const } : {}),
+		// Now and then the model is one whose turns are constrained to the envelope.
+		...(configRandom.chance(0.08) ? { constrained: true } : {}),
 	};
 }
 

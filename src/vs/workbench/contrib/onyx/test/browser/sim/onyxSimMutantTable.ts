@@ -243,6 +243,16 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		]),
 	},
 	{
+		id: 'C6-constrained-answer-withheld',
+		fixedBy: 'C6',
+		defect: 'A constrained turn showed nothing until its whole JSON envelope had arrived, so a long answer appeared all at once at the end (R-28, optional part)',
+		detects: 'R-28/constrained-answer-withheld',
+		resurrects: 'OnyxMutantConstrainedAnswerWithheldLoop',
+		script: script('C6-constrained-answer-withheld', 'What does this repository do?', [
+			{ kind: 'text', text: 'It adds numbers. '.repeat(80), chunks: 8 },
+		], { constrained: true }),
+	},
+	{
 		id: 'B3-uncontracted-tools',
 		fixedBy: 'B3',
 		defect: 'Whatever core\'s tool registry holds reaches the model: `runTask`, `createAndRunTask`, a rename that writes without staging, the browser tools, MCP and extension tools, each with core\'s own confirmations or none (Claude H2; R-05)',

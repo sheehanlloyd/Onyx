@@ -221,6 +221,26 @@
 			]
 		},
 		{
+			"id": "R-28-streaming",
+			"title": "C6 incremental constrained-answer streaming (included): the answer is read out of the envelope and shown as it arrives, once and whole",
+			"layer": "pure, service",
+			"regressions": [
+				"R-28"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxConstrainedStreaming.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxConstrainedStreaming"
+			],
+			"scope": {
+				"item": "C6",
+				"when": "included"
+			}
+		},
+		{
 			"id": "R-20",
 			"title": "B11 diagnostics that redact what they say they redact: a journal, settings and logs seeded with a sentinel in every content channel produce a default bundle, and a zip, with none of them; the API key is absent even with content included",
 			"layer": "service",
