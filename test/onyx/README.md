@@ -105,7 +105,7 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (45 checks):
+asserting on the run journal and the live DOM (47 checks):
 
 - chat with the tool loop, `repoSymbols` with call-graph expansion, and the
   `remember` tool, plus the workspace-context and agent-memory sections landing

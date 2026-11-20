@@ -1,17 +1,17 @@
 {
 	"mode": "release",
 	"app": "../VSCode-darwin-arm64/Onyx.app",
-	"ranAt": "2026-11-20T02:55:36.453Z",
+	"ranAt": "2026-11-20T05:48:34.877Z",
 	"observed": {
 		"product": {
 			"nameShort": "Onyx",
-			"version": "1.136.0",
-			"commit": "8b85d0efe7079fbe990a460e89601b4c02883326",
-			"date": "2026-11-19T21:40:58-05:00"
+			"version": "1.147.0",
+			"commit": "881936cd52cf284846d397a4354fe0f4cd65d403",
+			"date": "2026-11-20T00:35:00-05:00"
 		},
-		"sourceRevision": "8b85d0efe7079fbe990a460e89601b4c02883326",
+		"sourceRevision": "881936cd52cf284846d397a4354fe0f4cd65d403",
 		"window": {
-			"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.136.0 Chrome/148.0.7778.280 Electron/42.8.1 Safari/537.36",
+			"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.147.0 Chrome/150.0.7871.250 Electron/43.8.9 Safari/537.36",
 			"title": "math.ts — ws"
 		},
 		"advertisedTools": [
@@ -36,7 +36,7 @@
 		{
 			"name": "the app bundle has a product.json with a commit",
 			"ok": true,
-			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.136.0\",\"commit\":\"8b85d0efe7079fbe990a460e89601b4c02883326\",\"date\":\"2026-11-19T21:40:58-05:00\"}",
+			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.147.0\",\"commit\":\"881936cd52cf284846d397a4354fe0f4cd65d403\",\"date\":\"2026-11-20T00:35:00-05:00\"}",
 			"claim": "infrastructure"
 		},
 		{
@@ -47,7 +47,7 @@
 		{
 			"name": "the window belongs to the packaged product",
 			"ok": true,
-			"detail": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.136.0 Chrome/148.0.7778.280 Electron/42.8.1 Safari/537.36",
+			"detail": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.147.0 Chrome/150.0.7871.250 Electron/43.8.9 Safari/537.36",
 			"claim": "infrastructure"
 		},
 		{
@@ -59,7 +59,7 @@
 		{
 			"name": "the run journal lives in the throwaway profile",
 			"ok": true,
-			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-b2HrTB/user-data/User/workspaceStorage/4b028d965a81fe85cdb4aa7c91bf5741/onyx/journal/runs",
+			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-P0bKQq/user-data/User/workspaceStorage/bbf68db2095f200faaa8a305e5969cb4/onyx/journal/runs",
 			"claim": "infrastructure"
 		},
 		{

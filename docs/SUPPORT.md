@@ -40,7 +40,7 @@ advertised tools; it makes no claim that reading or editing works.
 
 | Field | Observed |
 |---|---|
-| Build | `npm run gulp vscode-darwin-arm64-min` from module-1 at `3c83cc037d2` (see `docs/progress/A8.md` for the exact product.json commit and date) |
+| Build | `pnpm run gulp vscode-darwin-arm64-min` from `upstream-1.147.0` at `881936cd52c`: upstream 1.147.0, Electron 43.8.9 (`docs/progress/packaged-smoke-baseline.json` has the product.json commit and date). The inventory below is unchanged from the build A8 recorded on the August base (`3c83cc037d2`, Electron 42.8.1) |
 | Launch, CDP, throwaway profile, mock runtime | pass (4 infrastructure checks) |
 | Tools advertised to the model (8) | `repoSymbols`, `editFile`, `terminal`, `docs`, `remember`, `openBrowserPage`, `readPage`, `playbook` |
 | Essential tools present | `editFile`, `terminal` |
