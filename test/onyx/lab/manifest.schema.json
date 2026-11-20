@@ -1,0 +1,102 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://github.com/sheehanlloyd/Onyx/test/onyx/lab/manifest.schema.json",
+	"title": "Onyx experiment manifest",
+	"description": "The provenance record every campaign, benchmark report and chart must carry (L3). Results live in docs/research/results/<date>-<name>/ next to this manifest, the raw traces or their digests, summary.json and the command that regenerates each table.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["version", "name", "createdAt", "models", "seeds", "sampling", "harnessConfigurations", "taskSet", "repetitions", "machine", "regenerate"],
+	"properties": {
+		"version": { "const": 1 },
+		"name": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]*$", "description": "<date>-<name>, the results directory's name" },
+		"createdAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T" },
+		"models": {
+			"type": "array",
+			"minItems": 1,
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["identifier", "digest"],
+				"properties": {
+					"identifier": { "type": "string", "minLength": 1, "description": "The runtime-qualified model identifier, e.g. ollama:qwen2.5-coder:7b" },
+					"digest": { "type": "string", "pattern": "^(sha256:)?[0-9a-f]{12,64}$|^mock$", "description": "The weights digest the runtime reports; `mock` only for the mock runtime" },
+					"runtime": {
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["name"],
+						"properties": {
+							"name": { "type": "string", "enum": ["ollama", "lmstudio", "mock"] },
+							"version": { "type": "string" }
+						}
+					}
+				}
+			}
+		},
+		"seeds": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 0 } },
+		"sampling": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["temperature"],
+			"properties": {
+				"temperature": { "type": "number", "minimum": 0 },
+				"maxTokens": { "type": "integer", "minimum": 1 },
+				"responseFormat": { "type": "boolean" }
+			}
+		},
+		"harnessConfigurations": {
+			"type": "array",
+			"minItems": 1,
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["name", "hash"],
+				"properties": {
+					"name": { "type": "string", "minLength": 1 },
+					"hash": { "type": "string", "pattern": "^[0-9a-f]{8,64}$", "description": "The configuration hash the trace header carries (L4 supplies the content)" },
+					"configuration": { "type": "object" }
+				}
+			}
+		},
+		"taskSet": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["name", "hash"],
+			"properties": {
+				"name": { "type": "string", "minLength": 1 },
+				"hash": { "type": "string", "pattern": "^[0-9a-f]{8,64}$", "description": "A digest over the task ids and their content hashes, never the content itself" },
+				"count": { "type": "integer", "minimum": 0 }
+			}
+		},
+		"repetitions": { "type": "integer", "minimum": 1 },
+		"machine": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["platform", "arch", "cpu", "memoryGiB"],
+			"properties": {
+				"platform": { "type": "string", "enum": ["darwin", "linux", "win32"] },
+				"arch": { "type": "string", "minLength": 1 },
+				"cpu": { "type": "string", "minLength": 1 },
+				"memoryGiB": { "type": "number", "minimum": 0 },
+				"gpu": { "type": "string" },
+				"osVersion": { "type": "string" },
+				"nodeVersion": { "type": "string" }
+			}
+		},
+		"regenerate": {
+			"type": "array",
+			"minItems": 1,
+			"description": "One entry per table or chart the results produce, with the command that regenerates it from the committed inputs",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["output", "command"],
+				"properties": {
+					"output": { "type": "string", "minLength": 1 },
+					"command": { "type": "string", "minLength": 1 }
+				}
+			}
+		},
+		"hypotheses": { "type": "array", "items": { "type": "string", "pattern": "^H-([1-9]|10)$" }, "description": "The pre-registered hypotheses this campaign tests, if any" },
+		"notes": { "type": "string" }
+	}
+}

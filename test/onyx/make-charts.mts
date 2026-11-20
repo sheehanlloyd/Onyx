@@ -6,8 +6,14 @@
 /**
  * Renders the benchmark numbers as SVG charts for the README.
  *
- *   node test/onyx/run-benchmarks.mts --json > /tmp/onyx-bench.json
- *   node test/onyx/make-charts.mts /tmp/onyx-bench.json
+ *   node test/onyx/run-benchmarks.mts --json-out /tmp/onyx-bench.json
+ *   node test/onyx/make-charts.mts --manifest <manifest.json> /tmp/onyx-bench.json
+ *
+ * A manifest is required (L3, DEC-09): the script refuses to draw anything
+ * without a manifest that validates against `test/onyx/lab/manifest.schema.json`,
+ * and every chart carries the manifest's name and the report files it was drawn
+ * from as a comment, so a chart's provenance travels with it. `--out-dir <dir>`
+ * writes somewhere other than `docs/images/`.
  *
  * The charts are plain SVG with no external fonts or scripts, and every color
  * is chosen to read on both GitHub themes — a chart nobody can see in dark
@@ -31,14 +37,42 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadManifest } from './lab/manifest.mts';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const outputDir = path.join(repoRoot, 'docs', 'images');
 
 interface IResult { group: string; name: string; value: number; unit: string; detail?: string; model?: string }
 interface IReport { results: IResult[]; skipped?: string[] }
 
-const reportPaths = process.argv.slice(2).filter(argument => !argument.startsWith('--'));
+/** `--flag value` pairs and the bare report paths. */
+function parseArguments(argv: readonly string[]): { readonly options: Map<string, string>; readonly reports: string[] } {
+	const options = new Map<string, string>();
+	const reports: string[] = [];
+	for (let index = 0; index < argv.length; index++) {
+		const argument = argv[index];
+		if (argument.startsWith('--')) {
+			options.set(argument.slice(2), argv[++index] ?? '');
+		} else {
+			reports.push(argument);
+		}
+	}
+	return { options, reports };
+}
+
+const { options, reports: reportPaths } = parseArguments(process.argv.slice(2));
+const manifestPath = options.get('manifest');
+if (!manifestPath) {
+	console.error('make-charts: refusing to draw without --manifest <manifest.json> (L3: every published number carries its provenance)');
+	process.exit(2);
+}
+let manifest;
+try {
+	manifest = loadManifest(path.resolve(manifestPath));
+} catch (error) {
+	console.error(`make-charts: refusing to draw: ${error instanceof Error ? error.message : String(error)}`);
+	process.exit(2);
+}
+const outputDir = options.has('out-dir') ? path.resolve(options.get('out-dir')!) : path.join(repoRoot, 'docs', 'images');
 if (!reportPaths.length) {
 	reportPaths.push('/tmp/onyx-bench.json');
 }
@@ -138,13 +172,17 @@ function formatValue(value: number): string {
 	return String(Math.round(value * 10) / 10);
 }
 
+/** The provenance every chart carries: the manifest and the reports it was drawn from. */
+const provenanceComment = `<!-- provenance: manifest ${manifest.name}; models ${manifest.models.map(model => `${model.identifier}@${model.digest}`).join(', ')}; reports ${reportPaths.map(report => path.basename(report)).join(', ')} -->\n`;
+
 function write(name: string, svg: string) {
 	const target = path.join(outputDir, name);
-	fs.writeFileSync(target, svg);
+	fs.writeFileSync(target, provenanceComment + svg);
 	console.log(`wrote ${path.relative(repoRoot, target)} (${Math.round(svg.length / 1024)} KB)`);
 }
 
 fs.mkdirSync(outputDir, { recursive: true });
+console.log(`manifest ${manifest.name}: ${manifest.models.length} model${manifest.models.length === 1 ? '' : 's'}, seeds ${manifest.seeds.join(', ')}, task set ${manifest.taskSet.name} (${manifest.taskSet.hash})`);
 
 // 1. Retrieval: the claim that BM25 beats what an agent would otherwise do.
 write('chart-retrieval.svg', barChart({

@@ -46,6 +46,10 @@ export interface IOnyxDiscoveredModel {
 	 * unknown runtimes are assumed not to).
 	 */
 	readonly supportsJsonSchema?: boolean;
+	/** The runtime's content digest for the weights (Ollama reports one per tag); provenance for traces (L3). */
+	readonly digest?: string;
+	/** The runtime's reported version, when it reports one (L3). */
+	readonly runtimeVersion?: string;
 }
 
 /** OpenAI chat-completions wire shapes. Kept loose on purpose: they mirror the JSON we send/receive. */
@@ -84,6 +88,8 @@ export interface IOnyxChatParams {
 	readonly keepAlive?: string;
 	/** OpenAI `response_format` payload for constrained decoding, verbatim. */
 	readonly responseFormat?: unknown;
+	/** Sent as `seed` when a profile or a manifest sets one (L3); the stream's `done` says whether the runtime echoed it. */
+	readonly seed?: number;
 }
 
 export interface IOnyxCompletionParams {
@@ -148,7 +154,7 @@ export type IOnyxStreamEvent =
 	| { readonly operationId: string; readonly kind: 'delta'; readonly text: string }
 	| { readonly operationId: string; readonly kind: 'toolCallDelta'; readonly index: number; readonly id?: string; readonly name?: string; readonly argumentsDelta?: string }
 	| { readonly operationId: string; readonly kind: 'usage'; readonly promptTokens: number; readonly completionTokens: number }
-	| { readonly operationId: string; readonly kind: 'done'; readonly finishReason: string | undefined }
+	| { readonly operationId: string; readonly kind: 'done'; readonly finishReason: string | undefined; readonly seedHonoured?: boolean; readonly fingerprint?: string }
 	| { readonly operationId: string; readonly kind: 'error'; readonly message: string };
 
 /** One commit summarized for on-your-repo benchmark selection. */

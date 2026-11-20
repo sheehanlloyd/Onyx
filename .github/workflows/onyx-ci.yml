@@ -6,8 +6,40 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      module:
+        description: Run the module gate for this module (1 to 5) in addition to the usual jobs; empty runs only the usual jobs
+        required: false
+        default: ''
 
 jobs:
+  # Scoped hygiene (A6): NUL bytes in Onyx text files, the old repository
+  # name anywhere in the tree, a developer home path in anything Onyx ships,
+  # URLs outside the allowlist in the four identity files, and every file
+  # under docs/images/ listed in docs/images/MANIFEST.md with its provenance.
+  # Needs no dependencies: the checker uses only Node built-ins, and the
+  # fixture test proves it fails on a deliberately injected NUL.
+  hygiene:
+    name: Hygiene
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Hygiene check
+        run: node test/onyx/run-hygiene.mts
+
+      - name: Hygiene check fails on injected defects (fixtures)
+        run: node --test test/onyx/checks/hygiene.test.mts
+
   onyx:
     name: Typecheck, layers, lint, Onyx unit tests
     runs-on: ubuntu-24.04
@@ -48,7 +80,10 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      # node_modules is the slowest step by far and only changes with the lockfile.
+      # node_modules is the slowest step by far and only changes with the
+      # lockfile. The paths are every directory build/npm/dirs.ts installs
+      # into (the v1 key cached five of them and lost extensions/node_modules
+      # and the nested server/test trees; A7).
       - name: Cache node_modules
         id: cache-node-modules
         uses: actions/cache@v4
@@ -56,16 +91,59 @@ jobs:
           path: |
             node_modules
             build/node_modules
+            build/*/node_modules
+            extensions/node_modules
             extensions/*/node_modules
+            extensions/*/server/node_modules
             remote/node_modules
-            remote/web/node_modules
-          key: onyx-node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', '.nvmrc') }}
+            remote/*/node_modules
+            test/*/node_modules
+            test/integration/*/node_modules
+          key: onyx-node-modules-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', 'build/npm/dirs.ts', '.nvmrc') }}
 
       - name: Install dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: npm ci
         env:
           GIT_LFS_SKIP_SMUDGE: '1'
+          # @vscode/ripgrep downloads its binary through the GitHub releases
+          # API, which answers 403 to anonymous calls from a busy runner IP.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # What the cache restored, and what postinstall generates outside it.
+      # Printed before anything consumes them so a warm-cache failure can be
+      # read off the log instead of guessed at (A7).
+      - name: Inventory of restored dependencies
+        run: |
+          echo "cache hit: ${{ steps.cache-node-modules.outputs.cache-hit }}"
+          for artifact in node_modules/.postinstall-state .build/typings/electron.d.ts build/node_modules extensions/node_modules remote/node_modules; do
+            if [ -e "$artifact" ]; then echo "present  $artifact"; else echo "MISSING  $artifact"; fi
+          done
+
+      # The cache holds node_modules directories only. postinstall also writes
+      # .build/typings/electron.d.ts, which src/tsconfig.base.json maps the
+      # `electron` module to, and a cache hit skips postinstall: that is why
+      # the warm runs on main failed at typecheck (A7). Regenerate what the
+      # cache cannot hold, and reinstall outright if the restored tree has no
+      # postinstall state at all.
+      - name: Regenerate what the cache does not hold
+        run: |
+          missing=$(node --input-type=module -e "
+            import fs from 'node:fs';
+            import { dirs } from './build/npm/dirs.ts';
+            const missing = dirs.filter(dir => fs.existsSync((dir ? dir + '/' : '') + 'package.json') && !fs.existsSync((dir ? dir + '/' : '') + 'node_modules'));
+            if (!fs.existsSync('node_modules/.postinstall-state')) { missing.unshift('node_modules/.postinstall-state'); }
+            console.log(missing.join(' '));
+          ")
+          if [ -n "$missing" ]; then
+            echo "restored dependencies are incomplete ($missing); reinstalling"
+            npm ci
+          fi
+          node build/npm/electronTypes.ts
+          test -f .build/typings/electron.d.ts
+        env:
+          GIT_LFS_SKIP_SMUDGE: '1'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Type check
         run: npm run typecheck-client
@@ -93,19 +171,12 @@ jobs:
       # actions, staged edits (Onyx Changes), the gated terminal tool, the
       # offline docs mirror, playbooks, run resume, the refactor engine, the
       # repo benchmark, speculative decoding and the architecture map — 45
-      # checks asserted on the run journal and the live DOM.
-      # Run on demand, not on every push. Seven of its 45 checks drive the
-      # Monaco editor with synthesized mouse clicks (the Fix/Explain code
-      # actions, inline edit, and the staged-edit checks that depend on the
-      # file inline edit leaves behind), and those clicks do not land under
-      # Xvfb — the other 38 pass on this runner exactly as they do locally.
-      # That is a limitation of driving an editor in a virtual framebuffer,
-      # not a defect in Onyx, so it does not belong in a gate that is supposed
-      # to mean "this commit is sound". The suite is a local gate and runs in
-      # full before every release: `node test/onyx/run-e2e.mts`, 45/45.
-      # Trigger it here from the Actions tab when the harness itself changes.
+      # checks asserted on the run journal and the live DOM. It runs on every
+      # push and pull request (A7): the editor is driven through commands,
+      # Quick Open, DOM focus and the keyboard, never through synthesized
+      # mouse clicks at coordinates, and the keybindings it presses are the
+      # platform's own (Ctrl on this runner, ⌘ on macOS).
       - name: Onyx end-to-end
-        if: github.event_name == 'workflow_dispatch'
         run: node test/onyx/run-e2e.mts
         env:
           DISPLAY: ':10'
@@ -115,9 +186,21 @@ jobs:
       # terminal classifier, measured against this repository. --skip-models
       # leaves out the sections that need a local model runtime; those skip
       # gracefully anyway, but being explicit keeps CI honest about what it
-      # actually measured.
+      # actually measured. Every safety invariant it measures is also an
+      # assertion: a marker leak, a fuzz crash, a hunk round-trip failure or a
+      # miss on the labelled command set exits non-zero (A7, R-23).
       - name: Onyx benchmarks (pure logic)
         run: node test/onyx/run-benchmarks.mts --skip-models
+
+      # The harness's own checks: the A1 inventory (R-37), the hygiene
+      # fixtures, the launch-script path (A4), the asserting benchmark against
+      # an injected parser leak (R-23) and the fresh-output protocol (R-35,
+      # which transpiles twice and runs a probe test under Xvfb). One file at
+      # a time: R-35 rewrites out/ while it runs, and R-23 reads out/.
+      - name: Harness self-checks
+        run: node --test --test-concurrency=1 "test/onyx/checks/*.test.mts"
+        env:
+          DISPLAY: ':10'
 
       - name: Upload end-to-end diagnostics
         if: failure()
@@ -129,3 +212,58 @@ jobs:
             /tmp/onyx-e2e-*/user-data/User/workspaceStorage/**/onyx/journal/**
           if-no-files-found: ignore
           retention-days: 7
+
+  # Module gate on demand (A12, DEC-11): one command proves a module. Runs on
+  # macOS so the packaged checks are not skipped: it builds the app the way a
+  # release does, points the gate at it, and uploads the results file. Dispatch
+  # with the `module` input; the job is absent from push and PR runs.
+  module-gate:
+    name: Module gate (manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.module != ''
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      NPM_ARCH: arm64
+      VSCODE_ARCH: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GIT_LFS_SKIP_SMUDGE: '1'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the packaged app
+        run: npm run gulp vscode-darwin-arm64-min
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compile built-in extensions for the end-to-end suite
+        run: npm run compile
+
+      - name: Fresh output stamp
+        run: node test/onyx/run-fresh.mts --stamp-only
+
+      - name: Module gate
+        run: node test/onyx/run-module-gate.mts --module ${{ inputs.module }}
+        env:
+          ONYX_PACKAGED_APP: ../VSCode-darwin-arm64/Onyx.app
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload gate results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: onyx-gate-module-${{ inputs.module }}
+          path: docs/progress/gate-module-${{ inputs.module }}.json
+          if-no-files-found: ignore
+          retention-days: 90

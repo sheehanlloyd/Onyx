@@ -1,0 +1,342 @@
+{
+	"module": 1,
+	"title": "Module 1: foundation, truthful CI and the simulation rig",
+	"checks": [
+		{
+			"id": "typecheck",
+			"title": "TypeScript type check of src/",
+			"layer": "build",
+			"command": [
+				"npm",
+				"run",
+				"typecheck-client"
+			]
+		},
+		{
+			"id": "layers",
+			"title": "Layer check",
+			"layer": "build",
+			"command": [
+				"npm",
+				"run",
+				"valid-layers-check"
+			]
+		},
+		{
+			"id": "eslint",
+			"title": "ESLint on the Onyx paths",
+			"layer": "build",
+			"command": [
+				"npx",
+				"eslint",
+				"src/vs/platform/onyxRuntime",
+				"src/vs/workbench/contrib/onyx",
+				"test/onyx"
+			]
+		},
+		{
+			"id": "stylelint",
+			"title": "Stylelint",
+			"layer": "build",
+			"command": [
+				"npm",
+				"run",
+				"stylelint"
+			]
+		},
+		{
+			"id": "hygiene",
+			"title": "A6 scoped hygiene",
+			"layer": "node",
+			"command": [
+				"node",
+				"test/onyx/run-hygiene.mts"
+			]
+		},
+		{
+			"id": "unit",
+			"title": "Onyx unit tests on fresh output",
+			"layer": "service",
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"Onyx"
+			]
+		},
+		{
+			"id": "benchmarks",
+			"title": "Pure-logic benchmarks with asserting invariants",
+			"layer": "node",
+			"regressions": [
+				"R-23"
+			],
+			"command": [
+				"node",
+				"test/onyx/run-benchmarks.mts",
+				"--skip-models"
+			]
+		},
+		{
+			"id": "R-37",
+			"title": "A1 inventory in disposable repositories",
+			"layer": "procedure",
+			"regressions": [
+				"R-37"
+			],
+			"files": [
+				"test/onyx/checks/r37-inventory.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r37-inventory.test.mts"
+			]
+		},
+		{
+			"id": "A4-paths",
+			"title": "Harness runs without the .claude symlink",
+			"layer": "node",
+			"files": [
+				"test/onyx/checks/harness-paths.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/harness-paths.test.mts"
+			]
+		},
+		{
+			"id": "A6-fixtures",
+			"title": "Hygiene fails on injected defects",
+			"layer": "node",
+			"files": [
+				"test/onyx/checks/hygiene.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/hygiene.test.mts"
+			]
+		},
+		{
+			"id": "R-23",
+			"title": "Benchmarks exit non-zero on an injected marker leak",
+			"layer": "node",
+			"regressions": [
+				"R-23"
+			],
+			"files": [
+				"test/onyx/checks/r23-benchmark-asserts.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r23-benchmark-asserts.test.mts"
+			]
+		},
+		{
+			"id": "R-35",
+			"title": "Fresh-output protocol: red then green on refreshed output",
+			"layer": "procedure",
+			"regressions": [
+				"R-35"
+			],
+			"files": [
+				"test/onyx/checks/r35-fresh-output.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r35-fresh-output.test.mts"
+			]
+		},
+		{
+			"id": "R-57",
+			"title": "Gate runner: failing, missing, stale, exception",
+			"layer": "procedure",
+			"regressions": [
+				"R-57"
+			],
+			"files": [
+				"test/onyx/checks/r57-module-gate.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r57-module-gate.test.mts"
+			]
+		},
+		{
+			"id": "e2e",
+			"title": "End-to-end suite against the mock runtime",
+			"layer": "e2e",
+			"command": [
+				"node",
+				"test/onyx/run-e2e.mts"
+			],
+			"timeoutMs": 1200000
+		},
+		{
+			"id": "evidence-A1-A11",
+			"title": "Completion reports for A1 to A11 recorded",
+			"layer": "procedure",
+			"files": [
+				"docs/progress/A1.md",
+				"docs/progress/A2.md",
+				"docs/progress/A3.md",
+				"docs/progress/A4.md",
+				"docs/progress/A5.md",
+				"docs/progress/A6.md",
+				"docs/progress/A7.md",
+				"docs/progress/A8.md",
+				"docs/progress/A9.md",
+				"docs/progress/A10.md",
+				"docs/progress/A11.md",
+				"docs/progress/A12.md"
+			]
+		},
+		{
+			"id": "packaged-baseline",
+			"title": "A8 packaged smoke, baseline mode: launch, profile and runtime isolation, observed tools",
+			"layer": "packaged",
+			"command": [
+				"node",
+				"test/onyx/run-packaged-smoke.mts",
+				"--app",
+				"$ONYX_PACKAGED_APP",
+				"--mode",
+				"baseline",
+				"--json-out",
+				"docs/progress/packaged-smoke-baseline.json"
+			],
+			"requires": {
+				"platform": "darwin",
+				"env": [
+					"ONYX_PACKAGED_APP"
+				]
+			},
+			"timeoutMs": 600000
+		},
+		{
+			"id": "packaged-release",
+			"title": "A8 packaged smoke, release mode: the full tool contract, read → staged edit → accept, terminal approval",
+			"layer": "packaged",
+			"regressions": [
+				"R-31"
+			],
+			"command": [
+				"node",
+				"test/onyx/run-packaged-smoke.mts",
+				"--app",
+				"$ONYX_PACKAGED_APP",
+				"--mode",
+				"release",
+				"--json-out",
+				"docs/progress/packaged-smoke-release.json"
+			],
+			"requires": {
+				"platform": "darwin",
+				"env": [
+					"ONYX_PACKAGED_APP"
+				]
+			},
+			"expect": "fail",
+			"owner": "B1, B3",
+			"reason": "the packaged build has no readFile, listDirectory, findFiles or grep tool; B1 adds them, B3 makes release mode a required check",
+			"timeoutMs": 900000
+		},
+		{
+			"id": "R-41",
+			"title": "L1/L2 simulation suite: R-41, R-42, personas, scenarios, shrinking",
+			"layer": "service",
+			"regressions": [
+				"R-41",
+				"R-42"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim"
+			]
+		},
+		{
+			"id": "sim-smoke",
+			"title": "L1/L2 campaign: 2,000 seeded episodes with every invariant checker, R-42 at gate size",
+			"layer": "service",
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim"
+			],
+			"env": {
+				"ONYX_SIM_EPISODES": "2000",
+				"ONYX_SIM_SEED": "1"
+			},
+			"timeoutMs": 600000,
+			"regressions": [
+				"R-41",
+				"R-42"
+			]
+		},
+		{
+			"id": "sim-episodes",
+			"title": "L1 episode scripts in sync and replayable through the mock's SSE path",
+			"layer": "node",
+			"files": [
+				"test/onyx/checks/sim-episodes.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/sim-episodes.test.mts"
+			]
+		},
+		{
+			"id": "sim-tables-sync",
+			"title": "L1/L2 episode and baseline JSON tables match their TypeScript sources",
+			"layer": "node",
+			"command": [
+				"node",
+				"test/onyx/sim/export-episodes.mts",
+				"--check"
+			]
+		},
+		{
+			"id": "R-43",
+			"title": "L3 trace and experiment provenance at the harness layer: charts refuse without a valid manifest, the mock echoes the seed on the wire",
+			"layer": "node",
+			"regressions": [
+				"R-43"
+			],
+			"files": [
+				"test/onyx/checks/r43-provenance.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r43-provenance.test.mts"
+			],
+			"timeoutMs": 120000
+		},
+		{
+			"id": "R-43-unit",
+			"title": "L3 trace schema v2 and the seed on the wire and honoured, in the product",
+			"layer": "unit",
+			"regressions": [
+				"R-43"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxTrace.test.ts",
+				"src/vs/platform/onyxRuntime/test/node/onyxRuntimeService.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxTrace|OnyxRuntimeService"
+			]
+		}
+	]
+}

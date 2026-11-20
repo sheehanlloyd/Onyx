@@ -34,6 +34,8 @@ export interface IOnyxModelProfile {
 	readonly family: string;
 	readonly parameterB: number | undefined;
 	readonly supportsVision: boolean;
+	/** Sent with every request when set (a profile override or a lab manifest); unset means the runtime samples freely (L3). */
+	readonly seed?: number;
 }
 
 /** Locally measured, per-model rolling statistics. All local; never leaves the machine. */
@@ -67,7 +69,7 @@ export interface IOnyxObservedStats {
 export interface IOnyxRunEvent {
 	/** Milliseconds since the run started. */
 	readonly t: number;
-	readonly kind: 'promptSnapshot' | 'firstToken' | 'toolCall' | 'toolResult' | 'turn' | 'outcome' | 'note';
+	readonly kind: 'promptSnapshot' | 'firstToken' | 'toolCall' | 'toolResult' | 'turn' | 'outcome' | 'note' | 'trace' | 'traceTurn' | 'approval' | 'acceptance';
 	readonly data: unknown;
 }
 

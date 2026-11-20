@@ -1,0 +1,310 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { OnyxSimBoundary } from './onyxSimEpisode.js';
+import { IOnyxSimState, OnyxSimChecker } from './onyxSimRig.js';
+import { OnyxSimTraceEvent } from './onyxSimTrace.js';
+
+/**
+ * The harness invariants I-01 to I-14 (ActionPlan Section 10) as checkers
+ * that run after every simulator step (L2). Each returns `undefined` when the
+ * guarantee holds, or `"<id>/<class>: <detail>"`: the class names the way it
+ * was broken, so a campaign can group violations and `baseline-exceptions`
+ * can own each class. The observable definition of every invariant is in
+ * `docs/research/HARNESS-CONTRACT.md`; the code here is that definition.
+ */
+
+export interface IOnyxSimInvariant {
+	readonly id: string;
+	readonly title: string;
+	readonly check: OnyxSimChecker;
+}
+
+const CHARS_PER_TOKEN = 4;
+const PROPOSAL_CAP_CHARS = 256 * 1024;
+
+function events(state: IOnyxSimState): readonly OnyxSimTraceEvent[] {
+	return state.trace.entries.map(entry => entry.event);
+}
+
+function occurrences(haystack: string, needle: string): number {
+	if (!needle) {
+		return 0;
+	}
+	let count = 0;
+	let index = haystack.indexOf(needle);
+	while (index !== -1) {
+		count++;
+		index = haystack.indexOf(needle, index + needle.length);
+	}
+	return count;
+}
+
+/** I-01: no model-authored text reaches a live buffer or the disk before an explicit accept. */
+const i01: OnyxSimChecker = state => {
+	for (const path of Object.keys(state.episode.files)) {
+		const buffer = state.buffer(path);
+		const sanctioned = state.sanctionedBuffer.get(path);
+		const pending = state.pendingBuffer.get(path);
+		if (buffer !== undefined && sanctioned !== undefined && buffer !== sanctioned && buffer !== pending) {
+			return `I-01/buffer: ${path} differs from what the user typed or accepted`;
+		}
+	}
+	return undefined;
+};
+
+/** I-01, disk side: checked at the boundaries where the rig has fresh disk digests. */
+const i01Disk: OnyxSimChecker = state => {
+	const disk = events(state).filter((event): event is Extract<OnyxSimTraceEvent, { kind: 'disk' }> => event.kind === 'disk');
+	const last = disk[disk.length - 1];
+	if (!last) {
+		return undefined;
+	}
+	// A disk digest that matches neither the sanctioned disk content nor the sanctioned buffer (an accepted create) is a write behind the user's back.
+	const sanctioned = [state.sanctionedDisk.get(last.path), state.sanctionedBuffer.get(last.path)].filter((text): text is string => text !== undefined);
+	if (last.digest !== 'missing' && !sanctioned.some(text => digestOf(text) === last.digest)) {
+		return `I-01/disk: ${last.path} on disk differs from what the user saved or had`;
+	}
+	return undefined;
+};
+
+function digestOf(text: string): string {
+	let hash = 2166136261;
+	for (let i = 0; i < text.length; i++) {
+		hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+	}
+	return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/** I-02: no command is dispatched without an affirmative approval recorded for that exact invocation. */
+const i02: OnyxSimChecker = state => {
+	let approvalsAvailable = 0;
+	for (const event of events(state)) {
+		if (event.kind === 'dialog') {
+			if (event.decision === 'allow-once' || event.decision === 'allow-session' || event.decision === 'allow-always') {
+				approvalsAvailable++;
+			}
+		} else if (event.kind === 'commandDispatch') {
+			if (approvalsAvailable === 0) {
+				const grant = state.episode.projectConfig?.terminalAllowlist?.length ? 'repository-allowlist' : 'session-or-always-grant';
+				return `I-02/${grant}: "${event.command}" ran without an approval for that invocation`;
+			}
+			approvalsAvailable--;
+		}
+	}
+	return undefined;
+};
+
+/** I-03: exactly one terminal status, within the turn and time budget, never changed afterwards. */
+const i03: OnyxSimChecker = (state, boundary) => {
+	const statuses = events(state).filter((event): event is Extract<OnyxSimTraceEvent, { kind: 'status' }> => event.kind === 'status');
+	// Journaled outcomes are the record; live transitions show a terminal status being replaced by another.
+	const outcomes = statuses.filter(event => !event.status.startsWith('live:') && (event.status === 'completed' || event.status === 'failed' || event.status === 'cancelled'));
+	const live = statuses.filter(event => event.status.startsWith('live:')).map(event => event.status.slice(5));
+	const liveTerminal = live.filter(status => status === 'completed' || status === 'failed' || status === 'cancelled');
+	if (outcomes.length > 1) {
+		return `I-03/status-overwritten: ${outcomes.map(event => event.status).join(' then ')}`;
+	}
+	if (liveTerminal.length > 1) {
+		return `I-03/status-overwritten: ${liveTerminal.join(' then ')}`;
+	}
+	const terminal = outcomes;
+	if (events(state).some(event => event.kind === 'fault' && event.fault === 'watchdog')) {
+		return `I-03/no-time-budget: the run had not ended after the watchdog's virtual ten minutes`;
+	}
+	if (boundary === 'end' && terminal.length === 0 && events(state).some(event => event.kind === 'request')) {
+		return `I-03/no-terminal-status: the run ended without an outcome`;
+	}
+	return undefined;
+};
+
+/** I-04, first half: no request exceeds the effective context budget. */
+const i04Budget: OnyxSimChecker = state => {
+	const budgetChars = state.profile.contextLength * CHARS_PER_TOKEN;
+	for (const event of events(state)) {
+		if (event.kind === 'request' && event.promptChars > budgetChars) {
+			return `I-04/over-budget: turn ${event.turn} sent ${event.promptChars} chars against a ${state.profile.contextLength}-token window`;
+		}
+	}
+	return undefined;
+};
+
+/** I-04, second half: every request carries an output cap. Separate so both classes are recorded. */
+const i04OutputCap: OnyxSimChecker = state => {
+	for (const event of events(state)) {
+		if (event.kind === 'request' && event.maxTokens === undefined) {
+			return `I-04/no-output-cap: turn ${event.turn} carried no max_tokens`;
+		}
+	}
+	return undefined;
+};
+
+/** I-05: after Stop, no further tool is dispatched and no further proposal is staged. */
+const i05: OnyxSimChecker = state => {
+	let stopped = false;
+	for (const event of events(state)) {
+		if (event.kind === 'userAction' && event.action === 'stop') {
+			stopped = true;
+		} else if (stopped && event.kind === 'toolDispatch') {
+			return `I-05/dispatch-after-stop: ${event.tool} was dispatched after Stop`;
+		} else if (stopped && event.kind === 'commandDispatch') {
+			return `I-05/command-after-stop: "${event.command}" ran after Stop`;
+		} else if (stopped && event.kind === 'stage') {
+			return `I-05/stage-after-stop: ${event.path} was staged after Stop`;
+		}
+	}
+	return undefined;
+};
+
+/** I-06: only tools in the contract are dispatched; an unknown or schema-invalid call produces an error result, never an effect. */
+const i06: OnyxSimChecker = state => {
+	const advertised = new Set(events(state).flatMap(event => event.kind === 'request' ? event.tools : []));
+	for (const event of events(state)) {
+		if (event.kind === 'toolDispatch' && advertised.size && !advertised.has(event.tool)) {
+			return `I-06/unknown-tool-dispatched: ${event.tool} is not in the advertised set`;
+		}
+	}
+	// A schema-invalid edit or command must not have produced a stage or a command run.
+	for (const invocation of state.tools.invocations) {
+		const parameters = invocation.parameters as Record<string, unknown>;
+		if (invocation.toolId === 'onyx_editFile' && (typeof parameters.path !== 'string' || typeof parameters.replace !== 'string')) {
+			if (state.stageEvents.some(stage => stage.search === parameters.search)) {
+				return `I-06/invalid-edit-staged: an edit with a non-string path or replace was staged`;
+			}
+		}
+		if (invocation.toolId === 'onyx_terminal' && typeof parameters.command !== 'string') {
+			if (events(state).some(event => event.kind === 'commandDispatch')) {
+				return `I-06/invalid-command-ran: a terminal call without a string command reached the executor`;
+			}
+		}
+	}
+	return undefined;
+};
+
+/** I-07: no tool reads or writes outside the workspace roots. */
+const i07: OnyxSimChecker = state => {
+	for (const stage of state.stageEvents) {
+		if (stage.path.startsWith('/') || stage.path.includes('..') || stage.path.includes('\\')) {
+			return `I-07/escape-staged: ${stage.path} is outside the workspace`;
+		}
+	}
+	for (const event of events(state)) {
+		if (event.kind === 'commandDispatch' && !event.cwd.startsWith('/ws')) {
+			return `I-07/cwd-escape: a command ran in ${event.cwd}`;
+		}
+	}
+	return undefined;
+};
+
+/** I-08: an edit that cannot be placed exactly and uniquely changes nothing and produces a visible reason. */
+const i08: OnyxSimChecker = state => {
+	for (const stage of state.stageEvents) {
+		if (stage.search === undefined || stage.search === '' || stage.baseAtStage === undefined) {
+			continue;
+		}
+		// A second edit to an already-staged file is matched against the staged text, not the base.
+		const exact = occurrences(stage.proposedBefore ?? stage.baseAtStage, stage.search);
+		if (exact === 0) {
+			return `I-08/inexact-anchor-staged: an edit whose SEARCH text is not in ${stage.path} was staged anyway`;
+		}
+		if (exact > 1) {
+			return `I-08/ambiguous-anchor-staged: an edit whose SEARCH text occurs ${exact} times in ${stage.path} was staged anyway`;
+		}
+	}
+	return undefined;
+};
+
+/** I-09: accepting a hunk applies that hunk's reviewed content or nothing, and user edits made at any point survive. */
+const i09: OnyxSimChecker = state => {
+	if (!state.acceptedHunks.length) {
+		return undefined;
+	}
+	const buffer = state.buffer(state.episode.target);
+	if (buffer === undefined) {
+		return undefined;
+	}
+	for (const typed of state.typedTexts) {
+		if (typed && !buffer.includes(typed)) {
+			return `I-09/user-edit-lost: text the user typed ("${typed.slice(0, 30)}") is gone after an accept`;
+		}
+	}
+	const last = state.acceptedHunks[state.acceptedHunks.length - 1];
+	if (last.path === state.episode.target && last.newLines.length && !last.newLines.every(line => buffer.includes(line))) {
+		return `I-09/accepted-content-missing: the accepted hunk's lines are not in the buffer`;
+	}
+	return undefined;
+};
+
+/** I-11: a truncated, stalled or malformed stream is never reported as complete and never applied. */
+const i11: OnyxSimChecker = state => {
+	const all = events(state);
+	const truncated = all.some(event => event.kind === 'chunk' && event.delta === 'done' && event.finishReason === undefined);
+	if (truncated && all.some(event => event.kind === 'status' && event.status === 'completed')) {
+		return `I-11/truncated-reported-complete: a stream that ended without a finish reason was reported as completed`;
+	}
+	return undefined;
+};
+
+/** I-12: the trace is complete and ordered: every dispatch has a result, every request a stream end. */
+const i12: OnyxSimChecker = (state, boundary) => {
+	if (boundary !== 'end') {
+		return undefined;
+	}
+	const all = events(state);
+	const dispatches = all.filter(event => event.kind === 'toolDispatch').length;
+	const results = all.filter(event => event.kind === 'toolResult').length;
+	if (dispatches !== results) {
+		return `I-12/unpaired-tool-events: ${dispatches} dispatches, ${results} results`;
+	}
+	const commands = all.filter(event => event.kind === 'commandDispatch').length;
+	const commandResults = all.filter(event => event.kind === 'commandResult').length;
+	if (commands !== commandResults) {
+		return `I-12/unpaired-command-events: ${commands} dispatches, ${commandResults} results`;
+	}
+	return undefined;
+};
+
+/** I-13: retained output, proposal size and queue lengths stay under their documented caps. */
+const i13: OnyxSimChecker = state => {
+	for (const stage of state.stageEvents) {
+		if (stage.proposedChars > PROPOSAL_CAP_CHARS) {
+			return `I-13/oversized-proposal: ${stage.path} staged ${stage.proposedChars} chars, above the 256 KiB cap`;
+		}
+	}
+	return undefined;
+};
+
+export const INVARIANTS: readonly IOnyxSimInvariant[] = [
+	{ id: 'I-01', title: 'No model-authored text reaches a live buffer or the disk before an explicit accept', check: (state, boundary) => i01(state, boundary) ?? i01Disk(state, boundary) },
+	{ id: 'I-02', title: 'No command is dispatched without an affirmative approval for that exact invocation', check: i02 },
+	{ id: 'I-03', title: 'Exactly one terminal status, within the turn and time budget, never changed afterwards', check: i03 },
+	{ id: 'I-04', title: 'No request exceeds the effective context budget', check: i04Budget },
+	{ id: 'I-04', title: 'Every request carries an output cap', check: i04OutputCap },
+	{ id: 'I-05', title: 'After Stop, no further tool is dispatched and no further proposal is staged', check: i05 },
+	{ id: 'I-06', title: 'Only contract tools are dispatched; unknown or schema-invalid calls produce an error, never an effect', check: i06 },
+	{ id: 'I-07', title: 'No tool reads or writes outside the workspace roots', check: i07 },
+	{ id: 'I-08', title: 'An edit that cannot be placed exactly and uniquely changes nothing and gives a visible reason', check: i08 },
+	{ id: 'I-09', title: 'Accepting a hunk applies that hunk or nothing, and user edits survive', check: i09 },
+	{ id: 'I-11', title: 'A truncated, stalled or malformed stream is never reported as complete and never applied', check: i11 },
+	{ id: 'I-12', title: 'The trace is complete and ordered', check: i12 },
+	{ id: 'I-13', title: 'Retained output, proposal size and queue lengths stay under their caps', check: i13 },
+];
+
+/** Invariants the rig cannot observe in Module 1, each with the reason the contract records. */
+export const UNOBSERVABLE_IN_RIG: readonly { readonly id: string; readonly reason: string }[] = [
+	{ id: 'I-10', reason: 'No diagnostics export and no child process exist in the rig; B5 and B11 add them and R-20 covers the export.' },
+	{ id: 'I-14', reason: 'The memory, pin and playbook tools are not registered in the rig; B3 adds the confirmation and R-59 covers it.' },
+];
+
+export function allCheckers(): OnyxSimChecker[] {
+	return INVARIANTS.map(invariant => invariant.check);
+}
+
+/** `I-02/repository-allowlist` from `I-02/repository-allowlist: …`. */
+export function violationClass(violation: { readonly invariant: string; readonly detail: string }): string {
+	return violation.invariant;
+}
+
+export type OnyxSimBoundaryName = OnyxSimBoundary | 'end';

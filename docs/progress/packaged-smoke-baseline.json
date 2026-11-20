@@ -1,0 +1,73 @@
+{
+	"mode": "baseline",
+	"app": "../VSCode-darwin-arm64/Onyx.app",
+	"ranAt": "2026-11-20T02:52:24.887Z",
+	"observed": {
+		"product": {
+			"nameShort": "Onyx",
+			"version": "1.136.0",
+			"commit": "8b85d0efe7079fbe990a460e89601b4c02883326",
+			"date": "2026-11-19T21:40:58-05:00"
+		},
+		"sourceRevision": "8b85d0efe7079fbe990a460e89601b4c02883326",
+		"window": {
+			"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.136.0 Chrome/148.0.7778.280 Electron/42.8.1 Safari/537.36",
+			"title": "math.ts — ws"
+		},
+		"advertisedTools": [
+			"repoSymbols",
+			"editFile",
+			"terminal",
+			"docs",
+			"remember",
+			"openBrowserPage",
+			"readPage",
+			"playbook"
+		],
+		"model": "mock-coder:7b",
+		"missingEssentials": [
+			"readFile",
+			"listDirectory",
+			"findFiles",
+			"grep"
+		]
+	},
+	"checks": [
+		{
+			"name": "the app bundle has a product.json with a commit",
+			"ok": true,
+			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.136.0\",\"commit\":\"8b85d0efe7079fbe990a460e89601b4c02883326\",\"date\":\"2026-11-19T21:40:58-05:00\"}",
+			"claim": "infrastructure"
+		},
+		{
+			"name": "the packaged app launched and opened a CDP endpoint",
+			"ok": true,
+			"claim": "infrastructure"
+		},
+		{
+			"name": "the window belongs to the packaged product",
+			"ok": true,
+			"detail": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.136.0 Chrome/148.0.7778.280 Electron/42.8.1 Safari/537.36",
+			"claim": "infrastructure"
+		},
+		{
+			"name": "the agent reached the mock runtime, not a real one",
+			"ok": true,
+			"detail": "mock-coder:7b",
+			"claim": "infrastructure"
+		},
+		{
+			"name": "the run journal lives in the throwaway profile",
+			"ok": true,
+			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-FJUTfF/user-data/User/workspaceStorage/bc29545a997016f7968e31dcd0abe59e/onyx/journal/runs",
+			"claim": "infrastructure"
+		},
+		{
+			"name": "the request carried a tool list",
+			"ok": true,
+			"detail": "no tools in the chat request",
+			"claim": "infrastructure"
+		}
+	],
+	"passed": true
+}

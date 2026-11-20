@@ -1,0 +1,59 @@
+name: Onyx upstream drill
+
+# Weekly measurement of the fork's drift from the latest upstream release
+# (A9, DEC-05): the conflicts a merge would produce, split into the ones
+# REBASE.md predicts and the ones it does not; every upstream symbol the Onyx
+# sources import, checked against the merged tree; and build-infrastructure
+# drift (package manager, lockfile, Node pin). Informational: the report is
+# the output, and the job fails only when the drill cannot run. Also runs on a
+# pull request that changes the drill itself, which is how the harness gets
+# its first run before the file reaches the default branch.
+on:
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Upstream release tag to drill against (empty = latest X.Y.Z tag)
+        required: false
+        default: ''
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/onyx-upstream-drill.yml
+      - test/onyx/run-upstream-drill.mts
+
+jobs:
+  drill:
+    name: Merge-tree against the upstream release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout (full history, the merge base is months back)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Run the drill
+        run: |
+          if [ -n "${{ inputs.ref }}" ]; then
+            node test/onyx/run-upstream-drill.mts --ref "${{ inputs.ref }}" --out upstream-drill.md --json-out upstream-drill.json
+          else
+            node test/onyx/run-upstream-drill.mts --latest-release --out upstream-drill.md --json-out upstream-drill.json
+          fi
+          cat upstream-drill.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the report
+        uses: actions/upload-artifact@v4
+        with:
+          name: onyx-upstream-drill
+          path: |
+            upstream-drill.md
+            upstream-drill.json
+          retention-days: 90

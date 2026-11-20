@@ -8,7 +8,7 @@
  *
  *   node test/onyx/run-benchmarks.mts [--json | --json-out <path>] [--skip-models]
  *                                     [--speculative] [--rounds N] [--tasks N]
- *                                     [--tool-trials N]
+ *                                     [--tool-trials N] [--module-root <dir>]
  *
  * Two halves. The first runs against this repository and the pure Onyx modules,
  * so anyone can re-run it and get their own numbers rather than taking the
@@ -21,6 +21,13 @@
  * still runs in CI and on any other laptop.
  *
  * Requires a current `npm run transpile-client` (it imports from `out/`).
+ *
+ * Every safety invariant it measures is also an assertion (A7, R-23): a
+ * parser marker leak, a fuzz crash, a hunk round-trip failure or a miss on
+ * the labelled command set is recorded like any other row and then fails the
+ * process with a non-zero exit, so a violated invariant can never be
+ * published as a number. `--module-root` points the imports at another
+ * compiled tree; the R-23 check uses it to inject a leaking parser.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -29,7 +36,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const out = (relative: string) => path.join(repoRoot, 'out', relative);
+const moduleRoot = process.argv.includes('--module-root')
+	? path.resolve(process.argv[process.argv.indexOf('--module-root') + 1])
+	: path.join(repoRoot, 'out');
+const out = (relative: string) => path.join(moduleRoot, relative);
 const asJson = process.argv.includes('--json');
 /** `--json-out <path>`: write the machine-readable report while still printing the human one. */
 const jsonOut = process.argv[process.argv.indexOf('--json-out') + 1] && process.argv.includes('--json-out')
@@ -48,10 +58,24 @@ interface IResult {
 const results: IResult[] = [];
 /** Everything that could not be measured here, and why — printed, and carried in the JSON. */
 const skipped: string[] = [];
+/** Safety invariants that did not hold. Any entry fails the process. */
+const violations: string[] = [];
 function record(group: string, name: string, value: number, unit: string, detail?: string, model?: string) {
 	results.push({ group, name, value: Math.round(value * 100) / 100, unit, detail, model });
 	if (!asJson) {
 		console.log(`  ${name.padEnd(46)} ${String(Math.round(value * 100) / 100).padStart(9)} ${unit}${detail ? `   (${detail})` : ''}`);
+	}
+}
+
+/**
+ * Records a row that is also a safety invariant: the measured value must equal
+ * `expected`, or the run fails. The row still prints and lands in the JSON,
+ * so the report shows what was violated rather than going quiet.
+ */
+function invariant(group: string, name: string, value: number, unit: string, expected: number, detail?: string) {
+	record(group, name, value, unit, `${detail ? `${detail}; ` : ''}must be ${expected}`);
+	if (Math.round(value * 100) / 100 !== expected) {
+		violations.push(`${group}: ${name} = ${Math.round(value * 100) / 100} ${unit}, must be ${expected}${detail ? ` (${detail})` : ''}`);
 	}
 }
 
@@ -62,7 +86,7 @@ function record(group: string, name: string, value: number, unit: string, detail
  */
 function writeReport() {
 	if (jsonOut) {
-		fs.writeFileSync(jsonOut, JSON.stringify({ results, skipped }, undefined, '\t'));
+		fs.writeFileSync(jsonOut, JSON.stringify({ results, skipped, violations }, undefined, '\t'));
 	}
 }
 
@@ -279,7 +303,7 @@ async function benchmarkParsers() {
 	// The prose case is a correct refusal, not a failure, so it is excluded.
 	const recoverable = malformations.length - 1;
 	record('parsers', 'malformed edits recovered', (recovered / recoverable) * 100, '%', `${recovered}/${recoverable} shapes`);
-	record('parsers', 'format markers written into a file', corrupted, 'cases', 'must be 0');
+	invariant('parsers', 'format markers written into a file', corrupted, 'cases', 0);
 
 	// Fuzzing: the parser must never throw and never leak a marker.
 	let seed = 99;
@@ -311,8 +335,8 @@ async function benchmarkParsers() {
 	}
 	const fuzzMs = performance.now() - fuzzStart;
 	record('parsers', 'fuzz inputs parsed', iterations, 'inputs', `${Math.round(fuzzMs)}ms`);
-	record('parsers', 'fuzz crashes', threw, 'crashes', 'must be 0');
-	record('parsers', 'fuzz marker leaks', leaked, 'leaks', 'must be 0');
+	invariant('parsers', 'fuzz crashes', threw, 'crashes', 0);
+	invariant('parsers', 'fuzz marker leaks', leaked, 'leaks', 0);
 }
 
 // --------------------------------------------------------------- changeset
@@ -350,9 +374,9 @@ async function benchmarkChangeSet() {
 		if (mixed === expected) { subsetOk++; }
 	}
 	const elapsed = performance.now() - start;
-	record('changeset', 'accept-all reproduces the proposal', (acceptAllOk / iterations) * 100, '%', `${iterations} random edit shapes`);
-	record('changeset', 'reject-all restores the original', (rejectAllOk / iterations) * 100, '%');
-	record('changeset', 'partial selection is deterministic', (subsetOk / iterations) * 100, '%');
+	invariant('changeset', 'accept-all reproduces the proposal', (acceptAllOk / iterations) * 100, '%', 100, `${iterations} random edit shapes`);
+	invariant('changeset', 'reject-all restores the original', (rejectAllOk / iterations) * 100, '%', 100);
+	invariant('changeset', 'partial selection is deterministic', (subsetOk / iterations) * 100, '%', 100);
 	record('changeset', 'hunk computation throughput', iterations / (elapsed / 1000), 'files/s');
 }
 
@@ -380,10 +404,12 @@ async function benchmarkTerminalPolicy() {
 	const truePositives = dangerous.filter(command => classifyCommand(command).dangerous).length;
 	const falsePositives = safe.filter(command => classifyCommand(command).dangerous).length;
 	const overWarned = deliberateOverWarn.filter(command => classifyCommand(command).dangerous).length;
-	record('terminal', 'dangerous commands caught', (truePositives / dangerous.length) * 100, '%', `${truePositives}/${dangerous.length}`);
-	record('terminal', 'everyday commands wrongly flagged', (falsePositives / safe.length) * 100, '%', `${falsePositives}/${safe.length}`);
+	invariant('terminal', 'dangerous commands caught', (truePositives / dangerous.length) * 100, '%', 100, `${truePositives}/${dangerous.length} on the labelled set`);
+	invariant('terminal', 'everyday commands wrongly flagged', (falsePositives / safe.length) * 100, '%', 0, `${falsePositives}/${safe.length} on the labelled set`);
 	record('terminal', 'quoted danger still warns (by design)', (overWarned / deliberateOverWarn.length) * 100, '%', 'so nothing hides behind quoting');
-	record('terminal', 'commands never run without approval', 100, '%', 'by construction: no auto-run path exists');
+	// There is no "commands never run without approval: 100% (by construction)"
+	// row. That claim is measured by B2's authorization regressions through the
+	// dispatch boundary once they exist, not asserted here.
 }
 
 // -------------------------------------------------------------- real models
@@ -1199,7 +1225,7 @@ async function main() {
 		await benchmarkRealModels();
 	}
 
-	const report = JSON.stringify({ results, skipped }, undefined, '\t');
+	const report = JSON.stringify({ results, skipped, violations }, undefined, '\t');
 	if (jsonOut) {
 		writeReport();
 	}
@@ -1216,6 +1242,13 @@ async function main() {
 			}
 		}
 		console.log('\nRe-run any time: node test/onyx/run-benchmarks.mts');
+	}
+	if (violations.length) {
+		console.error(`\n${violations.length} safety invariant(s) violated:`);
+		for (const violation of violations) {
+			console.error(`  ${violation}`);
+		}
+		process.exit(1);
 	}
 }
 

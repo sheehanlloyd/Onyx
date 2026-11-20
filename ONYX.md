@@ -348,8 +348,9 @@ Integration points consumed (imports only, never patched):
       arms, and every installed model's score reproducing this repository's own
       commits — one model resident at a time, absent runtimes skipped with a
       printed reason rather than a failure. `make-charts.mts` renders the
-      README's SVGs from that run's JSON only, so a chart cannot drift from the
-      number it claims. [docs/BENCHMARKS.md](./docs/BENCHMARKS.md) documents
+      README's SVGs from that run's JSON only, under an experiment manifest
+      that names the models, seeds and machine (L3), so a chart cannot drift
+      from the number it claims or lose where it came from. [docs/BENCHMARKS.md](./docs/BENCHMARKS.md) documents
       what each measurement means and how to reproduce it.
 
       Measured against three real Ollama models on a quiesced M4 Pro:

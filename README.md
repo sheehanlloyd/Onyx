@@ -494,9 +494,33 @@ node test/onyx/run-e2e.mts         # 45 end-to-end checks against a real workben
 node test/onyx/run-benchmarks.mts  # every number in this README, re-measured
 ```
 
-CI runs typecheck, layer checks, ESLint, stylelint, the Onyx unit tests, the full
-end-to-end suite under Xvfb and the deterministic benchmarks on every push —
-[.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.yml).
+What runs where — [.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.yml):
+
+- **On every push to `main` and every pull request into it:** a scoped hygiene
+  job (NUL bytes, stale identity strings, URL allowlist, image manifest) and the
+  main job: typecheck, layer check, ESLint on the Onyx paths, stylelint, compile,
+  the Onyx unit tests, the full end-to-end suite under Xvfb, the deterministic
+  benchmarks (every safety invariant in them is an assertion that fails the
+  job), and the harness's own self-checks (`test/onyx/checks/`), which include
+  the fresh-output protocol: a probe regression is transpiled before it is
+  observed to fail and again before it is observed to pass.
+- **On manual dispatch:** the same jobs. Later items add the module gate and the
+  packaged-app smoke here.
+- **The harness contract.** What the agent must never do, for every model output, user action and
+  environment fault, with the observable definition of each guarantee and the simulation rig that checks
+  them: [docs/research/HARNESS-CONTRACT.md](./docs/research/HARNESS-CONTRACT.md). The baseline exceptions the
+  unmodified harness still violates, each with an owner and a reproducing script, are in
+  `test/onyx/sim/baseline-exceptions.json`.
+- **Provenance.** Every agent run journals a versioned trace with the harness configuration hash, the
+  model digest, the runtime version, the sampling parameters including the seed and whether the runtime
+  honoured it; every campaign carries an experiment manifest, and the chart builder refuses to draw
+  without one. The research agenda and the pre-registered hypotheses with their decision thresholds are
+  in [docs/research/README.md](./docs/research/README.md).
+- **Locally:** the commands above, plus `node test/onyx/run-fresh.mts -- <command>`
+  to refresh `out/` and stamp it before any red or green run, and
+  `node --test --test-concurrency=1 "test/onyx/checks/*.test.mts"` for the self-checks
+  (one file at a time: the fresh-output check rewrites `out/` while others read it). The real-model
+  half of the benchmarks runs only locally, against the runtimes on your machine.
 
 ---
 

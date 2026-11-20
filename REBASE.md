@@ -75,7 +75,7 @@ never conflict — and upstream's root copies are left byte-identical. Do not
 | `src/vs/workbench/contrib/welcomeGettingStarted/common/gettingStartedContent.ts` | The `Setup` walkthrough is retitled ("Set Up Your Editor"), `isFeatured` is `false` (Onyx's own walkthrough is featured via `featuredFor` in `extensions/theme-onyx`), and the four `createCopilotSetupStep(...)` entries plus their now-unused string/button constants are removed. On conflict: take upstream, then re-delete the Copilot setup steps. |
 | `src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts` | One string: the Welcome page subtitle is "Every model on your machine". |
 | `build/gulpfile.vscode.ts` | Onyx does not ship the built-in Copilot extension: `compileCopilotExtensionBuildTask` is dropped from both `vscode` task series and `prepareCopilotRipgrepShimTask` (plus its call in `packageTasks`) is deleted — that step materialized ripgrep inside the packaged extension and threw when the Copilot SDK was absent, which is why it used to be try/caught. Every tool Onyx's agent exposes (`openBrowserPage`, `readPage`, `usages`, `extensions`) is contributed by core, so the tool set does not regress; verified live with `--disable-extension GitHub.copilot-chat`. Dev launches still load `extensions/copilot` from sources — only the packaged product excludes it. On conflict: take upstream, then re-delete the compile task from the series and the shim task + call. |
-| `eslint.config.js` | Two additive edits in the `test/**` block: `'test/**/*.mts'` joins the `files` glob (Onyx's harness scripts are `.mts`, so they were silently unlinted), and a `code-import-patterns` target for `test/onyx/**` restricted to `node:*`, `@playwright/*` and node modules — the harness must never import product code. On conflict: re-add both inside upstream's block. |
+| `eslint.config.js` | Two additive edits in the `test/**` block: `'test/**/*.mts'` joins the `files` glob (Onyx's harness scripts are `.mts`, so they were silently unlinted), and a `code-import-patterns` target for `test/onyx/**` restricted to `node:*`, `@playwright/*`, `test/onyx/**` (the harness scripts import each other) and node modules — the harness must never import product code. On conflict: re-add both inside upstream's block. |
 | `build/lib/extensions.ts` | `'copilot'` added to `excludedExtensions` so the packaged product does not ship another vendor's assistant. On conflict: take upstream, re-add the one entry. |
 | `build/gulpfile.extensions.ts` | `compileCopilotExtensionBuildTask` is no longer referenced by the vscode build (the export stays for upstream compatibility). |
 | `src/vs/platform/accessibility/browser/accessibleView.ts` | 2 additive `AccessibleViewProviderId` members: `OnyxControlPlane`, `OnyxInlineEdit`. |
@@ -180,3 +180,55 @@ npm run typecheck-client && npm run valid-layers-check && npx eslint src/vs/plat
    relevant block, mirroring an existing neighbor (Local Git is the template).
 3. Never reformat or refactor upstream code.
 4. Every new file uses the standard header (ESLint enforces it).
+
+## Upstream baseline (A9, DEC-05)
+
+| Field | Value |
+|---|---|
+| Fork base | `36d38757a15` (microsoft/vscode, August 2026; the fork's `package.json` reports 1.136.0) |
+| Current upstream release at the trial | `1.147.0` = `8a14f0cc1b0`, 2026-11-18 |
+| Trial | `docs/progress/A9.md`: 5 conflicts (all in the table above), 0 of 849 consumed API symbols missing, typecheck/compile/layers/unit/benchmarks green on the merged tree; upstream now requires pnpm 12.16.0 and Node 24.22.1 |
+| Recorded decision | **Recommendation:** keep the current base through Module 1's gate, rebase onto 1.147.0 at the start of Module 2. **Waiting on HUMAN confirmation** (DEC-05). Elapsed time never makes a failing or known-vulnerable base releasable; the rebased tree re-runs the activated gates |
+| Drill | `node test/onyx/run-upstream-drill.mts --latest-release` (weekly in `.github/workflows/onyx-upstream-drill.yml`); the report names unpredicted conflicts and missing symbols, so this table and the one above stay honest |
+## Git LFS fixtures (A10)
+
+Upstream tracks 98 SQLite fixtures under `extensions/copilot/test/simulation/cache/` through Git
+LFS (`.gitattributes`: `*.sqlite filter=lfs`). Onyx excludes the Copilot extension from the packaged
+product and never runs those tests, so the fixture *contents* are never needed; only the pointer files
+are tracked. The decision, recorded here so that it is not re-litigated at every merge:
+
+- **The pointers stay in HEAD.** Removing them would be a 98-file change to upstream-owned paths that
+  conflicts at every merge, for no product gain. A tracked pointer is a 3-line text file; it is not a
+  product defect.
+- **Installs never smudge them.** CI sets `GIT_LFS_SKIP_SMUDGE=1` for `npm ci`; a local clone made with
+  the same variable (or without `git-lfs` installed at all) checks the pointers out as pointers and
+  `npm ci` completes without touching them. `extensions/copilot/script/postinstall.ts` warns only when
+  `test/simulation/cache/base.sqlite` is *absent*; a pointer file satisfies the check, so a clone made
+  this way installs without the warning. That was verified in the isolated checkout for Module 1
+  (`npm ci`: no fixture warning, `git status` clean afterwards) and in the CI install step.
+- **An owner's checkout whose working tree lacks the files** (the situation A1 inventoried: 98 pointers
+  reported as deleted) shows them as deletions until the files are restored with
+  `GIT_LFS_SKIP_SMUDGE=1 git checkout -- extensions/copilot/test/simulation/cache`. That restores
+  pointers, not fixture contents, and needs no LFS server. A1/DEC-06 forbids running that in the
+  owner's checkout without separate authorization; it is documented here for when the owner chooses to.
+- On an upstream merge, take upstream's side for every `.sqlite` pointer and for `.gitattributes`.
+
+Removal of the fixtures is therefore **not** a release gate; the documented install strategy handles them
+(ActionPlan A10).
+
+## Inherited automation (A11)
+
+Upstream's workflows and bot configurations were "disabled manually" in GitHub's Actions settings only.
+A11 deleted them from the tree and added the `inherited-automation` hygiene check so that none can return
+through a merge. On an upstream merge, **take the Onyx side: deleted** for every path in this table.
+`.github/README.md` explains what remains and what it can run.
+
+| Path | Resolution |
+|---|---|
+| `.github/workflows/chat-lib-package.yml`, `chat-perf.yml`, `component-fixtures.yml`, `copilot-setup-steps.yml`, `css-order-scan.yml`, `monaco-editor.yml`, `pr-darwin-test.yml`, `pr-linux-cli-test.yml`, `pr-linux-test.yml`, `pr-node-modules.yml`, `pr-win32-test.yml`, `pr.yml`, `require-commit-trailer.yml`, `sessions-e2e.yml`, `telemetry.yml` | take Onyx side: deleted |
+| `.github/workflows/node_modules_cache/`, `.github/workflows/check-clean-git-state.sh` | take Onyx side: deleted (helpers of the deleted workflows) |
+| `.github/CODEOWNERS` | take Onyx side: deleted (requested reviews from Microsoft staff) |
+| `.github/dependabot.yml` | take Onyx side: deleted |
+| `.github/CODENOTIFY`, `.github/classifier.json`, `.github/commands.json`, `.github/commands/`, `.github/similarity.yml`, `.github/insiders.yml`, `.github/endgame/` | take Onyx side: deleted (issue-bot configuration) |
+| `.github/actions/` | kept; unreferenced composite actions run nothing on their own |
+| `.github/README.md` | Onyx-owned, new |

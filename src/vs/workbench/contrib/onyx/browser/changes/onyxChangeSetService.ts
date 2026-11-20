@@ -26,6 +26,7 @@ import { IOnyxChangeRisk } from '../../common/onyxChangeRisk.js';
 import { IOnyxEditBlock, IOnyxEditHunk } from '../../common/onyxInlineEdit.js';
 import { resolveWorkspacePath } from '../../common/onyxWorkspacePaths.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
+import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 
 export const IOnyxChangeSetService = createDecorator<IOnyxChangeSetService>('onyxChangeSetService');
 
@@ -98,6 +99,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
 	) {
 		super();
 		// Staged edits survive a crash: restore them marked stale, so the next
@@ -180,7 +182,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		if (!staged) {
 			return false;
 		}
-		return this._applySafely(staged, () => true);
+		return this._applySafely(staged, () => true, 'all');
 	}
 
 	async acceptHunk(path: string, hunkIndex: number): Promise<boolean> {
@@ -188,13 +190,17 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		if (!staged || hunkIndex < 0 || hunkIndex >= staged.hunks.length) {
 			return false;
 		}
-		return this._applySafely(staged, index => index === hunkIndex);
+		return this._applySafely(staged, index => index === hunkIndex, hunkIndex);
 	}
 
 	/** An accept that cannot land (file deleted, buffer unavailable) says so and leaves the proposal staged. */
-	private async _applySafely(staged: IOnyxStagedFile, keep: (index: number) => boolean): Promise<boolean> {
+	private async _applySafely(staged: IOnyxStagedFile, keep: (index: number) => boolean, hunk: number | 'all'): Promise<boolean> {
 		try {
-			return await this._apply(staged, keep);
+			const applied = await this._apply(staged, keep);
+			if (applied && staged.runId) {
+				this._controlPlaneService.recordAcceptance(staged.runId, { path: staged.proposal.path, hunk });
+			}
+			return applied;
 		} catch (error) {
 			this._notificationService.notify({
 				severity: Severity.Error,
@@ -226,7 +232,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	async acceptAll(): Promise<number> {
 		let applied = 0;
 		for (const staged of [...this._filesObs.get()]) {
-			if (await this._applySafely(staged, () => true)) {
+			if (await this._applySafely(staged, () => true, 'all')) {
 				applied++;
 			}
 		}

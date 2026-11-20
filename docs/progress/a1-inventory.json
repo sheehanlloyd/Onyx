@@ -1,0 +1,427 @@
+{
+  "repository": "~/Desktop/onyx",
+  "revision": "482d0d1d2aed4b178e9f6aa60814e5e5be4803c8",
+  "realIndex": {
+    "present": false
+  },
+  "realIndexStatusEntries": 18499,
+  "realIndexStatusSummary": {
+    "stagedDeletions": 18451,
+    "untracked": 48
+  },
+  "headToWorktree": [
+    {
+      "status": "A",
+      "path": "docs/ActionPlan.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/ClaudeAudit.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/CodexAudit.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/CursorAudit.md"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/base.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/01e15e5a-efd2-40a0-92cd-3bfaf628aa72.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/02302f34-8428-4267-b3a2-b67e8262966b.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/0984437c-ed37-4480-81f7-0a80dcc32f7f.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/0e5665c9-9fc8-471d-9dff-dd58767d1ba8.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/0e97fa2a-7e18-41a8-bdfd-a9b65e0c4ac6.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/0fbe60af-6808-4958-ac2f-20162e06c077.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/16358f84-8df2-4a5a-a4a2-513a67284fb1.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/186d13d6-3c0c-45dd-9d45-054632ec599d.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/195a5147-3edc-4000-8315-1bea45e5c009.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/1addc1e5-24d0-4fdd-8951-f7f59666e4e5.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/1cf3aa34-24fc-4b0f-b58e-71a8c3ce6b44.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/1d85b8d3-1406-4485-b8a5-98dad6490592.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/1dd0f60e-1fe0-4b14-9f27-047dc8aa800a.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/239254c1-ce50-4e2c-ac06-00f0dfeab14c.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/23fd7b40-3b35-4d90-b749-e398ae9902ec.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/259d8f89-7585-49ee-8ed6-bd2510ccc2f6.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/27e555fe-bc95-4c61-a0fe-93e6b8bc6b88.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/27e99d82-1b84-4c7d-8a80-c01269f890c1.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/29c74bc8-3778-42d7-914f-cbc9e912bd1d.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/2a11d94c-b23f-4ab5-8a9a-5748a83bb37b.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/2d4b6535-29bd-4897-96ae-399aae047f3b.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/2d765cff-f0ca-4522-8172-702a487bb242.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/350e2592-41da-4007-9c96-3701071fc415.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/37da0b8c-0436-4946-ac41-3e81b1eec4fc.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/398ac5b7-cfcd-4aeb-8a1f-adb01b655f49.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/3e558dd9-66aa-4156-a214-0462cfab6e2e.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/4564196f-7384-41e3-9992-ab42292f6c04.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/48065100-4cc9-41c9-b9bd-f370bfc52f9b.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/496d9dbf-76fb-4465-85ef-2f6db044f3b0.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/498d7802-5700-4f5f-bb98-8fad83a519ae.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/4abc964e-d0fc-4e01-874a-50cba972d7f2.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/52decb57-8a4b-4aae-a109-d5ef6fb81dce.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/530b3a35-0900-4c19-bdf8-51f73310775f.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/53912fce-0085-4400-ba17-8dbb195f32b0.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/53e98a53-b403-4038-b94d-8192c72ac082.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/5627a5a3-e250-4bd7-9deb-bd994b18c74b.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/5da5b542-1093-4c74-8ff3-293a98137832.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/5e682c86-7e31-4839-a04e-789dde7bd65c.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/618b5dbc-cf7b-4adf-b79f-2cc5daa967b0.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/662ee12d-473b-49d5-a55b-a2721b170456.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/6697cddb-7595-485f-801e-056e1390cfae.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/6934fbec-d4de-4115-9cb9-94234e136ef4.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/6c8d6396-4625-40e9-9feb-a83ae1b169c7.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/6fbd9c7b-e371-4190-a689-532b4da5b28c.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/6fe858fb-0160-4799-bb84-436455e241cb.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/70406ad0-1fbd-47a0-9b72-6b80e3b3d46b.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/777fb29e-910d-4740-9ba1-f1db3908b791.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/78623318-45b0-497e-8705-4acdff7e9142.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/7a0bf361-b530-4259-9036-53be022c74f5.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/7f3d15b3-72d6-42c8-bf13-6651ecafb6fc.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/8297d5e8-7c5e-4687-96a4-843fe47ce0c1.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/844e5164-c68d-448e-a5fd-d1cb6bc13173.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/84ed1c64-2304-4b7d-9f24-e14fccf22da0.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/89e70ae0-6908-4e58-80ba-eb4a1c2765ae.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/8cfec68c-dc02-4036-8ba7-307a0e0b1df4.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/93199c02-b2ce-4bc4-90f2-0875c98d0c34.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/9414a004-0e90-4081-a38a-bdcb25e2297d.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/96be0e6b-0462-48a9-b8ad-b9b785d28b75.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/9ef25ceb-3271-49df-ab8c-53b73f4c254e.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/a3555535-cc5e-4dd6-984b-390a64993b3d.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/a441d89a-4d7a-414b-923f-d15340724f4b.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/a7805ce5-79b6-4720-a00a-301a5f6a68bd.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/a7e5376d-8802-4e73-9170-ab69870fe038.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/a87a1664-1acb-4f1a-b7d3-209da8c03f1e.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/afd19959-d69d-4145-b386-1aa35f759bc7.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/b116c030-25c8-4b9d-84c4-54691c7e3f19.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/b1a1762c-2a82-4587-8c1e-1bcc608f53bd.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/b4d80ef7-4800-4362-bd4a-49657b8284e6.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/b75cb4a4-41fc-4bc5-9e63-db8e1bef3df4.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/c070064c-d562-4181-a9cf-b54ecc283b10.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/c0e4989a-fe7e-4468-9c32-5db7d370b1a2.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/c451045a-da8c-43fa-ba6f-8198c2eb0975.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/c49b269c-a057-4aef-b52a-f196c5bd0c25.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/c49cde85-f02d-4ba1-91f1-b0b2f7cfaf2f.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/c5166f81-3f13-42ad-b532-8390fcda8f07.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/c6dcee44-3151-45de-9660-0234cc2d4c0d.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/c95e6eba-e55f-4185-8ea1-77476a654a79.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/cbdbc41c-98cb-45a2-a12d-a78ed24463c9.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/cd5400cf-64ce-4da6-8731-5cbd0265c0f8.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/ceff0177-48cf-40fb-808d-a32a6cd57d85.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/d5fa879f-fbcf-4c95-9c23-d42acd30aaa0.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/d651951f-df41-47da-9f89-f0afb6bd274f.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/d667a7a7-8626-4fdb-937c-e36ae873c0d5.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/d719ef71-8404-49a4-9f6d-5e9f3118ce51.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/d9032eab-477d-4bd1-b530-7652ed1e5b70.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/dc4c7b8c-784f-4eb5-9979-c5c6e61ae79c.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/dcad7537-6f4d-410f-8dbb-ac690963982c.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/dece6d72-483a-4eba-bfb8-762d7146f5e0.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/e051f92c-e4f0-4dd7-be6f-e4fdc77239a5.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/e0bdf0eb-0e2c-40e7-9de4-729e9f6e7daa.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/e38bfee4-7c23-4862-8479-43fef600a939.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/efb8de8c-8109-45e8-9383-789be32852eb.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/f0da01ab-e2a6-45ac-9673-32b967d14b31.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/f245cbe1-2962-48f7-9ce6-41a722693933.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/f6f886b2-0933-4a62-91e9-4840cee01850.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/f9bd58e9-8b91-477c-8aad-2222025f4607.sqlite"
+    },
+    {
+      "status": "D",
+      "path": "extensions/copilot/test/simulation/cache/layers/fa8a1ddb-9625-48c5-ae4f-1d083b1dcb0d.sqlite"
+    }
+  ],
+  "headToWorktreeStat": " docs/ActionPlan.md                                 | 1429 ++++++++++++++++++++\n docs/ClaudeAudit.md                                |  670 +++++++++\n docs/CodexAudit.md                                 |  412 ++++++\n docs/CursorAudit.md                                |  360 +++++\n .../copilot/test/simulation/cache/base.sqlite      |    3 -\n .../01e15e5a-efd2-40a0-92cd-3bfaf628aa72.sqlite    |    3 -\n .../02302f34-8428-4267-b3a2-b67e8262966b.sqlite    |    3 -\n .../0984437c-ed37-4480-81f7-0a80dcc32f7f.sqlite    |    3 -\n .../0e5665c9-9fc8-471d-9dff-dd58767d1ba8.sqlite    |    3 -\n .../0e97fa2a-7e18-41a8-bdfd-a9b65e0c4ac6.sqlite    |    3 -\n .../0fbe60af-6808-4958-ac2f-20162e06c077.sqlite    |    3 -\n .../16358f84-8df2-4a5a-a4a2-513a67284fb1.sqlite    |    3 -\n .../186d13d6-3c0c-45dd-9d45-054632ec599d.sqlite    |    3 -\n .../195a5147-3edc-4000-8315-1bea45e5c009.sqlite    |    3 -\n .../1addc1e5-24d0-4fdd-8951-f7f59666e4e5.sqlite    |    3 -\n .../1cf3aa34-24fc-4b0f-b58e-71a8c3ce6b44.sqlite    |    3 -\n .../1d85b8d3-1406-4485-b8a5-98dad6490592.sqlite    |    3 -\n .../1dd0f60e-1fe0-4b14-9f27-047dc8aa800a.sqlite    |    3 -\n .../239254c1-ce50-4e2c-ac06-00f0dfeab14c.sqlite    |    3 -\n .../23fd7b40-3b35-4d90-b749-e398ae9902ec.sqlite    |    3 -\n .../259d8f89-7585-49ee-8ed6-bd2510ccc2f6.sqlite    |    3 -\n .../27e555fe-bc95-4c61-a0fe-93e6b8bc6b88.sqlite    |    3 -\n .../27e99d82-1b84-4c7d-8a80-c01269f890c1.sqlite    |    3 -\n .../29c74bc8-3778-42d7-914f-cbc9e912bd1d.sqlite    |    3 -\n .../2a11d94c-b23f-4ab5-8a9a-5748a83bb37b.sqlite    |    3 -\n .../2d4b6535-29bd-4897-96ae-399aae047f3b.sqlite    |    3 -\n .../2d765cff-f0ca-4522-8172-702a487bb242.sqlite    |    3 -\n .../350e2592-41da-4007-9c96-3701071fc415.sqlite    |    3 -\n .../37da0b8c-0436-4946-ac41-3e81b1eec4fc.sqlite    |    3 -\n .../398ac5b7-cfcd-4aeb-8a1f-adb01b655f49.sqlite    |    3 -\n .../3e558dd9-66aa-4156-a214-0462cfab6e2e.sqlite    |    3 -\n .../4564196f-7384-41e3-9992-ab42292f6c04.sqlite    |    3 -\n .../48065100-4cc9-41c9-b9bd-f370bfc52f9b.sqlite    |    3 -\n .../496d9dbf-76fb-4465-85ef-2f6db044f3b0.sqlite    |    3 -\n .../498d7802-5700-4f5f-bb98-8fad83a519ae.sqlite    |    3 -\n .../4abc964e-d0fc-4e01-874a-50cba972d7f2.sqlite    |    3 -\n .../52decb57-8a4b-4aae-a109-d5ef6fb81dce.sqlite    |    3 -\n .../530b3a35-0900-4c19-bdf8-51f73310775f.sqlite    |    3 -\n .../53912fce-0085-4400-ba17-8dbb195f32b0.sqlite    |    3 -\n .../53e98a53-b403-4038-b94d-8192c72ac082.sqlite    |    3 -\n .../5627a5a3-e250-4bd7-9deb-bd994b18c74b.sqlite    |    3 -\n .../5da5b542-1093-4c74-8ff3-293a98137832.sqlite    |    3 -\n .../5e682c86-7e31-4839-a04e-789dde7bd65c.sqlite    |    3 -\n .../618b5dbc-cf7b-4adf-b79f-2cc5daa967b0.sqlite    |    3 -\n .../662ee12d-473b-49d5-a55b-a2721b170456.sqlite    |    3 -\n .../6697cddb-7595-485f-801e-056e1390cfae.sqlite    |    3 -\n .../6934fbec-d4de-4115-9cb9-94234e136ef4.sqlite    |    3 -\n .../6c8d6396-4625-40e9-9feb-a83ae1b169c7.sqlite    |    3 -\n .../6fbd9c7b-e371-4190-a689-532b4da5b28c.sqlite    |    3 -\n .../6fe858fb-0160-4799-bb84-436455e241cb.sqlite    |    3 -\n .../70406ad0-1fbd-47a0-9b72-6b80e3b3d46b.sqlite    |    3 -\n .../777fb29e-910d-4740-9ba1-f1db3908b791.sqlite    |    3 -\n .../78623318-45b0-497e-8705-4acdff7e9142.sqlite    |    3 -\n .../7a0bf361-b530-4259-9036-53be022c74f5.sqlite    |    3 -\n .../7f3d15b3-72d6-42c8-bf13-6651ecafb6fc.sqlite    |    3 -\n .../8297d5e8-7c5e-4687-96a4-843fe47ce0c1.sqlite    |    3 -\n .../844e5164-c68d-448e-a5fd-d1cb6bc13173.sqlite    |    3 -\n .../84ed1c64-2304-4b7d-9f24-e14fccf22da0.sqlite    |    3 -\n .../89e70ae0-6908-4e58-80ba-eb4a1c2765ae.sqlite    |    3 -\n .../8cfec68c-dc02-4036-8ba7-307a0e0b1df4.sqlite    |    3 -\n .../93199c02-b2ce-4bc4-90f2-0875c98d0c34.sqlite    |    3 -\n .../9414a004-0e90-4081-a38a-bdcb25e2297d.sqlite    |    3 -\n .../96be0e6b-0462-48a9-b8ad-b9b785d28b75.sqlite    |    3 -\n .../9ef25ceb-3271-49df-ab8c-53b73f4c254e.sqlite    |    3 -\n .../a3555535-cc5e-4dd6-984b-390a64993b3d.sqlite    |    3 -\n .../a441d89a-4d7a-414b-923f-d15340724f4b.sqlite    |    3 -\n .../a7805ce5-79b6-4720-a00a-301a5f6a68bd.sqlite    |    3 -\n .../a7e5376d-8802-4e73-9170-ab69870fe038.sqlite    |    3 -\n .../a87a1664-1acb-4f1a-b7d3-209da8c03f1e.sqlite    |    3 -\n .../afd19959-d69d-4145-b386-1aa35f759bc7.sqlite    |    3 -\n .../b116c030-25c8-4b9d-84c4-54691c7e3f19.sqlite    |    3 -\n .../b1a1762c-2a82-4587-8c1e-1bcc608f53bd.sqlite    |    3 -\n .../b4d80ef7-4800-4362-bd4a-49657b8284e6.sqlite    |    3 -\n .../b75cb4a4-41fc-4bc5-9e63-db8e1bef3df4.sqlite    |    3 -\n .../c070064c-d562-4181-a9cf-b54ecc283b10.sqlite    |    3 -\n .../c0e4989a-fe7e-4468-9c32-5db7d370b1a2.sqlite    |    3 -\n .../c451045a-da8c-43fa-ba6f-8198c2eb0975.sqlite    |    3 -\n .../c49b269c-a057-4aef-b52a-f196c5bd0c25.sqlite    |    3 -\n .../c49cde85-f02d-4ba1-91f1-b0b2f7cfaf2f.sqlite    |    3 -\n .../c5166f81-3f13-42ad-b532-8390fcda8f07.sqlite    |    3 -\n .../c6dcee44-3151-45de-9660-0234cc2d4c0d.sqlite    |    3 -\n .../c95e6eba-e55f-4185-8ea1-77476a654a79.sqlite    |    3 -\n .../cbdbc41c-98cb-45a2-a12d-a78ed24463c9.sqlite    |    3 -\n .../cd5400cf-64ce-4da6-8731-5cbd0265c0f8.sqlite    |    3 -\n .../ceff0177-48cf-40fb-808d-a32a6cd57d85.sqlite    |    3 -\n .../d5fa879f-fbcf-4c95-9c23-d42acd30aaa0.sqlite    |    3 -\n .../d651951f-df41-47da-9f89-f0afb6bd274f.sqlite    |    3 -\n .../d667a7a7-8626-4fdb-937c-e36ae873c0d5.sqlite    |    3 -\n .../d719ef71-8404-49a4-9f6d-5e9f3118ce51.sqlite    |    3 -\n .../d9032eab-477d-4bd1-b530-7652ed1e5b70.sqlite    |    3 -\n .../dc4c7b8c-784f-4eb5-9979-c5c6e61ae79c.sqlite    |    3 -\n .../dcad7537-6f4d-410f-8dbb-ac690963982c.sqlite    |    3 -\n .../dece6d72-483a-4eba-bfb8-762d7146f5e0.sqlite    |    3 -\n .../e051f92c-e4f0-4dd7-be6f-e4fdc77239a5.sqlite    |    3 -\n .../e0bdf0eb-0e2c-40e7-9de4-729e9f6e7daa.sqlite    |    3 -\n .../e38bfee4-7c23-4862-8479-43fef600a939.sqlite    |    3 -\n .../efb8de8c-8109-45e8-9383-789be32852eb.sqlite    |    3 -\n .../f0da01ab-e2a6-45ac-9673-32b967d14b31.sqlite    |    3 -\n .../f245cbe1-2962-48f7-9ce6-41a722693933.sqlite    |    3 -\n .../f6f886b2-0933-4a62-91e9-4840cee01850.sqlite    |    3 -\n .../f9bd58e9-8b91-477c-8aad-2222025f4607.sqlite    |    3 -\n .../fa8a1ddb-9625-48c5-ae4f-1d083b1dcb0d.sqlite    |    3 -\n 102 files changed, 2871 insertions(+), 294 deletions(-)",
+  "realIndexAfter": {
+    "present": false
+  },
+  "indexUnchanged": true
+}
