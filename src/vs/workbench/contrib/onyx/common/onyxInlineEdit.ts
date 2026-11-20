@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { stripReasoning } from './onyxReasoning.js';
+
 /**
  * The inline-edit wire format and its repairer. Small local models are bad at
  * unified diffs — hunk headers drift, context lines rot — so Onyx asks for
@@ -59,7 +61,14 @@ const REPLACE_MARKER = /^>{4,}\s*(REPLACE\s*)?$/;
  * none). A reply with no markers that still looks like code becomes a
  * whole-selection rewrite; prose becomes `unparseable`.
  */
-export function parseInlineEdits(reply: string): OnyxInlineEditParse {
+export function parseInlineEdits(modelReply: string): OnyxInlineEditParse {
+	// A reasoning model's thinking is not its answer (C4): edit blocks written while thinking are drafts,
+	// and a reply that stopped mid-thought has no answer to apply.
+	const thought = stripReasoning(modelReply);
+	if (thought.unterminated) {
+		return { kind: 'unparseable', raw: modelReply };
+	}
+	const reply = thought.text;
 	// Bare \r counts as a line break: a model emitting old-Mac line endings
 	// must not be able to smuggle a marker past the grammar inside "one line".
 	let lines = reply.split(/\r\n|\r|\n/);

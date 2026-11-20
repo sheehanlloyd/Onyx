@@ -205,6 +205,8 @@ export interface IOnyxDiff {
 
 export type IOnyxStreamEvent =
 	| { readonly operationId: string; readonly kind: 'delta'; readonly text: string }
+	/** Thinking the runtime sends beside the text, in `reasoning` or `reasoning_content` (C4). Not part of the answer. */
+	| { readonly operationId: string; readonly kind: 'reasoning'; readonly text: string }
 	| { readonly operationId: string; readonly kind: 'toolCallDelta'; readonly index: number; readonly id?: string; readonly name?: string; readonly argumentsDelta?: string }
 	| { readonly operationId: string; readonly kind: 'usage'; readonly promptTokens: number; readonly completionTokens: number }
 	| { readonly operationId: string; readonly kind: 'done'; readonly ending: OnyxStreamEnding; readonly finishReason: string | undefined; readonly seedHonoured?: boolean; readonly fingerprint?: string }

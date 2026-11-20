@@ -86,6 +86,9 @@ interface ISseChunk {
 		readonly finish_reason?: string;
 		readonly delta?: {
 			readonly content?: string;
+			/** A reasoning model's thinking: `reasoning` on Ollama's OpenAI-compatible endpoint, `reasoning_content` on LM Studio, llama.cpp and vLLM. */
+			readonly reasoning?: string;
+			readonly reasoning_content?: string;
 			readonly tool_calls?: readonly { readonly index?: number; readonly id?: string; readonly function?: { readonly name?: string; readonly arguments?: string } }[];
 		};
 	}[];
@@ -634,6 +637,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				// One network read usually carries several SSE events; coalescing
 				// their text deltas into a single event keeps IPC traffic low.
 				let textDelta = '';
+				let reasoningDelta = '';
 				let newlineIndex;
 				while ((newlineIndex = buffered.indexOf('\n')) >= 0) {
 					const line = buffered.slice(0, newlineIndex).trimEnd();
@@ -676,6 +680,10 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					if (typeof choice.delta?.content === 'string' && choice.delta.content.length > 0) {
 						textDelta += choice.delta.content;
 					}
+					const reasoning = choice.delta?.reasoning ?? choice.delta?.reasoning_content;
+					if (typeof reasoning === 'string' && reasoning.length > 0) {
+						reasoningDelta += reasoning;
+					}
 					for (const toolCall of choice.delta?.tool_calls ?? []) {
 						this._onDidStream.fire({
 							operationId, kind: 'toolCallDelta',
@@ -685,6 +693,10 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 							argumentsDelta: toolCall.function?.arguments,
 						});
 					}
+				}
+				// Thinking first: within one read it precedes the text it led to.
+				if (reasoningDelta) {
+					this._onDidStream.fire({ operationId, kind: 'reasoning', text: reasoningDelta });
 				}
 				if (textDelta) {
 					this._onDidStream.fire({ operationId, kind: 'delta', text: textDelta });
