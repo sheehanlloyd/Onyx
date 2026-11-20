@@ -16,11 +16,12 @@ import { IOnyxDiscoveredModel, IOnyxRuntimeService } from '../../../../../platfo
 import { nullExtensionDescription } from '../../../../services/extensions/common/extensions.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IChatMessage, IChatResponsePart, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse } from '../../../chat/common/languageModels.js';
-import { getOnyxEndpointSettings, OnyxSettingId } from '../../common/onyxConfiguration.js';
+import { getOnyxEndpointSettings, normalizeEndpointBaseUrl, OnyxSettingId } from '../../common/onyxConfiguration.js';
 import { humanizeRuntimeError } from '../../common/onyxRuntimeErrors.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxRouterService } from '../routing/onyxRouterService.js';
+import { IOnyxEndpointSecretService } from './onyxEndpointSecrets.js';
 import { estimateMessageTokens, estimateTokens, IRequestTool, ToolCallAccumulator, toWireMessages, toWireTools } from './onyxOpenAITranslator.js';
 
 export const IOnyxModelService = createDecorator<IOnyxModelService>('onyxModelService');
@@ -40,6 +41,7 @@ export interface IOnyxKnownModel {
 	readonly key: string;
 	readonly discovered: IOnyxDiscoveredModel;
 	readonly profile: IOnyxModelProfile;
+	/** From the system's secret storage (B11). Held in memory for requests; never written to a file by Onyx. */
 	readonly apiKey?: string;
 }
 
@@ -97,6 +99,8 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	/** Last time a request against each model finished — the residency clock. */
 	private readonly _lastUsedAt = new Map<string, number>();
 	private _totalMemoryGb: number | undefined;
+	/** Endpoint API keys by normalized base URL, as last read from the secret storage. */
+	private _apiKeys: ReadonlyMap<string, string> = new Map();
 
 	constructor(
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
@@ -104,8 +108,10 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
+		@IOnyxEndpointSecretService private readonly _endpointSecretService: IOnyxEndpointSecretService,
 	) {
 		super();
+		this._register(this._endpointSecretService.onDidChange(() => this.refresh()));
 		this._register(this._runtimeService.onDidChangeRuntimes(endpoints => {
 			this._rebuildFromDiscovery(endpoints.flatMap(e => e.models));
 		}));
@@ -125,6 +131,11 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	private async _doRefresh(): Promise<void> {
 		const settings = getOnyxEndpointSettings(this._configurationService);
 		const discoveryEnabled = this._configurationService.getValue<boolean>(OnyxSettingId.DiscoveryEnabled) !== false;
+		try {
+			this._apiKeys = await this._endpointSecretService.configuredApiKeys();
+		} catch (err) {
+			this._logService.warn('[onyx] endpoint keys could not be read', err);
+		}
 
 		const discovered: IOnyxDiscoveredModel[] = [];
 		if (discoveryEnabled) {
@@ -140,7 +151,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		// not be probed (e.g. a server that only implements /chat/completions).
 		for (const setting of settings) {
 			for (const modelId of setting.models ?? []) {
-				const baseUrl = normalizeConfiguredBaseUrl(setting.baseUrl);
+				const baseUrl = normalizeEndpointBaseUrl(setting.baseUrl);
 				if (!discovered.some(m => m.baseUrl === baseUrl && m.id === modelId)) {
 					discovered.push({ id: modelId, baseUrl, runtime: 'generic', contextLength: setting.contextWindow });
 				}
@@ -155,13 +166,13 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		const next = new Map<string, IOnyxKnownModel>();
 		for (const model of discovered) {
 			const key = modelKey(model);
-			const setting = settings.find(s => normalizeConfiguredBaseUrl(s.baseUrl) === model.baseUrl);
+			const setting = settings.find(s => normalizeEndpointBaseUrl(s.baseUrl) === model.baseUrl);
 			const withOverrides = setting?.contextWindow ? { ...model, contextLength: setting.contextWindow } : model;
 			next.set(key, {
 				key,
 				discovered: withOverrides,
 				profile: this._profileService.getProfile(key, withOverrides),
-				apiKey: setting?.apiKey,
+				apiKey: this._apiKeys.get(model.baseUrl),
 			});
 		}
 		const changed = next.size !== this._models.size || [...next.keys()].some(k => !this._models.has(k));
@@ -443,13 +454,3 @@ function runtimeLabel(runtime: IOnyxDiscoveredModel['runtime']): string {
 	}
 }
 
-function normalizeConfiguredBaseUrl(url: string): string {
-	let normalized = url.trim().replace(/\/+$/, '');
-	if (!/^https?:\/\//.test(normalized)) {
-		normalized = `http://${normalized}`;
-	}
-	if (!normalized.endsWith('/v1')) {
-		normalized = `${normalized}/v1`;
-	}
-	return normalized;
-}

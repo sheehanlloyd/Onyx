@@ -121,6 +121,22 @@
 			]
 		},
 		{
+			"id": "R-20",
+			"title": "B11 diagnostics that redact what they say they redact: a journal, settings and logs seeded with a sentinel in every content channel produce a default bundle, and a zip, with none of them; the API key is absent even with content included",
+			"layer": "service",
+			"regressions": [
+				"R-20"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxDiagnosticsExport.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxDiagnosticsExport"
+			]
+		},
+		{
 			"id": "R-05-R-59",
 			"title": "B3 tool capability contract at the service layer: the wire carries only contracted tools by default and with the network opt-in (R-05); a stored note needs a confirmation that shows its origin (R-59)",
 			"layer": "service",

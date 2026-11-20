@@ -119,6 +119,35 @@ nothing else in Onyx (R-40).
 | Output, to the model and the journal | 12,000 characters: the start and the end, with the total stated when it was cut |
 | Environment | Variables whose names match `/(TOKEN\|SECRET\|KEY\|PASSWORD\|CREDENTIAL)/i` are withheld. `onyx.terminal.passEnvironment` (user setting, default off) passes everything, and the approval prompt then says so. Defense in depth only; see `.github/SECURITY.md` |
 
+## Diagnostics export (B11)
+
+`Onyx: Export Diagnostics` writes one zip where the user says. Nothing is uploaded. Every entry is built from
+an allowlist (`common/onyxDiagnostics.ts`); the bundle's own `README.txt` says which mode produced it.
+
+| In the bundle | Default | With "Include prompt text, file contents, command text and output, paths and log messages" |
+|---|---|---|
+| Run journals: kinds, timings, turn numbers, digests, tool names, statuses, stream endings, sampling | kept | kept |
+| Prompt messages | role, part type, tool name, size in characters | text, parameters and results |
+| Activity labels and reasons, including command output | length | text |
+| Approved command and its working directory | length | text |
+| The model's reply | length | text |
+| Accepted paths, activity locations, run titles | length | text |
+| Runtime base URL | scheme, host and path | the same |
+| Journal lines that are not events this version knows | left out, and counted in `README.txt` | the same |
+| Profiles, models, machine, runtimes | every number and boolean; these string fields when they are names: `id`, `key`, `runtime`, `kind`, `family`, `quantization`, `digest`, `arch`, `platform`, `promptStyle`, `thermal`, `version`, `displayName`, `cpuModel`; `baseUrl` as scheme, host and path | the same |
+| `onyx.*` settings | booleans, numbers, `onyx.routing.mode`, `onyx.energy.policy`, and each endpoint as base URL (scheme, host, path), model ids, context window and whether a key is still written in the setting. A string setting that is free text is listed by name only | the same |
+| Logs (every `.log` under the session's log folder, 1 MB a file, 5 MB in all) | each line's timestamp and level, and the length of its message | the messages |
+| Endpoint API keys | never, as a field or as a value anywhere in any entry | never |
+| Credentials and query strings inside URLs, bearer tokens | never | never |
+
+An endpoint's API key lives in the system's secret storage (`Onyx: Set Endpoint API Key`). `apiKey` inside
+`onyx.endpoints` is deprecated: a key found there is moved to the secret storage and removed from the setting
+when Onyx next reads its endpoints. A user with no configured endpoint never causes a read of the secret
+storage.
+
+What "kept" means for names: a tool name, a model id or a runtime name is exported as it is. That is a
+decision, not an oversight; it is what makes a redacted bundle useful.
+
 ## Read-side tools and their limits (B1)
 
 The agent reads the workspace with Onyx's own tools. They go through the workbench's file and search services;

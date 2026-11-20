@@ -153,6 +153,16 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		], { userSteps: [{ at: 'commandRunning', occurrence: 1, step: { kind: 'closeWindow' } }] }),
 	},
 	{
+		id: 'B11-value-only-redaction',
+		fixedBy: 'B11',
+		defect: 'The diagnostics export rewrote only the `value` of prompt message parts; tool parameters, note labels and reasons, command text and output, paths and the model\'s reply went into a "redacted" bundle as they were (Codex N1; R-20)',
+		detects: 'I-10/content-in-default-export',
+		resurrects: 'OnyxMutantValueOnlyRedactor',
+		script: script('B11-value-only-redaction', 'Run the tests', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
+		]),
+	},
+	{
 		id: 'B3-uncontracted-tools',
 		fixedBy: 'B3',
 		defect: 'Whatever core\'s tool registry holds reaches the model: `runTask`, `createAndRunTask`, a rename that writes without staging, the browser tools, MCP and extension tools, each with core\'s own confirmations or none (Claude H2; R-05)',

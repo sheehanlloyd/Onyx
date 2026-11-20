@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import '../common/onyxConfiguration.js';
+import { getOnyxEndpointSettings } from '../common/onyxConfiguration.js';
 import '../browser/controlPlane/onyxControlPlane.contribution.js';
 import '../browser/architecture/onyxArchitecture.contribution.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -68,6 +68,8 @@ import { IOnyxSpeculativeService, OnyxSpeculativeService } from '../browser/comp
 import { IOnyxPromptCacheService, OnyxPromptCacheService } from '../browser/agent/onyxPromptCache.js';
 import { IOnyxProjectConfigService, OnyxProjectConfigService } from '../browser/config/onyxProjectConfigService.js';
 import { OnyxDiagnosticsExport } from '../browser/diagnostics/onyxDiagnosticsExport.js';
+import { IOnyxEndpointSecretService, OnyxEndpointSecretService } from '../browser/model/onyxEndpointSecrets.js';
+import { OnyxDiagnosticsRedactor } from '../common/onyxDiagnostics.js';
 import { OnyxModelLibrary } from '../browser/models/onyxModelLibrary.js';
 import { OnyxIdleReviewContribution } from '../browser/review/onyxIdleReview.js';
 import { OnyxTournament } from '../browser/tournament/onyxTournament.js';
@@ -89,6 +91,7 @@ AccessibleViewRegistry.register(new OnyxInlineEditAccessibilityHelp());
 
 registerSingleton(IOnyxProfileService, OnyxProfileService, InstantiationType.Delayed);
 registerSingleton(IOnyxRouterService, OnyxRouterService, InstantiationType.Delayed);
+registerSingleton(IOnyxEndpointSecretService, OnyxEndpointSecretService, InstantiationType.Delayed);
 registerSingleton(IOnyxModelService, OnyxModelService, InstantiationType.Delayed);
 registerSingleton(IOnyxControlPlaneService, OnyxControlPlaneService, InstantiationType.Delayed);
 registerSingleton(IOnyxOutcomeService, OnyxOutcomeService, InstantiationType.Delayed);
@@ -386,6 +389,49 @@ registerAction2(class ShowOnyxAgentToolsAction extends Action2 {
 			...inventory.excluded.map(tool => `${tool.name}  ${tool.reason}`),
 		];
 		await editorService.openEditor({ resource: undefined, contents: lines.join('\n'), languageId: 'plaintext', options: { pinned: true } });
+	}
+});
+
+registerAction2(class SetOnyxEndpointApiKeyAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.setEndpointApiKey',
+			title: localize2('onyx.setEndpointApiKey', "Onyx: Set Endpoint API Key"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+		const secretService = accessor.get(IOnyxEndpointSecretService);
+		const endpoints = getOnyxEndpointSettings(accessor.get(IConfigurationService));
+		if (endpoints.length === 0) {
+			notificationService.notify({ severity: Severity.Info, message: localize('onyx.setEndpointApiKey.none', "No endpoint is configured. Add one to the onyx.endpoints setting first; auto-discovered local runtimes take no key.") });
+			return;
+		}
+		// The URL as it may be shown: without the credentials someone may have written into it.
+		const shown = new OnyxDiagnosticsRedactor({ includeContent: false, secrets: [] });
+		const picked = endpoints.length === 1
+			? endpoints[0]
+			: (await quickInputService.pick(endpoints.map(endpoint => ({ label: String(shown.url(endpoint.baseUrl)), endpoint })), { placeHolder: localize('onyx.setEndpointApiKey.pick', "Which endpoint is the key for?") }))?.endpoint;
+		if (!picked) {
+			return;
+		}
+		const apiKey = await quickInputService.input({
+			password: true,
+			prompt: localize('onyx.setEndpointApiKey.prompt', "API key for {0}. Leave empty to remove the stored key. It is kept in the system's secret storage, not in settings.", String(shown.url(picked.baseUrl))),
+		});
+		if (apiKey === undefined) {
+			return;
+		}
+		await secretService.setApiKey(picked.baseUrl, apiKey.length > 0 ? apiKey : undefined);
+		notificationService.notify({
+			severity: Severity.Info,
+			message: apiKey.length > 0
+				? localize('onyx.setEndpointApiKey.stored', "The API key for {0} is stored in the system's secret storage.", String(shown.url(picked.baseUrl)))
+				: localize('onyx.setEndpointApiKey.removed', "The stored API key for {0} was removed.", String(shown.url(picked.baseUrl))),
+		});
 	}
 });
 

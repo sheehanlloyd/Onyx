@@ -27,6 +27,10 @@ export const enum OnyxSettingId {
 
 export interface IOnyxEndpointSetting {
 	readonly baseUrl: string;
+	/**
+	 * Legacy. API keys live in the system's secret storage since B11
+	 * (`IOnyxEndpointSecretService`); a key found here is moved there.
+	 */
 	readonly apiKey?: string;
 	/** Explicit model ids to expose; when omitted, models are listed from the endpoint. */
 	readonly models?: readonly string[];
@@ -35,6 +39,18 @@ export interface IOnyxEndpointSetting {
 }
 
 export type OnyxRoutingMode = 'auto' | 'manual';
+
+/** `localhost:8000` → `http://localhost:8000/v1`: the form an endpoint's base URL is stored and compared in. */
+export function normalizeEndpointBaseUrl(url: string): string {
+	let normalized = url.trim().replace(/\/+$/, '');
+	if (!/^https?:\/\//.test(normalized)) {
+		normalized = `http://${normalized}`;
+	}
+	if (!normalized.endsWith('/v1')) {
+		normalized = `${normalized}/v1`;
+	}
+	return normalized;
+}
 
 export function getOnyxEndpointSettings(configurationService: IConfigurationService): readonly IOnyxEndpointSetting[] {
 	const raw = configurationService.getValue<readonly IOnyxEndpointSetting[]>(OnyxSettingId.Endpoints);
@@ -71,13 +87,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'array',
 			scope: ConfigurationScope.MACHINE,
 			default: [],
-			markdownDescription: localize('onyx.endpoints', "Additional OpenAI-compatible inference endpoints to use besides the auto-discovered local runtimes. Each entry needs a `baseUrl` (for example `http://localhost:11434/v1`) and may set an `apiKey`, an explicit `models` list, and a `contextWindow` override."),
+			markdownDescription: localize('onyx.endpoints', "Additional OpenAI-compatible inference endpoints to use besides the auto-discovered local runtimes. Each entry needs a `baseUrl` (for example `http://localhost:11434/v1`) and may set an explicit `models` list and a `contextWindow` override. An API key is not written here: run **Onyx: Set Endpoint API Key**, which keeps it in the system's secret storage."),
 			items: {
 				type: 'object',
 				required: ['baseUrl'],
 				properties: {
 					baseUrl: { type: 'string', description: localize('onyx.endpoints.baseUrl', "Base URL of the endpoint, e.g. `http://localhost:11434/v1`.") },
-					apiKey: { type: 'string', description: localize('onyx.endpoints.apiKey', "Optional API key sent as a Bearer token.") },
+					apiKey: { type: 'string', description: localize('onyx.endpoints.apiKey', "Optional API key sent as a Bearer token."), deprecationMessage: localize('onyx.endpoints.apiKey.deprecated', "API keys are kept in the system's secret storage, not in settings. Run \"Onyx: Set Endpoint API Key\". A key written here is moved there the next time Onyx reads its endpoints, and removed from this file.") },
 					models: { type: 'array', items: { type: 'string' }, description: localize('onyx.endpoints.models', "Model ids to expose. When omitted, the endpoint's model list is used.") },
 					contextWindow: { type: 'number', description: localize('onyx.endpoints.contextWindow', "Context window size in tokens for models of this endpoint.") },
 				},

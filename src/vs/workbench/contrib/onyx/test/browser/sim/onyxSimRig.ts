@@ -6,6 +6,7 @@
 import { timeout } from '../../../../../../base/common/async.js';
 import { VSBuffer } from '../../../../../../base/common/buffer.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../../../base/common/cancellation.js';
+import { Event } from '../../../../../../base/common/event.js';
 import { DisposableStore, IReference } from '../../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { autorun } from '../../../../../../base/common/observable.js';
@@ -34,6 +35,7 @@ import { IChatProgress } from '../../../../chat/common/chatService/chatService.j
 import { ILanguageModelToolsService, ToolDataSource } from '../../../../chat/common/tools/languageModelToolsService.js';
 import { ITaskService } from '../../../../tasks/common/taskService.js';
 import { ISearchService } from '../../../../../services/search/common/search.js';
+import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
 import { IOnyxModelProfile } from '../../../common/onyxTypes.js';
 import { OnyxAgentLoop } from '../../../browser/agent/onyxAgentLoop.js';
 import { IOnyxPromptCacheService, OnyxPromptCacheService } from '../../../browser/agent/onyxPromptCache.js';
@@ -50,6 +52,7 @@ import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMe
 import { OnyxReadFileToolContribution } from '../../../browser/intelligence/onyxReadFileTool.js';
 import { IOnyxWorkspaceAccessService, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxPinService } from '../../../browser/intelligence/onyxPinService.js';
+import { IOnyxEndpointSecretService } from '../../../browser/model/onyxEndpointSecrets.js';
 import { IOnyxModelService, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
@@ -105,6 +108,8 @@ export interface IOnyxSimState {
 	readonly peakRetainedOutputChars: number | undefined;
 	/** Commands that were still running, not killed, after the window announced it was closing. */
 	readonly commandsOutlivingWindow: readonly string[];
+	/** This run's journal as a default diagnostics export would carry it; set once the run has ended. */
+	readonly defaultExport: string | undefined;
 }
 
 export type OnyxSimChecker = (state: IOnyxSimState, boundary: OnyxSimBoundary | 'end') => string | undefined;
@@ -119,6 +124,7 @@ export interface IOnyxSimProductClasses {
 	readonly TerminalService: typeof OnyxTerminalService;
 	readonly WorkspaceAccess: typeof OnyxWorkspaceAccessService;
 	readonly MemoryTool: typeof OnyxMemoryToolContribution;
+	readonly DiagnosticsRedactor: typeof OnyxDiagnosticsRedactor;
 }
 
 export interface IOnyxSimRigOptions {
@@ -177,6 +183,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private readonly _terminal: OnyxTerminalService;
 	private readonly _lifecycle: TestLifecycleService;
 	readonly commandsOutlivingWindow: string[] = [];
+	defaultExport: string | undefined;
+	private readonly _redactorClass: typeof OnyxDiagnosticsRedactor;
 	readonly sanctionedBuffer = new Map<string, string>();
 	readonly sanctionedDisk = new Map<string, string>();
 	readonly pendingBuffer = new Map<string, string>();
@@ -210,7 +218,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private _prepared = false;
 
 	constructor(readonly episode: OnyxSimEpisode, checkers: readonly OnyxSimChecker[] = [], options: IOnyxSimRigOptions = {}) {
-		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, ...options.classes };
+		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ...options.classes };
+		this._redactorClass = classes.DiagnosticsRedactor;
 		this._checkers.push(...checkers);
 		this.trace = new OnyxSimTrace(() => Date.now());
 
@@ -262,6 +271,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 
 		this.controlPlane = this._disposables.add(new OnyxControlPlaneService());
 		instantiationService.stub(IOnyxControlPlaneService, this.controlPlane);
+		// No endpoint is configured in the rig, so there is no key to store or read.
+		instantiationService.stub(IOnyxEndpointSecretService, { _serviceBrand: undefined, onDidChange: Event.None, setApiKey: async () => { }, configuredApiKeys: async () => new Map<string, string>() });
 		const modelService: IOnyxModelService = this._disposables.add(instantiationService.createInstance(OnyxModelService));
 		instantiationService.stub(IOnyxModelService, modelService);
 		this._languageModels = new OnyxSimLanguageModelsService(modelService);
@@ -720,6 +731,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			await timeout(1000);
 		}
 		await watchdog;
+		// What a default diagnostics export would say about this run: the journal, through the product's redactor.
+		this.defaultExport = new this._redactorClass({ includeContent: false, secrets: [] }).journal(this.journalLines.map(line => JSON.parse(line) as unknown)).text;
 		await this._observe('end');
 		for (const message of this._languageModels.streamErrors) {
 			this.trace.record({ kind: 'fault', fault: 'streamError', detail: message });

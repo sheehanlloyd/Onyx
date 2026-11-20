@@ -102,6 +102,24 @@ a runtime on your network, anything on that network can use that runtime too —
 that is a property of the runtime, not of Onyx, but it is worth knowing before
 you change the default.
 
+**An endpoint's API key is kept in the system's secret storage**, not in
+`settings.json`. Set it with `Onyx: Set Endpoint API Key`. A key that an earlier
+build let you write into `onyx.endpoints` is moved to the secret storage and
+removed from the setting the next time Onyx reads its endpoints; if the setting
+cannot be rewritten, the key stays where it is and keeps working. While Onyx
+runs, the key is in memory, and it is sent to the endpoint you configured as a
+bearer token on each request.
+
+**`Onyx: Export Diagnostics` writes a file and uploads nothing.** By default the
+bundle says what happened and how long it took, and carries none of the
+content: prompt text, tool parameters and results, command text and output,
+file paths, run titles and log messages are replaced by their lengths. You can
+opt in to that content; read the bundle before you send it to anyone if you do.
+In neither case does it contain an endpoint API key or the credentials inside a
+URL. The redaction is an allowlist: a field the exporter has not heard of is
+left out. Names are kept as they are (tool names, model ids, runtime names,
+statuses), so a model you named after a client is in the bundle under that name.
+
 ## Supported versions
 
 Onyx is a single-developer project without a release train. Security fixes land
