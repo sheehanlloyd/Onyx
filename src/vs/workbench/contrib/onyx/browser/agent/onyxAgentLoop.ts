@@ -156,9 +156,10 @@ export class OnyxAgentLoop {
 			runId: run.runId,
 			startedAt: Date.now(),
 			harness: { configurationHash: digestValue(harnessConfiguration), configuration: harnessConfiguration },
-			model: { identifier: modelIdentifier, digest: known?.discovered.digest },
-			runtime: { name: known?.discovered.runtime ?? 'unknown', version: known?.discovered.runtimeVersion, baseUrl: known?.discovered.baseUrl ?? '' },
-			sampling: { temperature: profile.temperature, seed: profile.seed, maxTokens: undefined, responseFormat: constrained },
+			model: { identifier: modelIdentifier, digest: known?.discovered.digest ?? null },
+			runtime: { name: known?.discovered.runtime ?? 'unknown', version: known?.discovered.runtimeVersion ?? null, baseUrl: known?.discovered.baseUrl ?? '' },
+			// null, not undefined: JSON drops undefined and the validator fails closed on an absent field.
+			sampling: { temperature: profile.temperature ?? null, seed: profile.seed ?? null, maxTokens: null, responseFormat: constrained },
 			tools: tools.map(tool => ({ name: tool.name, schemaHash: digestValue(tool.inputSchema) })),
 		});
 
@@ -194,7 +195,7 @@ export class OnyxAgentLoop {
 				responseText: responseText.length > MAX_SNAPSHOT_CHARS ? `${responseText.slice(0, MAX_SNAPSHOT_CHARS)}… [truncated]` : responseText,
 				streamEnd: classifyStreamEnd(finishReason, error),
 				toolCalls: traceToolCalls,
-				seed: { requested: profile.seed, honoured: profile.seed === undefined ? 'unknown' : seedHonoured ?? 'unknown' },
+				seed: { requested: profile.seed ?? null, honoured: profile.seed === undefined ? 'unknown' : seedHonoured ?? 'unknown' },
 			});
 			const response = await this._languageModelsService.sendChatRequest(modelIdentifier, undefined, messages, requestOptions, token);
 			const toolUses: IChatResponseToolUsePart[] = [];

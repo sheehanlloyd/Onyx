@@ -14,7 +14,9 @@
  * tool list with schema hashes) and one record per model turn (request
  * digest, response text, how the stream ended, tool calls with argument and
  * result digests, approvals and acceptances). Readers accept both versions;
- * a v2 header that lacks a required field fails validation closed.
+ * a v2 header that lacks a required field fails validation closed. A value
+ * the writer does not know is written as `null`, never omitted: JSON drops
+ * `undefined`, and an absent field is a schema violation, not an unknown.
  */
 
 export const ONYX_TRACE_VERSION = 2;
@@ -32,9 +34,9 @@ export interface IOnyxTraceHeader {
 	readonly runId: string;
 	readonly startedAt: number;
 	readonly harness: { readonly configurationHash: string; readonly configuration: Readonly<Record<string, unknown>> };
-	readonly model: { readonly identifier: string; readonly digest: string | undefined };
-	readonly runtime: { readonly name: string; readonly version: string | undefined; readonly baseUrl: string };
-	readonly sampling: { readonly temperature: number | undefined; readonly seed: number | undefined; readonly maxTokens: number | undefined; readonly responseFormat: boolean };
+	readonly model: { readonly identifier: string; readonly digest: string | null };
+	readonly runtime: { readonly name: string; readonly version: string | null; readonly baseUrl: string };
+	readonly sampling: { readonly temperature: number | null; readonly seed: number | null; readonly maxTokens: number | null; readonly responseFormat: boolean };
 	readonly tools: readonly IOnyxTraceTool[];
 }
 
@@ -53,7 +55,7 @@ export interface IOnyxTraceTurn {
 	readonly responseText: string;
 	readonly streamEnd: OnyxStreamEnd;
 	readonly toolCalls: readonly IOnyxTraceToolCall[];
-	readonly seed: { readonly requested: number | undefined; readonly honoured: boolean | 'unknown' };
+	readonly seed: { readonly requested: number | null; readonly honoured: boolean | 'unknown' };
 }
 
 export interface IOnyxTraceApproval {
@@ -184,7 +186,7 @@ export function validateTrace(trace: IOnyxParsedTrace): { readonly ok: boolean; 
 		errors.push('header.runtime lacks name');
 	}
 	const sampling = header.sampling;
-	if (isRecord(sampling) && !('seed' in sampling)) {
+	if (isRecord(sampling) && !Object.hasOwn(sampling, 'seed')) {
 		errors.push('header.sampling lacks seed');
 	}
 	if (Array.isArray(header.tools)) {
@@ -202,7 +204,7 @@ export function validateTrace(trace: IOnyxParsedTrace): { readonly ok: boolean; 
 				errors.push(`turn ${index + 1} lacks ${field}`);
 			}
 		}
-		if (isRecord(record.seed) && !('requested' in record.seed && 'honoured' in record.seed)) {
+		if (isRecord(record.seed) && !(Object.hasOwn(record.seed, 'requested') && Object.hasOwn(record.seed, 'honoured'))) {
 			errors.push(`turn ${index + 1} seed lacks requested or honoured`);
 		}
 	});

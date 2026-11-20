@@ -511,6 +511,11 @@ What runs where — [.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.
   them: [docs/research/HARNESS-CONTRACT.md](./docs/research/HARNESS-CONTRACT.md). The baseline exceptions the
   unmodified harness still violates, each with an owner and a reproducing script, are in
   `test/onyx/sim/baseline-exceptions.json`.
+- **Provenance.** Every agent run journals a versioned trace with the harness configuration hash, the
+  model digest, the runtime version, the sampling parameters including the seed and whether the runtime
+  honoured it; every campaign carries an experiment manifest, and the chart builder refuses to draw
+  without one. The research agenda and the pre-registered hypotheses with their decision thresholds are
+  in [docs/research/README.md](./docs/research/README.md).
 - **Locally:** the commands above, plus `node test/onyx/run-fresh.mts -- <command>`
   to refresh `out/` and stamp it before any red or green run, and
   `node --test --test-concurrency=1 "test/onyx/checks/*.test.mts"` for the self-checks
