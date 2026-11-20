@@ -193,6 +193,26 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		]),
 	},
 	{
+		id: 'B13-no-output-cap',
+		fixedBy: 'B13',
+		defect: 'Chat requests carried no `max_tokens`: nothing reserved room for the reply or bounded it (Claude H6; Codex N9; R-16)',
+		detects: 'I-04/no-output-cap',
+		resurrects: 'OnyxMutantNoOutputCapLoop',
+		script: script('B13-no-output-cap', 'What does this repository do?', [
+			{ kind: 'text', text: 'It adds numbers.' },
+		]),
+	},
+	{
+		id: 'B13-no-eviction',
+		fixedBy: 'B13',
+		defect: 'Tool results accumulated across turns with no re-budgeting, so the prompt outgrew the context window (Claude H6; Codex N9; R-16)',
+		detects: 'I-04/over-budget',
+		resurrects: 'OnyxMutantNoEvictionLoop',
+		script: script('B13-no-eviction', 'Run the checks until they pass.', Array.from({ length: 6 }, (): OnyxSimEpisode['turns'][number] => ({ kind: 'toolCall', tool: 'terminal', arguments: { command: 'head -c 2000000 /dev/zero' } })), {
+			profile: { promptStyle: 'compact', contextLength: 4096, maxTools: 8 },
+		}),
+	},
+	{
 		id: 'B3-uncontracted-tools',
 		fixedBy: 'B3',
 		defect: 'Whatever core\'s tool registry holds reaches the model: `runTask`, `createAndRunTask`, a rename that writes without staging, the browser tools, MCP and extension tools, each with core\'s own confirmations or none (Claude H2; R-05)',

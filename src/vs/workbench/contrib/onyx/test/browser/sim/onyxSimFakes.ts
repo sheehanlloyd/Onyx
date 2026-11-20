@@ -92,6 +92,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		private readonly _trace: OnyxSimTrace,
 		private readonly _commandScript: (command: string) => IOnyxSimCommandScript,
 		private readonly _commandRefusal: OnyxCommandRefusal | undefined = undefined,
+		private readonly _runtimeContextTokens: number | undefined = undefined,
 	) {
 		super();
 	}
@@ -144,6 +145,9 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	async startChatCompletion(operationId: string, params: IOnyxChatParams): Promise<void> {
 		this.requests.push(params);
 		const lastUser = [...params.messages].reverse().find(message => message.role === 'user');
+		// Everything the request carries: message text, the calls the model made, and the tool schemas.
+		const promptChars = params.messages.reduce((total, message) => total + String(message.content ?? '').length + (message.tool_calls ?? []).reduce((sum, call) => sum + call.function.name.length + call.function.arguments.length, 0), 0);
+		const toolsChars = params.tools?.length ? JSON.stringify(params.tools).length : 0;
 		this._trace.record({
 			kind: 'request',
 			turn: this.requests.length,
@@ -152,10 +156,17 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			messageCount: params.messages.length,
 			roles: params.messages.map(message => message.role),
 			lastUserDigest: digest(String(lastUser?.content ?? '')),
-			promptChars: params.messages.reduce((total, message) => total + String(message.content ?? '').length, 0),
+			promptChars,
+			toolsChars,
 			temperature: params.temperature,
 			maxTokens: params.maxTokens,
 		});
+		if (this._runtimeContextTokens !== undefined && Math.ceil((promptChars + toolsChars) / 4) > this._runtimeContextTokens) {
+			// A runtime that checks: the prompt does not fit what it allocated, and it says so.
+			this._trace.record({ kind: 'fault', fault: 'contextOverflow', detail: `${Math.ceil((promptChars + toolsChars) / 4)} > ${this._runtimeContextTokens}` });
+			this._emit({ operationId, kind: 'error', message: '400 Bad Request: the request exceeds the available context size, try increasing it' });
+			return;
+		}
 		if (this._disposedByFault) {
 			this._emit({ operationId, kind: 'error', message: 'the runtime service was disposed' });
 			return;
@@ -552,8 +563,15 @@ export class OnyxSimToolsService {
 export class OnyxSimProfileService implements IOnyxProfileService {
 	declare readonly _serviceBrand: undefined;
 	readonly onDidChangeProfiles = Event.None;
+	/** What the loop reported as fitting after an overflow, newest last. */
+	readonly observedContexts: number[] = [];
 	constructor(private readonly _profile: IOnyxModelProfile) { }
-	getProfile(): IOnyxModelProfile { return this._profile; }
+	/** The profile, with the context narrowed to what an overflow taught, as the real service does. */
+	getProfile(): IOnyxModelProfile {
+		const observed = this.observedContexts.at(-1);
+		return observed === undefined ? this._profile : { ...this._profile, contextLength: Math.min(this._profile.contextLength, observed) };
+	}
+	reportContextOverflow(_modelKey: string, observedTokens: number): void { this.observedContexts.push(observedTokens); }
 	getStats(): IOnyxObservedStats | undefined { return undefined; }
 	reportMeasurement(_measurement: IOnyxRequestMeasurement): void { }
 	reportOutcome(): void { }

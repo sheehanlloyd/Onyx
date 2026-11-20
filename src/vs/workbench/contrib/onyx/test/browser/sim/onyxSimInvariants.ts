@@ -192,10 +192,15 @@ const i03: OnyxSimChecker = (state, boundary) => {
 
 /** I-04, first half: no request exceeds the effective context budget. */
 const i04Budget: OnyxSimChecker = state => {
+	// The whole request against the whole window: messages, the calls in them, the tool schemas, and the
+	// output the request asked room for (B13). An estimate at four characters a token, like the harness's.
 	const budgetChars = state.profile.contextLength * CHARS_PER_TOKEN;
 	for (const event of events(state)) {
-		if (event.kind === 'request' && event.promptChars > budgetChars) {
-			return `I-04/over-budget: turn ${event.turn} sent ${event.promptChars} chars against a ${state.profile.contextLength}-token window`;
+		if (event.kind === 'request') {
+			const requestChars = event.promptChars + event.toolsChars + (event.maxTokens ?? 0) * CHARS_PER_TOKEN;
+			if (requestChars > budgetChars) {
+				return `I-04/over-budget: turn ${event.turn} sent ${event.promptChars} chars of messages and ${event.toolsChars} of tool schemas${event.maxTokens !== undefined ? `, and asked for ${event.maxTokens} tokens of output,` : ''} against a ${state.profile.contextLength}-token window`;
+			}
 		}
 	}
 	return undefined;

@@ -60,12 +60,16 @@ interface ILmStudioModelList {
 		readonly arch?: string;
 		readonly quantization?: string;
 		readonly max_context_length?: number;
+		/** Present for a model that is loaded: the context it was loaded with. */
+		readonly loaded_context_length?: number;
 	}[];
 }
 
 interface IOllamaShowResponse {
 	readonly capabilities?: readonly string[]; // e.g. ["completion", "tools", "vision"]
 	readonly model_info?: Record<string, unknown>; // contains "<arch>.context_length"
+	/** The Modelfile's parameters as text, one `name value` per line; holds `num_ctx` when the model sets one. */
+	readonly parameters?: string;
 }
 
 /** One parsed chat-completions SSE payload (the fields we consume). */
@@ -736,6 +740,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				parameterB: parseParameterB(tag?.details?.parameter_size) ?? parseParameterBFromId(entry.id),
 				quantization: tag?.details?.quantization_level ?? native?.quantization,
 				contextLength: detail?.contextLength ?? native?.max_context_length,
+				serverContextLength: detail?.serverContextLength ?? native?.loaded_context_length,
 				supportsTools: detail?.supportsTools,
 				supportsVision: detail?.supportsVision ?? (native?.type === 'vlm' ? true : undefined),
 				// The four known runtimes all accept OpenAI `response_format:
@@ -765,8 +770,11 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				break;
 			}
 		}
+		// What the server will allocate, when the model says: `num_ctx` in its parameters.
+		const numCtx = /^\s*num_ctx\s+(?<tokens>\d+)\s*$/m.exec(show.parameters ?? '')?.groups?.tokens;
 		const detail: Partial<IOnyxDiscoveredModel> = {
 			contextLength,
+			serverContextLength: numCtx !== undefined ? Number(numCtx) : undefined,
 			supportsTools: show.capabilities?.includes('tools'),
 			supportsVision: show.capabilities?.includes('vision'),
 		};

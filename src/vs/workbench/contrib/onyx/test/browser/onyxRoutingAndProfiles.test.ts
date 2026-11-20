@@ -53,6 +53,7 @@ class StubProfileService implements IOnyxProfileService {
 	reportOutcome(): void { }
 	reportFimMeasurement(): void { }
 	reportConstrainedOutcome(): void { }
+	reportContextOverflow(): void { }
 	reportBenchScore(): void { }
 	setOverride(): void { }
 	exportAll(): { stats: Record<string, IOnyxObservedStats>; overrides: Record<string, Partial<IOnyxModelProfile>> } { return { stats: {}, overrides: {} }; }

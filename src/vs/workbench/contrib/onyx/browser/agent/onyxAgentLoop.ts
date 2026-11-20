@@ -18,6 +18,7 @@ import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePa
 import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
+import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudgetedKind, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
 import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
 import { buildToolEnvelopeFormat, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
 import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
@@ -30,13 +31,13 @@ import { IOnyxToolExclusion, ONYX_MIN_EDIT_SLOTS, OnyxToolSlotSelection, request
 import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
 import { qualifyWorkspacePath } from '../../common/onyxWorkspacePaths.js';
-import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
+import { IOnyxBudgetSlice, IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
-import { IOnyxModelService, IOnyxStreamOutcome } from '../model/onyxLanguageModelProvider.js';
+import { IOnyxModelService, IOnyxStreamOutcome, OnyxContextOverflowError } from '../model/onyxLanguageModelProvider.js';
 import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxRouterService } from '../routing/onyxRouterService.js';
-import { estimateTokens, IRequestTool } from '../model/onyxOpenAITranslator.js';
+import { estimateMessageTokens, estimateTokens, IRequestTool, toWireTools } from '../model/onyxOpenAITranslator.js';
 import { IOnyxPromptCacheService } from './onyxPromptCache.js';
 import { OnyxPromptBuilder } from './onyxPromptBuilder.js';
 
@@ -181,7 +182,7 @@ export class OnyxAgentLoop {
 			model: { identifier: modelIdentifier, digest: known?.discovered.digest ?? null },
 			runtime: { name: known?.discovered.runtime ?? 'unknown', version: known?.discovered.runtimeVersion ?? null, baseUrl: known?.discovered.baseUrl ?? '' },
 			// null, not undefined: JSON drops undefined and the validator fails closed on an absent field.
-			sampling: { temperature: profile.temperature ?? null, seed: profile.seed ?? null, maxTokens: null, responseFormat: constrained },
+			sampling: { temperature: profile.temperature ?? null, seed: profile.seed ?? null, maxTokens: outputCapTokens(profile.contextLength), responseFormat: constrained },
 			tools: tools.map(tool => ({ name: tool.name, schemaHash: digestValue(tool.inputSchema) })),
 		});
 
@@ -189,11 +190,25 @@ export class OnyxAgentLoop {
 		const built = await promptBuilder.build(request, history, profile, tools.map(t => t.name));
 		run.setContextBudget(built.budget);
 		const messages: IChatMessage[] = built.messages;
+		// What each message is to the context budget (B13). The builder returns the system prompt first and the
+		// request last, with earlier turns and the retrieved workspace context between; whatever the run adds
+		// later is a turn.
+		const kinds = new Map<IChatMessage, OnyxBudgetedKind>();
+		messages.forEach((message, index) => kinds.set(message, index === 0 ? 'system' : index === messages.length - 1 ? 'request' : isWorkspaceContext(message) ? 'workspace' : 'history'));
 		if (constrained) {
 			// After the main system prompt, before any history: the envelope
 			// instruction must match the schema the runtime will enforce.
-			messages.splice(1, 0, { role: ChatMessageRole.System, content: [{ type: 'text', value: toolEnvelopeInstruction() }] });
+			const instruction: IChatMessage = { role: ChatMessageRole.System, content: [{ type: 'text', value: toolEnvelopeInstruction() }] };
+			messages.splice(1, 0, instruction);
+			kinds.set(instruction, 'system');
 		}
+		// What every request carries besides its messages: the tool schemas as they go on the wire, and the
+		// envelope schema when decoding is constrained.
+		const schemaTokens = estimateTokens(JSON.stringify(toWireTools(tools))) + (constrained ? estimateTokens(JSON.stringify(buildToolEnvelopeFormat(tools))) : 0);
+		// The context to fit in. It starts as the smallest number known for the model and only ever gets
+		// smaller during a run: an overflow error teaches what does not fit.
+		let contextTokens = profile.contextLength;
+		let overflowRetried = false;
 
 		const errorsBefore = this._countWorkspaceErrors();
 		let anyToolRan = false;
@@ -201,12 +216,41 @@ export class OnyxAgentLoop {
 		for (let turn = 0; turn < maxTurns && !token.isCancellationRequested; turn++) {
 			run.setTurnCount(turn + 1);
 			run.activity({ kind: 'turn', label: `Model turn ${turn + 1}` });
+
+			// Fit the turn before it is sent (B13, I-04): the schemas and the output cap are set aside, and
+			// what is left decides how much of the conversation goes.
+			const plan = this._planTurn(messages.map(message => ({ message, kind: kinds.get(message) ?? 'turn' })), schemaTokens, contextTokens);
+			if (!plan.fits) {
+				run.activity({ kind: 'note', label: 'The request does not fit the model\'s context', reason: `about ${plan.messageTokens + plan.schemaTokens} tokens of prompt and tool schemas against a context of ${contextTokens}, with nothing left to drop`, ok: false });
+				run.complete('failed');
+				return {
+					errorDetails: {
+						message: localize('onyx.agent.doesNotFit', "This request does not fit the model's context window: the instructions, the request and the tool schemas come to about {0} tokens, and {1} are available once room for the reply is set aside. Earlier tool results, history and workspace context were already dropped. Use a model or a runtime setting with a larger context, or shorten the request.", plan.messageTokens + plan.schemaTokens, plan.messageBudgetTokens + plan.schemaTokens),
+						responseIsIncomplete: true,
+					},
+				};
+			}
+			if (plan.messages.length !== messages.length || plan.shrankNewestResults) {
+				messages.splice(0, messages.length, ...plan.messages.map(entry => entry.message));
+			}
+			if (plan.evictedResults > 0) {
+				run.activity({ kind: 'note', label: `Evicted ${plan.evictedResults} earlier tool result${plan.evictedResults === 1 ? '' : 's'} to fit the context window`, reason: `${plan.evictedCalls} call${plan.evictedCalls === 1 ? '' : 's'}, oldest first; about ${plan.messageTokens} of ${plan.messageBudgetTokens} tokens for messages are in use` });
+			}
+			if (plan.evictedHistory > 0 || plan.droppedWorkspaceContext) {
+				run.activity({ kind: 'note', label: `Dropped ${plan.evictedHistory} earlier conversation message${plan.evictedHistory === 1 ? '' : 's'}${plan.droppedWorkspaceContext ? ' and the retrieved workspace context' : ''} to fit the context window` });
+			}
+			if (plan.shrankNewestResults) {
+				run.activity({ kind: 'note', label: 'Cut the newest tool result further to fit the context window' });
+			}
+			run.setContextBudget(budgetSlices(built.budget, plan, kinds, schemaTokens));
+
 			run.snapshot(snapshotForJournal(turn + 1, modelIdentifier, messages, tools));
 			this._promptCacheService.notePrompt(request.sessionResource.toString(), messages);
 
+			const maxTokens = this._outputCap(plan);
 			const requestOptions = constrained
-				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools) } }
-				: { tools };
+				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools), maxTokens } }
+				: { tools, modelOptions: { maxTokens } };
 			const requestDigest = digestValue(messages);
 			const traceToolCalls: IOnyxTraceToolCall[] = [];
 			const recordTurn = (responseText: string, finishReason: string | undefined, error: boolean, seedHonoured: boolean | undefined, ending?: OnyxStreamEnding) => run.record({
@@ -247,6 +291,17 @@ export class OnyxAgentLoop {
 				streamOutcome = await response.result as Partial<IOnyxStreamOutcome> | undefined;
 			} catch (err) {
 				recordTurn(textStream.finish().raw, undefined, true, undefined);
+				if (!overflowRetried && !token.isCancellationRequested && (err instanceof OnyxContextOverflowError || (err instanceof Error && isContextOverflowError(err.message)))) {
+					// The runtime allocated less than the numbers said. What was just sent is now known not to
+					// fit: budget against that, which drops earlier results, and send this turn once more.
+					overflowRetried = true;
+					const rejectedTokens = plan.messageTokens + plan.schemaTokens;
+					contextTokens = Math.max(1, Math.min(contextTokens - 1, rejectedTokens));
+					this._profileService.reportContextOverflow(modelKey, contextTokens);
+					run.activity({ kind: 'note', label: 'The runtime rejected the prompt as too long', reason: `it was about ${rejectedTokens} tokens; budgeting this model at ${contextTokens} tokens from now on and retrying once`, ok: false });
+					turn--;
+					continue;
+				}
 				throw err;
 			}
 
@@ -425,6 +480,16 @@ export class OnyxAgentLoop {
 		}
 	}
 
+	/** What may be sent this turn, and what had to go to make it fit. */
+	protected _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number): IOnyxTurnPlan {
+		return planTurn({ messages, contextTokens, schemaTokens, estimate: estimateMessageTokens });
+	}
+
+	/** The output cap sent with the request: the room the plan set aside for the reply. */
+	protected _outputCap(plan: IOnyxTurnPlan): number | undefined {
+		return plan.maxTokens;
+	}
+
 	/** `truncated` or `stalled` when the stream's own account says the reply is incomplete; undefined otherwise. */
 	protected _incompleteEnding(outcome: Partial<IOnyxStreamOutcome> | undefined): 'truncated' | 'stalled' | undefined {
 		return outcome?.ending === 'truncated' || outcome?.ending === 'stalled' ? outcome.ending : undefined;
@@ -588,6 +653,26 @@ export class OnyxAgentLoop {
 		}
 		return DEFAULT_PROFILE;
 	}
+}
+
+/** The message the prompt builder adds for retrieved workspace context: background, and the first thing to go when room is short. */
+function isWorkspaceContext(message: IChatMessage): boolean {
+	const first = message.content[0];
+	return first?.type === 'text' && first.value.startsWith('[Workspace context');
+}
+
+/** The context budget as the Control Plane shows it: the builder's breakdown, with what this turn actually carries. */
+function budgetSlices(built: readonly IOnyxBudgetSlice[], plan: IOnyxTurnPlan, kinds: ReadonlyMap<IChatMessage, OnyxBudgetedKind>, schemaTokens: number): IOnyxBudgetSlice[] {
+	const tokensOf = (kind: OnyxBudgetedKind) => plan.messages.filter(entry => (kinds.get(entry.message) ?? 'turn') === kind).reduce((sum, entry) => sum + estimateMessageTokens(entry.message), 0);
+	return built.map(slice => {
+		switch (slice.category) {
+			case 'toolSchemas': return { ...slice, tokens: schemaTokens };
+			case 'toolResults': return { ...slice, tokens: tokensOf('turn') };
+			case 'history': return { ...slice, tokens: tokensOf('history') };
+			case 'workspace': return { ...slice, tokens: tokensOf('workspace') };
+			default: return slice;
+		}
+	});
 }
 
 const MAX_SNAPSHOT_CHARS = 64 * 1024;

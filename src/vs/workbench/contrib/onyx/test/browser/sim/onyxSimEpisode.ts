@@ -104,6 +104,12 @@ export interface OnyxSimEpisode {
 	readonly passEnvironment?: boolean;
 	/** The platform has no supported way to run a command: the runner refuses and starts nothing (DEC-02). */
 	readonly commandRefusal?: 'unsupported-platform';
+	/**
+	 * The context the runtime really allocates, in tokens (four characters each, as the harness estimates).
+	 * A request larger than this is rejected with the runtime's overflow error. Unset: the runtime accepts
+	 * anything, as a runtime that truncates silently would.
+	 */
+	readonly runtimeContextTokens?: number;
 }
 
 /**
@@ -380,7 +386,9 @@ export function generateEpisode(seed: number): OnyxSimEpisode {
 		faults,
 		projectConfig: projectConfig(configRandom),
 		// The slot cap varies (R-36): the supported eight, the minimum six, and profiles too small to edit with.
-		profile: configRandom.chance(0.3) ? { promptStyle: 'compact', contextLength: 2048, maxTools: configRandom.pick([8, 8, 8, 6, 5, 3, 12, 24, 0]) } : undefined,
+		// A small window, where every tool result forces something out (B13). Four thousand tokens is the
+		// least an eight-tool agent can work in: the instructions and tool schemas alone are about 1,400.
+		profile: configRandom.chance(0.3) ? { promptStyle: 'compact', contextLength: 4096, maxTools: configRandom.pick([8, 8, 8, 6, 5, 3, 12, 24, 0]) } : undefined,
 		...(configRandom.chance(0.25) ? { networkTools: true } : {}),
 	};
 }

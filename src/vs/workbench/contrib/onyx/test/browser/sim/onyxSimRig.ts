@@ -155,6 +155,10 @@ export interface IOnyxSimResult {
 	readonly commands: readonly { readonly cwd: string; readonly command: string; readonly timeoutMs: number; readonly passEnvironment: boolean }[];
 	/** The most command output the terminal service held at once, in characters. */
 	readonly peakRetainedOutputChars: number | undefined;
+	/** Every request as it went on the wire: estimated tokens of messages and tool schemas, and the output cap. */
+	readonly requests: readonly { readonly promptTokens: number; readonly maxTokens: number | undefined; readonly text: string }[];
+	/** What the loop told the profile service fits, after an overflow. */
+	readonly observedContexts: readonly number[];
 	/** Tasks the task service was asked to run. */
 	readonly tasksRan: readonly string[];
 	/** The repository configuration file as it is on disk at the end. */
@@ -188,6 +192,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private readonly _provider: OnyxSimFileSystemProvider;
 	private readonly _terminal: OnyxTerminalService;
 	private readonly _lifecycle: TestLifecycleService;
+	private readonly _profiles: OnyxSimProfileService;
 	readonly commandsOutlivingWindow: string[] = [];
 	defaultExport: string | undefined;
 	private readonly _redactorClass: typeof OnyxDiagnosticsRedactor;
@@ -237,7 +242,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			}
 			return { exitCode: 0, output: command.startsWith('cat ') ? (episode.files[command.slice(4).trim()] ?? '') : `ran: ${command}\n` };
 		};
-		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal));
+		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal, episode.runtimeContextTokens));
 		this.dialogs = new OnyxSimDialogService(episode.dialogDefault, this, this.trace);
 		this.tools = new OnyxSimToolsService(this, this.trace);
 
@@ -254,7 +259,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(ILanguageModelToolsService, this.tools);
 		const profile: IOnyxModelProfile = { toolCallQuality: 0.9, contextLength: 16384, maxTools: 8, temperature: 0.2, promptStyle: 'full', family: 'sim', parameterB: 7, supportsVision: false, ...episode.profile };
 		this.profile = profile;
-		instantiationService.stub(IOnyxProfileService, new OnyxSimProfileService(profile));
+		this._profiles = new OnyxSimProfileService(profile);
+		instantiationService.stub(IOnyxProfileService, this._profiles);
 		// The real project config service: the episode's repository configuration is a `.onyx/config.json`
 		// on the in-memory disk, read the way the product reads it.
 		instantiationService.stub(IOnyxProjectConfigService, this._disposables.add(instantiationService.createInstance(OnyxProjectConfigService)));
@@ -758,6 +764,12 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			dialogs: [...this.dialogs.prompts],
 			commands: this.runtime.commands.map(command => ({ cwd: command.cwd, command: command.command, timeoutMs: command.timeoutMs, passEnvironment: command.passEnvironment })),
 			peakRetainedOutputChars: this.peakRetainedOutputChars,
+			requests: this.runtime.requests.map(request => {
+				const text = request.messages.map(message => String(message.content ?? '') + (message.tool_calls ?? []).map(call => call.function.name + call.function.arguments).join('')).join('\n');
+				const promptChars = request.messages.reduce((total, message) => total + String(message.content ?? '').length + (message.tool_calls ?? []).reduce((sum, call) => sum + call.function.name.length + call.function.arguments.length, 0), 0);
+				return { promptTokens: Math.ceil((promptChars + (request.tools?.length ? JSON.stringify(request.tools).length : 0)) / 4), maxTokens: request.maxTokens, text };
+			}),
+			observedContexts: [...this._profiles.observedContexts],
 			tasksRan: [...this.tasks.ran],
 			projectConfigOnDisk: await this.projectConfigOnDisk(),
 			memoryNotes: this.memory.getNotes().map(note => note.text),

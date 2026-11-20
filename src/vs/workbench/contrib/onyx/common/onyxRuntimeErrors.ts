@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { isContextOverflowError } from './onyxContextBudget.js';
 
 /**
  * Turns transport-level failures into sentences a person can act on. A local
@@ -27,8 +28,8 @@ export function humanizeRuntimeError(raw: string, modelId?: string): string {
 	if (/timeout|ETIMEDOUT|timed out/i.test(text)) {
 		return localize('onyx.error.timeout', "The local runtime took too long to answer{0}. A smaller model, or a shorter prompt, will respond faster.", model);
 	}
-	if (/context length|context window|too many tokens|maximum context|prompt is too long/i.test(text)) {
-		return localize('onyx.error.context', "This request is longer than the model's context window{0}. Onyx will trim history on the next turn; you can also pick a model with a larger window.", model);
+	if (isContextOverflowError(text)) {
+		return localize('onyx.error.context', "This request is longer than the context the runtime allocated for the model{0}. Onyx drops earlier tool results and history and retries once when that happens; if you are reading this, it still did not fit. Use a model or a runtime setting with a larger context, or shorten the request.", model);
 	}
 	if (/\b404\b|model not found|no such model|does not exist/i.test(text)) {
 		return localize('onyx.error.missingModel', "The runtime does not have that model loaded{0}. Pull it with Onyx: Manage Models, or pick another model.", model);

@@ -95,7 +95,7 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 	// exceed the budget and every request must carry max_tokens (I-04).
 	scenario('audit-h6-context-budget', 'Run the checks until they pass.', Array.from({ length: 16 }, (): OnyxSimEpisode['turns'][number] => ({ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } })), {
 		dialogDefault: 'allow-once',
-		profile: { promptStyle: 'compact', contextLength: 2048, maxTools: 8 },
+		profile: { promptStyle: 'compact', contextLength: 4096, maxTools: 8 },
 		faults: Array.from({ length: 16 }, (_, index) => ({ at: 'afterToolDispatch' as const, occurrence: index + 1, step: { kind: 'outputFlood' as const, bytes: 20_000 } })),
 	}),
 	// R-31: the model reads the file through Onyx's own read tool, then proposes an edit whose SEARCH text is

@@ -99,6 +99,46 @@ offers **Run Once** or **Deny**. An answer covers that one invocation.
 | A check task (`onyx.verification.task`, or `verificationTask` in `.onyx/config.json`) | Asks before each run, naming the task and who configured it. The dialog cannot show the commands a task runs and says so |
 | Past decisions | Kept in machine-local workspace storage, at most 200, shown by `Onyx: Show Terminal Approval History`. A record, never a permission. Nothing about approval is written to a tracked file |
 
+## Context: what a request is fitted into (B13)
+
+**Three numbers, and the smallest one wins.** For each model Onyx keeps what the architecture allows (as the
+runtime reports it), what the server is configured to allocate when it says so (Ollama's `num_ctx` in the
+model's parameters, LM Studio's loaded context length), and what was observed to fit (learned from an
+overflow error; L5's datasheet measures it). The context a request is budgeted against is the smallest of
+those that are known, 8,192 tokens when none is. `models.json` in a diagnostics bundle carries all three and
+which one was used.
+
+A runtime that allocates less than the model's architecture and does not say so cannot be detected from its
+metadata. Ollama serves a model at its default context unless told otherwise, and cuts a longer prompt
+without an error. Until the datasheet has measured the model, Onyx budgets against the architectural number
+in that case, and the oldest part of a long prompt may be lost at the runtime.
+
+**Every request is planned before it is sent.**
+
+| Set aside first | How much |
+|---|---|
+| Unused share, to absorb the estimate's error | 15% of the context |
+| The reply (`max_tokens` on the wire) | 15% of the context, at least 256 tokens, at most 4,096 |
+| Tool schemas, as serialized | whatever they come to: about 1,100 tokens for the eight-tool set |
+
+The messages have to fit in what is left. When they do not, things are dropped whole, in this order: tool
+calls with their results, oldest first, keeping the newest; earlier conversation turns, oldest first; the
+retrieved workspace context; then the newest tool result is cut further. Each drop is a note on the run's
+timeline ("Evicted 2 earlier tool results to fit the context window"). If the instructions, the request and
+the schemas still do not fit, nothing is sent and the chat says so with the numbers.
+
+**Tokens are estimated**, at four characters each, not counted by the model's tokenizer. The Context Budget
+view is labelled "estimated".
+
+**When the runtime rejects a prompt as too long**, the size of the rejected request becomes the model's
+observed context, earlier results are dropped to fit it, and the turn is sent once more. A second rejection
+ends the run with the runtime's message. The observed number is kept for the model on this machine and only
+ever gets smaller until the model is measured.
+
+**Smallest workable context.** The eight-tool agent's instructions and schemas are about 1,400 estimated
+tokens. A 2,048-token context cannot hold them with room for a reply and is refused; 4,096 works, with one
+tool result in view at a time. The supported profile is 8,192 or more.
+
 ## Streams, tool arguments and the content index (B12)
 
 **How a reply ended is said, not assumed.**

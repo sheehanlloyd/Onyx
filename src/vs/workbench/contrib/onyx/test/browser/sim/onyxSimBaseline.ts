@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { OnyxSimEpisode, SIM_FILES } from './onyxSimEpisode.js';
-import { SIM_SCENARIOS } from './onyxSimScenarios.js';
 
 /**
  * The baseline exceptions (L2, R-42): every violation class the simulator
@@ -45,14 +44,6 @@ function script(episode: Omit<OnyxSimEpisode, 'files'>): OnyxSimEpisode {
 			? { ...turn, arguments: { ...(turn.arguments as Record<string, unknown>), replace: repeat((turn.arguments as { replace: string }).replace) } }
 			: turn),
 	};
-}
-
-function scenario(name: string): OnyxSimEpisode {
-	const found = SIM_SCENARIOS.find(candidate => candidate.name === name);
-	if (!found) {
-		throw new Error(`no scenario named ${name}`);
-	}
-	return found;
 }
 
 export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
@@ -116,27 +107,6 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 					},
 				},
 			],
-			faults: [],
-		}),
-	},
-	{
-		class: 'I-04/no-output-cap',
-		owner: 'B13',
-		finding: 'Claude H6; Codex N9 (R-16): chat requests carry no `max_tokens`',
-		script: script({
-			name: 'I-04-no-output-cap',
-			seed: 1,
-			persona: 'flooder',
-			prompt: 'Run the',
-			target: 'src/math.ts',
-			turns: [
-				{
-					kind: 'text',
-					text: 'Done.',
-				},
-			],
-			dialogDefault: 'deny',
-			userSteps: [],
 			faults: [],
 		}),
 	},
@@ -283,11 +253,5 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 			userSteps: [],
 			faults: [],
 		}),
-	},
-	{
-		class: 'I-04/over-budget',
-		owner: 'B13',
-		finding: 'Claude H6; Codex N9 (R-16): tool results accumulate across turns and the prompt exceeds the context window',
-		script: scenario('audit-h6-context-budget'),
 	},
 ];

@@ -11,6 +11,7 @@ import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMe
 import { IOnyxStreamOutcome, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
+import { IOnyxBudgetedMessage, IOnyxTurnPlan } from '../../../common/onyxContextBudget.js';
 import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
 import { OnyxTimelineOutput } from '../../../common/onyxTerminalOutput.js';
 import { buildApprovalRequest, IOnyxCommandInvocation, IOnyxTerminalApprovalRequest, normalizeCommand, OnyxTerminalDecision } from '../../../common/onyxTerminalPolicy.js';
@@ -214,6 +215,21 @@ class OnyxMutantNoDeadlineModelService extends OnyxModelService {
 	}
 }
 
+/** B13: no output cap. The request carries no `max_tokens`, so nothing bounds what the reply takes of the window. */
+class OnyxMutantNoOutputCapLoop extends OnyxAgentLoop {
+	protected override _outputCap(_plan: IOnyxTurnPlan): number | undefined {
+		return undefined;
+	}
+}
+
+/** B13: nothing is dropped. Tool results pile up turn after turn and the prompt outgrows the window. */
+class OnyxMutantNoEvictionLoop extends OnyxAgentLoop {
+	protected override _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number): IOnyxTurnPlan {
+		const plan = super._planTurn(messages, schemaTokens, contextTokens);
+		return { ...plan, messages, evictedCalls: 0, evictedResults: 0, evictedHistory: 0, droppedWorkspaceContext: false, shrankNewestResults: false, fits: true };
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -231,6 +247,8 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B12-truncated-is-complete': { AgentLoop: OnyxMutantTruncatedIsCompleteLoop },
 	'B12-unvalidated-arguments': { AgentLoop: OnyxMutantUnvalidatedArgumentsLoop },
 	'B12-no-stream-deadline': { ModelService: OnyxMutantNoDeadlineModelService },
+	'B13-no-output-cap': { AgentLoop: OnyxMutantNoOutputCapLoop },
+	'B13-no-eviction': { AgentLoop: OnyxMutantNoEvictionLoop },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };

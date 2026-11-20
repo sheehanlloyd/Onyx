@@ -39,8 +39,9 @@ const SLICE_COLORS: Record<IOnyxBudgetSlice['category'], string> = {
 };
 
 /**
- * Shows what the selected run's prompt window is actually made of — most
- * users have no idea what their agent "sees"; this view makes it exact.
+ * Shows what the selected run's prompt window is made of — most users have
+ * no idea what their agent "sees". The numbers are estimates (characters
+ * over four), not a tokenizer's count, and the view says so (B13).
  */
 export class OnyxContextBudgetViewPane extends ViewPane {
 
@@ -96,7 +97,7 @@ export class OnyxContextBudgetViewPane extends ViewPane {
 		if (nonEmpty.length === 0) {
 			renderOnyxEmptyState(content, {
 				headline: localize('onyx.budget.empty.headline', "No context to show"),
-				body: localize('onyx.budget.empty', "The breakdown of the selected run appears here: exactly what the model was sent, token by token."),
+				body: localize('onyx.budget.empty', "The breakdown of the selected run appears here: what the model was sent, by category, in estimated tokens."),
 			}, this._clipboardService, this._emptyStateDisposables);
 			this._renderSteering(content);
 			return;
@@ -104,7 +105,7 @@ export class OnyxContextBudgetViewPane extends ViewPane {
 
 		const total = nonEmpty.reduce((sum, s) => sum + s.tokens, 0);
 		const totalElement = DOM.append(content, $('.onyx-budget-total'));
-		totalElement.textContent = localize('onyx.budget.total', "{0} tokens sent to the model", formatTokens(total));
+		totalElement.textContent = localize('onyx.budget.total', "About {0} tokens sent to the model (estimated)", formatTokens(total));
 
 		const bar = DOM.append(content, $('.onyx-budget-bar'));
 		for (const slice of nonEmpty) {
