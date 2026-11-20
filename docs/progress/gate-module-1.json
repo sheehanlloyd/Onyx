@@ -1,0 +1,363 @@
+{
+	"module": 1,
+	"revision": "8b85d0efe7079fbe990a460e89601b4c02883326",
+	"dirtyDigest": "53da3799a47056a86a20db100a797a35f1e761c76cb8aab213dc01e498b486de",
+	"dirtyEntries": 0,
+	"ranAt": "2026-11-20T02:56:20.407Z",
+	"platform": "darwin-arm64",
+	"node": "v24.20.0",
+	"build": {
+		"command": "npm run transpile-client",
+		"startedAt": "2026-11-20T02:42:48.094Z",
+		"completedAt": "2026-11-20T02:42:51.607Z",
+		"durationMs": 3513,
+		"exitCode": 0
+	},
+	"results": [
+		{
+			"module": 1,
+			"id": "typecheck",
+			"title": "TypeScript type check of src/",
+			"layer": "build",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "npm run typecheck-client",
+			"outcome": "pass",
+			"durationMs": 5490,
+			"exitCode": 0,
+			"detail": "t major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"ms_build_id\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"runtime\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"build_from_source\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"timeout\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+		},
+		{
+			"module": 1,
+			"id": "layers",
+			"title": "Layer check",
+			"layer": "build",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "npm run valid-layers-check",
+			"outcome": "pass",
+			"durationMs": 16571,
+			"exitCode": 0,
+			"detail": "t major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"ms_build_id\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"runtime\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"build_from_source\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"timeout\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+		},
+		{
+			"module": 1,
+			"id": "eslint",
+			"title": "ESLint on the Onyx paths",
+			"layer": "build",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "npx eslint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx",
+			"outcome": "pass",
+			"durationMs": 2398,
+			"exitCode": 0,
+			"detail": "t major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"ms_build_id\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"runtime\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"build_from_source\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options. ⏎ npm warn Unknown project config \"timeout\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+		},
+		{
+			"module": 1,
+			"id": "stylelint",
+			"title": "Stylelint",
+			"layer": "build",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "npm run stylelint",
+			"outcome": "pass",
+			"durationMs": 516,
+			"exitCode": 0,
+			"detail": "/contrib/onyx/browser/media/onyxControlPlane.css(709,1): Unknown variable: --vscode-fontWeight-semibold ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(731,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(745,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(754,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(795,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxInlineEdit.css(51,1): Unknown variable: --vscode-fontSize-caption1"
+		},
+		{
+			"module": 1,
+			"id": "hygiene",
+			"title": "A6 scoped hygiene",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-hygiene.mts",
+			"outcome": "pass",
+			"durationMs": 1630,
+			"exitCode": 0,
+			"detail": "  ok   stale-strings        16255 files ⏎   ok   identity-urls        4 files ⏎   ok   image-manifest       26 images ⏎   ok   inherited-automation 13 entries ⏎  ⏎ hygiene: all checks passed"
+		},
+		{
+			"module": 1,
+			"id": "unit",
+			"title": "Onyx unit tests on fresh output",
+			"layer": "service",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep Onyx",
+			"outcome": "pass",
+			"durationMs": 8872,
+			"exitCode": 0,
+			"detail": "(node:2477) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated. ⏎ (Use `node --trace-deprecation ...` to show where the warning was created) ⏎ (node:2538) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:2538) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:2538) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 1,
+			"id": "benchmarks",
+			"title": "Pure-logic benchmarks with asserting invariants",
+			"layer": "node",
+			"regressions": [
+				"R-23"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-benchmarks.mts --skip-models",
+			"outcome": "pass",
+			"durationMs": 4693,
+			"exitCode": 0,
+			"detail": " ⏎ Not measured here ⏎ ----------------- ⏎   real-model sections skipped (--skip-models) ⏎  ⏎ Re-run any time: node test/onyx/run-benchmarks.mts"
+		},
+		{
+			"module": 1,
+			"id": "R-37",
+			"title": "A1 inventory in disposable repositories",
+			"layer": "procedure",
+			"regressions": [
+				"R-37"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r37-inventory.test.mts",
+			"outcome": "pass",
+			"durationMs": 472,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 441.13225"
+		},
+		{
+			"module": 1,
+			"id": "A4-paths",
+			"title": "Harness runs without the .claude symlink",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/harness-paths.test.mts",
+			"outcome": "pass",
+			"durationMs": 99,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 68.846458"
+		},
+		{
+			"module": 1,
+			"id": "A6-fixtures",
+			"title": "Hygiene fails on injected defects",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/hygiene.test.mts",
+			"outcome": "pass",
+			"durationMs": 356,
+			"exitCode": 0,
+			"detail": "ℹ pass 4 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 326.708667"
+		},
+		{
+			"module": 1,
+			"id": "R-23",
+			"title": "Benchmarks exit non-zero on an injected marker leak",
+			"layer": "node",
+			"regressions": [
+				"R-23"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r23-benchmark-asserts.test.mts",
+			"outcome": "pass",
+			"durationMs": 9451,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 9421.508875"
+		},
+		{
+			"module": 1,
+			"id": "R-35",
+			"title": "Fresh-output protocol: red then green on refreshed output",
+			"layer": "procedure",
+			"regressions": [
+				"R-35"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r35-fresh-output.test.mts",
+			"outcome": "pass",
+			"durationMs": 31975,
+			"exitCode": 0,
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 31943.359375"
+		},
+		{
+			"module": 1,
+			"id": "R-57",
+			"title": "Gate runner: failing, missing, stale, exception",
+			"layer": "procedure",
+			"regressions": [
+				"R-57"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r57-module-gate.test.mts",
+			"outcome": "pass",
+			"durationMs": 1549,
+			"exitCode": 0,
+			"detail": "ℹ pass 6 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 1518.288042"
+		},
+		{
+			"module": 1,
+			"id": "e2e",
+			"title": "End-to-end suite against the mock runtime",
+			"layer": "e2e",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-e2e.mts",
+			"outcome": "pass",
+			"durationMs": 452662,
+			"exitCode": 0,
+			"detail": "  ok   no draft_model is ever sent on the wire ⏎   ok   the architecture map renders modules with timing ⏎   ok   hot modules get a local-model summary ⏎   ok   explain-failure explains when no session is paused ⏎  ⏎ all 47 checks passed"
+		},
+		{
+			"module": 1,
+			"id": "evidence-A1-A11",
+			"title": "Completion reports for A1 to A11 recorded",
+			"layer": "procedure",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"outcome": "pass",
+			"durationMs": 0,
+			"detail": "evidence files present"
+		},
+		{
+			"module": 1,
+			"id": "packaged-baseline",
+			"title": "A8 packaged smoke, baseline mode: launch, profile and runtime isolation, observed tools",
+			"layer": "packaged",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-packaged-smoke.mts --app $ONYX_PACKAGED_APP --mode baseline --json-out docs/progress/packaged-smoke-baseline.json",
+			"outcome": "pass",
+			"durationMs": 36315,
+			"exitCode": 0,
+			"detail": "  ok   the request carried a tool list ⏎   observed tools (8): repoSymbols, editFile, terminal, docs, remember, openBrowserPage, readPage, playbook ⏎   missing essentials: readFile, listDirectory, findFiles, grep ⏎ wrote docs/progress/packaged-smoke-baseline.json ⏎  ⏎ baseline mode: infrastructure checks passed; this mode records tools and gaps and claims nothing about read or edit capability"
+		},
+		{
+			"module": 1,
+			"id": "packaged-release",
+			"title": "A8 packaged smoke, release mode: the full tool contract, read → staged edit → accept, terminal approval",
+			"layer": "packaged",
+			"regressions": [
+				"R-31"
+			],
+			"required": true,
+			"expect": "fail",
+			"owner": "B1, B3",
+			"reason": "the packaged build has no readFile, listDirectory, findFiles or grep tool; B1 adds them, B3 makes release mode a required check",
+			"command": "node test/onyx/run-packaged-smoke.mts --app $ONYX_PACKAGED_APP --mode release --json-out docs/progress/packaged-smoke-release.json",
+			"outcome": "expected-failure",
+			"durationMs": 191565,
+			"exitCode": 1,
+			"detail": "  FAIL accepting applies the reviewed hunk to the buffer ⏎   ok   the terminal tool asks before running ⏎   ok   the approval names the exact command ⏎ wrote docs/progress/packaged-smoke-release.json ⏎  ⏎ release mode: 5 of 15 checks failed"
+		},
+		{
+			"module": 1,
+			"id": "R-41",
+			"title": "L1/L2 simulation suite: R-41, R-42, personas, scenarios, shrinking",
+			"layer": "service",
+			"regressions": [
+				"R-41",
+				"R-42"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxSim",
+			"outcome": "pass",
+			"durationMs": 8914,
+			"exitCode": 0,
+			"detail": "(node:19910) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated. ⏎ (Use `node --trace-deprecation ...` to show where the warning was created) ⏎ (node:19971) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:19971) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:19971) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 1,
+			"id": "sim-smoke",
+			"title": "L1/L2 campaign: 2,000 seeded episodes with every invariant checker, R-42 at gate size",
+			"layer": "service",
+			"regressions": [
+				"R-41",
+				"R-42"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxSim",
+			"outcome": "pass",
+			"durationMs": 24941,
+			"exitCode": 0,
+			"detail": "(node:20064) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated. ⏎ (Use `node --trace-deprecation ...` to show where the warning was created) ⏎ (node:20114) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:20114) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:20114) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 1,
+			"id": "sim-episodes",
+			"title": "L1 episode scripts in sync and replayable through the mock's SSE path",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/sim-episodes.test.mts",
+			"outcome": "pass",
+			"durationMs": 662,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 627.991542"
+		},
+		{
+			"module": 1,
+			"id": "sim-tables-sync",
+			"title": "L1/L2 episode and baseline JSON tables match their TypeScript sources",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/sim/export-episodes.mts --check",
+			"outcome": "pass",
+			"durationMs": 73,
+			"exitCode": 0,
+			"detail": "episodes: 9 files in sync ⏎ baseline: 11 exceptions in sync"
+		},
+		{
+			"module": 1,
+			"id": "R-43",
+			"title": "L3 trace and experiment provenance at the harness layer: charts refuse without a valid manifest, the mock echoes the seed on the wire",
+			"layer": "node",
+			"regressions": [
+				"R-43"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r43-provenance.test.mts",
+			"outcome": "pass",
+			"durationMs": 1025,
+			"exitCode": 0,
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 996.071"
+		},
+		{
+			"module": 1,
+			"id": "R-43-unit",
+			"title": "L3 trace schema v2 and the seed on the wire and honoured, in the product",
+			"layer": "unit",
+			"regressions": [
+				"R-43"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxTrace|OnyxRuntimeService",
+			"outcome": "pass",
+			"durationMs": 8332,
+			"exitCode": 0,
+			"detail": "(node:20512) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated. ⏎ (Use `node --trace-deprecation ...` to show where the warning was created) ⏎ (node:20575) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:20575) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:20575) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		}
+	],
+	"passed": true
+}
