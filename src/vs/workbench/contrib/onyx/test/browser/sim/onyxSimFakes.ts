@@ -320,6 +320,7 @@ export class OnyxSimDialogService implements IDialogService {
 	private _handledPromptButtons: IPromptBaseButton<unknown>[] = [];
 	readonly prompts: { readonly message: string; readonly decision: OnyxSimDialogDecision }[] = [];
 	private _pending: OnyxSimDialogDecision | undefined;
+	private _openDialogs = 0;
 
 	constructor(
 		private readonly _default: OnyxSimDialogDecision,
@@ -332,33 +333,43 @@ export class OnyxSimDialogService implements IDialogService {
 		this._pending = decision;
 	}
 
+	/** Whether a prompt or confirmation is open: asked and not yet answered. */
+	get hasDialog(): boolean {
+		return this._openDialogs > 0;
+	}
+
 	prompt<T>(prompt: IPromptWithCustomCancel<T>): Promise<IPromptResultWithCancel<T>>;
 	prompt<T>(prompt: IPromptWithDefaultCancel<T>): Promise<IPromptResult<T>>;
 	prompt<T>(prompt: IPrompt<T>): Promise<IPromptResult<T>>;
 	async prompt<T>(prompt: IPrompt<T> | IPromptWithCustomCancel<T>): Promise<IPromptResult<T> | IPromptResultWithCancel<T>> {
-		await this._scheduler.boundary('dialogOpen');
-		const decision = this._pending ?? this._default;
-		this._pending = undefined;
-		this.prompts.push({ message: prompt.message, decision });
-		this._trace.record({ kind: 'dialog', message: prompt.message, decision });
-		this._handledPromptButtons = [...(prompt.buttons ?? [])];
-		if (decision === 'dismiss') {
-			return { result: undefined };
-		}
-		if (decision === 'deny') {
-			const cancel = prompt.cancelButton;
-			return { result: typeof cancel === 'object' && cancel ? await cancel.run({ checkboxChecked: false }) : undefined };
-		}
-		// The terminal service's buttons return the decision they stand for; pick the one that matches.
-		for (const button of prompt.buttons ?? []) {
-			const value = await button.run({ checkboxChecked: false });
-			if (value === decision) {
-				return { result: value };
+		this._openDialogs++;
+		try {
+			await this._scheduler.boundary('dialogOpen');
+			const decision = this._pending ?? this._default;
+			this._pending = undefined;
+			this.prompts.push({ message: prompt.message, decision });
+			this._trace.record({ kind: 'dialog', message: prompt.message, decision });
+			this._handledPromptButtons = [...(prompt.buttons ?? [])];
+			if (decision === 'dismiss') {
+				return { result: undefined };
 			}
+			if (decision === 'deny') {
+				const cancel = prompt.cancelButton;
+				return { result: typeof cancel === 'object' && cancel ? await cancel.run({ checkboxChecked: false }) : undefined };
+			}
+			// The terminal service's buttons return the decision they stand for; pick the one that matches.
+			for (const button of prompt.buttons ?? []) {
+				const value = await button.run({ checkboxChecked: false });
+				if (value === decision) {
+					return { result: value };
+				}
+			}
+			// The decision was not offered (a dangerous command offers only Run Once): the user picks the first.
+			const first = prompt.buttons?.[0];
+			return { result: first ? await first.run({ checkboxChecked: false }) : undefined };
+		} finally {
+			this._openDialogs--;
 		}
-		// The decision was not offered (a dangerous command offers only Run Once): the user picks the first.
-		const first = prompt.buttons?.[0];
-		return { result: first ? await first.run({ checkboxChecked: false }) : undefined };
 	}
 
 	/** The buttons the last prompt offered, for assertions on what the user was shown. */
@@ -367,8 +378,13 @@ export class OnyxSimDialogService implements IDialogService {
 	}
 
 	async confirm(_confirmation: IConfirmation): Promise<IConfirmationResult> {
-		await this._scheduler.boundary('dialogOpen');
-		return { confirmed: this._default !== 'deny' && this._default !== 'dismiss' };
+		this._openDialogs++;
+		try {
+			await this._scheduler.boundary('dialogOpen');
+			return { confirmed: this._default !== 'deny' && this._default !== 'dismiss' };
+		} finally {
+			this._openDialogs--;
+		}
 	}
 
 	async input(_input: IInput): Promise<IInputResult> {

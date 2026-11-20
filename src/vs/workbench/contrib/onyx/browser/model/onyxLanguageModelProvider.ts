@@ -367,7 +367,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				// Residency: ask Ollama to hold the weights between requests, so
 				// the next request pays prompt-processing, not model loading.
 				keepAlive: model.discovered.runtime === 'ollama' ? this._keepAliveFor(model) : undefined,
-				responseFormat: options.modelOptions?.['responseFormat'],
+				responseFormat: options.modelOptions?.responseFormat,
 			}).catch(reject);
 		}).finally(() => store.dispose());
 
