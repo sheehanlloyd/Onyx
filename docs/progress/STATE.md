@@ -54,7 +54,7 @@ Still to do for L3, in order:
 ## After L3
 
 - `node test/onyx/run-fresh.mts --stamp-only` then
-  `ONYX_PACKAGED_APP=/Users/sheehan/Desktop/VSCode-darwin-arm64/Onyx.app node test/onyx/run-module-gate.mts --module 1`
+  `ONYX_PACKAGED_APP=<path to Onyx.app> node test/onyx/run-module-gate.mts --module 1`
   (the untracked `docs/progress/gate-module-1.json` is a partial run; overwrite it with the full one, then
   commit it)
 - the full integration suite from ActionPlan §11 once more; only allowed failures: packaged release mode
@@ -75,7 +75,7 @@ I-08/inexact-anchor-staged (B6); I-08/ambiguous-anchor-staged (B6, B7); I-11/tru
 
 ## Housekeeping
 
-- Owner's checkout `/Users/sheehan/Desktop/onyx` is untouched (hashes re-checked at session end; index
+- Owner's checkout (the sibling folder this clone was cut from) is untouched (hashes re-checked at session end; index
   still absent). The four audit documents are excluded via `.git/info/exclude` here and never committed.
-- `/Users/sheehan/Desktop/onyx-upstream-trial` is a disposable trial clone (never pushed); delete when A9
+- The upstream trial clone (sibling folder, A9) is disposable (never pushed); delete when A9
   is no longer needed.
