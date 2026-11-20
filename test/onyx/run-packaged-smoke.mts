@@ -329,12 +329,21 @@ async function main() {
 	const toolCalls = readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall').map(event => String(event.data?.label ?? ''));
 	check('contract', 'the model read the file through the read tool before editing', toolCalls.includes('readFile'), `tool calls: ${toolCalls.join(', ') || 'none'}`);
 	check('contract', 'the edit was staged, not written', fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8') === MATH_TS && stagedSummary().includes('reviews them in Onyx Changes'), 'file changed on disk, or nothing was staged');
+	// Whether the Changes view is on screen: a staged file's header exists and is laid out. The DOM keeps
+	// the view when the chat hides it, so reading its text says nothing about whether it can be clicked.
+	const changesOnScreen = () => pwValue(pw('run-code', 'async (page) => page.evaluate(() => { const header = document.querySelector(".onyx-change-file-header"); return String(!!header && header.getClientRects().length > 0); })')) === 'true';
+	// On a loaded machine the command palette can take longer than a fixed pause to accept input, and the
+	// command is then typed into nothing. Issue it, look for the view, and issue it again if it is not there.
 	const openControlPlane = async () => {
-		pw('press', 'F1');
-		await sleep(800);
-		pw('run-code', 'async (page) => { await page.fill(".quick-input-box input", ">Open Onyx Control Plane"); }');
-		await sleep(800);
-		pw('press', 'Enter');
+		for (let attempt = 0; attempt < 4 && !changesOnScreen(); attempt++) {
+			pw('press', 'Escape');
+			pw('press', 'F1');
+			await sleep(800 + attempt * 800);
+			pw('run-code', 'async (page) => { await page.fill(".quick-input-box input", ">Open Onyx Control Plane"); }');
+			await sleep(800 + attempt * 800);
+			pw('press', 'Enter');
+			await waitUntil(changesOnScreen, 8000);
+		}
 	};
 	await openControlPlane();
 	// A staged file is listed collapsed; its hunks render once its header is
@@ -343,8 +352,16 @@ async function main() {
 	const editorText = () => pw('run-code', 'async (page) => page.evaluate(() => Array.from(document.querySelectorAll(".editor-instance .view-line")).map(l => l.textContent || "").join(" / ").slice(0, 600))');
 	const editCalls = () => readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall' && event.data?.label === 'editFile').length;
 	await waitUntil(() => readChanges().includes('src/math.ts'), 15_000);
-	pw('run-code', 'async (page) => { const header = await page.$(".onyx-change-file-header[aria-expanded=false]"); if (header) { await header.click(); } }');
-	await waitUntil(() => readChanges().includes('return a + b;'), 10_000);
+	// Expand the staged file. A click that cannot land (the view is still laying out) is tried again after
+	// looking for the view once more; what is checked below is the hunk the expanded file shows.
+	for (let attempt = 0; attempt < 3 && !readChanges().includes('return a + b;'); attempt++) {
+		try {
+			pw('run-code', 'async (page) => { const header = page.locator(".onyx-change-file-header[aria-expanded=false]").first(); if (await header.count()) { await header.click({ timeout: 8000 }); } }');
+		} catch {
+			await openControlPlane();
+		}
+		await waitUntil(() => readChanges().includes('return a + b;'), 10_000);
+	}
 	const changes = readChanges();
 	// The hunk under review is the line the model read (R-31): removed once
 	// as it is in the file, added once with the edit, and nothing else.
@@ -453,12 +470,34 @@ async function main() {
 	check('contract', 'asking for the Agents window opens no second workbench and starts no Agent Host', targetsAfter.length === targetsBefore.length && !targetsAfter.some(url => /sessions/.test(url)) && agentHostLogs().length === 0, `pages before: ${targetsBefore.join(' | ')}; after: ${targetsAfter.join(' | ')}; logs: ${agentHostLogs().join(', ') || 'none'}`);
 }
 
+/** What a failed driver command printed, when the error carries it. */
+function driverOutput(error: unknown): string {
+	if (typeof error !== 'object' || error === null) {
+		return '';
+	}
+	const carried = error as { readonly stdout?: unknown; readonly stderr?: unknown };
+	return [carried.stdout, carried.stderr].filter((part): part is string => typeof part === 'string' && part.trim().length > 0).join('\n');
+}
+
 let aborted: string | undefined;
 try {
 	await main();
 } catch (error) {
 	aborted = error instanceof Error ? error.message : String(error);
 	console.error(`\npackaged smoke aborted: ${aborted}`);
+	// Why the driver gave up and what the window showed. Without these, an abort that happens only on
+	// another machine cannot be read.
+	const output = driverOutput(error);
+	if (output) {
+		console.error(output.slice(-3000));
+	}
+	if (jsonOut) {
+		try {
+			pw('run-code', `async (page) => { await page.screenshot({ path: ${JSON.stringify(path.resolve(jsonOut).replace(/\.json$/, '') + '-abort.png')} }); }`);
+		} catch {
+			// the window is gone; there is nothing to photograph
+		}
+	}
 } finally {
 	try {
 		pw('close');
