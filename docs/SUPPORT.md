@@ -33,6 +33,20 @@ The agent's tool set in a supported edit-capable run (B1, B3, DEC-03):
 | Capability classes | Every exposed tool is classified read / write / execute / network from a reviewed table keyed by tool id (B3). Writes go through Onyx Changes; every shell invocation needs the Onyx approval dialog (B2); unknown tools are excluded; browser and MCP opt-ins never bypass staging or per-invocation approval |
 | Persistent state | A model-initiated memory, pin or playbook write cannot influence a later prompt before the user confirms it with its origin shown (I-14, R-59) |
 
+## Shell approval (B2)
+
+Every shell invocation asks. The dialog shows the command exactly as it will be dispatched, its working
+directory and its timeout, says so when the command contains line breaks, tabs or repeated spaces, and
+offers **Run Once** or **Deny**. An answer covers that one invocation.
+
+| Question | Answer in the alpha |
+|---|---|
+| Session or persistent grants | None. The earlier "Run for This Session" and "Always Run This Command" choices are removed |
+| `terminalAllowlist` in `.onyx/config.json` | Read as `recommendedCommands`: repository-authored suggestions, shown by `Onyx: Show Effective Project Configuration`. It grants nothing and is never migrated to consent. `Onyx: Clear Legacy Terminal Grants` removes the key from the file and keeps the rest |
+| Workspace Trust | Changes nothing about approval (R-02) |
+| A check task (`onyx.verification.task`, or `verificationTask` in `.onyx/config.json`) | Asks before each run, naming the task and who configured it. The dialog cannot show the commands a task runs and says so |
+| Past decisions | Kept in machine-local workspace storage, at most 200, shown by `Onyx: Show Terminal Approval History`. A record, never a permission. Nothing about approval is written to a tracked file |
+
 ## Read-side tools and their limits (B1)
 
 The agent reads the workspace with Onyx's own tools. They go through the workbench's file and search services;

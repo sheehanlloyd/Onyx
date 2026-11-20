@@ -195,7 +195,9 @@ suite('OnyxSim', () => {
 	});
 
 	test('mutants: every resurrected defect is detected by its script and by the seeded campaign, and the unmutated harness is not', async function () {
-		const episodes = Number(env('ONYX_SIM_MUTANT_EPISODES') ?? 150);
+		// Up to this many seeded episodes per mutant; the search stops at the first detection, so the cost is
+		// paid only by a mutant that is rare to trigger or not detected at all.
+		const episodes = Number(env('ONYX_SIM_MUTANT_EPISODES') ?? 1000);
 		const seedBase = Number(env('ONYX_SIM_SEED') ?? 1000);
 		this.timeout(Math.max(120_000, SIM_MUTANTS.length * episodes * 500));
 		const checkers = allCheckers();

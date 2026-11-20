@@ -57,37 +57,6 @@ function scenario(name: string): OnyxSimEpisode {
 
 export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 	{
-		class: 'I-02/repository-allowlist',
-		owner: 'B2',
-		finding: 'Cursor red flag 2; Claude B2; Codex (R-01, R-02): a repository `terminalAllowlist` entry runs a command with no approval dialog for that invocation',
-		script: script({
-			name: 'I-02-repository-allowlist',
-			seed: 28,
-			persona: 'obedient',
-			prompt: 'Run the',
-			target: 'src/math.ts',
-			turns: [
-				{
-					kind: 'toolCall',
-					tool: 'terminal',
-					arguments: {
-						command: 'cat README.md',
-					},
-				},
-			],
-			dialogDefault: 'deny',
-			userSteps: [],
-			faults: [],
-			projectConfig: {
-				terminalAllowlist: [
-					'npm test',
-					'rm -rf /',
-					'cat README.md',
-				],
-			},
-		}),
-	},
-	{
 		class: 'I-03/no-time-budget',
 		owner: 'B12, B10',
 		finding: 'Codex N12 (R-19): a stream that never produces a token has no idle deadline, so the run never ends on its own',

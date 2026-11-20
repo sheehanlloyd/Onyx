@@ -16,9 +16,9 @@ export type OnyxSimTraceEvent =
 	| { readonly kind: 'chunk'; readonly op: string; readonly delta: 'text' | 'toolCall' | 'usage' | 'done' | 'error'; readonly size: number; readonly finishReason?: string }
 	| { readonly kind: 'toolDispatch'; readonly call: string; readonly tool: string; readonly argumentsDigest: string }
 	| { readonly kind: 'toolResult'; readonly call: string; readonly tool: string; readonly ok: boolean; readonly resultDigest: string }
-	| { readonly kind: 'commandDispatch'; readonly op: string; readonly command: string; readonly cwd: string }
+	| { readonly kind: 'commandDispatch'; readonly op: string; readonly command: string; readonly cwd: string | undefined }
 	| { readonly kind: 'commandResult'; readonly op: string; readonly exitCode: number | undefined; readonly timedOut: boolean; readonly killed: boolean }
-	| { readonly kind: 'dialog'; readonly message: string; readonly decision: string }
+	| { readonly kind: 'dialog'; readonly message: string; readonly decision: string; readonly granted: boolean }
 	| { readonly kind: 'userAction'; readonly action: string; readonly detail?: string }
 	| { readonly kind: 'fault'; readonly fault: string; readonly detail?: string }
 	| { readonly kind: 'stage'; readonly path: string; readonly hunks: number; readonly ok: boolean; readonly reason?: string }

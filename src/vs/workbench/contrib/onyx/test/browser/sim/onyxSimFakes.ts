@@ -7,7 +7,7 @@ import { timeout } from '../../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
-import { IObservable, observableValue } from '../../../../../../base/common/observable.js';
+import { observableValue } from '../../../../../../base/common/observable.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { IConfirmation, IConfirmationResult, IDialogService, IInput, IInputResult, IPrompt, IPromptBaseButton, IPromptResult, IPromptResultWithCancel, IPromptWithCustomCancel, IPromptWithDefaultCancel } from '../../../../../../platform/dialogs/common/dialogs.js';
 import { ExtensionIdentifier } from '../../../../../../platform/extensions/common/extensions.js';
@@ -18,11 +18,12 @@ import { IFileMatch, IFileQuery, ISearchComplete, ISearchService, ITextQuery, On
 import { IOnyxChatParams, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../../../chat/common/tools/languageModelToolsService.js';
+import { ITaskService } from '../../../../tasks/common/taskService.js';
+import { ITaskSummary } from '../../../../tasks/common/taskSystem.js';
+import { InMemoryTask, RunOptions, Task, TaskGroup } from '../../../../tasks/common/tasks.js';
 import { IOnyxEnergyDecision } from '../../../common/onyxEnergyPolicy.js';
-import { IOnyxProjectConfig } from '../../../common/onyxProjectConfig.js';
 import { IOnyxModelProfile, IOnyxObservedStats } from '../../../common/onyxTypes.js';
 import { IOnyxEnergyService } from '../../../browser/compute/onyxEnergyService.js';
-import { IOnyxProjectConfigService, IOnyxResolvedProjectConfig } from '../../../browser/config/onyxProjectConfigService.js';
 import { IOnyxPinService } from '../../../browser/intelligence/onyxPinService.js';
 import { IOnyxRequestMeasurement } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxDiscoveredPlaybook, IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
@@ -322,7 +323,7 @@ export class OnyxSimDialogService implements IDialogService {
 	readonly onWillShowDialog = Event.None;
 	readonly onDidShowDialog = Event.None;
 	private _handledPromptButtons: IPromptBaseButton<unknown>[] = [];
-	readonly prompts: { readonly message: string; readonly decision: OnyxSimDialogDecision }[] = [];
+	readonly prompts: { readonly message: string; readonly detail: string; readonly buttons: readonly string[]; readonly decision: OnyxSimDialogDecision; readonly granted: boolean }[] = [];
 	private _pending: OnyxSimDialogDecision | undefined;
 	private _openDialogs = 0;
 
@@ -351,8 +352,11 @@ export class OnyxSimDialogService implements IDialogService {
 			await this._scheduler.boundary('dialogOpen');
 			const decision = this._pending ?? this._default;
 			this._pending = undefined;
-			this.prompts.push({ message: prompt.message, decision });
-			this._trace.record({ kind: 'dialog', message: prompt.message, decision });
+			// A user who wants to run the command presses a button; one who does not, cancels or dismisses.
+			const granted = decision !== 'dismiss' && decision !== 'deny' && (prompt.buttons ?? []).length > 0;
+			const detail = typeof prompt.detail === 'string' ? prompt.detail : prompt.detail?.value ?? '';
+			this.prompts.push({ message: prompt.message, detail, buttons: (prompt.buttons ?? []).map(button => button.label), decision, granted });
+			this._trace.record({ kind: 'dialog', message: prompt.message, decision, granted });
 			this._handledPromptButtons = [...(prompt.buttons ?? [])];
 			if (decision === 'dismiss') {
 				return { result: undefined };
@@ -526,13 +530,6 @@ export class OnyxSimProfileService implements IOnyxProfileService {
 	exportAll(): { stats: Record<string, IOnyxObservedStats>; overrides: Record<string, Partial<IOnyxModelProfile>> } { return { stats: {}, overrides: {} }; }
 }
 
-export class OnyxSimProjectConfigService implements IOnyxProjectConfigService {
-	declare readonly _serviceBrand: undefined;
-	private readonly _resolved = observableValue<IOnyxResolvedProjectConfig>(this, { config: {}, sources: [], problems: [] });
-	get resolved(): IObservable<IOnyxResolvedProjectConfig> { return this._resolved; }
-	setConfig(config: IOnyxProjectConfig): void { this._resolved.set({ config, sources: ['sim'], problems: [] }, undefined); }
-}
-
 export class OnyxSimEnergyService implements IOnyxEnergyService {
 	declare readonly _serviceBrand: undefined;
 	readonly state = observableValue<IOnyxPowerState>(this, { onBattery: false, thermal: 'nominal', cpuSpeedLimit: undefined });
@@ -555,8 +552,30 @@ export class OnyxSimPlaybookService implements IOnyxPlaybookService {
 	getPlaybook(): IOnyxDiscoveredPlaybook | undefined { return undefined; }
 }
 
-/** The sim never runs project checks; `OnyxTaskVerification.enabled` reads the setting, which is empty. */
-export const simTaskService = {};
+/**
+ * The task boundary. A workspace has one test task, as a repository's
+ * `tasks.json` would define it; running it is recorded as a command dispatch,
+ * because that is what it is (I-02), and never executed.
+ */
+export class OnyxSimTaskService implements Pick<ITaskService, 'tasks' | 'run'> {
+	declare readonly _serviceBrand: undefined;
+	readonly ran: string[] = [];
+
+	constructor(private readonly _trace: OnyxSimTrace) { }
+
+	async tasks(): Promise<Task[]> {
+		return [new InMemoryTask('sim-test', { kind: 'inMemory', label: 'sim' }, 'npm: test', 'inMemory', RunOptions.defaults, { identifier: 'npm: test', group: TaskGroup.Test._id })];
+	}
+
+	async run(task: Task | undefined): Promise<ITaskSummary> {
+		const label = task?._label ?? 'unknown';
+		this.ran.push(label);
+		const op = this._trace.canonical('op', `task-${this.ran.length}`);
+		this._trace.record({ kind: 'commandDispatch', op, command: `Task: ${label}`, cwd: undefined });
+		this._trace.record({ kind: 'commandResult', op, exitCode: 0, timedOut: false, killed: false });
+		return { exitCode: 0 };
+	}
+}
 
 export function simWorkspaceUri(): URI {
 	return URI.file('/ws');

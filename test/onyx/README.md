@@ -106,7 +106,7 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (52 checks):
+asserting on the run journal and the live DOM (55 checks):
 
 - the tool list a default run advertises on the 7B profile (the six essential
   tools and the two documented optional ones, R-36), Onyx's own `listDirectory`
@@ -125,8 +125,9 @@ asserting on the run journal and the live DOM (52 checks):
   finding
 - staged agent edits: `editFile` stages instead of writing, the file appears in
   Onyx Changes, and accepting applies and clears the set
-- the terminal tool: the approval dialog (with the exact command), execution,
-  and the exit landing on the timeline
+- the terminal tool: the approval dialog (with the exact command, and Run
+  Once and Deny as its only choices), execution, the exit landing on the
+  timeline, and the same command asking again and not running when denied
 - the offline docs mirror finding the workspace's own markdown
 - playbooks: the prompt index and the fetched recipe body
 - stopping a streaming run and resuming it as a new briefing-run
@@ -247,7 +248,7 @@ one puts back and which violation class the campaign must report, and the
 exporter writes a descriptor per mutant to `test/onyx/sim/mutants/`.
 
 ```bash
-./scripts/test.sh --grep "OnyxSim mutants"                                  # each mutant: its script, then 150 seeded episodes
+./scripts/test.sh --grep "OnyxSim mutants"                                  # each mutant: its script, then up to 1,000 seeded episodes
 ONYX_SIM_MUTANT_EPISODES=2000 ./scripts/test.sh --grep "OnyxSim mutants"    # the module gate's size
 ```
 

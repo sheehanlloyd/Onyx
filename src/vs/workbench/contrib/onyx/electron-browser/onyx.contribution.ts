@@ -333,6 +333,12 @@ registerAction2(class ShowOnyxProjectConfigAction extends Action2 {
 				? `// From .onyx/config.json in: ${resolved.sources.join(', ')} — per-user settings always win`
 				: '// No .onyx/config.json found in this workspace',
 			...resolved.problems.map(problem => `// PROBLEM: ${problem}`),
+			...(resolved.config.recommendedCommands?.length
+				? ['// NOTE: recommendedCommands are repository-authored and informational. They grant nothing: the terminal tool asks before every command, every time. Legacy "terminalAllowlist" entries are read as recommendations and are inactive.']
+				: []),
+			...(resolved.config.verificationTask
+				? ['// NOTE: verificationTask names a check to run after an agent run that used tools. It still asks before each run.']
+				: []),
 			...(userVerification && resolved.config.verificationTask
 				? [`// NOTE: verificationTask "${resolved.config.verificationTask}" is overridden by the user setting onyx.verification.task = "${userVerification}"`]
 				: []),

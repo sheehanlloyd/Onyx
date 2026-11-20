@@ -14,12 +14,13 @@ import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.j
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { createDecorator, ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../../platform/notification/common/notification.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { ILanguageModelToolsService, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource } from '../../../chat/common/tools/languageModelToolsService.js';
-import { clampCommandOutput, evaluateCommand, normalizeCommand, OnyxTerminalDecision } from '../../common/onyxTerminalPolicy.js';
-import { ONYX_PROJECT_CONFIG_PATH } from '../../common/onyxProjectConfig.js';
-import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
+import { buildApprovalRequest, clampCommandOutput, IOnyxCommandInvocation, normalizeCommand, OnyxTerminalDecision } from '../../common/onyxTerminalPolicy.js';
+import { LEGACY_TERMINAL_ALLOWLIST_KEY, ONYX_PROJECT_CONFIG_PATH } from '../../common/onyxProjectConfig.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 
 export const ONYX_TERMINAL_TOOL_ID = 'onyx_terminal';
@@ -32,6 +33,10 @@ const MODEL_OUTPUT_BUDGET = 12_000;
 const TIMELINE_CHUNK_CHARS = 800;
 const TIMELINE_MAX_CHUNKS = 6;
 
+/** Past approval decisions, kept in machine-local workspace storage for inspection. They authorize nothing. */
+const APPROVAL_HISTORY_KEY = 'onyx.terminal.approvalHistory';
+const APPROVAL_HISTORY_MAX = 200;
+
 export const IOnyxTerminalService = createDecorator<IOnyxTerminalService>('onyxTerminalService');
 
 export interface IOnyxRunningCommand {
@@ -41,20 +46,50 @@ export interface IOnyxRunningCommand {
 	readonly runId: string | undefined;
 }
 
+/** One past decision. A record of what happened; never consulted for authority. */
+export interface IOnyxApprovalRecord {
+	readonly at: number;
+	readonly command: string;
+	readonly cwd: string;
+	readonly timeoutMs: number;
+	readonly decision: OnyxTerminalDecision;
+}
+
+/** An execution that is not a terminal-tool command but needs the same per-invocation approval: a project check task. */
+export interface IOnyxExecutionRequest {
+	/** The line that names what will run, e.g. `Task: npm: test`. */
+	readonly subject: string;
+	/** Who configured it, in words the dialog shows. */
+	readonly configuredBy: string;
+	readonly runId: string | undefined;
+}
+
 /**
- * The approval gate and executor behind the agent's terminal tool. The policy
- * (what is dangerous, what an allowlist covers) is pure logic in
- * `onyxTerminalPolicy.ts`; this service owns the human side — the approval
- * dialog, the session allowlist, persisting "always allow" decisions into
- * `.onyx/config.json` — and the run side: streaming output into the run
- * timeline, hard timeouts, and the kill switch. Nothing executes without an
- * explicit decision trail.
+ * The approval gate and executor behind the agent's terminal tool. The
+ * alpha contract (B2): every shell invocation asks, with Run Once or Deny,
+ * and a decision covers that invocation's exact command bytes, working
+ * directory and timeout. Nothing is remembered as permission: no session
+ * grant, no persistent grant, and no repository allowlist. Past decisions
+ * are kept in machine-local workspace storage for inspection only. The
+ * policy text (what a command looks like) is pure logic in
+ * `onyxTerminalPolicy.ts`; this service owns the dialog, the dispatch,
+ * streaming output into the run timeline, hard timeouts and the kill switch.
  */
 export interface IOnyxTerminalService {
 	readonly _serviceBrand: undefined;
 	readonly running: IObservable<readonly IOnyxRunningCommand[]>;
 	runCommand(command: string, cwdHint: string | undefined, timeoutMs: number, chatRequestId: string | undefined, token: CancellationToken): Promise<IToolResult>;
+	/** Asks for this one execution; resolves true only on an explicit Run Once. */
+	confirmExecution(request: IOnyxExecutionRequest): Promise<boolean>;
 	killAll(): void;
+	/** Past decisions for this workspace, oldest first. Inspection only. */
+	approvalHistory(): readonly IOnyxApprovalRecord[];
+	/**
+	 * Removes the legacy grants (`terminalAllowlist`) from each workspace
+	 * folder's `.onyx/config.json` and clears the approval history. Resolves
+	 * with how many legacy entries were removed. They were already inactive.
+	 */
+	clearLegacyGrants(): Promise<number>;
 }
 
 export class OnyxTerminalService extends Disposable implements IOnyxTerminalService {
@@ -64,16 +99,14 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 	private readonly _runningObs: ISettableObservable<readonly IOnyxRunningCommand[]> = observableValue(this, []);
 	readonly running: IObservable<readonly IOnyxRunningCommand[]> = this._runningObs;
 
-	private readonly _sessionAllowlist: string[] = [];
-
 	constructor(
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
-		@IOnyxProjectConfigService private readonly _projectConfigService: IOnyxProjectConfigService,
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
-		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
+		@IWorkspaceContextService protected readonly _workspaceService: IWorkspaceContextService,
 		@IDialogService private readonly _dialogService: IDialogService,
-		@IFileService private readonly _fileService: IFileService,
+		@IFileService protected readonly _fileService: IFileService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
 	}
@@ -83,41 +116,24 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 		if (!folder) {
 			return errorResult('No workspace folder is open — there is nowhere to run the command.');
 		}
-		const cwd = folder.uri.fsPath;
+		const invocation: IOnyxCommandInvocation = { command, cwd: folder.uri.fsPath, timeoutMs };
 		const runId = chatRequestId ? this._controlPlaneService.runs.get().find(run => run.requestId === chatRequestId)?.runId : undefined;
+		const label = normalizeCommand(command);
 
-		const workspaceAllowlist = this._projectConfigService.resolved.get().config.terminalAllowlist ?? [];
-		const evaluation = evaluateCommand(command, workspaceAllowlist, this._sessionAllowlist);
-		let decision: OnyxTerminalDecision;
-		if (evaluation.autoAllowed) {
-			decision = 'allow-session';
-			this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.autoAllowed', "Command allowed by the workspace allowlist"), reason: normalizeCommand(command) });
-			if (runId) {
-				const fromWorkspace = workspaceAllowlist.map(normalizeCommand).includes(normalizeCommand(command));
-				this._controlPlaneService.recordApproval(runId, { command: normalizeCommand(command), decision, source: fromWorkspace ? 'workspace-allowlist' : 'session' });
-			}
-		} else {
-			decision = await this._askForApproval(evaluation.approval!);
-			if (runId) {
-				this._controlPlaneService.recordApproval(runId, { command: normalizeCommand(command), decision, source: 'dialog' });
-			}
-			if (decision === 'deny') {
-				this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.denied', "Command denied by the user"), reason: normalizeCommand(command), ok: false });
-				return { content: [{ kind: 'text', value: 'The user denied this command. Do not retry it; ask the user what to do instead, or continue without it.' }] };
-			}
-			if (decision === 'allow-session') {
-				this._sessionAllowlist.push(normalizeCommand(command));
-			}
-			if (decision === 'allow-always') {
-				this._sessionAllowlist.push(normalizeCommand(command));
-				await this._persistAllow(command);
-			}
+		const decision = await this._authorize(invocation);
+		this._remember(invocation, decision);
+		if (runId) {
+			this._controlPlaneService.recordApproval(runId, { command: invocation.command, cwd: invocation.cwd, timeoutMs: invocation.timeoutMs, decision, source: 'dialog' });
+		}
+		if (decision !== 'allow-once') {
+			this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.denied', "Command denied by the user"), reason: label, ok: false });
+			return { content: [{ kind: 'text', value: 'The user denied this command. Do not retry it; ask the user what to do instead, or continue without it.' }] };
 		}
 
 		const operationId = `terminal-${generateUuid()}`;
-		const running: IOnyxRunningCommand = { operationId, command: normalizeCommand(command), startedAt: Date.now(), runId };
+		const running: IOnyxRunningCommand = { operationId, command: label, startedAt: Date.now(), runId };
 		this._runningObs.set([...this._runningObs.get(), running], undefined);
-		this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.running', "Running: {0}", normalizeCommand(command)) });
+		this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.running', "Running: {0}", label) });
 
 		// Stream output into the timeline in bounded chunks; the full (capped)
 		// text still reaches the model and the journal at the end.
@@ -137,7 +153,8 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 		const cancelListener = token.onCancellationRequested(() => this._runtimeService.killCommand(operationId));
 
 		try {
-			const result = await this._runtimeService.execCommand(operationId, cwd, command, timeoutMs);
+			// The approved bytes, the approved directory, the approved timeout: nothing else is dispatched.
+			const result = await this._runtimeService.execCommand(operationId, invocation.cwd, invocation.command, invocation.timeoutMs);
 			const verdict = result.timedOut
 				? localize('onyx.terminal.timedOut', "Timed out after {0}s and was killed", Math.round(timeoutMs / 1000))
 				: result.killed
@@ -153,6 +170,26 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 		}
 	}
 
+	async confirmExecution(request: IOnyxExecutionRequest): Promise<boolean> {
+		const result = await this._dialogService.prompt<OnyxTerminalDecision>({
+			type: Severity.Info,
+			message: localize('onyx.terminal.approveCheck', "Onyx wants to run a project check"),
+			detail: [
+				request.subject,
+				'',
+				localize('onyx.terminal.approveCheck.configuredBy', "Configured by: {0}", request.configuredBy),
+				localize('onyx.terminal.approveCheck.unseen', "A task runs commands from this workspace's task configuration. This dialog cannot show them; open the task to read them."),
+			].join('\n'),
+			buttons: [{ label: localize('onyx.terminal.allowOnce', "Run Once"), run: () => 'allow-once' }],
+			cancelButton: { label: localize('onyx.terminal.deny', "Deny"), run: () => 'deny' },
+		});
+		const decision: OnyxTerminalDecision = result.result === 'allow-once' ? 'allow-once' : 'deny';
+		if (request.runId) {
+			this._controlPlaneService.recordApproval(request.runId, { command: request.subject, cwd: null, timeoutMs: null, decision, source: 'dialog' });
+		}
+		return decision === 'allow-once';
+	}
+
 	killAll(): void {
 		const running = this._runningObs.get();
 		for (const entry of running) {
@@ -163,53 +200,72 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 		}
 	}
 
-	private async _askForApproval(approval: { message: string; detail: string; dangerous: boolean; offeredDecisions: readonly OnyxTerminalDecision[] }): Promise<OnyxTerminalDecision> {
-		const buttons: { label: string; run: () => OnyxTerminalDecision }[] = [];
-		if (approval.offeredDecisions.includes('allow-once')) {
-			buttons.push({ label: localize('onyx.terminal.allowOnce', "Run Once"), run: () => 'allow-once' });
+	approvalHistory(): readonly IOnyxApprovalRecord[] {
+		try {
+			const parsed: unknown = JSON.parse(this._storageService.get(APPROVAL_HISTORY_KEY, StorageScope.WORKSPACE, '[]'));
+			return Array.isArray(parsed) ? parsed as IOnyxApprovalRecord[] : [];
+		} catch {
+			return [];
 		}
-		if (approval.offeredDecisions.includes('allow-session')) {
-			buttons.push({ label: localize('onyx.terminal.allowSession', "Run for This Session"), run: () => 'allow-session' });
+	}
+
+	async clearLegacyGrants(): Promise<number> {
+		let removed = 0;
+		for (const folder of this._workspaceService.getWorkspace().folders) {
+			const uri = folder.toResource(ONYX_PROJECT_CONFIG_PATH);
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse((await this._fileService.readFile(uri)).value.toString());
+			} catch {
+				continue; // no config in this folder, or not JSON: nothing of ours to remove
+			}
+			if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+				continue;
+			}
+			const config = parsed as Record<string, unknown>;
+			const legacy = config[LEGACY_TERMINAL_ALLOWLIST_KEY];
+			if (legacy === undefined) {
+				continue;
+			}
+			removed += Array.isArray(legacy) ? legacy.length : 1;
+			delete config[LEGACY_TERMINAL_ALLOWLIST_KEY];
+			await this._fileService.writeFile(uri, VSBuffer.fromString(JSON.stringify(config, undefined, '\t') + '\n'));
 		}
-		if (approval.offeredDecisions.includes('allow-always')) {
-			buttons.push({ label: localize('onyx.terminal.allowAlways', "Always Run This Command"), run: () => 'allow-always' });
-		}
+		this._storageService.remove(APPROVAL_HISTORY_KEY, StorageScope.WORKSPACE);
+		return removed;
+	}
+
+	/**
+	 * The one source of authority for an invocation: the user's answer to a
+	 * dialog that shows that invocation. Nothing else is consulted, whatever
+	 * the repository, an earlier answer or stored data says.
+	 */
+	protected async _authorize(invocation: IOnyxCommandInvocation): Promise<OnyxTerminalDecision> {
+		return this._askForApproval(invocation);
+	}
+
+	protected async _askForApproval(invocation: IOnyxCommandInvocation): Promise<OnyxTerminalDecision> {
+		const approval = this._approvalRequest(invocation);
 		const result = await this._dialogService.prompt<OnyxTerminalDecision>({
 			type: approval.dangerous ? Severity.Warning : Severity.Info,
 			message: approval.dangerous
 				? localize('onyx.terminal.approveDangerous', "The agent wants to run a command that looks dangerous")
 				: localize('onyx.terminal.approve', "The agent wants to run a terminal command"),
 			detail: approval.detail,
-			buttons,
+			buttons: [{ label: localize('onyx.terminal.allowOnce', "Run Once"), run: () => 'allow-once' }],
 			cancelButton: { label: localize('onyx.terminal.deny', "Deny"), run: () => 'deny' },
 		});
-		return result.result ?? 'deny';
+		return result.result === 'allow-once' ? 'allow-once' : 'deny';
 	}
 
-	/** "Always allow" decisions are team-visible: they land in the checked-in config. */
-	private async _persistAllow(command: string): Promise<void> {
-		const folder = this._workspaceService.getWorkspace().folders[0];
-		if (!folder) {
-			return;
-		}
-		const uri = folder.toResource(ONYX_PROJECT_CONFIG_PATH);
-		let existing: Record<string, unknown> = {};
-		try {
-			const content = await this._fileService.readFile(uri);
-			const parsed: unknown = JSON.parse(content.value.toString());
-			if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-				existing = parsed as Record<string, unknown>;
-			}
-		} catch {
-			// No config yet (or unreadable): start fresh with just the allowlist.
-		}
-		const allowlist = Array.isArray(existing.terminalAllowlist) ? existing.terminalAllowlist.filter((entry): entry is string => typeof entry === 'string') : [];
-		const normalized = normalizeCommand(command);
-		if (!allowlist.includes(normalized)) {
-			allowlist.push(normalized);
-		}
-		existing.terminalAllowlist = allowlist;
-		await this._fileService.writeFile(uri, VSBuffer.fromString(JSON.stringify(existing, undefined, '\t') + '\n'));
+	/** What the dialog says about an invocation: the exact command, where, for how long, and what it looks like. */
+	protected _approvalRequest(invocation: IOnyxCommandInvocation) {
+		return buildApprovalRequest(invocation);
+	}
+
+	private _remember(invocation: IOnyxCommandInvocation, decision: OnyxTerminalDecision): void {
+		const history = [...this.approvalHistory(), { at: Date.now(), command: invocation.command, cwd: invocation.cwd, timeoutMs: invocation.timeoutMs, decision }];
+		this._storageService.store(APPROVAL_HISTORY_KEY, JSON.stringify(history.slice(-APPROVAL_HISTORY_MAX)), StorageScope.WORKSPACE, StorageTarget.MACHINE);
 	}
 
 	private _appendActivity(runId: string | undefined, entry: { kind: 'note'; label: string; reason?: string; ok?: boolean }): void {
@@ -221,8 +277,8 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 
 /**
  * Registers the terminal tool with the tools service. The tool itself is a
- * thin veneer: parameter validation here, policy and execution in the
- * terminal service, decisions with the user.
+ * thin veneer: parameter validation here, the approval and the execution in
+ * the terminal service, the decision with the user.
  */
 export class OnyxTerminalToolContribution extends Disposable {
 
@@ -238,7 +294,7 @@ export class OnyxTerminalToolContribution extends Disposable {
 			id: ONYX_TERMINAL_TOOL_ID,
 			toolReferenceName: 'terminal',
 			displayName: localize('onyx.terminal.displayName', "Run Terminal Command"),
-			modelDescription: 'Proposes one shell command to run in the workspace root. The user must approve it before it runs; a denied command must not be retried. Output is returned when the command finishes. Use for builds, tests, git status and similar read-mostly commands. Keep commands short and non-interactive.',
+			modelDescription: 'Proposes one shell command to run in the workspace root. The user is asked to approve every command before it runs, each time; a denied command must not be retried. Output is returned when the command finishes. Use for builds, tests, git status and similar read-mostly commands. Keep commands short and non-interactive.',
 			userDescription: localize('onyx.terminal.userDescription', "Let the agent propose shell commands, each gated on your approval"),
 			source: ToolDataSource.Internal,
 			canBeReferencedInPrompt: true,
@@ -266,8 +322,10 @@ export class OnyxTerminalToolContribution extends Disposable {
 
 	private async _invoke(invocation: IToolInvocation, token: CancellationToken): Promise<IToolResult> {
 		const parameters = invocation.parameters as { command?: unknown; timeoutSeconds?: unknown };
-		const command = typeof parameters.command === 'string' ? parameters.command.trim() : '';
-		if (!command) {
+		// The command is passed on exactly as the model wrote it: what the user
+		// approves is what runs, so nothing here trims or rewrites it.
+		const command = typeof parameters.command === 'string' ? parameters.command : '';
+		if (!command.trim()) {
 			return errorResult('A non-empty "command" string is required.');
 		}
 		const timeoutMs = Math.min(typeof parameters.timeoutSeconds === 'number' && parameters.timeoutSeconds > 0 ? parameters.timeoutSeconds * 1000 : DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
@@ -289,5 +347,54 @@ registerAction2(class KillOnyxTerminalCommandAction extends Action2 {
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
 		accessor.get(IOnyxTerminalService).killAll();
+	}
+});
+
+registerAction2(class ShowOnyxApprovalHistoryAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.terminal.showApprovalHistory',
+			title: localize2('onyx.terminal.showApprovalHistory', "Onyx: Show Terminal Approval History"),
+			f1: true,
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const history = accessor.get(IOnyxTerminalService).approvalHistory();
+		const lines = [
+			'// Terminal approval history for this workspace (read-only view, stored on this machine only).',
+			'// A record of past decisions. It authorizes nothing: every command asks again, every time.',
+			JSON.stringify(history.map(record => ({ ...record, at: new Date(record.at).toISOString() })), undefined, '\t'),
+		];
+		await accessor.get(IEditorService).openEditor({ resource: undefined, contents: lines.join('\n'), languageId: 'jsonc', options: { pinned: true } });
+	}
+});
+
+registerAction2(class ClearOnyxLegacyGrantsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.terminal.clearLegacyGrants',
+			title: localize2('onyx.terminal.clearLegacyGrants', "Onyx: Clear Legacy Terminal Grants"),
+			f1: true,
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const terminalService = accessor.get(IOnyxTerminalService);
+		const dialogService = accessor.get(IDialogService);
+		const notificationService = accessor.get(INotificationService);
+		const confirmation = await dialogService.confirm({
+			message: localize('onyx.terminal.clearLegacy.message', "Clear legacy terminal grants?"),
+			detail: localize('onyx.terminal.clearLegacy.detail', "Earlier versions wrote \"always run\" decisions into {0} as \"terminalAllowlist\". Those entries are inactive: every command asks, every time. This removes them from that file in each workspace folder and clears this workspace's approval history. The rest of the file is kept.", ONYX_PROJECT_CONFIG_PATH),
+			primaryButton: localize('onyx.terminal.clearLegacy.confirm', "Clear"),
+		});
+		if (!confirmation.confirmed) {
+			return;
+		}
+		const removed = await terminalService.clearLegacyGrants();
+		notificationService.notify({
+			severity: Severity.Info,
+			message: removed === 0
+				? localize('onyx.terminal.clearLegacy.none', "No legacy terminal grants were found. The approval history was cleared.")
+				: localize('onyx.terminal.clearLegacy.done', "Removed {0} legacy terminal grant(s) and cleared the approval history.", removed),
+		});
 	}
 });

@@ -356,13 +356,16 @@ async function main() {
 		if (!detail) { return 'no-dialog'; }
 		const text = await detail.textContent();
 		const buttons = await page.$$('.monaco-dialog-box a.monaco-text-button');
+		const labels = [];
+		for (const button of buttons) { labels.push(((await button.textContent()) || '').trim()); }
 		for (const button of buttons) {
-			if ((await button.textContent())?.includes('Run Once')) { await button.click(); return 'approved:' + text; }
+			if ((await button.textContent())?.includes('Run Once')) { await button.click(); return 'approved:' + text + ' buttons=' + labels.sort().join('+'); }
 		}
-		return 'no-run-once:' + text;
+		return 'no-run-once:' + text + ' buttons=' + labels.sort().join('+');
 	}`);
 	check('contract', 'the terminal tool asks before running', approval.includes('approved:'), approval.slice(0, 160));
 	check('contract', 'the approval names the exact command', approval.includes('echo onyx-packaged-terminal-ok'), approval.slice(0, 160));
+	check('contract', 'the approval offers Run Once and Deny, and nothing that outlives the invocation (B2)', /buttons=Deny\+Run Once"/.test(approval), approval.slice(0, 400));
 }
 
 let aborted: string | undefined;

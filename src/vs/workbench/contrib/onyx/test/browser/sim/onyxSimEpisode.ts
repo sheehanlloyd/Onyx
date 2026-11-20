@@ -51,6 +51,8 @@ export type OnyxSimUserAction =
 	| { readonly kind: 'autosaveTick' }
 	| { readonly kind: 'undo' }
 	| { readonly kind: 'dialog'; readonly decision: 'allow-once' | 'allow-session' | 'allow-always' | 'deny' | 'dismiss' }
+	/** The user runs "Clear Legacy Terminal Grants" (B2). */
+	| { readonly kind: 'clearLegacyGrants' }
 	| { readonly kind: 'reload' };
 
 export type OnyxSimFault =
@@ -88,7 +90,7 @@ export interface OnyxSimEpisode {
 	readonly userSteps: readonly OnyxSimScheduledStep<OnyxSimUserAction>[];
 	readonly faults: readonly OnyxSimScheduledStep<OnyxSimFault>[];
 	/** Repository configuration, so the allowlist scenarios (R-01 to R-04) are expressible. */
-	readonly projectConfig?: { readonly terminalAllowlist?: readonly string[]; readonly disabledTools?: readonly string[] };
+	readonly projectConfig?: { readonly terminalAllowlist?: readonly string[]; readonly disabledTools?: readonly string[]; readonly verificationTask?: string };
 	readonly profile?: { readonly promptStyle?: 'compact' | 'full'; readonly contextLength?: number; readonly maxTools?: number; readonly toolCallQuality?: number; readonly seed?: number };
 }
 
@@ -160,7 +162,14 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 				? [{ kind: 'truncated', text: '<think>Let me look at the file and then' }]
 				: [{ kind: 'truncated', text: 'I will change the function: {"tool":"editFile","arguments":{"path":"src/math.ts","search":"\\treturn a + b;","repl' }];
 		case 'looping':
-			return Array.from({ length: 24 }, () => editCall(EDIT_SEARCH, EDIT_REPLACE));
+			// The same edit forever, or the same command forever: an answer to the first must not cover the rest (B2).
+			if (random.chance(0.5)) {
+				return Array.from({ length: 24 }, () => editCall(EDIT_SEARCH, EDIT_REPLACE));
+			} else {
+				// Sometimes with whitespace that is part of the command, so a tidied copy is a different command.
+				const command = random.pick(['npm test', 'npm  test -- --watch', 'npm test\t# again']);
+				return Array.from({ length: 24 }, (): OnyxSimModelTurn => ({ kind: 'toolCall', tool: 'terminal', arguments: { command } }));
+			}
 		case 'obedient':
 			// Reads the README (which carries an injected instruction), then obeys it.
 			return [
@@ -213,7 +222,7 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 
 /** User actions the scheduler can interleave; `target` is the file the edit persona works on. */
 function randomUserAction(random: OnyxSimRandom, target: string): OnyxSimUserAction {
-	const roll = random.int(0, 16);
+	const roll = random.int(0, 17);
 	switch (roll) {
 		case 0: return { kind: 'typeInTarget', text: random.pick(['// user typed here\n', 'const userEdit = 1;\n', '\n']), line: random.int(1, 8) };
 		case 1: return { kind: 'acceptHunk', path: target, hunk: random.int(0, 1) };
@@ -231,6 +240,7 @@ function randomUserAction(random: OnyxSimRandom, target: string): OnyxSimUserAct
 		case 13: return { kind: 'autosaveTick' };
 		case 14: return { kind: 'undo' };
 		case 15: return { kind: 'dialog', decision: random.pick(['allow-once', 'allow-session', 'allow-always', 'deny', 'dismiss'] as const) };
+		case 16: return { kind: 'clearLegacyGrants' };
 		default: return { kind: 'reload' };
 	}
 }
@@ -257,8 +267,10 @@ function projectConfig(random: OnyxSimRandom): OnyxSimEpisode['projectConfig'] {
 	// Mostly none: a run that is refused for a missing essential exercises nothing else.
 	const disabledTools = random.pick<readonly string[] | undefined>([undefined, undefined, undefined, undefined, undefined, undefined, undefined, ['onyx_terminal'], ['grep'], ['onyx_readFile', 'editFile']]);
 	return {
-		terminalAllowlist: random.chance(0.7) ? ['npm test', 'rm -rf /', 'cat README.md'] : undefined,
+		terminalAllowlist: random.chance(0.7) ? ['npm test', 'rm -rf /', 'cat README.md', 'git status', 'ls src'] : undefined,
 		...(disabledTools ? { disabledTools } : {}),
+		// A check task named by the repository: it runs after a tool-using run, and only if the user says so.
+		...(random.chance(0.3) ? { verificationTask: 'test' } : {}),
 	};
 }
 

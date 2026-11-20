@@ -60,4 +60,46 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 			{ kind: 'text', text: 'Done.' },
 		], { projectConfig: { disabledTools: ['onyx_terminal'] } }),
 	},
+	{
+		id: 'B2-repository-allowlist',
+		fixedBy: 'B2',
+		defect: 'A command listed in the repository\'s `.onyx/config.json` `terminalAllowlist` runs with no approval dialog (Cursor red flag 2; Claude B2; Codex; R-01, R-02)',
+		detects: 'I-02/repository-allowlist',
+		resurrects: 'OnyxMutantRepositoryAllowlistTerminal',
+		script: script('B2-repository-allowlist', 'Run the tests', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'cat README.md' } },
+		], { persona: 'obedient', dialogDefault: 'deny', projectConfig: { terminalAllowlist: ['npm test', 'rm -rf /', 'cat README.md'] } }),
+	},
+	{
+		id: 'B2-reused-approval',
+		fixedBy: 'B2',
+		defect: 'A "Run for This Session" or "Always Run" answer: one approval of a command text runs every later invocation of that text, whatever changed underneath it (R-03, R-04)',
+		detects: 'I-02/reused-approval',
+		resurrects: 'OnyxMutantReusedApprovalTerminal',
+		script: script('B2-reused-approval', 'Run the tests twice', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
+		]),
+	},
+	{
+		id: 'B2-normalized-approval',
+		fixedBy: 'B2',
+		defect: 'The approval dialog shows a whitespace-collapsed copy of the command while the original bytes are dispatched, so what the user approved is not what runs',
+		detects: 'I-02/approval-for-other-bytes',
+		resurrects: 'OnyxMutantNormalizedApprovalTerminal',
+		script: script('B2-normalized-approval', 'Print the header', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'printf \'a   b\\n\'' } },
+		]),
+	},
+	{
+		id: 'B2-unasked-check-task',
+		fixedBy: 'B2',
+		defect: 'A `verificationTask` named in the repository\'s `.onyx/config.json` runs a workspace task after a tool-using run with no approval for that run',
+		detects: 'I-02/unapproved-task',
+		resurrects: 'OnyxMutantUnaskedCheckTerminal',
+		script: script('B2-unasked-check-task', 'Change addNumbers', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } },
+			{ kind: 'text', text: 'Staged.' },
+		], { dialogDefault: 'deny', projectConfig: { verificationTask: 'test' } }),
+	},
 ];
