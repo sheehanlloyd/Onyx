@@ -21,7 +21,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const keep = process.argv.includes('--keep');
@@ -254,10 +254,14 @@ function readRuns() {
 	return fs.readdirSync(dir)
 		.filter(name => name.endsWith('.jsonl'))
 		.sort()
-		.map(name => ({
-			name,
-			events: fs.readFileSync(path.join(dir, name), 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line) as { kind: string; data?: any }),
-		}));
+		.map(name => {
+			const raw = fs.readFileSync(path.join(dir, name), 'utf8');
+			return {
+				name,
+				raw,
+				events: raw.trim().split('\n').filter(Boolean).map(line => JSON.parse(line) as { kind: string; data?: any }),
+			};
+		});
 }
 
 /**
@@ -456,6 +460,20 @@ async function main() {
 
 	const runs = readRuns();
 	check('four runs were journaled', runs.length >= 4, `saw ${runs.length}`);
+
+	// R-43 (L3): every agent run's journal is a schema-valid v2 trace, read
+	// through the product's own reader from compiled output.
+	const traceModule = await import(pathToFileURL(path.join(repoRoot, 'out', 'vs', 'workbench', 'contrib', 'onyx', 'common', 'onyxTrace.js')).href) as {
+		parseTrace(text: string): { header?: { v: number; sampling: { seed: number | null } }; turns: { seed: { requested: number | null; honoured: boolean | 'unknown' } }[] };
+		validateTrace(trace: unknown): { ok: boolean; version: number; errors: readonly string[] };
+	};
+	const traces = runs.map(run => {
+		const trace = traceModule.parseTrace(run.raw);
+		const validation = traceModule.validateTrace(trace);
+		return { name: run.name, ok: validation.ok, version: validation.version, turns: trace.turns.length, errors: validation.errors, seed: trace.turns[0]?.seed };
+	});
+	check('R-43: every agent run journals a schema-valid v2 trace with at least one turn', traces.every(trace => trace.ok && trace.version === 2 && trace.turns >= 1), JSON.stringify(traces.filter(trace => !trace.ok || trace.turns < 1).map(trace => ({ name: trace.name, errors: trace.errors, turns: trace.turns }))));
+	check('R-43: a run without a profile seed records the seed as unknown, never as honoured', traces.every(trace => trace.seed && trace.seed.requested === null && trace.seed.honoured === 'unknown'), JSON.stringify(traces.map(trace => trace.seed)));
 
 	const all = runs.flatMap(run => run.events);
 	const toolCalls: string[] = all.filter(event => event.kind === 'toolCall').map(event => event.data?.label);

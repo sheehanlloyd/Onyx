@@ -302,7 +302,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		let streamedChars = 0;
 		let toolCallCount = 0;
 
-		const result = new Promise<void>((resolve, reject) => {
+		const result = new Promise<{ finishReason: string | undefined; seedHonoured: boolean | undefined }>((resolve, reject) => {
 			store.add(this._runtimeService.onDidStream(event => {
 				if (event.operationId !== operationId) {
 					return;
@@ -336,7 +336,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						source.resolve();
 						this._lastUsedAt.set(model.key, Date.now());
 						this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: event.finishReason, wasCold });
-						resolve();
+						resolve({ finishReason: event.finishReason, seedHonoured: event.seedHonoured });
 						break;
 					}
 					case 'error': {
@@ -363,6 +363,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				messages: toWireMessages(messages),
 				tools: tools.length ? toWireTools(tools.slice(0, model.profile.maxTools)) : undefined,
 				temperature: model.profile.temperature,
+				seed: model.profile.seed,
 				// Residency: ask Ollama to hold the weights between requests, so
 				// the next request pays prompt-processing, not model loading.
 				keepAlive: model.discovered.runtime === 'ollama' ? this._keepAliveFor(model) : undefined,

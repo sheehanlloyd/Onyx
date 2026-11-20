@@ -219,7 +219,7 @@
 		},
 		{
 			"id": "packaged-release",
-			"title": "A8 packaged smoke, release mode: the full tool contract, read \u2192 staged edit \u2192 accept, terminal approval",
+			"title": "A8 packaged smoke, release mode: the full tool contract, read → staged edit → accept, terminal approval",
 			"layer": "packaged",
 			"regressions": [
 				"R-31"
@@ -302,6 +302,40 @@
 				"node",
 				"test/onyx/sim/export-episodes.mts",
 				"--check"
+			]
+		},
+		{
+			"id": "R-43",
+			"title": "L3 trace and experiment provenance at the harness layer: charts refuse without a valid manifest, the mock echoes the seed on the wire",
+			"layer": "node",
+			"regressions": [
+				"R-43"
+			],
+			"files": [
+				"test/onyx/checks/r43-provenance.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r43-provenance.test.mts"
+			],
+			"timeoutMs": 120000
+		},
+		{
+			"id": "R-43-unit",
+			"title": "L3 trace schema v2 and the seed on the wire and honoured, in the product",
+			"layer": "unit",
+			"regressions": [
+				"R-43"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxTrace.test.ts",
+				"src/vs/platform/onyxRuntime/test/node/onyxRuntimeService.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxTrace|OnyxRuntimeService"
 			]
 		}
 	]

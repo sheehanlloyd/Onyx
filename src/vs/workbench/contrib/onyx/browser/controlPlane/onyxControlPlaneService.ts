@@ -8,6 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { derived, IObservable, ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+import { IOnyxTraceAcceptance, IOnyxTraceApproval, IOnyxTraceHeader, IOnyxTraceTurn } from '../../common/onyxTrace.js';
 import { IOnyxBudgetSlice, IOnyxRunEvent, OnyxRunStatus, OnyxTaskKind } from '../../common/onyxTypes.js';
 
 export const IOnyxControlPlaneService = createDecorator<IOnyxControlPlaneService>('onyxControlPlaneService');
@@ -59,6 +60,8 @@ export interface IOnyxRunHandle {
 	activity(entry: Omit<IOnyxActivityEntry, 'at'>): void;
 	/** Records journal-only data (e.g. the exact wire request) without adding a visible timeline entry. */
 	snapshot(data: unknown): void;
+	/** Records a trace v2 header or turn (L3): journal-only, no timeline entry. */
+	record(data: IOnyxTraceHeader | IOnyxTraceTurn): void;
 	setContextBudget(slices: readonly IOnyxBudgetSlice[]): void;
 	setTurnCount(count: number): void;
 	/**
@@ -95,6 +98,10 @@ export interface IOnyxControlPlaneService {
 	appendActivity(runId: string, entry: Omit<IOnyxActivityEntry, 'at'>): void;
 	selectRun(runId: string | undefined): void;
 	updateCompute(state: Partial<IOnyxComputeState>): void;
+	/** The terminal service records every approval decision with its source (L3, I-02). */
+	recordApproval(runId: string, approval: Omit<IOnyxTraceApproval, 'kind'>): void;
+	/** The change set service records every accepted hunk or file (L3, I-09). */
+	recordAcceptance(runId: string, acceptance: Omit<IOnyxTraceAcceptance, 'kind'>): void;
 
 	pause(runId: string): void;
 	resume(runId: string): void;
@@ -180,6 +187,9 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 			snapshot(data) {
 				service._onDidRecordEvent.fire({ runId, event: { t: Date.now() - run.startedAt, kind: 'promptSnapshot', data } });
 			},
+			record(data) {
+				service._onDidRecordEvent.fire({ runId, event: { t: Date.now() - run.startedAt, kind: data.kind, data } });
+			},
 			setContextBudget(slices) {
 				run.contextBudgetObs.set(slices, undefined);
 			},
@@ -224,6 +234,20 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 
 	updateCompute(state: Partial<IOnyxComputeState>): void {
 		this._computeObs.set({ ...this._computeObs.get(), ...state }, undefined);
+	}
+
+	recordApproval(runId: string, approval: Omit<IOnyxTraceApproval, 'kind'>): void {
+		const run = this._liveRuns.get(runId);
+		if (run) {
+			this._onDidRecordEvent.fire({ runId, event: { t: Date.now() - run.startedAt, kind: 'approval', data: { kind: 'approval', ...approval } } });
+		}
+	}
+
+	recordAcceptance(runId: string, acceptance: Omit<IOnyxTraceAcceptance, 'kind'>): void {
+		const run = this._liveRuns.get(runId);
+		if (run) {
+			this._onDidRecordEvent.fire({ runId, event: { t: Date.now() - run.startedAt, kind: 'acceptance', data: { kind: 'acceptance', ...acceptance } } });
+		}
 	}
 
 	pause(runId: string): void {

@@ -37,6 +37,7 @@ interface IOpenAIModelList {
 interface IOllamaTagsResponse {
 	readonly models?: readonly {
 		readonly name: string;
+		readonly digest?: string;
 		readonly details?: {
 			readonly family?: string;
 			readonly parameter_size?: string; // e.g. "14.8B"
@@ -69,6 +70,9 @@ interface IOllamaShowResponse {
 /** One parsed chat-completions SSE payload (the fields we consume). */
 interface ISseChunk {
 	readonly usage?: { readonly prompt_tokens?: number; readonly completion_tokens?: number };
+	/** Non-standard: a runtime (or the mock) that echoes the requested seed says it honoured it (L3). */
+	readonly seed?: number;
+	readonly system_fingerprint?: string;
 	readonly choices?: readonly {
 		readonly finish_reason?: string;
 		readonly delta?: {
@@ -175,6 +179,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					stream_options: { include_usage: true },
 					...(params.tools?.length ? { tools: params.tools } : {}),
 					...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
+					...(params.seed !== undefined ? { seed: params.seed } : {}),
 					...(params.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
 					...(params.keepAlive ? { keep_alive: params.keepAlive } : {}),
 					...(params.responseFormat ? { response_format: params.responseFormat } : {}),
@@ -187,7 +192,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				return;
 			}
 
-			await this._pumpSse(operationId, response.body);
+			await this._pumpSse(operationId, response.body, params.seed);
 		} catch (err) {
 			if (!controller.signal.aborted) {
 				this._emitError(operationId, err instanceof Error ? err.message : String(err));
@@ -575,11 +580,13 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		});
 	}
 
-	private async _pumpSse(operationId: string, body: ReadableStream<Uint8Array>): Promise<void> {
+	private async _pumpSse(operationId: string, body: ReadableStream<Uint8Array>, requestedSeed?: number): Promise<void> {
 		const decoder = new TextDecoder();
 		let buffered = '';
 		let sawDone = false;
 		let finishReason: string | undefined;
+		let echoedSeed: number | undefined;
+		let fingerprint: string | undefined;
 
 		const reader = body.getReader();
 		try {
@@ -611,6 +618,12 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					} catch {
 						this._logService.trace('[onyxRuntime] skipping malformed SSE payload', truncate(payload, 200));
 						continue;
+					}
+					if (typeof parsed.seed === 'number') {
+						echoedSeed = parsed.seed;
+					}
+					if (typeof parsed.system_fingerprint === 'string') {
+						fingerprint = parsed.system_fingerprint;
 					}
 					if (parsed.usage) {
 						this._onDidStream.fire({
@@ -646,7 +659,8 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					break;
 				}
 			}
-			this._onDidStream.fire({ operationId, kind: 'done', finishReason });
+			// Honoured only when the runtime echoed the seed it was sent; a silent runtime leaves it unknown.
+			this._onDidStream.fire({ operationId, kind: 'done', finishReason, fingerprint, seedHonoured: requestedSeed !== undefined && echoedSeed === requestedSeed ? true : undefined });
 		} finally {
 			reader.releaseLock();
 		}
@@ -670,6 +684,8 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 			? undefined
 			: await this._fetchJson<ILmStudioModelList>(`${ollamaRootUrl(baseUrl)}/api/v0/models`);
 		const runtime: OnyxRuntimeKind = ollamaTags?.models ? 'ollama' : lmStudioList?.data ? 'lmstudio' : kindHint;
+		// The runtime's own version, for trace provenance (L3); only Ollama reports one today.
+		const ollamaVersion = runtime === 'ollama' ? (await this._fetchJson<{ readonly version?: string }>(`${ollamaRootUrl(baseUrl)}/api/version`))?.version : undefined;
 
 		const models: IOnyxDiscoveredModel[] = [];
 		for (const entry of list.data) {
@@ -694,6 +710,8 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				// The four known runtimes all accept OpenAI `response_format:
 				// json_schema`; an unidentified server cannot be assumed to.
 				supportsJsonSchema: runtime !== 'generic',
+				digest: tag?.digest,
+				runtimeVersion: ollamaVersion,
 			});
 		}
 		return models;

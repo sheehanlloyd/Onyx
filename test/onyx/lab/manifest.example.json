@@ -1,0 +1,21 @@
+{
+	"version": 1,
+	"name": "2026-11-19-example",
+	"createdAt": "2026-11-19T00:00:00Z",
+	"models": [
+		{ "identifier": "mock:mock-coder:7b", "digest": "mock", "runtime": { "name": "mock", "version": "e2e" } }
+	],
+	"seeds": [1, 2, 3],
+	"sampling": { "temperature": 0, "maxTokens": 2048, "responseFormat": false },
+	"harnessConfigurations": [
+		{ "name": "shipping-default", "hash": "00000000", "configuration": {} }
+	],
+	"taskSet": { "name": "pure-logic benchmark", "hash": "00000000", "count": 0 },
+	"repetitions": 1,
+	"machine": { "platform": "darwin", "arch": "arm64", "cpu": "Apple M4 Pro", "memoryGiB": 48, "nodeVersion": "24" },
+	"regenerate": [
+		{ "output": "docs/images/chart-*.svg", "command": "node test/onyx/run-benchmarks.mts --skip-models --json-out bench.json && node test/onyx/make-charts.mts --manifest manifest.json bench.json" }
+	],
+	"hypotheses": [],
+	"notes": "An example only: the task set and configuration hashes are placeholders until L4 and L10 produce real ones."
+}

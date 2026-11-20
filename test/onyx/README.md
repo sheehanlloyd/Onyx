@@ -66,7 +66,7 @@ generated from its JSON — never hand-written.
 npm run transpile-client                 # the harness imports the real modules from out/
 node test/onyx/run-benchmarks.mts        # readable report
 node test/onyx/run-benchmarks.mts --json-out /tmp/onyx-bench.json
-node test/onyx/make-charts.mts /tmp/onyx-bench.json   # → docs/images/chart-*.svg
+node test/onyx/make-charts.mts --manifest <manifest.json> /tmp/onyx-bench.json   # → docs/images/chart-*.svg
 ```
 
 It has two halves. The **pure-logic** half (retrieval, architecture scan, edit
@@ -168,9 +168,31 @@ One file at a time, because R-35 rewrites `out/` while it runs and R-23 reads it
 They cover the A1 inventory in disposable repositories (R-37), the hygiene
 check against fixture trees with injected defects, the launch-script path
 (A4), the benchmark's assertions against a compiled tree with an injected
-marker leak (R-23), and the fresh-output protocol end to end (R-35: a failing
+marker leak (R-23), the fresh-output protocol end to end (R-35: a failing
 probe regression is written into this checkout, observed to fail only after a
-transpile, fixed, observed to pass, and removed again).
+transpile, fixed, observed to pass, and removed again), and the provenance rule
+(R-43: the chart builder refuses without a valid manifest, the mock echoes a
+requested seed on the wire).
+
+## Trace and experiment provenance
+
+Every agent run journals a version 2 trace
+(`src/vs/workbench/contrib/onyx/common/onyxTrace.ts`, pure and importable from
+plain Node): one header record with the harness configuration hash, model
+identifier and digest, runtime name and version, sampling parameters including
+the seed, and the tool list with schema hashes; one record per model turn with
+the request digest, the response text, how the stream ended, the tool calls
+with argument and result digests, and whether the runtime honoured the seed;
+plus one record per terminal approval (with its source) and per accepted hunk.
+A value the writer does not know is `null`, never absent: `validateTrace` fails
+closed on a missing field. Version 1 journals (run events only) still read.
+
+The seed goes on the wire as `seed` whenever a model's profile sets one, and
+`seedHonoured` is true only when the runtime echoed it back (the mock does;
+`onyxRuntimeService.test.ts` covers both). Campaigns carry an experiment
+manifest, `test/onyx/lab/manifest.schema.json`; `test/onyx/lab/manifest.mts`
+validates one or checks a results directory under `docs/research/results/`.
+`make-charts.mts --manifest <file>` is the only way to draw a chart.
 
 ## Simulation rig
 

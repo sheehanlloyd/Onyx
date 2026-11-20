@@ -16,8 +16,16 @@ was not measured on the machine you are reading this on is simply absent.
 
 ```bash
 node test/onyx/run-benchmarks.mts --json-out /tmp/onyx-bench.json
-node test/onyx/make-charts.mts /tmp/onyx-bench.json
+node test/onyx/make-charts.mts --manifest <manifest.json> /tmp/onyx-bench.json
 ```
+
+`--manifest` is required: the chart builder refuses to draw without an experiment manifest that validates
+against [`test/onyx/lab/manifest.schema.json`](../test/onyx/lab/manifest.schema.json) (models with digests,
+seeds, sampling, harness configuration hashes, the task-set hash, the machine, and the command that
+regenerates each table), and every chart it draws starts with a comment naming the manifest and the report
+files it came from. [`test/onyx/lab/manifest.example.json`](../test/onyx/lab/manifest.example.json) is a
+starting point; `node test/onyx/lab/manifest.mts <file>` validates one. This is the research package's
+provenance rule ([docs/research/README.md](research/README.md)), implemented once.
 
 `make-charts.mts` takes more than one report if you have them, with later files
 winning on a name collision — see [Measure one runtime at a

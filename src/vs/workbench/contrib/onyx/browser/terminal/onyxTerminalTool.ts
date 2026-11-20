@@ -92,8 +92,15 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 		if (evaluation.autoAllowed) {
 			decision = 'allow-session';
 			this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.autoAllowed', "Command allowed by the workspace allowlist"), reason: normalizeCommand(command) });
+			if (runId) {
+				const fromWorkspace = workspaceAllowlist.map(normalizeCommand).includes(normalizeCommand(command));
+				this._controlPlaneService.recordApproval(runId, { command: normalizeCommand(command), decision, source: fromWorkspace ? 'workspace-allowlist' : 'session' });
+			}
 		} else {
 			decision = await this._askForApproval(evaluation.approval!);
+			if (runId) {
+				this._controlPlaneService.recordApproval(runId, { command: normalizeCommand(command), decision, source: 'dialog' });
+			}
 			if (decision === 'deny') {
 				this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.denied', "Command denied by the user"), reason: normalizeCommand(command), ok: false });
 				return { content: [{ kind: 'text', value: 'The user denied this command. Do not retry it; ask the user what to do instead, or continue without it.' }] };
