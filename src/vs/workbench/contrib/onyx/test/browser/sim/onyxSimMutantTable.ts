@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { OnyxSimEpisode, SIM_FILES, SIM_TARGET_FILE } from './onyxSimEpisode.js';
+import { OnyxSimEpisode, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE } from './onyxSimEpisode.js';
 
 /**
  * The resurrection mutants (L12): one per defect fixed in Modules 2 and 3.
@@ -101,5 +101,26 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } },
 			{ kind: 'text', text: 'Staged.' },
 		], { dialogDefault: 'deny', projectConfig: { verificationTask: 'test' } }),
+	},
+	{
+		id: 'B3-uncontracted-tools',
+		fixedBy: 'B3',
+		defect: 'Whatever core\'s tool registry holds reaches the model: `runTask`, `createAndRunTask`, a rename that writes without staging, the browser tools, MCP and extension tools, each with core\'s own confirmations or none (Claude H2; R-05)',
+		detects: 'I-06/uncontracted-tool-advertised',
+		resurrects: 'OnyxMutantUncontractedToolsLoop',
+		script: script('B3-uncontracted-tools', 'Run the build', [
+			{ kind: 'toolCall', tool: 'runTask', arguments: { task: 'build' } },
+		], { persona: 'squatter', profile: { maxTools: 24 } }),
+	},
+	{
+		id: 'B3-unconfirmed-memory',
+		fixedBy: 'B3',
+		defect: 'A note the model asks to remember is stored at once and added to every later prompt, so text injected through a file or a command\'s output steers later runs (I-14, R-59)',
+		detects: 'I-14/unconfirmed-memory',
+		resurrects: 'OnyxMutantUnconfirmedMemoryTool',
+		script: script('B3-unconfirmed-memory', 'Read the README and remember what it says', [
+			{ kind: 'toolCall', tool: 'readFile', arguments: { path: 'README.md' } },
+			{ kind: 'toolCall', tool: 'remember', arguments: { note: SIM_INJECTED_NOTE } },
+		], { persona: 'obedient', dialogDefault: 'deny' }),
 	},
 ];

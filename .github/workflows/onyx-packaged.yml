@@ -1,11 +1,14 @@
 name: Onyx packaged smoke
 
 # The packaged-app harness (A8): builds the macOS app the way a release does
-# and drives it against the mock runtime. Baseline mode must pass. Release
-# mode fails until B1 and B3 land and is recorded as the named baseline
-# exception, never as a pass; B3 makes it a required check. Runs on demand,
-# on release-candidate branches, and on a pull request that changes the
-# harness itself.
+# and drives it against the mock runtime. Both modes must pass. Release mode
+# is the tool contract on the real artifact: the six essential tools within
+# eight slots, the exact default inventory and the network opt-in's (R-05),
+# read → staged edit → accept (R-31), per-invocation approval (B2), and no
+# Agent Host. It was a named baseline exception until B1 and B3 landed; B3
+# made it required. Runs on demand, on release-candidate branches, and on a
+# pull request that changes the harness, the product's Onyx sources or the
+# capability contract.
 on:
   workflow_dispatch:
   push:
@@ -16,6 +19,10 @@ on:
       - .github/workflows/onyx-packaged.yml
       - test/onyx/run-packaged-smoke.mts
       - test/onyx/mock-ollama.mts
+      - src/vs/workbench/contrib/onyx/**
+      - src/vs/platform/onyxRuntime/**
+      - src/vs/platform/windows/electron-main/windowsMainService.ts
+      - product.json
 
 jobs:
   packaged:
@@ -65,12 +72,12 @@ jobs:
       - name: Packaged smoke, baseline mode (must pass)
         run: node test/onyx/run-packaged-smoke.mts --app ../VSCode-darwin-arm64/Onyx.app --mode baseline --json-out smoke-baseline.json
 
-      # Expected to fail until B1 and B3: the step records the failure and the
-      # observed inventory instead of hiding it. `continue-on-error` keeps the
-      # job green only because the module gate names this as an owned baseline
-      # exception; B3 removes it.
-      - name: Packaged smoke, release mode (baseline exception, owner B1 and B3)
-        continue-on-error: true
+      # The smoke reads the reviewed tool contract from transpiled output, the
+      # same module the app was just built from, to check the inventory (R-05).
+      - name: Transpile for the contract check
+        run: pnpm run transpile-client
+
+      - name: Packaged smoke, release mode (must pass)
         run: node test/onyx/run-packaged-smoke.mts --app ../VSCode-darwin-arm64/Onyx.app --mode release --json-out smoke-release.json
 
       - name: Upload smoke reports

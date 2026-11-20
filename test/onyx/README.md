@@ -34,7 +34,8 @@ Prompt markers steer it:
 | `TOOLTEST` | lists the workspace root through `listDirectory`, exercising the agent loop |
 | `READEDITTEST <path>` | reads that file through `readFile`, then proposes an edit whose SEARCH text is a line it read back (R-31) |
 | `SYMTEST <name>` | calls `repoSymbols` with that query (add `EXPAND` for the call graph) |
-| `MEMTEST <text>` | calls the `remember` tool with that note (the tool is optional: on the eight-slot profile it is offered when the user's message says "remember") |
+| `MEMTEST <text>` | calls the `remember` tool with that note (the tool is optional: on the eight-slot profile it is offered when the user's message says "remember"); the product then asks the user to confirm the note |
+| `NETTEST <url>` | opens that URL through `openBrowserPage`, when that tool is offered (the network tools are an opt-in, and each call asks) |
 | `EDITTEST <path>` | proposes two staged edits to that file via `editFile` |
 | `TERMTEST <cmd>` | proposes that shell command via the terminal tool |
 | `DOCTEST <query>` | searches the offline docs mirror via the `docs` tool |
@@ -106,14 +107,16 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (55 checks):
+asserting on the run journal and the live DOM (57 checks):
 
 - the tool list a default run advertises on the 7B profile (the six essential
   tools and the two documented optional ones, R-36), Onyx's own `listDirectory`
   and `readFile`, and a read → staged edit (R-31), all with the Copilot
   extension disabled, as `scripts/code.sh` now launches by default
+- that upstream's Agent Host never starts (no `agenthost.log` in the profile)
 - chat with the tool loop, `repoSymbols` with call-graph expansion, and the
-  `remember` tool, plus the workspace-context and agent-memory sections landing
+  `remember` tool behind its confirmation (the note and the origin of its text
+  on show, R-59), plus the workspace-context and agent-memory sections landing
   in later prompts and post-run verification reporting a verdict
 - inline (FIM) autocomplete, including the cross-file context header
 - **Fix with Onyx** and **Explain with Onyx** routing into chat runs

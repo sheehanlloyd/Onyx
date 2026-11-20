@@ -9,6 +9,7 @@ import { derived, IObservable, ISettableObservable, observableValue } from '../.
 import { URI } from '../../../../../base/common/uri.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IOnyxTraceAcceptance, IOnyxTraceApproval, IOnyxTraceHeader, IOnyxTraceTurn } from '../../common/onyxTrace.js';
+import { describeNoteOrigin, IOnyxRunText, OnyxNoteOrigin } from '../../common/onyxMemoryOrigin.js';
 import { IOnyxBudgetSlice, IOnyxRunEvent, OnyxRunStatus, OnyxTaskKind } from '../../common/onyxTypes.js';
 
 export const IOnyxControlPlaneService = createDecorator<IOnyxControlPlaneService>('onyxControlPlaneService');
@@ -64,6 +65,8 @@ export interface IOnyxRunHandle {
 	record(data: IOnyxTraceHeader | IOnyxTraceTurn): void;
 	setContextBudget(slices: readonly IOnyxBudgetSlice[]): void;
 	setTurnCount(count: number): void;
+	/** Records what a tool returned to the model in this run, so a later question about where some text came from can be answered (I-14). */
+	noteToolResult(tool: string, text: string): void;
 	/**
 	 * Called between loop iterations. Resolves when the run may continue —
 	 * immediately when running, after resume when paused — and returns any
@@ -89,7 +92,8 @@ export interface IOnyxControlPlaneService {
 	readonly onDidBeginRun: Event<IOnyxLiveRun>;
 	readonly onDidRecordEvent: Event<{ readonly runId: string; readonly event: IOnyxRunEvent }>;
 
-	beginRun(info: { sessionResource: URI; requestId: string; title: string; task: OnyxTaskKind; modelKey: string }): IOnyxRunHandle;
+	/** `request` is the user's whole message, kept so a later origin question can be answered (I-14); `title` is its start. */
+	beginRun(info: { sessionResource: URI; requestId: string; title: string; task: OnyxTaskKind; modelKey: string; request?: string }): IOnyxRunHandle;
 	getRun(runId: string): IOnyxLiveRun | undefined;
 	/**
 	 * Appends a timeline entry to a live run from outside its loop — tools
@@ -100,6 +104,8 @@ export interface IOnyxControlPlaneService {
 	updateCompute(state: Partial<IOnyxComputeState>): void;
 	/** The terminal service records every approval decision with its source (L3, I-02). */
 	recordApproval(runId: string, approval: Omit<IOnyxTraceApproval, 'kind'>): void;
+	/** Where a piece of text came from, as far as this run can tell: the user's request, a tool result, or the model itself (I-14). */
+	originOf(runId: string, text: string): OnyxNoteOrigin;
 	/** The change set service records every accepted hunk or file (L3, I-09). */
 	recordAcceptance(runId: string, acceptance: Omit<IOnyxTraceAcceptance, 'kind'>): void;
 
@@ -111,6 +117,9 @@ export interface IOnyxControlPlaneService {
 }
 
 const MAX_RETAINED_RUNS = 50;
+/** How many tool results, and how much of each, a run keeps for origin questions. */
+const MAX_ORIGIN_TEXTS = 32;
+const MAX_ORIGIN_TEXT_CHARS = 64 * 1024;
 
 class LiveRun implements IOnyxLiveRun {
 
@@ -122,6 +131,8 @@ class LiveRun implements IOnyxLiveRun {
 
 	pendingSteer: string[] = [];
 	resumeGate: (() => void) | undefined;
+	/** What tools returned to the model in this run, newest last, bounded. */
+	readonly toolResults: IOnyxRunText[] = [];
 
 	constructor(
 		readonly runId: string,
@@ -130,6 +141,8 @@ class LiveRun implements IOnyxLiveRun {
 		readonly title: string,
 		readonly task: OnyxTaskKind,
 		readonly modelKey: string,
+		/** The user's whole request; `title` is its first line, cut. */
+		readonly request: string,
 	) { }
 
 	get status(): IObservable<OnyxRunStatus> { return this.statusObs; }
@@ -168,9 +181,9 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 		this._selectedRunId.set(runId, undefined);
 	}
 
-	beginRun(info: { sessionResource: URI; requestId: string; title: string; task: OnyxTaskKind; modelKey: string }): IOnyxRunHandle {
+	beginRun(info: { sessionResource: URI; requestId: string; title: string; task: OnyxTaskKind; modelKey: string; request?: string }): IOnyxRunHandle {
 		const runId = `run-${Date.now()}-${this._runCounter++}`;
-		const run = new LiveRun(runId, info.sessionResource, info.requestId, info.title, info.task, info.modelKey);
+		const run = new LiveRun(runId, info.sessionResource, info.requestId, info.title, info.task, info.modelKey, info.request ?? info.title);
 		this._liveRuns.set(runId, run);
 		const retained = [run, ...this._runsObs.get()].slice(0, MAX_RETAINED_RUNS);
 		this._runsObs.set(retained, undefined);
@@ -195,6 +208,12 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 			},
 			setTurnCount(count) {
 				run.turnCountObs.set(count, undefined);
+			},
+			noteToolResult(tool, text) {
+				run.toolResults.push({ tool, text: text.length > MAX_ORIGIN_TEXT_CHARS ? text.slice(0, MAX_ORIGIN_TEXT_CHARS) : text });
+				if (run.toolResults.length > MAX_ORIGIN_TEXTS) {
+					run.toolResults.shift();
+				}
 			},
 			async gate() {
 				if (run.statusObs.get() === 'cancelled') {
@@ -241,6 +260,11 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 		if (run) {
 			this._onDidRecordEvent.fire({ runId, event: { t: Date.now() - run.startedAt, kind: 'approval', data: { kind: 'approval', ...approval } } });
 		}
+	}
+
+	originOf(runId: string, text: string): OnyxNoteOrigin {
+		const run = this._liveRuns.get(runId);
+		return run ? describeNoteOrigin(text, run.request, run.toolResults) : { kind: 'model' };
 	}
 
 	recordAcceptance(runId: string, acceptance: Omit<IOnyxTraceAcceptance, 'kind'>): void {

@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
 import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
 import { OnyxSimBoundary } from './onyxSimEpisode.js';
 import { SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
@@ -80,29 +81,70 @@ function digestOf(text: string): string {
 	return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
-/** I-02: no command is dispatched without an affirmative approval recorded for that exact invocation. */
+/** What a dialog asks about, read off its message: each kind of effect needs an approval of its own kind. */
+function dialogKind(message: string): 'command' | 'task' | 'network' | 'memory' | 'other' {
+	if (/project check/i.test(message)) {
+		return 'task';
+	}
+	if (/network/i.test(message)) {
+		return 'network';
+	}
+	if (/remember/i.test(message)) {
+		return 'memory';
+	}
+	return /command/i.test(message) ? 'command' : 'other';
+}
+
+/**
+ * I-02: no command is dispatched without an affirmative approval recorded for that exact invocation. The
+ * same holds for a check task and for a network tool call: each effect consumes one dialog of its own kind
+ * that the user answered by pressing a button and whose detail shows, byte for byte, what then happened.
+ */
 const i02: OnyxSimChecker = state => {
-	// Dialog trace events and the dialog fake's prompts are recorded together, in the same order.
+	// Dialog trace events and the dialog fake's prompts are recorded together, in the same order; so are tool
+	// dispatch events and the tool registry's invocations.
 	const prompts = state.dialogs.prompts;
 	let promptIndex = 0;
-	const approvals: string[] = [];
+	let invocationIndex = 0;
+	const approvals: { readonly kind: string; readonly detail: string; used: boolean }[] = [];
+	const consume = (kind: string, subject: string, cwd: string | undefined): 'ok' | 'other-bytes' | 'none' => {
+		const exact = approvals.find(approval => !approval.used && approval.kind === kind && approval.detail.includes(subject) && (cwd === undefined || approval.detail.includes(cwd)));
+		if (exact) {
+			exact.used = true;
+			return 'ok';
+		}
+		const other = approvals.find(approval => !approval.used && approval.kind === kind);
+		if (other) {
+			other.used = true;
+			return 'other-bytes';
+		}
+		return 'none';
+	};
 	for (const event of events(state)) {
 		if (event.kind === 'dialog') {
 			const prompt = prompts[promptIndex++];
 			if (event.granted) {
-				approvals.push(prompt?.detail ?? '');
+				approvals.push({ kind: dialogKind(event.message), detail: prompt?.detail ?? '', used: false });
 			}
 		} else if (event.kind === 'commandDispatch') {
-			const approvedDetail = approvals.shift();
-			if (approvedDetail === undefined) {
+			const isTask = event.command.startsWith('Task: ');
+			const outcome = consume(isTask ? 'task' : 'command', event.command, event.cwd);
+			if (outcome === 'other-bytes') {
+				return `I-02/approval-for-other-bytes: "${event.command}" ran on an approval whose dialog showed something else`;
+			}
+			if (outcome === 'none') {
 				// Named by where the missing authority would have come from: a check task, the repository's list, or an earlier answer.
 				const listed = (state.episode.projectConfig?.terminalAllowlist ?? []).some(entry => entry.trim().replace(/\s+/g, ' ') === event.command.trim().replace(/\s+/g, ' '));
-				const grant = event.command.startsWith('Task: ') ? 'unapproved-task' : listed ? 'repository-allowlist' : 'reused-approval';
+				const grant = isTask ? 'unapproved-task' : listed ? 'repository-allowlist' : 'reused-approval';
 				return `I-02/${grant}: "${event.command}" ran without an approval for that invocation`;
 			}
-			// The approval is for one invocation: what was dispatched must be, byte for byte, what the dialog showed.
-			if (!approvedDetail.includes(event.command) || (event.cwd !== undefined && !approvedDetail.includes(event.cwd))) {
-				return `I-02/approval-for-other-bytes: "${event.command}" ran on an approval whose dialog showed something else`;
+		} else if (event.kind === 'toolDispatch') {
+			const invocation = state.tools.invocations[invocationIndex++];
+			if (invocation && needsApprovalPerCall(invocation.toolId)) {
+				const outcome = consume('network', `Tool: ${event.tool} ${JSON.stringify(invocation.parameters)}`, undefined);
+				if (outcome !== 'ok') {
+					return `I-02/unapproved-network-action: ${event.tool} was called ${outcome === 'none' ? 'without an approval for that call' : 'on an approval whose dialog showed other arguments'}`;
+				}
 			}
 		}
 	}
@@ -113,14 +155,18 @@ const i02: OnyxSimChecker = state => {
 const i03: OnyxSimChecker = (state, boundary) => {
 	const statuses = events(state).filter((event): event is Extract<OnyxSimTraceEvent, { kind: 'status' }> => event.kind === 'status');
 	// Journaled outcomes are the record; live transitions show a terminal status being replaced by another.
-	const outcomes = statuses.filter(event => !event.status.startsWith('live:') && (event.status === 'completed' || event.status === 'failed' || event.status === 'cancelled'));
-	const live = statuses.filter(event => event.status.startsWith('live:')).map(event => event.status.slice(5));
-	const liveTerminal = live.filter(status => status === 'completed' || status === 'failed' || status === 'cancelled');
-	if (outcomes.length > 1) {
-		return `I-03/status-overwritten: ${outcomes.map(event => event.status).join(' then ')}`;
-	}
-	if (liveTerminal.length > 1) {
-		return `I-03/status-overwritten: ${liveTerminal.join(' then ')}`;
+	const isTerminal = (status: string) => status === 'completed' || status === 'failed' || status === 'cancelled';
+	const outcomes = statuses.filter(event => !event.status.startsWith('live:') && isTerminal(event.status));
+	// Per run: an episode with a follow-up request holds two runs, each with its own one terminal status.
+	for (const run of new Set(statuses.map(event => event.run))) {
+		const ofRun = outcomes.filter(event => event.run === run);
+		if (ofRun.length > 1) {
+			return `I-03/status-overwritten: ${ofRun.map(event => event.status).join(' then ')}`;
+		}
+		const liveTerminal = statuses.filter(event => event.run === run && event.status.startsWith('live:')).map(event => event.status.slice(5)).filter(isTerminal);
+		if (liveTerminal.length > 1) {
+			return `I-03/status-overwritten: ${liveTerminal.join(' then ')}`;
+		}
 	}
 	const terminal = outcomes;
 	if (events(state).some(event => event.kind === 'fault' && event.fault === 'watchdog')) {
@@ -176,6 +222,23 @@ const i06: OnyxSimChecker = state => {
 	for (const event of events(state)) {
 		if (event.kind === 'toolDispatch' && advertised.size && !advertised.has(event.tool)) {
 			return `I-06/unknown-tool-dispatched: ${event.tool} is not in the advertised set`;
+		}
+	}
+	// B3: every advertised name and every dispatched tool is one the capability contract admits under the
+	// episode's settings. The registry also holds excluded tools and tools the contract has never heard of.
+	const options = { networkTools: state.episode.networkTools === true };
+	for (const invocation of state.tools.invocations) {
+		if (!admitTool({ id: invocation.toolId, name: invocation.toolId }, options).admitted) {
+			return `I-06/uncontracted-tool-dispatched: ${invocation.toolId} is outside the capability contract and was dispatched`;
+		}
+	}
+	const admittedNames = new Set([...state.tools.getTools()].filter(tool => admitTool({ id: tool.id, name: tool.toolReferenceName ?? tool.id }, options).admitted).map(tool => tool.toolReferenceName ?? tool.id));
+	for (const event of events(state)) {
+		if (event.kind === 'request') {
+			const outside = event.tools.filter(name => !admittedNames.has(name));
+			if (outside.length) {
+				return `I-06/uncontracted-tool-advertised: turn ${event.turn} advertised ${outside.join(', ')}, outside the capability contract`;
+			}
 		}
 	}
 	// R-36: a request that advertises a write or an execute tool advertises all six essentials. A run that
@@ -316,6 +379,21 @@ const i13: OnyxSimChecker = state => {
 	return undefined;
 };
 
+/** I-14: nothing a model asks to persist can influence a later prompt before the user confirms it with its origin shown. */
+const i14: OnyxSimChecker = state => {
+	const confirmations = state.dialogs.prompts.filter(prompt => prompt.granted && dialogKind(prompt.message) === 'memory');
+	for (const note of state.memory.getNotes()) {
+		const confirmation = confirmations.find(prompt => prompt.detail.includes(note.text));
+		if (!confirmation) {
+			return `I-14/unconfirmed-memory: a note is in the agent memory, where every later prompt reads it, without a confirmation that showed it`;
+		}
+		if (!confirmation.detail.includes('Where this text came from:')) {
+			return `I-14/origin-not-shown: a note was confirmed by a dialog that did not say where its text came from`;
+		}
+	}
+	return undefined;
+};
+
 export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-01', title: 'No model-authored text reaches a live buffer or the disk before an explicit accept', check: (state, boundary) => i01(state, boundary) ?? i01Disk(state, boundary) },
 	{ id: 'I-02', title: 'No command is dispatched without an affirmative approval for that exact invocation', check: i02 },
@@ -330,12 +408,12 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-11', title: 'A truncated, stalled or malformed stream is never reported as complete and never applied', check: i11 },
 	{ id: 'I-12', title: 'The trace is complete and ordered', check: i12 },
 	{ id: 'I-13', title: 'Retained output, proposal size and queue lengths stay under their caps', check: i13 },
+	{ id: 'I-14', title: 'Nothing a model asks to persist influences a later prompt before the user confirms it with its origin shown', check: i14 },
 ];
 
 /** Invariants the rig cannot observe in Module 1, each with the reason the contract records. */
 export const UNOBSERVABLE_IN_RIG: readonly { readonly id: string; readonly reason: string }[] = [
 	{ id: 'I-10', reason: 'No diagnostics export and no child process exist in the rig; B5 and B11 add them and R-20 covers the export.' },
-	{ id: 'I-14', reason: 'The memory, pin and playbook tools are not registered in the rig; B3 adds the confirmation and R-59 covers it.' },
 ];
 
 export function allCheckers(): OnyxSimChecker[] {

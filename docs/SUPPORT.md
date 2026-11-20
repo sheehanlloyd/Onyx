@@ -30,8 +30,60 @@ The agent's tool set in a supported edit-capable run (B1, B3, DEC-03):
 | Slot cap | The supported 7B profile keeps **eight** slots in total |
 | Optional tools | `repoSymbols`, `docs`, `remember`, `playbook`, in that deterministic order, filling the spare slots: on the eight-slot profile, `repoSymbols` then `docs`. A tool the user asks for by name takes the last spare slot in place of a default: the word "playbook" or the name of one of the repository's playbooks, "remember", "docs" or "documentation" (`requestedOptionalTools` in `common/onyxToolSlots.ts`). Nothing is inferred beyond those words |
 | Profiles below six slots | Read-only: `readFile`, `grep`, `findFiles`, `listDirectory`, in that order, as many as fit. No `editFile`, no `terminal`; the run says so in the chat and on the timeline. Agent editing is unsupported on such a profile |
-| Capability classes | Every exposed tool is classified read / write / execute / network from a reviewed table keyed by tool id (B3). Writes go through Onyx Changes; every shell invocation needs the Onyx approval dialog (B2); unknown tools are excluded; browser and MCP opt-ins never bypass staging or per-invocation approval |
-| Persistent state | A model-initiated memory, pin or playbook write cannot influence a later prompt before the user confirms it with its origin shown (I-14, R-59) |
+| Capability classes | Every exposed tool is classified read / write / execute / network / persist in a reviewed table keyed by tool id (`common/onyxToolContract.ts`, B3). Writes go through Onyx Changes; every shell invocation needs the Onyx approval dialog (B2); a tool that is not in the table is excluded; the network opt-in never bypasses staging, approval or the slot budget |
+| Persistent state | A note the model asks to remember is stored only after the user confirms a dialog that shows the note and where its text came from (I-14, R-59). Pins and playbooks have no model-facing writer |
+
+## Tool capability contract (B3, DEC-03)
+
+`Onyx: Show Agent Tools` lists, for the running build and the current settings, every registered tool the
+contract admits with its capabilities and gates, and every one it refuses with the reason. The table below is
+contract version 1. The module gate checks the packaged build against it (R-05).
+
+**Default inventory.** These can reach a model with default settings; which of them a request carries is the
+slot policy above (on the supported eight-slot profile: the six essential tools, `repoSymbols` and `docs`).
+
+| Tool | Can | Gate |
+|---|---|---|
+| `readFile`, `listDirectory`, `findFiles`, `grep` | read | none needed: contained to the workspace roots |
+| `editFile` | write | Onyx Changes: every edit is staged and nothing changes until the user accepts it |
+| `terminal` | execute | the Onyx approval dialog, every invocation, Run Once or Deny |
+| `repoSymbols`, `docs`, `playbook`, `debugState` | read | none needed. `docs` searches an offline mirror; `playbook` returns repository-authored text that grants nothing |
+| `remember` | persist | a confirmation that shows the note and the origin of its text |
+| `usages`, `testFailure` (core) | read | none needed: language-service references and the user's last test results |
+
+**Supported opt-in: network tools** (`onyx.agent.networkTools`, off by default, user scope only, so a
+repository's settings file cannot turn it on). It admits three reviewed tools and nothing else, leaves the slot
+budget unchanged (on eight slots a network tool is offered only when the user names the browser, a web page or
+a URL), and changes no other gate.
+
+| Tool | Can | Gate |
+|---|---|---|
+| `openBrowserPage` | network | the Onyx approval dialog for each call, showing the tool and the URL |
+| `vscode_fetchWebPage_internal` | network | the Onyx approval dialog for each call |
+| `readPage` | read | none needed: reads a page the agent opened with approval |
+
+**Excluded, whatever the settings.** A tool that cannot meet the gate for something it can do stays out.
+
+| Tools | Why |
+|---|---|
+| `runInTerminal`, `sendToTerminal`, `killTerminal`, `runTask`, `createAndRunTask`, `runTests` | execute without the Onyx approval dialog |
+| `rename`, core's own `editFile` | write without staging in Onyx Changes |
+| `runSubagent`, `installExtensions`, `runPlaywrightCode` | start another agent, install code, or run arbitrary script |
+| `navigatePage`, `clickElement`, `dragElement`, `hoverElement`, `typeInPage`, `handleDialog`, `extensions` | act on a web page or query a marketplace with no Onyx gate per action |
+| `getTerminalOutput`, `terminalSelection`, `terminalLastCommand`, `getTaskOutput` | read terminal or task output, which is outside the workspace files and may hold secrets |
+| `screenshotPage`, `list_browser_pages`, `todo`, `askQuestions`, `reviewPlan`, the confirmation tools, `task_complete`, `inline_chat_exit`, the artifact tools | not part of the supported workflow |
+| Any tool not in the table: an extension's, a new core tool | unknown tools are excluded, not guessed at |
+| MCP tools | unavailable in the alpha. An MCP tool cannot be classified, and one that writes would bypass Onyx Changes (DEC-03: a tool that cannot satisfy the gates remains unavailable). There is no MCP opt-in |
+
+**Upstream's Agent Host is excluded.** The Agent Host is upstream's utility process for the Copilot SDK
+harness; with upstream's defaults it starts with every window, registers `agent-host-…` session types and
+language-model vendors, and starts a closed-source runtime binary. Onyx registers upstream's own switch for
+"no Agent Host runtime" (`browser/onyxAgentHost.ts`), so the process is never started, no agent-host session
+type or model is registered, and the Agents window, a second workbench built around it, does not open
+(`REBASE.md`). The evidence is checked on every packaged smoke and end-to-end run: no `agenthost.log` in the
+profile after several agent runs, and asking for the Agents window opens no second workbench. The Agent Host's
+code and the SDK's runtime binary are still inside the application bundle; nothing in Onyx starts them.
+Removing them from the bundle is a packaging change left to D8's dependency review.
 
 ## Shell approval (B2)
 
@@ -69,11 +121,22 @@ prefix, the numbers run consecutively and each line equals that line of the file
 exact text is tried first and source that merely looks numbered is never stripped (R-24). Anything else that
 looks like a numbered read is refused with the reason.
 
-## Observed baseline inventory
+## Observed inventory
 
-Recorded by `node test/onyx/run-packaged-smoke.mts --app ../VSCode-darwin-arm64/Onyx.app --mode baseline`
-on the build named below. Baseline mode proves launch, profile and runtime isolation and records the
-advertised tools; it makes no claim that reading or editing works.
+Recorded by `node test/onyx/run-packaged-smoke.mts --app ../VSCode-darwin-arm64/Onyx.app --mode release`
+against the packaged build. Since B3 release mode is a required check in the Module 1 gate and in
+`.github/workflows/onyx-packaged.yml`; `docs/progress/packaged-smoke-release.json` holds the latest gate run.
+
+| Field | Observed since B3 |
+|---|---|
+| Tools advertised on the supported 7B profile (8) | `readFile`, `listDirectory`, `findFiles`, `grep`, `editFile`, `terminal`, `repoSymbols`, `docs`: the same list in the development end-to-end run and in the packaged smoke |
+| With `onyx.agent.networkTools` on | the same eight; when the request names the browser: `readFile`, `listDirectory`, `findFiles`, `grep`, `editFile`, `terminal`, `openBrowserPage`, `readPage`. A network call asks first and a denied one does not run |
+| Agent Host | not started: no `agenthost.log` in the profile; "Open Agents Window" opens no second workbench |
+
+### The baseline before B1 and B3 (history)
+
+Recorded by baseline mode, which proves launch, profile and runtime isolation and records the advertised
+tools; it makes no claim that reading or editing works.
 
 | Field | Observed |
 |---|---|
@@ -108,4 +171,5 @@ tested. The module gate runner reads this table (`| item | state |`).
 
 | Decision | State |
 |---|---|
-| DEC-05 upstream baseline | Trial report in `docs/progress/A9.md`; the recommendation is recorded in `REBASE.md` and waits on HUMAN confirmation |
+| DEC-05 upstream baseline | Confirmed by the owner on 2026-11-20 and completed the same day: the fork is on upstream 1.147.0 (`docs/progress/DEC-05.md`, `REBASE.md`) |
+| DEC-03 tool capability contract | Implemented by B3: contract version 1 above; one supported opt-in (network tools); MCP unavailable in the alpha; upstream's Agent Host excluded |

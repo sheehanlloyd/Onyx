@@ -21,6 +21,7 @@ export const enum OnyxSettingId {
 	VerificationTask = 'onyx.verification.task',
 	EnergyPolicy = 'onyx.energy.policy',
 	BackgroundReview = 'onyx.review.background',
+	NetworkTools = 'onyx.agent.networkTools',
 }
 
 export interface IOnyxEndpointSetting {
@@ -54,6 +55,11 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		// first message opens a GitHub sign-in dialog and never reaches Onyx.
 		'chat.defaultToCopilotHarness': false,
 		'chat.editor.preferCopilotHarness': false,
+		// The Agents window is a second workbench built around upstream's Agent
+		// Host, which Onyx excludes (B3); the product does not open it, so the
+		// chrome that invites the user into it stays off.
+		'chat.titleBar.openInAgentsWindow.enabled': false,
+		'chat.agentsWindowBanner.enabled': false,
 	},
 }]);
 
@@ -129,6 +135,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.RESOURCE,
 			default: '',
 			markdownDescription: localize('onyx.verification.task', "Project check to run after an Onyx agent run that used tools, with the pass/fail verdict posted to the run's timeline. Use `build` or `test` for the workspace's default build or test task, any other value for a task with that name, or leave empty to disable."),
+		},
+		[OnyxSettingId.NetworkTools]: {
+			type: 'boolean',
+			// Application scope: a repository's settings file cannot opt in on the user's behalf.
+			scope: ConfigurationScope.APPLICATION,
+			default: false,
+			markdownDescription: localize('onyx.agent.networkTools', "Let the Onyx agent use the reviewed network tools: opening a page in the integrated browser, reading a page it opened, and fetching a URL. Off by default, because nothing else in Onyx leaves this machine. When on, every network call still asks first, showing the tool and its arguments, and the tools compete for the same tool slots as everything else. Run **Onyx: Show Agent Tools** to see what is exposed and why."),
 		},
 		[OnyxSettingId.BackgroundReview]: {
 			type: 'boolean',

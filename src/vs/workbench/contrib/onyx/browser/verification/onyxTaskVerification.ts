@@ -65,10 +65,9 @@ export class OnyxTaskVerification {
 		// repository can name the task. Neither is the user's consent to this
 		// run, so it asks like any other execution (B2): once, for this run.
 		const approved = await this._terminalService.confirmExecution({
+			kind: 'task',
 			subject: `Task: ${label}`,
-			configuredBy: this._configurationService.getValue<string>(OnyxSettingId.VerificationTask)
-				? localize('onyx.verification.configuredByUser', "your setting onyx.verification.task")
-				: localize('onyx.verification.configuredByRepository', "{0} (repository-authored)", ONYX_PROJECT_CONFIG_PATH),
+			configuredBy: this._configuredBy(),
 			runId: handle.runId,
 		});
 		if (!approved) {
@@ -92,6 +91,18 @@ export class OnyxTaskVerification {
 			this._logService.warn('[onyx] verification task failed to run', err);
 			handle.activity({ kind: 'note', label: `Checks could not run: ${toErrorMessage(err)}`, ok: false });
 		}
+	}
+
+	/** Who named the task. A workspace settings file is repository content just as `.onyx/config.json` is. */
+	private _configuredBy(): string {
+		const inspected = this._configurationService.inspect<string>(OnyxSettingId.VerificationTask);
+		if (inspected.workspaceFolderValue || inspected.workspaceValue) {
+			return localize('onyx.verification.configuredByWorkspace', "the setting onyx.verification.task in this workspace's settings file (repository-authored)");
+		}
+		if (this._configurationService.getValue<string>(OnyxSettingId.VerificationTask)) {
+			return localize('onyx.verification.configuredByUser', "your own setting onyx.verification.task");
+		}
+		return localize('onyx.verification.configuredByRepository', "{0} (repository-authored)", ONYX_PROJECT_CONFIG_PATH);
 	}
 
 	private async _findTask(configured: string): Promise<Task | undefined> {

@@ -85,8 +85,9 @@ export type OnyxToolSlotSelection<T extends IOnyxNamedTool> =
  * replaces a default and the first default survives when there is room.
  */
 export function orderOptionalTools(order: readonly string[], requested: readonly string[], spare: number): string[] {
-	const base = order.filter((name, index) => order.indexOf(name) === index);
-	const wanted = requested.filter(name => base.includes(name));
+	// A tool the user names need not be in the default order: a reviewed network tool, once opted in to, is one.
+	const base = [...order, ...requested].filter((name, index, all) => all.indexOf(name) === index);
+	const wanted = requested.filter((name, index) => requested.indexOf(name) === index);
 	if (wanted.length === 0 || spare <= 0) {
 		return base;
 	}
@@ -162,6 +163,10 @@ const REQUEST_WORDS: Readonly<Record<string, RegExp>> = {
 	repoSymbols: /\b(repoSymbols|symbols?)\b/i,
 };
 
+/** Words that ask for the network tools. They matter only when the user has opted in to them (B3). */
+const NETWORK_REQUEST_WORDS = /\b(browser|web ?pages?|websites?|https?:\/\/\S+)/i;
+const NETWORK_TOOLS_BY_REQUEST: readonly string[] = ['openBrowserPage', 'readPage'];
+
 /**
  * Which optional tools the user asked for by name: the tool's own word in the
  * message, or the name of one of the repository's playbooks. Deliberately
@@ -176,6 +181,10 @@ export function requestedOptionalTools(message: string, playbookNames: readonly 
 	}
 	if (!requested.includes('playbook') && playbookNames.some(name => name.length > 2 && message.includes(name))) {
 		requested.push('playbook');
+	}
+	if (NETWORK_REQUEST_WORDS.test(message)) {
+		// Named here whether or not they are available: the capability contract decides that, before the slots.
+		requested.unshift(...NETWORK_TOOLS_BY_REQUEST);
 	}
 	return requested;
 }
