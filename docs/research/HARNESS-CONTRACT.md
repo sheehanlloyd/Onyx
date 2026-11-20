@@ -35,8 +35,8 @@ buffers, the disk and the staged set after each step.
 | **I-03** | Every run ends in exactly one terminal status, within its turn and time budget, and that status never changes afterwards | Exactly one journaled outcome among completed/failed/cancelled; the live run's status, once terminal, never becomes another terminal value; the run ends before the rig's virtual ten-minute watchdog. Fields: `status` (journal and `live:` transitions), `fault: watchdog` | every boundary and end | **violated**: Stop then "completed" (`I-03/status-overwritten`, owner B10); a stream that never produces a token has no deadline (`I-03/no-time-budget`, owners B12 and B10) |
 | **I-04** | No request exceeds the effective context budget, and every request carries an output cap | For every `request`: `promptChars ≤ contextLength × 4` and `maxTokens` is set | between chunks (at request time) | **violated**: no `max_tokens` on any chat request (`I-04/no-output-cap`, owner B13); sixteen turns of large tool results exceed the window (`I-04/over-budget`, owner B13) |
 | **I-05** | After Stop, no further tool is dispatched and no further proposal is staged | After a `userAction: stop`, no `toolDispatch`, `commandDispatch` or `stage` event follows | every boundary | **violated**: Stop is honoured only at the gate after a tool turn (`I-05/command-after-stop`, `I-05/stage-after-stop`, owner B10) |
-| **I-06** | Only tools in the capability contract are dispatched; an unknown or schema-invalid call produces an error result, never a dispatch | Every `toolDispatch` names a tool in the request's advertised set; an `editFile` call with a non-string path or replace never leads to a `stage`; a terminal call with a non-string command never leads to a `commandDispatch` | after tool dispatch | holds: the loop refuses unknown names with an error result and the tools validate their arguments before acting (squatter and schema-violator personas, 1,000 episodes). B3's contract (capability classes, core tools) is not yet in the rig |
-| **I-07** | No tool reads or writes outside the workspace roots, including through symlinks, absolute paths and traversal | No `stage` with an absolute, traversing or backslash path; every `commandDispatch` has the workspace as `cwd` | after tool dispatch | holds for the edit tool and the terminal's cwd; read tools do not exist yet (B1) and symlinks are not in the in-memory file system (B1, C10 add them to the rig) |
+| **I-06** | Only tools in the capability contract are dispatched; an unknown or schema-invalid call produces an error result, never a dispatch | Every `toolDispatch` names a tool in the request's advertised set; an `editFile` call with a non-string path or replace never leads to a `stage`; a terminal call with a non-string command never leads to a `commandDispatch`. Since B1 (R-36): a `request` that advertises `editFile` or `terminal` advertises all six essential tools (class `I-06/partial-edit-set`) | after tool dispatch; at request time | holds: the loop refuses unknown names with an error result and the tools validate their arguments before acting (squatter and schema-violator personas, 1,000 episodes). B3's contract (capability classes, core tools) is not yet in the rig |
+| **I-07** | No tool reads or writes outside the workspace roots, including through symlinks, absolute paths and traversal | No `stage` with an absolute, traversing or backslash path; every `commandDispatch` has the workspace as `cwd`. Since B1, the read side: the rig plants a file outside the workspace root and a symbolic link to it inside, and no tool result may carry that file's content (class `I-07/read-escape`). Fields: the text of every tool result | after tool dispatch | holds for the edit tool and the terminal's cwd. At the 2026-11-19 baseline there were no read tools and no symbolic links in the rig; B1 added both, and the read side holds (Module 2) |
 | **I-08** | An edit that cannot be placed exactly and uniquely changes nothing and produces a visible reason | For every `stage` with a non-empty SEARCH: the SEARCH text occurs exactly once, as an exact string, in the text it was matched against (the file, or the already-staged text of that file) | after stage | **violated**: an absent or whitespace-different SEARCH is placed (`I-08/inexact-anchor-staged`, owner B6); a SEARCH that occurs more than once is placed at one of them (`I-08/ambiguous-anchor-staged`, owners B6, B7) |
 | **I-09** | Accepting a hunk applies that hunk's reviewed content or nothing, and user edits made at any point survive | After an accept: every text the user typed is still in the buffer, and the accepted hunk's lines are in the buffer | after stage, after run | holds in the rig, including the scripted Codex N2 (type above hunk 0, accept hunk 0) and Claude H4 (duplicates shifted) scenarios: the service re-anchors or drops the hunk with a notification. N2's index mapping lives in the Changes view, which the rig does not instantiate; R-12 covers it at the service layer in Module 3 |
 | **I-10** | Seeded secrets never appear in a default diagnostics export, and scrubbed environment variables never reach a child process | Not observable in the rig: no export and no child process exist in it | — | unobservable; B5 and B11 own it, R-20 covers it |
@@ -83,3 +83,25 @@ node test/onyx/sim/export-episodes.mts --check                     # the JSON ta
 
 A new violation class fails R-42 until it is triaged: either an owner item takes it into the exceptions table
 with its shrunk script, or the harness is fixed and the class never appears again.
+
+## Resurrection mutants
+
+A campaign that reports no violation proves nothing until it is shown to find one that exists (L12). Every
+defect fixed in Modules 2 and 3 is therefore kept as a mutant: a test-only subclass of one product class, in
+`src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts`, that puts the defect back when the rig is
+built with it. `onyxSimMutantTable.ts` names each defect, the item that fixed it, the violation class the
+campaign must report and a script that reproduces it; the exporter writes one descriptor per mutant to
+`test/onyx/sim/mutants/`. No product code imports a mutant and no setting selects one (R-44).
+
+```bash
+./scripts/test.sh --grep "OnyxSim mutants"                                  # each mutant: its script, then 150 seeded episodes
+ONYX_SIM_MUTANT_EPISODES=2000 ./scripts/test.sh --grep "OnyxSim mutants"    # the module gate's size
+```
+
+The test fails when a mutant is not detected by its own script, when the seeded campaign does not detect it,
+or when the unmutated harness is flagged by the mutant's script.
+
+| Mutant | Fixed by | Defect put back | Detected as |
+|---|---|---|---|
+| `B1-naive-read-path` | B1 | A read tool joins the model's path onto the workspace folder with no refusal of traversal, absolute paths or a symbolic link out of the workspace | `I-07/read-escape` |
+| `B1-priority-truncation` | B1 | Tools sorted by a priority number and cut at the profile's cap: an editing agent left with part of its tool set | `I-06/partial-edit-set` |

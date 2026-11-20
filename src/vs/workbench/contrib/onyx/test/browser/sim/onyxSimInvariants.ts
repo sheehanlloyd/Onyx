@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
 import { OnyxSimBoundary } from './onyxSimEpisode.js';
+import { SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { IOnyxSimState, OnyxSimChecker } from './onyxSimRig.js';
 import { OnyxSimTraceEvent } from './onyxSimTrace.js';
 
@@ -166,6 +168,16 @@ const i06: OnyxSimChecker = state => {
 			return `I-06/unknown-tool-dispatched: ${event.tool} is not in the advertised set`;
 		}
 	}
+	// R-36: a request that advertises a write or an execute tool advertises all six essentials. A run that
+	// cannot hold them is read-only or refused; it never proceeds with a set that looks usable and is not.
+	for (const event of events(state)) {
+		if (event.kind === 'request' && (event.tools.includes('editFile') || event.tools.includes('terminal'))) {
+			const missing = ONYX_ESSENTIAL_TOOLS.filter(name => !event.tools.includes(name));
+			if (missing.length) {
+				return `I-06/partial-edit-set: turn ${event.turn} advertised an editing tool set without ${missing.join(', ')}`;
+			}
+		}
+	}
 	// A schema-invalid edit or command must not have produced a stage or a command run.
 	for (const invocation of state.tools.invocations) {
 		const parameters = invocation.parameters as Record<string, unknown>;
@@ -193,6 +205,13 @@ const i07: OnyxSimChecker = state => {
 	for (const event of events(state)) {
 		if (event.kind === 'commandDispatch' && !event.cwd.startsWith('/ws')) {
 			return `I-07/cwd-escape: a command ran in ${event.cwd}`;
+		}
+	}
+	// Read side: the rig plants a file outside the workspace root and a symbolic link to it inside. Its
+	// content in any tool result means a tool read outside the roots on the model's behalf.
+	for (const result of state.tools.results) {
+		if (result.text.includes(SIM_OUTSIDE_CANARY)) {
+			return `I-07/read-escape: a ${result.toolId} result carried the content of a file outside the workspace`;
 		}
 	}
 	return undefined;

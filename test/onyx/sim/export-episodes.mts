@@ -95,4 +95,38 @@ sync(path.join(repoRoot, 'test', 'onyx', 'sim', 'baseline-exceptions.json'), JSO
 console.log(check
 	? (baselineDrift ? `baseline: ${baselineDrift} file(s) out of sync with onyxSimBaseline.ts` : `baseline: ${table.length} exceptions in sync`)
 	: `baseline: ${table.length} exception(s), ${baselineDrift} file(s) written`);
+
+// --- resurrection mutants (L12) ----------------------------------------------
+// One descriptor per fixed defect: what it was, which item fixed it, the
+// test-only class that brings it back, the violation class the campaign must
+// report, and the script that reproduces it.
+interface IMutant { readonly id: string; readonly fixedBy: string; readonly defect: string; readonly detects: string; readonly resurrects: string; readonly script: IScenario }
+const mutants = await import(path.join(repoRoot, 'out', 'vs', 'workbench', 'contrib', 'onyx', 'test', 'browser', 'sim', 'onyxSimMutantTable.js')) as { SIM_MUTANTS: readonly IMutant[] };
+const mutantsDir = path.join(repoRoot, 'test', 'onyx', 'sim', 'mutants');
+fs.mkdirSync(mutantsDir, { recursive: true });
+const baselineDriftBeforeMutants = baselineDrift;
+const expectedMutants = new Set<string>();
+for (const mutant of mutants.SIM_MUTANTS) {
+	const fileName = `${mutant.id}.json`;
+	expectedMutants.add(fileName);
+	const descriptor = {
+		id: mutant.id,
+		fixedBy: mutant.fixedBy,
+		defect: mutant.defect,
+		detects: mutant.detects,
+		resurrects: `src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#${mutant.resurrects}`,
+		script: JSON.parse(serialize(mutant.script)) as unknown,
+	};
+	sync(path.join(mutantsDir, fileName), JSON.stringify(descriptor, undefined, '\t') + '\n', 'onyxSimMutantTable.ts');
+}
+for (const name of fs.readdirSync(mutantsDir)) {
+	if (name.endsWith('.json') && !expectedMutants.has(name)) {
+		baselineDrift++;
+		console.log(`  ${check ? 'drift' : 'stale'}: ${path.relative(repoRoot, path.join(mutantsDir, name))} has no row in onyxSimMutantTable.ts`);
+	}
+}
+const mutantDrift = baselineDrift - baselineDriftBeforeMutants;
+console.log(check
+	? (mutantDrift ? `mutants: ${mutantDrift} file(s) out of sync with onyxSimMutantTable.ts` : `mutants: ${expectedMutants.size} descriptors in sync`)
+	: `mutants: ${expectedMutants.size} descriptor(s), ${mutantDrift} file(s) written`);
 process.exit(check && (drift || baselineDrift) ? 1 : 0);

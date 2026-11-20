@@ -11,6 +11,10 @@ import { IObservable, observableValue } from '../../../../../../base/common/obse
 import { URI } from '../../../../../../base/common/uri.js';
 import { IConfirmation, IConfirmationResult, IDialogService, IInput, IInputResult, IPrompt, IPromptBaseButton, IPromptResult, IPromptResultWithCancel, IPromptWithCustomCancel, IPromptWithDefaultCancel } from '../../../../../../platform/dialogs/common/dialogs.js';
 import { ExtensionIdentifier } from '../../../../../../platform/extensions/common/extensions.js';
+import { FileSystemProviderCapabilities, FileType, IFileService, IFileSystemProviderWithFileRealpathCapability, IStat } from '../../../../../../platform/files/common/files.js';
+import { InMemoryFileSystemProvider } from '../../../../../../platform/files/common/inMemoryFilesystemProvider.js';
+import { FileSystemFileSearchProvider } from '../../../../../services/search/common/fileSystemFileSearchProvider.js';
+import { IFileMatch, IFileQuery, ISearchComplete, ISearchService, ITextQuery, OneLineRange, QueryType, TextSearchMatch } from '../../../../../services/search/common/search.js';
 import { IOnyxChatParams, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../../../chat/common/tools/languageModelToolsService.js';
@@ -446,6 +450,8 @@ export class OnyxSimToolsService {
 	private readonly _data = new Map<string, IToolData>();
 	private readonly _impls = new Map<string, IToolImpl>();
 	readonly invocations: { readonly toolId: string; readonly parameters: unknown }[] = [];
+	/** The text of every tool result, in dispatch order: what the model is about to be shown. */
+	readonly results: { readonly toolId: string; readonly text: string; readonly ok: boolean }[] = [];
 
 	constructor(private readonly _scheduler: IOnyxSimScheduler, private readonly _trace: OnyxSimTrace) { }
 
@@ -498,6 +504,7 @@ export class OnyxSimToolsService {
 		}
 		const result = await impl.invoke(invocation, countTokens, { report: () => { } }, token);
 		const text = result.content.map(part => part.kind === 'text' ? part.value : '').join('');
+		this.results.push({ toolId: invocation.toolId, text, ok: !result.toolResultError });
 		this._trace.record({ kind: 'toolResult', call, tool: name, ok: !result.toolResultError, resultDigest: digest(text) });
 		await this._scheduler.boundary('afterToolDispatch');
 		return result;
@@ -553,4 +560,95 @@ export const simTaskService = {};
 
 export function simWorkspaceUri(): URI {
 	return URI.file('/ws');
+}
+
+/**
+ * The in-memory file system with symbolic links: a linked path reads as its
+ * target's content, reports the link type, and resolves to the target's real
+ * path. That is all a link is to the code under test.
+ */
+export class OnyxSimFileSystemProvider extends InMemoryFileSystemProvider implements IFileSystemProviderWithFileRealpathCapability {
+
+	private readonly _links = new Map<string, string>();
+
+	override get capabilities(): FileSystemProviderCapabilities {
+		return super.capabilities | FileSystemProviderCapabilities.FileRealpath;
+	}
+
+	/** Declares that the file already written at `path` is a link to `target`. */
+	addLink(path: string, target: string): void {
+		this._links.set(path, target);
+	}
+
+	async realpath(resource: URI): Promise<string> {
+		for (const [link, target] of this._links) {
+			if (resource.path === link || resource.path.startsWith(`${link}/`)) {
+				return target + resource.path.slice(link.length);
+			}
+		}
+		return resource.path;
+	}
+
+	override async stat(resource: URI): Promise<IStat> {
+		const stat = await super.stat(resource);
+		return this._links.has(resource.path) ? { ...stat, type: stat.type | FileType.SymbolicLink } : stat;
+	}
+
+	override async readdir(resource: URI): Promise<[string, FileType][]> {
+		const entries = await super.readdir(resource);
+		const prefix = resource.path.endsWith('/') ? resource.path : `${resource.path}/`;
+		return entries.map(([name, type]) => this._links.has(prefix + name) ? [name, type | FileType.SymbolicLink] : [name, type]);
+	}
+}
+
+/**
+ * The search boundary. File search is upstream's own provider for file
+ * systems without native search, walking the in-memory disk with the real
+ * exclude and ignore-file handling; text search greps the files it finds.
+ */
+export class OnyxSimSearchService extends Disposable implements Pick<ISearchService, 'fileSearch' | 'textSearch'> {
+
+	declare readonly _serviceBrand: undefined;
+	private readonly _files: FileSystemFileSearchProvider;
+	readonly queries: { readonly kind: 'file' | 'text'; readonly ignoreSymlinks: boolean; readonly cancelled: boolean }[] = [];
+
+	constructor(private readonly _fileService: IFileService) {
+		super();
+		this._files = this._register(new FileSystemFileSearchProvider(_fileService));
+	}
+
+	async fileSearch(query: IFileQuery, token: CancellationToken = CancellationToken.None): Promise<ISearchComplete> {
+		this.queries.push({ kind: 'file', ignoreSymlinks: query.folderQueries.every(folder => folder.ignoreSymlinks === true), cancelled: token.isCancellationRequested });
+		return this._files.fileSearch(query, token);
+	}
+
+	async textSearch(query: ITextQuery, token: CancellationToken = CancellationToken.None): Promise<ISearchComplete> {
+		this.queries.push({ kind: 'text', ignoreSymlinks: query.folderQueries.every(folder => folder.ignoreSymlinks === true), cancelled: token.isCancellationRequested });
+		const files = await this._files.fileSearch({ type: QueryType.File, folderQueries: query.folderQueries, includePattern: query.includePattern, excludePattern: query.excludePattern }, token);
+		const source = query.contentPattern.isRegExp ? query.contentPattern.pattern : query.contentPattern.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const pattern = new RegExp(source, query.contentPattern.isCaseSensitive ? '' : 'i');
+		const results: IFileMatch[] = [];
+		let matches = 0;
+		let limitHit = false;
+		for (const file of [...files.results].sort((a, b) => a.resource.path.localeCompare(b.resource.path))) {
+			const text = (await this._fileService.readFile(file.resource)).value.toString();
+			const fileMatches: TextSearchMatch[] = [];
+			text.split('\n').forEach((line, index) => {
+				const match = pattern.exec(line);
+				if (!match) {
+					return;
+				}
+				if (query.maxResults !== undefined && matches >= query.maxResults) {
+					limitHit = true;
+					return;
+				}
+				matches++;
+				fileMatches.push(new TextSearchMatch(line, new OneLineRange(index, match.index, match.index + match[0].length), query.previewOptions));
+			});
+			if (fileMatches.length) {
+				results.push({ resource: file.resource, results: fileMatches });
+			}
+		}
+		return { results, limitHit, messages: [] };
+	}
 }

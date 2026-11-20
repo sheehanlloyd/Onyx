@@ -11,7 +11,8 @@
  * `/debug/last-chat` introspection endpoints.
  *
  * Prompt markers it understands (see test/onyx/README.md):
- *   TOOLTEST        - emit a tool call for the first non-Onyx tool
+ *   TOOLTEST        - list the workspace root through the listDirectory tool
+ *                     (the first offered tool when that one is absent)
  *   SYMTEST <name>  - call repoSymbols with that query (add EXPAND for the call graph)
  *   MEMTEST <text>  - call the remember tool with that note
  *   EDITTEST <path> - propose two staged edits to that file via editFile
@@ -333,12 +334,13 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 			? (body.tools.find((t: any) => /repoSymbols/i.test(t.function.name)) ?? body.tools[0])
 			: wantsMemory
 				? (body.tools.find((t: any) => /remember|memory/i.test(t.function.name)) ?? body.tools[0])
-				: (body.tools.find((t: any) => /todo|task/i.test(t.function.name)) ?? body.tools[0]);
+				// TOOLTEST: list the workspace root with Onyx's own tool; any offered tool otherwise.
+				: (body.tools.find((t: any) => /^listDirectory$/.test(t.function.name)) ?? body.tools[0]);
 		const args = wantsSymbols
 			? JSON.stringify({ query: /SYMTEST\s+(\w+)/.exec(lastUser.content)[1], ...(/EXPAND/.test(lastUser.content) ? { expand: true } : {}) })
 			: wantsMemory
 				? JSON.stringify({ note: /MEMTEST\s+(.+)/.exec(lastUser.content)[1] })
-				: '{}';
+				: tool.function.name === 'listDirectory' ? JSON.stringify({ path: '.' }) : '{}';
 		send({ ...chunk({ tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: tool.function.name, arguments: '' } }] }) });
 		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: args } }] }) });
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });

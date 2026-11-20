@@ -54,3 +54,37 @@ export function resolveWorkspacePath(folders: readonly IOnyxFolderRef[], path: s
 	}
 	return { folderIndex: folders[0].index, relativePath: path };
 }
+
+/**
+ * Why a path a model supplied may not be used as a workspace path, or
+ * `undefined` when it may. Absolute paths, parent-directory segments and
+ * backslashes are refused before anything is resolved (I-07); a symbolic link
+ * that leaves the workspace is refused where the file system is consulted.
+ * A file name that merely contains two dots (`a..b.ts`) is refused too: the
+ * conservative rule stays until C10 decides otherwise.
+ */
+export function workspacePathProblem(path: string): string | undefined {
+	if (path.includes('\0')) {
+		return 'the path contains a NUL character';
+	}
+	if (path.startsWith('/') || path.startsWith('~') || /^[a-zA-Z]:[\\/]/.test(path)) {
+		return 'absolute paths are not allowed; give a path relative to the workspace';
+	}
+	if (path.includes('\\')) {
+		return 'backslashes are not allowed; use forward slashes';
+	}
+	if (path.includes('..')) {
+		return 'the path contains "..", which could leave the workspace';
+	}
+	return undefined;
+}
+
+/** A model-supplied relative path without a leading `./` or a trailing slash; `.` and the empty string are the root. */
+export function normalizeWorkspaceRelativePath(path: string): string {
+	let normalized = path.trim();
+	while (normalized.startsWith('./')) {
+		normalized = normalized.slice(2);
+	}
+	normalized = normalized.replace(/\/+$/, '');
+	return normalized === '.' ? '' : normalized;
+}

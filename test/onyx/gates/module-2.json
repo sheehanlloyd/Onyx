@@ -1,0 +1,58 @@
+{
+	"module": 2,
+	"title": "Module 2: authority, tools and runtime truth",
+	"checks": [
+		{
+			"id": "B1-read-tools",
+			"title": "B1 read-side tools: numbered reads and their decoder (R-24), limits and refusals, containment on the read side (R-30)",
+			"layer": "service",
+			"regressions": [
+				"R-24",
+				"R-30"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxReadTools.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxReadTools"
+			]
+		},
+		{
+			"id": "R-36",
+			"title": "B1 tool-slot policy: six essentials within eight slots, optional order, lower caps, excluded essentials refuse",
+			"layer": "service",
+			"regressions": [
+				"R-36"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxToolSlots.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxToolSlots"
+			]
+		},
+		{
+			"id": "sim-mutants",
+			"title": "Every defect fixed in this module has a resurrection mutant that its script and the seeded campaign detect",
+			"layer": "service",
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutantTable.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim mutants"
+			],
+			"env": {
+				"ONYX_SIM_MUTANT_EPISODES": "2000",
+				"ONYX_SIM_SEED": "1"
+			},
+			"timeoutMs": 1800000
+		}
+	]
+}

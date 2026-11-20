@@ -28,9 +28,32 @@ The agent's tool set in a supported edit-capable run (B1, B3, DEC-03):
 |---|---|
 | Essential tools | `readFile`, `listDirectory`, `findFiles`, `grep`, `editFile`, `terminal`. Reserved first; if any is unavailable, an edit-capable run refuses with the missing capability named rather than running with a truncated set |
 | Slot cap | The supported 7B profile keeps **eight** slots in total |
-| Optional tools | `repoSymbols`, `docs`, `remember`, `playbook`, in that deterministic order, filling at most the two spare slots (default `repoSymbols` then `docs`; an explicit playbook request may replace a spare) |
+| Optional tools | `repoSymbols`, `docs`, `remember`, `playbook`, in that deterministic order, filling the spare slots: on the eight-slot profile, `repoSymbols` then `docs`. A tool the user asks for by name takes the last spare slot in place of a default: the word "playbook" or the name of one of the repository's playbooks, "remember", "docs" or "documentation" (`requestedOptionalTools` in `common/onyxToolSlots.ts`). Nothing is inferred beyond those words |
+| Profiles below six slots | Read-only: `readFile`, `grep`, `findFiles`, `listDirectory`, in that order, as many as fit. No `editFile`, no `terminal`; the run says so in the chat and on the timeline. Agent editing is unsupported on such a profile |
 | Capability classes | Every exposed tool is classified read / write / execute / network from a reviewed table keyed by tool id (B3). Writes go through Onyx Changes; every shell invocation needs the Onyx approval dialog (B2); unknown tools are excluded; browser and MCP opt-ins never bypass staging or per-invocation approval |
 | Persistent state | A model-initiated memory, pin or playbook write cannot influence a later prompt before the user confirms it with its origin shown (I-14, R-59) |
+
+## Read-side tools and their limits (B1)
+
+The agent reads the workspace with Onyx's own tools. They go through the workbench's file and search services;
+nothing is spawned from Onyx code, and a development launch (`scripts/code.sh`) disables the Copilot extension
+by default, so dev and packaged runs use the same four tools.
+
+| Tool | What it returns | Limits and refusals |
+|---|---|---|
+| `readFile` | Lines numbered `12\| text`, from the live editor buffer when the file is open (unsaved edits included), from disk otherwise. `startLine`/`endLine` are 1-based and inclusive | Refuses a file over 1 MB, a binary file and a directory, and names the limit. 400 lines per call; a longer file says which `startLine` continues it. A line over 1,000 characters is cut with a marker |
+| `listDirectory` | One level: `dir  name/` and `file  name  (size)` | 200 entries. An entry is listed when a file search finds it (a file) or finds something inside it (a directory), so `files.exclude`, `search.exclude` and ignore files apply as they do to search; symbolic links are left out; the count of what was left out is stated |
+| `findFiles` | Workspace-relative paths matching a glob | 50 by default, 200 at most. The glob is matched against the search's results, so ignored files stay ignored |
+| `grep` | `path:line: text` for a literal string or a regular expression | 60 lines in total, 8 per file, 240 characters per line. `include` narrows the files searched and, like "files to include" in the Search view, also reaches a file that an ignore file names. When nothing matches, up to five files from the content index are listed and labelled as suggestions, not matches |
+
+Every read tool refuses an absolute path, a path containing `..`, a backslash, and a path that resolves outside
+the workspace folder through a symbolic link; searches do not follow symbolic links (R-30, I-07 on the read
+side). A file name that merely contains two dots (`a..b.ts`) is refused as well until C10 decides otherwise.
+
+An edit's SEARCH text that was copied with the `12| ` prefixes is decoded only when every line carries the
+prefix, the numbers run consecutively and each line equals that line of the file character for character; the
+exact text is tried first and source that merely looks numbered is never stripped (R-24). Anything else that
+looks like a numbered read is refused with the reason.
 
 ## Observed baseline inventory
 

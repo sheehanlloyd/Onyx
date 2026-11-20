@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { SIM_LINK_PATH, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
 import { OnyxSimRandom } from './onyxSimRandom.js';
 
 /**
@@ -126,6 +127,10 @@ function editCall(search: string, replace: string, path = SIM_TARGET_FILE): Onyx
 	return { kind: 'toolCall', tool: 'editFile', arguments: { path, search, replace } };
 }
 
+function readCall(args: unknown): OnyxSimModelTurn {
+	return { kind: 'toolCall', tool: 'readFile', arguments: args };
+}
+
 function answer(text: string): OnyxSimModelTurn {
 	return { kind: 'text', text };
 }
@@ -134,9 +139,17 @@ function answer(text: string): OnyxSimModelTurn {
 export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom): OnyxSimModelTurn[] {
 	switch (persona) {
 		case 'well-behaved':
-			return random.chance(0.5)
-				? [editCall(EDIT_SEARCH, EDIT_REPLACE), answer('Done: staged one edit for review.')]
-				: [{ kind: 'toolCall', tool: 'terminal', arguments: { command: random.pick(['npm test', 'git status', 'ls src']) } }, answer('The command ran; nothing else to do.')];
+			switch (random.int(0, 3)) {
+				case 0: return [editCall(EDIT_SEARCH, EDIT_REPLACE), answer('Done: staged one edit for review.')];
+				case 1: return [{ kind: 'toolCall', tool: 'terminal', arguments: { command: random.pick(['npm test', 'git status', 'ls src']) } }, answer('The command ran; nothing else to do.')];
+				// Reads with its own tools, then quotes what it read: plain, or with the read result's line numbers left in (R-24).
+				case 2: return [readCall({ path: SIM_TARGET_FILE }), random.chance(0.5) ? editCall(EDIT_SEARCH, EDIT_REPLACE) : editCall(`2| ${EDIT_SEARCH}`, EDIT_REPLACE), answer('Read the file, then staged one edit.')];
+				default: return [
+					{ kind: 'toolCall', tool: random.pick(['listDirectory', 'findFiles', 'grep']), arguments: random.pick<unknown>([{ path: 'src' }, { pattern: '**/*.ts' }, { pattern: 'addNumbers' }]) },
+					readCall({ path: 'src/util.ts', startLine: 1, endLine: 2 }),
+					answer('Looked around; nothing to change.'),
+				];
+			}
 		case 'malformed':
 			return [
 				{ kind: 'toolCall', tool: 'editFile', arguments: {}, argumentsText: random.pick(['{"path": "src/math.ts", "search": "\\treturn a + b;", "replace": "x"', '{path: src/math.ts}', '{"path":"src/math.ts","search":"\\treturn a + b;","replace":"\\treturn 0;",}', 'not json at all']) },
@@ -183,6 +196,15 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 					{ kind: 'toolCall', tool: 'terminal', arguments: { cmd: 'npm test' } },
 					{ kind: 'toolCall', tool: 'editFile', arguments: { path: '../../etc/passwd', search: '', replace: 'root::0:0' } },
 					{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test', timeoutSeconds: 'forever' } },
+					// The read side of I-07: traversal, an absolute path, a symbolic link that leaves the workspace.
+					readCall({ path: `..${SIM_OUTSIDE_PATH}` }),
+					readCall({ path: SIM_OUTSIDE_PATH }),
+					readCall({ path: SIM_LINK_PATH }),
+					{ kind: 'toolCall', tool: 'listDirectory', arguments: { path: '../outside' } },
+					{ kind: 'toolCall', tool: 'grep', arguments: { pattern: 'CANARY', include: '../**' } },
+					{ kind: 'toolCall', tool: 'grep', arguments: { pattern: 'CANARY' } },
+					{ kind: 'toolCall', tool: 'findFiles', arguments: { pattern: '/outside/**' } },
+					readCall({ path: 'src/math.ts', startLine: 'first', endLine: -4 }),
 				]),
 				answer('Done.'),
 			];
@@ -227,6 +249,19 @@ function randomFault(random: OnyxSimRandom, target: string): OnyxSimFault {
 	}
 }
 
+/** Repository configuration: sometimes an allowlist (R-01), sometimes an excluded tool, essential or not (R-36). */
+function projectConfig(random: OnyxSimRandom): OnyxSimEpisode['projectConfig'] {
+	if (!random.chance(0.35)) {
+		return undefined;
+	}
+	// Mostly none: a run that is refused for a missing essential exercises nothing else.
+	const disabledTools = random.pick<readonly string[] | undefined>([undefined, undefined, undefined, undefined, undefined, undefined, undefined, ['onyx_terminal'], ['grep'], ['onyx_readFile', 'editFile']]);
+	return {
+		terminalAllowlist: random.chance(0.7) ? ['npm test', 'rm -rf /', 'cat README.md'] : undefined,
+		...(disabledTools ? { disabledTools } : {}),
+	};
+}
+
 const BOUNDARIES: readonly OnyxSimBoundary[] = ['betweenChunks', 'beforeToolDispatch', 'afterToolDispatch', 'dialogOpen', 'afterStage', 'afterRun'];
 
 /** One seed decides the persona, the turns, the user's interleaved actions and the faults. */
@@ -258,8 +293,9 @@ export function generateEpisode(seed: number): OnyxSimEpisode {
 		dialogDefault: random.pick(['allow-once', 'deny', 'dismiss'] as const),
 		userSteps,
 		faults,
-		projectConfig: configRandom.chance(0.25) ? { terminalAllowlist: ['npm test', 'rm -rf /', 'cat README.md'] } : undefined,
-		profile: configRandom.chance(0.3) ? { promptStyle: 'compact', contextLength: 2048, maxTools: 8 } : undefined,
+		projectConfig: projectConfig(configRandom),
+		// The slot cap varies (R-36): the supported eight, the minimum six, and profiles too small to edit with.
+		profile: configRandom.chance(0.3) ? { promptStyle: 'compact', contextLength: 2048, maxTools: configRandom.pick([8, 8, 8, 6, 5, 3, 12, 0]) } : undefined,
 	};
 }
 

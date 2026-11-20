@@ -31,9 +31,10 @@ Prompt markers steer it:
 
 | Marker | Effect |
 |---|---|
-| `TOOLTEST` | emits a tool call, exercising the agent loop |
+| `TOOLTEST` | lists the workspace root through `listDirectory`, exercising the agent loop |
+| `READEDITTEST <path>` | reads that file through `readFile`, then proposes an edit whose SEARCH text is a line it read back (R-31) |
 | `SYMTEST <name>` | calls `repoSymbols` with that query (add `EXPAND` for the call graph) |
-| `MEMTEST <text>` | calls the `remember` tool with that note |
+| `MEMTEST <text>` | calls the `remember` tool with that note (the tool is optional: on the eight-slot profile it is offered when the user's message says "remember") |
 | `EDITTEST <path>` | proposes two staged edits to that file via `editFile` |
 | `TERMTEST <cmd>` | proposes that shell command via the terminal tool |
 | `DOCTEST <query>` | searches the offline docs mirror via the `docs` tool |
@@ -105,8 +106,12 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (47 checks):
+asserting on the run journal and the live DOM (52 checks):
 
+- the tool list a default run advertises on the 7B profile (the six essential
+  tools and the two documented optional ones, R-36), Onyx's own `listDirectory`
+  and `readFile`, and a read → staged edit (R-31), all with the Copilot
+  extension disabled, as `scripts/code.sh` now launches by default
 - chat with the tool loop, `repoSymbols` with call-graph expansion, and the
   `remember` tool, plus the workspace-context and agent-memory sections landing
   in later prompts and post-run verification reporting a verdict
@@ -235,6 +240,16 @@ the number of activity branches reached in the test's reported title. A
 failing episode prints its seed; `shrinkEpisode` reduces its script while the
 violation persists and the minimal script is what gets committed, never a
 prose description.
+
+Resurrection mutants (L12) live beside the rig: `onyxSimMutants.ts` holds one
+test-only subclass per fixed defect, `onyxSimMutantTable.ts` says what each
+one puts back and which violation class the campaign must report, and the
+exporter writes a descriptor per mutant to `test/onyx/sim/mutants/`.
+
+```bash
+./scripts/test.sh --grep "OnyxSim mutants"                                  # each mutant: its script, then 150 seeded episodes
+ONYX_SIM_MUTANT_EPISODES=2000 ./scripts/test.sh --grep "OnyxSim mutants"    # the module gate's size
+```
 
 Episodes are data. The end-to-end mock scenarios live as scripts in
 `onyxSimScenarios.ts`; `node test/onyx/sim/export-episodes.mts` writes them to

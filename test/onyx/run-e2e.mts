@@ -479,7 +479,9 @@ async function main() {
 	await sleep(9000);
 	await send('SYMTEST computeTotal EXPAND');
 	await sleep(14000);
-	await send('MEMTEST this project indents with tabs');
+	// "remember" is an optional tool: on the eight-slot profile it is offered
+	// when the user asks for it by name, in place of the last default (R-36).
+	await send('MEMTEST remember that this project indents with tabs');
 	await sleep(9000);
 	// Prompts are built once per run, so a fact remembered during a run first
 	// shows up in the next one — hence a fourth, deliberately boring request.
@@ -503,8 +505,18 @@ async function main() {
 	check('R-43: every agent run journals a schema-valid v2 trace with at least one turn', traces.every(trace => trace.ok && trace.version === 2 && trace.turns >= 1), JSON.stringify(traces.filter(trace => !trace.ok || trace.turns < 1).map(trace => ({ name: trace.name, errors: trace.errors, turns: trace.turns }))));
 	check('R-43: a run without a profile seed records the seed as unknown, never as honoured', traces.every(trace => trace.seed && trace.seed.requested === null && trace.seed.honoured === 'unknown'), JSON.stringify(traces.map(trace => trace.seed)));
 
+	// R-36, dev half of the dev/packaged parity: a default run on the 7B
+	// profile advertises the six essential tools and the two documented
+	// optional ones, all Onyx's own, with the Copilot extension disabled.
+	const headers = runs.map(run => run.events.find(event => event.kind === 'trace')?.data as { model?: { identifier?: string }; tools?: { name: string }[] } | undefined);
+	const firstHeader = headers[0];
+	const expectedTools = ['readFile', 'listDirectory', 'findFiles', 'grep', 'editFile', 'terminal', 'repoSymbols', 'docs'];
+	check('R-36: a default run on the 7B profile advertises the six essentials and the two documented optional tools', JSON.stringify(firstHeader?.tools?.map(tool => tool.name)) === JSON.stringify(expectedTools) && !!firstHeader?.model?.identifier?.includes('mock-coder:7b'), JSON.stringify({ model: firstHeader?.model?.identifier, tools: firstHeader?.tools?.map(tool => tool.name) }));
+	check('R-36: an optional tool asked for by name takes the last spare slot', headers.some(header => JSON.stringify(header?.tools?.map(tool => tool.name)) === JSON.stringify([...expectedTools.slice(0, 7), 'remember'])), JSON.stringify(headers.map(header => header?.tools?.map(tool => tool.name).slice(6))));
+
 	const all = runs.flatMap(run => run.events);
 	const toolCalls: string[] = all.filter(event => event.kind === 'toolCall').map(event => event.data?.label);
+	check('the first tool call was Onyx\'s own listDirectory, and it listed the workspace', toolCalls[0] === 'listDirectory' && JSON.stringify(all.filter(event => event.kind === 'promptSnapshot')).includes('dir   src/'), `tool calls: ${toolCalls.join(', ') || 'none'}`);
 	check('the tool loop ran', toolCalls.length >= 3, `tool calls: ${toolCalls.join(', ') || 'none'}`);
 	check('repoSymbols was called', toolCalls.includes('repoSymbols'));
 	check('remember was called', toolCalls.includes('remember'));
@@ -660,6 +672,22 @@ async function main() {
 	// something was staged to begin with. Without that this check passed on a
 	// run where the edit had never arrived.
 	check('accepting applies and clears the staged set', wasStaged && /"empty"\s*:\s*true/.test(acceptedState), wasStaged ? acceptedState.slice(0, 120) : 'nothing was staged, so an empty view proves nothing');
+
+	// --- Read → staged edit with Onyx's own read tool (R-31, the dev half of
+	// what the packaged smoke checks): the mock reads math.ts through
+	// readFile and proposes an edit whose SEARCH text is a line it read back.
+	const toolCallsBeforeRead = readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall').length;
+	await send('READEDITTEST src/math.ts');
+	const readEditCalls = () => readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall').slice(toolCallsBeforeRead).map(event => String(event.data?.label ?? ''));
+	await waitUntil(() => readEditCalls().includes('editFile'), 40_000);
+	// Sending focused the chat, which hides the Control Plane and its Changes view.
+	await runCommand('Open Onyx Control Plane');
+	await waitUntil(() => readChangesState().includes('src/math.ts'));
+	const readResult = JSON.stringify(readRuns().flatMap(run => run.events).filter(event => event.kind === 'promptSnapshot').slice(-2));
+	check('R-31: the model read the file through Onyx\'s own readFile tool, as numbered lines', readEditCalls()[0] === 'readFile' && /src\/math\.ts \(lines 1-\d+ of \d+/.test(readResult) && readResult.includes('1| export function addNumbers'), `tool calls: ${readEditCalls().join(', ') || 'none'}`);
+	check('R-31: the edit that quotes the line it read is staged, not written', readChangesState().includes('src/math.ts') && !fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8').includes('edited-by-mock // edited-by-mock'), readChangesState().slice(0, 160));
+	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
+	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
 
 	// --- Terminal tool: approval dialog, execution, journaled output.
 	await send('TERMTEST echo onyx-e2e-terminal-ok');

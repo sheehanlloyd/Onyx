@@ -5,12 +5,14 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { generateEpisode, OnyxSimEpisode, OnyxSimPersonaKind, serializeEpisode } from './onyxSimEpisode.js';
 import { BASELINE_EXCEPTIONS } from './onyxSimBaseline.js';
 import { allCheckers, INVARIANTS, UNOBSERVABLE_IN_RIG } from './onyxSimInvariants.js';
 import { parseTrace, validateTrace } from '../../../common/onyxTrace.js';
-import { IOnyxSimResult, OnyxSimChecker, OnyxSimRig } from './onyxSimRig.js';
+import { IOnyxSimResult } from './onyxSimRig.js';
+import { runEpisode } from './onyxSimRun.js';
+import { SIM_MUTANTS } from './onyxSimMutantTable.js';
+import { mutantClassNames, SIM_MUTANT_CLASSES } from './onyxSimMutants.js';
 import { SIM_SCENARIOS } from './onyxSimScenarios.js';
 import { episodeSize, shrinkEpisode } from './onyxSimShrinker.js';
 
@@ -21,17 +23,6 @@ import { episodeSize, shrinkEpisode } from './onyxSimShrinker.js';
  * runs `ONYX_SIM_EPISODES` episodes (2,000 in the module gate and CI, a
  * handful otherwise) and reports throughput and reached branches.
  */
-
-export async function runEpisode(episode: OnyxSimEpisode, checkers: readonly OnyxSimChecker[] = []): Promise<IOnyxSimResult> {
-	return runWithFakedTimers({ useFakeTimers: true, maxTaskCount: 200_000 }, async () => {
-		const rig = new OnyxSimRig(episode, checkers);
-		try {
-			return await rig.run();
-		} finally {
-			await rig.dispose();
-		}
-	});
-}
 
 function env(name: string): string | undefined {
 	const candidate = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[name];
@@ -108,7 +99,13 @@ suite('OnyxSim', () => {
 			'audit-h4-duplicates-shift-then-accept': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			// Eight tool turns, then the turn cap (compact profile): "completed" with an incomplete result.
 			'audit-h6-context-budget': { status: 'completed', turns: 8, dispatched: Array.from({ length: 8 }, () => 'terminal'), staged: 0, dialogs: Array.from({ length: 8 }, () => 'allow-once') },
-			'e2e-readedittest-no-read-tool': { status: 'completed', turns: 1, dispatched: [], staged: 0, dialogs: [] },
+			'e2e-readedittest': { status: 'completed', turns: 3, dispatched: ['readFile', 'editFile'], staged: 1, dialogs: [] },
+			'b1-numbered-search-is-decoded': { status: 'completed', turns: 3, dispatched: ['readFile', 'editFile'], staged: 1, dialogs: [] },
+			'b1-read-escape-attempts': { status: 'completed', turns: 7, dispatched: ['readFile', 'readFile', 'readFile', 'listDirectory', 'grep', 'findFiles'], staged: 0, dialogs: [] },
+			// An excluded essential tool: refused before any request (R-36).
+			'b1-essential-tool-excluded': { status: 'failed', turns: 0, dispatched: [], staged: 0, dialogs: [] },
+			// Three slots: the read tools only. The edit the model then asks for is an unknown tool, not a dispatch.
+			'b1-read-only-profile': { status: 'completed', turns: 3, dispatched: ['readFile'], staged: 0, dialogs: [] },
 		});
 	});
 
@@ -194,6 +191,46 @@ suite('OnyxSim', () => {
 		}, { unowned: [], notReproduced: [], outsideTheTable: [], everyInvariantHasACheckerOrAReason: [] });
 		if (this.test) {
 			this.test.title = `${this.test.title} — ${JSON.stringify({ exceptions: BASELINE_EXCEPTIONS.length, episodes, classesSeen: [...seen].sort() })}`;
+		}
+	});
+
+	test('mutants: every resurrected defect is detected by its script and by the seeded campaign, and the unmutated harness is not', async function () {
+		const episodes = Number(env('ONYX_SIM_MUTANT_EPISODES') ?? 150);
+		const seedBase = Number(env('ONYX_SIM_SEED') ?? 1000);
+		this.timeout(Math.max(120_000, SIM_MUTANTS.length * episodes * 500));
+		const checkers = allCheckers();
+		const classNames = mutantClassNames();
+		const outcomes: Record<string, { hasClass: boolean; cleanWithoutMutant: boolean; scriptDetects: boolean; campaignDetects: boolean }> = {};
+		const firstSeeds: Record<string, number | string> = {};
+		for (const mutant of SIM_MUTANTS) {
+			const classes = SIM_MUTANT_CLASSES[mutant.id];
+			const detected = (result: IOnyxSimResult) => result.violations.some(violation => violation.invariant === mutant.detects);
+			const clean = await runEpisode(mutant.script, checkers);
+			const withMutant = await runEpisode(mutant.script, checkers, { classes });
+			let campaignDetects = false;
+			for (let index = 0; index < episodes && !campaignDetects; index++) {
+				if (detected(await runEpisode(generateEpisode(seedBase + index), checkers, { classes }))) {
+					campaignDetects = true;
+					firstSeeds[mutant.id] = seedBase + index;
+				}
+			}
+			for (const scenario of SIM_SCENARIOS) {
+				if (!campaignDetects && detected(await runEpisode(scenario, checkers, { classes }))) {
+					campaignDetects = true;
+					firstSeeds[mutant.id] = scenario.name;
+				}
+			}
+			outcomes[mutant.id] = { hasClass: !!classes && (classNames[mutant.id] ?? []).includes(mutant.resurrects), cleanWithoutMutant: !detected(clean), scriptDetects: detected(withMutant), campaignDetects };
+		}
+		assert.deepStrictEqual({
+			outcomes,
+			classesWithoutARow: Object.keys(SIM_MUTANT_CLASSES).filter(id => !SIM_MUTANTS.some(mutant => mutant.id === id)),
+		}, {
+			outcomes: Object.fromEntries(SIM_MUTANTS.map(mutant => [mutant.id, { hasClass: true, cleanWithoutMutant: true, scriptDetects: true, campaignDetects: true }])),
+			classesWithoutARow: [],
+		});
+		if (this.test) {
+			this.test.title = `${this.test.title} — ${JSON.stringify({ mutants: SIM_MUTANTS.length, episodesPerMutant: episodes, firstDetectedAt: firstSeeds })}`;
 		}
 	});
 
