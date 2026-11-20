@@ -277,6 +277,9 @@ const INHERITED_AUTOMATION = [
 	'.github/insiders.yml',
 	'.github/endgame',
 	'.github/workflows/node_modules_cache',
+	// Helpers of the workflows upstream added by 1.147.0 (DEC-05); the workflows themselves are caught by name below.
+	'.github/workflows/caches',
+	'.github/workflows/workspace_image',
 ];
 
 function checkInheritedAutomation(): ICheckResult {
