@@ -7,6 +7,16 @@ Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; m
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-11-20 the base was 36d38757a15 (August 2026)
 Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; the gate machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
 
+## Module 2 (in progress; this section is updated after every merge and rewritten when the module ends)
+Branch: `module-2` → draft pull request sheehanlloyd/Onyx#3. One branch per item, merged into `module-2` with a merge commit when its checks pass.
+Merged and pushed: B1, B2, B3, B4, B5, B11, B12, B13, B14, C4, C5, C6, C7 (`module-2` at 1a1ecf34f55). Reports: `docs/progress/<item>.md`.
+Not started: L4, L5.
+Next: L4, then L5, then the gate (R-44, R-45, the 20,000-episode campaign, the `docs/SUPPORT.md` check), the Section 11 integration suite once more, CI green twice, and this file's rewrite.
+Optional scope: C6 included, C7 included (`docs/SUPPORT.md`, "Optional feature states"). Agent Host: excluded (B3).
+Mutants so far: 23 (`test/onyx/sim/mutants/`). Baseline exceptions still open: 7, all owned by Module 3.
+CI: the run on 669dd50b67d failed (44756056767, 44756057488): R-23's injected-leak check had matched a parameter name C4 renamed, and the packaged smoke did not step through the first-run dialog on a slow runner. Both are fixed in C7's commit; the run on 1a1ecf34f55 is the one to read.
+To resume if this session stops: `git checkout module-2`; every item listed as merged is complete with its report; start the first item under "Not started" on a new branch.
+
 ## DEC-05 (upstream baseline)
 Decision: confirmed by the owner on 2026-11-20: move the fork to upstream release 1.147.0. Completed the same day as its own step between Module 1 and Module 2; report in `docs/progress/DEC-05.md`, merge record in `REBASE.md`.
 Module 1 (sheehanlloyd/Onyx#1) was merged into `main` first, with a merge commit (a7d60ac2856), so the pre-registration commit and the Module 1 gate revision 8b85d0efe70 stay ancestors of `main`; the push-to-main run 44676758550 was green before the upstream branch was pushed.
