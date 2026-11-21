@@ -275,4 +275,36 @@ suite('OnyxChangeSetService', () => {
 			assert.deepStrictEqual(outcomes, Object.fromEntries(Object.keys(cases).map(name => [name, 'equal'])));
 		});
 	});
+
+	test('C3: one editFile call with several edits stages them as one proposal, numbered-read quoting included; if any one cannot be placed nothing of the call is staged and the reply says which', async () => {
+		const result = await withRig(async rig => {
+			const both = await rig.invokeTool('editFile', { path: PATH, edits: [ADD, { search: '6| \treturn a - b;', replace: SUB.replace }] });
+			const afterBoth = { ...shown(rig), buffer: rig.buffer(PATH) === FILE };
+			rig.changeSet.rejectFile(PATH);
+			// The second edit quotes a line that is not in the file: the first one is not staged either.
+			const oneBad = await rig.invokeTool('editFile', { path: PATH, edits: [ADD, { search: '\treturn a / b;', replace: 'x' }] });
+			const afterOneBad = staged(rig) !== undefined;
+			const shapes = {
+				empty: await rig.invokeTool('editFile', { path: PATH, edits: [] }),
+				both: await rig.invokeTool('editFile', { path: PATH, search: ADD.search, replace: ADD.replace, edits: [SUB] }),
+				neither: await rig.invokeTool('editFile', { path: PATH }),
+				notAnEdit: await rig.invokeTool('editFile', { path: PATH, edits: [ADD, { search: SUB.search }] }),
+			};
+			const single = await rig.invokeTool('editFile', { path: PATH, ...SUB });
+			return {
+				both: both.ok, bothSays: both.text.slice(0, 40), afterBoth,
+				oneBad: oneBad.ok, oneBadSays: oneBad.text.slice(0, 68), afterOneBad,
+				shapes: Object.fromEntries(Object.entries(shapes).map(([name, reply]) => [name, reply.ok])), stagedByABadShape: staged(rig)?.hunks.length,
+				single: single.ok,
+			};
+		});
+		assert.deepStrictEqual(result, {
+			both: true, bothSays: 'Staged 2 edit(s) to src/math.ts (+2 −2).',
+			afterBoth: { hunks: ['g1.h1 line 2: \treturn b + a; // first', 'g1.h2 line 6: \treturn b - a; // second'], conflicts: [], buffer: true },
+			oneBad: false, oneBadSays: 'Error: Edit refused for src/math.ts: edit 2 of 2 could not be placed',
+			afterOneBad: false,
+			shapes: { empty: false, both: false, neither: false, notAnEdit: false }, stagedByABadShape: 1,
+			single: true,
+		});
+	});
 });

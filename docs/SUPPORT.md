@@ -324,6 +324,13 @@ indentation, other line endings or a second occurrence is refused, the file is u
 told which line did not match or how many places there were. A quote may begin in the middle of a line; a
 block of several lines may not begin inside a line's indentation.
 
+**Several edits in one call are one proposal or none (C3).** `editFile` takes one edit as `path`, `search`,
+`replace`, or up to 50 for the same file as `path` and `edits: [{search, replace}, ...]`; never both shapes
+in one call. The edits are placed in order, each exactly and exactly once in the text the earlier ones left.
+If any one cannot be placed, nothing of the call is staged and the model is told which edit it was and why.
+Line numbers copied from `readFile` are taken off each edit's quote as for a single edit, and they refer to
+the file as it was read.
+
 **What you review is what is applied.** Every staging of a file is a *generation*, and each of its hunks
 has an id that does not change while that generation lasts. Accepting a hunk names it by that id.
 

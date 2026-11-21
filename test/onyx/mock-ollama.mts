@@ -16,6 +16,8 @@
  *   SYMTEST <name>  - call repoSymbols with that query (add EXPAND for the call graph)
  *   MEMTEST <text>  - call the remember tool with that note
  *   EDITTEST <path> - propose two staged edits to that file via editFile
+ *   MULTIEDITTEST <path> - propose the same two edits in ONE editFile call,
+ *                     as {path, edits: [...]} (C3)
  *   TERMTEST <cmd>  - propose that shell command via the terminal tool
  *   SLOWTOOLTEST - stream slowly for about 12 seconds, then call a tool (R-15)
  *   DOCTEST <query> - search the offline docs mirror via the docs tool
@@ -242,7 +244,9 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 	const wantsMemory = body.tools?.length && /MEMTEST\s+(.+)/.test(lastUser?.content ?? '') && !hasToolResult;
 	// EDITTEST <path> emits two editFile calls (a modification, then a second
 	// hunk) so the staged-review flow can be driven end to end without a model.
-	const wantsEdit = body.tools?.length && /EDITTEST\s+(\S+)/.test(lastUser?.content ?? '') && !hasToolResult;
+	const multiEditPath = /MULTIEDITTEST\s+(\S+)/.exec(lastUser?.content ?? '')?.[1];
+	const wantsEdit = body.tools?.length && /(?<!MULTI)EDITTEST\s+(\S+)/.test(lastUser?.content ?? '') && !hasToolResult;
+	const wantsMultiEdit = !!multiEditPath && body.tools?.length && !hasToolResult;
 	// TERMTEST <command...> proposes one shell command through the terminal tool.
 	const wantsTerminal = body.tools?.length && /TERMTEST\s+(.+)/.test(lastUser?.content ?? '') && !hasToolResult;
 	// DOCTEST <query...> searches the offline docs mirror.
@@ -255,7 +259,7 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 	const readTool = body.tools?.find((t: any) => /^readFile$/i.test(t.function.name));
 	const wantsReadEdit = !!readEditPath && body.tools?.length && !hasToolResult;
 	const wantsEditAfterRead = !!readEditPath && body.tools?.length && hasToolResult && messages.filter((m: any) => m.role === 'tool').length === 1;
-	const wantsTool = wantsSymbols || wantsMemory || wantsEdit || wantsTerminal || wantsDocs || wantsPlaybook || (body.tools?.length && /TOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult);
+	const wantsTool = wantsSymbols || wantsMemory || wantsEdit || wantsMultiEdit || wantsTerminal || wantsDocs || wantsPlaybook || (body.tools?.length && /TOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult);
 
 	await sleep(120); // simulated TTFT
 	if (wantsReadEdit) {
@@ -336,10 +340,13 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 		res.end();
 		return;
 	}
-	if (wantsEdit) {
+	if (wantsEdit || wantsMultiEdit) {
 		const editTool = body.tools.find((t: any) => /editFile/i.test(t.function.name)) ?? body.tools[0];
-		const editPath = /EDITTEST\s+(\S+)/.exec(lastUser.content)![1];
-		const calls = [
+		const editPath = multiEditPath ?? /EDITTEST\s+(\S+)/.exec(lastUser.content)![1];
+		const calls = multiEditPath ? [
+			// C3: both edits in one call.
+			{ id: 'edit_1', args: JSON.stringify({ path: editPath, edits: [{ search: 'return value * 2;', replace: 'return 2 * value; // multi-edit-by-mock' }, { search: 'return value * 3;', replace: 'return 3 * value; // multi-edit-by-mock' }] }) },
+		] : [
 			{ id: 'edit_1', args: JSON.stringify({ path: editPath, search: 'return a + b;', replace: 'return b + a; // edited-by-mock' }) },
 			{ id: 'edit_2', args: JSON.stringify({ path: editPath, search: 'return a * b;', replace: 'return b * a; // edited-by-mock' }) },
 		];

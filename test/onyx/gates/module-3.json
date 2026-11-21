@@ -148,6 +148,21 @@
 			]
 		},
 		{
+			"id": "C3-multi-block",
+			"title": "C3 several edits in one editFile call: staged as one proposal with numbered-read quoting decoded; one edit that cannot be placed stages nothing and is named; the two shapes are never mixed; scripted scenarios hold I-08 and I-09",
+			"layer": "pure, service",
+			"regressions": [],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChangeSetService.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxChangeSetService C3|OnyxSim the end-to-end mock scenarios"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",
