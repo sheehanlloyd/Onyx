@@ -61,6 +61,9 @@ import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, WillSaveStateReason } from '../../../../../../platform/storage/common/storage.js';
 import { OnyxProposalDocuments } from '../../../browser/changes/onyxProposalDiff.js';
+import { IOnyxVerificationService, OnyxVerificationService } from '../../../browser/verification/onyxVerificationService.js';
+import { IMarkerService } from '../../../../../../platform/markers/common/markers.js';
+import { MarkerService } from '../../../../../../platform/markers/common/markerService.js';
 import { OnyxInlineEditSession } from '../../../browser/editor/onyxInlineEditSession.js';
 import { Range } from '../../../../../../editor/common/core/range.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
@@ -240,6 +243,9 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private readonly _storageService: TestStorageService;
 	private readonly _changeSetClass: typeof OnyxChangeSetService;
 	private readonly _inlineEditSessionClass: typeof OnyxInlineEditSession;
+	readonly verification: IOnyxVerificationService;
+	/** The window's diagnostics, for a test to report problems as a language service would. */
+	readonly markers: IMarkerService;
 	/** The product's own path service, for callers that turn a file's address into the path the tools use. */
 	readonly workspaceAccess: IOnyxWorkspaceAccessService;
 	private readonly _loop: OnyxAgentLoop;
@@ -342,6 +348,12 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IOnyxChangeSetService, this.changeSet);
 		this._terminal = this._disposables.add(instantiationService.createInstance(classes.TerminalService));
 		instantiationService.stub(IOnyxTerminalService, this._terminal);
+		// The product's marker service, not the test stub: diagnostics have to arrive as events (C2).
+		instantiationService.stub(IMarkerService, this._disposables.add(new MarkerService()));
+		// The real verification service (C2): it watches the change set and reports after an acceptance.
+		this.verification = this._disposables.add(instantiationService.createInstance(OnyxVerificationService));
+		instantiationService.stub(IOnyxVerificationService, this.verification);
+		this.markers = instantiationService.get(IMarkerService);
 		this._disposables.add(instantiationService.createInstance(OnyxReadFileToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxListDirectoryToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxFindFilesToolContribution));
@@ -412,6 +424,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	/** The product's proposal documents (C1), over this rig's change set and text models. */
 	proposalDocuments(): OnyxProposalDocuments {
 		return this._disposables.add(this._instantiationService.createInstance(OnyxProposalDocuments));
+	}
+
+	/** The address of a workspace file, for a test that reports diagnostics on it. */
+	uri(path: string): URI {
+		return this._uri(path);
 	}
 
 	/** Whether the file has unsaved changes, as the editor would show it. */

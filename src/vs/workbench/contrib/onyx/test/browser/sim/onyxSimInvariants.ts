@@ -601,6 +601,24 @@ const r27: OnyxSimChecker = state => {
 };
 
 /**
+ * R-21 (C2): a verdict about problems is a verdict about what was accepted.
+ * A timeline note that says problems were or were not found, before any
+ * hunk of the episode was accepted, is a verdict about content the files do
+ * not hold.
+ */
+const r21: OnyxSimChecker = state => {
+	let accepted = false;
+	for (const event of events(state)) {
+		if (event.kind === 'userAction' && (event.action === 'acceptAll' || event.action === 'acceptHunk')) {
+			accepted = true;
+		} else if (!accepted && event.kind === 'activity' && event.activity === 'note' && /^Verification: (verified|new problems|no new problems|\d+ new problem)/.test(event.label)) {
+			return `R-21/verdict-before-acceptance: "${event.label}" was reported before anything was accepted`;
+		}
+	}
+	return undefined;
+};
+
+/**
  * R-28's streaming part (C6), checked beside the invariants: in a constrained run, a long answer reaches the
  * transcript while its envelope is still arriving. For the first long text turn of a constrained episode:
  * between the request for it and the end of its stream, something was shown.
@@ -688,6 +706,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'R-27', title: 'A reply that opens with a code fence is shown as it streams', check: r27 },
 	{ id: 'R-28', title: 'A constrained answer is shown as it streams', check: r28 },
 	{ id: 'R-44', title: 'Every trace carries the hash of the harness configuration that ran', check: r44 },
+	{ id: 'R-21', title: 'No verification verdict is given before anything was accepted', check: r21 },
 ];
 
 /** Invariants the rig cannot observe in Module 1, each with the reason the contract records. */

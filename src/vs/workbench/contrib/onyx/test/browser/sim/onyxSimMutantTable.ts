@@ -100,7 +100,11 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		script: script('B2-unasked-check-task', 'Change addNumbers', [
 			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } },
 			{ kind: 'text', text: 'Staged.' },
-		], { dialogDefault: 'deny', projectConfig: { verificationTask: 'test' } }),
+		], {
+			dialogDefault: 'deny', projectConfig: { verificationTask: 'test' },
+			// Since C2 the check runs after an acceptance, on the accepted file as saved: the user accepts and saves.
+			userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }, { at: 'afterRun', occurrence: 2, step: { kind: 'save' } }],
+		}),
 	},
 	{
 		id: 'B4-regex-warnings',
@@ -385,5 +389,16 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		script: script('B10-pause-without-budget', 'Run the checks', [
 			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
 		], { dialogDefault: 'deny', userSteps: [{ at: 'betweenChunks', occurrence: 3, step: { kind: 'pause' } }] }),
+	},
+	{
+		id: 'C2-verdict-before-acceptance',
+		fixedBy: 'C2',
+		defect: 'Verification ran when a tool-using turn ended, before anything was accepted: a run that had only staged an edit reported "no new problems" of files that did not hold it (Codex N6; R-21)',
+		detects: 'R-21/verdict-before-acceptance',
+		resurrects: 'OnyxMutantVerdictBeforeAcceptanceLoop',
+		script: script('C2-verdict-before-acceptance', 'Change addNumbers', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } },
+			{ kind: 'text', text: 'Staged.' },
+		]),
 	},
 ];

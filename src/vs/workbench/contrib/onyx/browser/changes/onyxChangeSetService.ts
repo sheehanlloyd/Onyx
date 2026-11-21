@@ -56,6 +56,12 @@ export type OnyxStageOutcome =
 	| { readonly ok: true; readonly summary: string }
 	| { readonly ok: false; readonly error: string };
 
+export interface IOnyxAppliedEvent {
+	readonly path: string;
+	readonly generation: number;
+	readonly runId: string | undefined;
+}
+
 /** What an accept came to. `applied: false` always has the reason the user is shown. */
 export type OnyxAcceptOutcome =
 	| { readonly applied: true }
@@ -71,7 +77,10 @@ export type OnyxAcceptOutcome =
 export interface IOnyxChangeSetService {
 	readonly _serviceBrand: undefined;
 	readonly files: IObservable<readonly IOnyxStagedFile[]>;
-	readonly onDidApply: Event<{ readonly path: string }>;
+	/** Fires just before an accept changes a file: the last moment at which the file is as it was (C2). */
+	readonly onWillApply: Event<{ readonly path: string }>;
+	/** Fires when an accept has changed a file: which proposal generation the accepted hunks belonged to, and the run that staged them. */
+	readonly onDidApply: Event<IOnyxAppliedEvent>;
 	/** Stages SEARCH/REPLACE blocks for a workspace-qualified path. Never edits the buffer. */
 	stage(path: string, blocks: readonly IOnyxEditBlock[], runId?: string): Promise<OnyxStageOutcome>;
 	/**
@@ -119,7 +128,10 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	private readonly _filesObs: ISettableObservable<readonly IOnyxStagedFile[]> = observableValue(this, []);
 	readonly files: IObservable<readonly IOnyxStagedFile[]> = this._filesObs;
 
-	private readonly _onDidApply = this._register(new Emitter<{ path: string }>());
+	private readonly _onWillApply = this._register(new Emitter<{ path: string }>());
+	readonly onWillApply = this._onWillApply.event;
+
+	private readonly _onDidApply = this._register(new Emitter<IOnyxAppliedEvent>());
 	readonly onDidApply = this._onDidApply.event;
 
 	/** The last generation given out. Every staging of a file takes the next one. */
@@ -411,9 +423,10 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		}
 		if (shown.proposal.kind === 'create') {
 			const content = hunkId === undefined || shown.hunks.length === 1 ? shown.proposal.proposed : applyHunkSelection('', shown.hunks, index => shown.hunks[index].id === hunkId);
+			this._onWillApply.fire({ path });
 			await this._fileService.createFile(uri, VSBuffer.fromString(content), { overwrite: false });
 			this._remove(path);
-			this._onDidApply.fire({ path });
+			this._onDidApply.fire({ path, generation: shown.generation, runId: shown.runId });
 			await this._editorService.openEditor({ resource: uri, options: { preserveFocus: true } });
 			return { applied: true };
 		}
@@ -446,6 +459,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 				// "Accept the file" means what was shown. With a conflict among it, part of that cannot be applied.
 				return this._refuse(path, 'conflict');
 			}
+			this._onWillApply.fire({ path });
 			model.pushStackElement();
 			model.pushEditOperations(null, accepted.map(hunk => this._hunkToEdit(model, hunk)), () => null);
 			model.pushStackElement();
@@ -457,7 +471,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 			const remaining = newBase === rest.base ? rest.review : rebaseReview(rest.review, rest.base, newBase);
 			const current = this._filesObs.get().find(file => file.proposal.path === path) ?? staged;
 			this._keepReview(current, newBase, remaining, model.getVersionId());
-			this._onDidApply.fire({ path });
+			this._onDidApply.fire({ path, generation: staged.generation, runId: staged.runId });
 			return { applied: true };
 		} finally {
 			reference.dispose();

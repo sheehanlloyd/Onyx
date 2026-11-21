@@ -108,7 +108,7 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (62 checks):
+asserting on the run journal and the live DOM (63 checks):
 
 - the tool list a default run advertises on the 7B profile (the six essential
   tools and the two documented optional ones, R-36), Onyx's own `listDirectory`
@@ -118,7 +118,9 @@ asserting on the run journal and the live DOM (62 checks):
 - chat with the tool loop, `repoSymbols` with call-graph expansion, and the
   `remember` tool behind its confirmation (the note and the origin of its text
   on show, R-59), plus the workspace-context and agent-memory sections landing
-  in later prompts and post-run verification reporting a verdict
+  in later prompts, and no verification verdict from a run that accepted
+  nothing (R-21); the edit flow further down checks "not applied" before an
+  acceptance and a result for the accepted content after it
 - inline (FIM) autocomplete, including the cross-file context header
 - **Fix with Onyx** and **Explain with Onyx** routing into chat runs
 - the model library quick pick, including installed models outside the catalog

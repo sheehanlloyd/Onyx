@@ -142,3 +142,4 @@ or when the unmutated harness is flagged by the mutant's script.
 | `B10-stop-does-not-cancel` | B10 | Stop sets a status and cancels nothing the run owns: the turn in flight still runs its command | `I-05/command-after-stop` |
 | `B10-status-overwritten` | B10 | A terminal status can be replaced: `cancelled`, then `completed` when the stream ends | `I-03/status-overwritten` |
 | `B10-pause-without-budget` | B10 | A paused run has no time budget and never ends on its own | `I-03/no-time-budget` |
+| `C2-verdict-before-acceptance` | C2 | A run that used a tool ends by counting the workspace's problems and reporting "no new problems", with its edits only staged | `R-21/verdict-before-acceptance` |

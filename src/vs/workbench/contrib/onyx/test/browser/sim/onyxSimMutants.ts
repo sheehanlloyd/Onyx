@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { OnyxControlPlaneService, OnyxLiveRun } from '../../../browser/controlPlane/onyxControlPlaneService.js';
+import { IOnyxRunHandle, OnyxControlPlaneService, OnyxLiveRun } from '../../../browser/controlPlane/onyxControlPlaneService.js';
 import { IOnyxChangeSetService, OnyxAcceptOutcome, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
 import { OnyxInlineEditSession, OnyxInlineStageOutcome } from '../../../browser/editor/onyxInlineEditSession.js';
 import { IOnyxProposedFile, OnyxProposeResult, openReview, proposalSizeProblem, proposeEdits } from '../../../common/onyxChangeSet.js';
@@ -453,6 +453,18 @@ class OnyxMutantPauseWithoutBudgetControlPlane extends OnyxControlPlaneService {
 	}
 }
 
+/**
+ * C2: verification when a tool-using turn ends (Codex N6). The run that staged an edit says "no new problems"
+ * of a workspace that does not hold the edit: nothing was accepted, and nothing was checked.
+ */
+class OnyxMutantVerdictBeforeAcceptanceLoop extends OnyxAgentLoop {
+	protected override _reportVerification(run: IOnyxRunHandle, anyToolRan: boolean): void {
+		if (anyToolRan) {
+			run.activity({ kind: 'note', label: 'Verification: no new problems (0 total)', ok: true });
+		}
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -481,6 +493,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B10-stop-does-not-cancel': { ControlPlaneService: OnyxMutantStopOnlyFlipsStatusControlPlane },
 	'B10-status-overwritten': { ControlPlaneService: OnyxMutantStopOnlyFlipsStatusControlPlane },
 	'B10-pause-without-budget': { ControlPlaneService: OnyxMutantPauseWithoutBudgetControlPlane },
+	'C2-verdict-before-acceptance': { AgentLoop: OnyxMutantVerdictBeforeAcceptanceLoop },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },

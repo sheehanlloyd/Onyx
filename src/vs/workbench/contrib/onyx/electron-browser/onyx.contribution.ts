@@ -34,6 +34,7 @@ import { OnyxChatAgentContribution } from '../browser/agent/onyxChatAgent.js';
 import { IOnyxChangeSetService, OnyxChangeSetService } from '../browser/changes/onyxChangeSetService.js';
 import { OnyxEditToolContribution } from '../browser/changes/onyxEditTool.js';
 import { OnyxProposalDocuments } from '../browser/changes/onyxProposalDiff.js';
+import { IOnyxVerificationService, OnyxVerificationService } from '../browser/verification/onyxVerificationService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../browser/terminal/onyxTerminalTool.js';
 import { OnyxInlineCompletionsContribution } from '../browser/autocomplete/onyxInlineCompletions.js';
 import { IOnyxMemoryService, OnyxMemoryService } from '../browser/intelligence/onyxMemoryService.js';
@@ -112,6 +113,7 @@ registerSingleton(IOnyxDatasheetService, OnyxDatasheetService, InstantiationType
 registerSingleton(IOnyxContextAllocationService, OnyxContextAllocationService, InstantiationType.Delayed);
 registerSingleton(IOnyxProjectConfigService, OnyxProjectConfigService, InstantiationType.Delayed);
 registerSingleton(IOnyxChangeSetService, OnyxChangeSetService, InstantiationType.Delayed);
+registerSingleton(IOnyxVerificationService, OnyxVerificationService, InstantiationType.Delayed);
 registerSingleton(IOnyxTerminalService, OnyxTerminalService, InstantiationType.Delayed);
 registerSingleton(IOnyxSpeculativeService, OnyxSpeculativeService, InstantiationType.Delayed);
 registerSingleton(IOnyxPlaybookService, OnyxPlaybookService, InstantiationType.Delayed);

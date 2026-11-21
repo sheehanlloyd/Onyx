@@ -107,6 +107,8 @@ suite('OnyxHarnessConfigRun', () => {
 		const textCall = episode([{ kind: 'text', text: '{"tool":"readFile","arguments":{"path":"src/math.ts"}}' }, DONE]);
 		const bigResult = episode([{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'head -c 6000 /dev/zero' } }, DONE]);
 		const oneRead = episode([READ, DONE]);
+		// An edit that is staged and not accepted: what the end of the run can say about verification is "not applied" (C2).
+		const oneEdit = episode([{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } }, DONE]);
 
 		const capped = await runEpisode(fiveReads, [], asked({ turnCap: 2 }));
 		const smallResults = await runEpisode(bigResult, [], asked({ toolResultChars: 300 }));
@@ -120,7 +122,7 @@ suite('OnyxHarnessConfigRun', () => {
 			toolCallProtocol: { default: (await runEpisode(textCall)).toolResults.length, native: native.toolResults.length, nativeRequests: native.requests.length, nativeShowsIt: shown(native) > 0 },
 			// The request after a 6,000-character result: smaller by more than 800 tokens when 300 characters go back instead of 4,000.
 			toolResultChars: (await runEpisode(bigResult)).requests[1].promptTokens - smallResults.requests[1].promptTokens > 800,
-			verificationFeedback: { default: notes(numbered, /^Verification:/), off: notes(await runEpisode(oneRead, [], asked({ verificationFeedback: false })), /^Verification:/) },
+			verificationFeedback: { default: notes(await runEpisode(oneEdit), /^Verification: not applied/), off: notes(await runEpisode(oneEdit, [], asked({ verificationFeedback: false })), /^Verification:/) },
 			readToolLineNumbering: { default: /^1\| export function/m.test(numbered.toolResults[0].text), off: /^1\| /m.test(unnumbered.toolResults[0].text), offStillHasTheText: /^export function addNumbers/m.test(unnumbered.toolResults[0].text) },
 			saidOnTheTimeline: notes(capped, /^This run uses a lab harness configuration$/),
 		}, {
