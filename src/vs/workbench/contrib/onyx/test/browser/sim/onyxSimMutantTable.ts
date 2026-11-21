@@ -356,4 +356,34 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 			{ kind: 'text', text: 'It adds two numbers.' },
 		], { userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'inlineEdit', startLine: 1, endLine: 3, reply: '<<<<<<< SEARCH\n\treturn a + b;\n=======\n\treturn b + a; // inline\n>>>>>>> REPLACE' } }] }),
 	},
+	{
+		id: 'B10-stop-does-not-cancel',
+		fixedBy: 'B10',
+		defect: 'Stop set a status and released the pause gate; the inference token and the running tool were not cancelled, so the turn in flight still ran its command (Codex N5; R-15)',
+		detects: 'I-05/command-after-stop',
+		resurrects: 'OnyxMutantStopOnlyFlipsStatusControlPlane',
+		script: script('B10-stop-does-not-cancel', 'List the folder', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'ls src' } },
+		], { userSteps: [{ at: 'beforeToolDispatch', occurrence: 1, step: { kind: 'stop' } }] }),
+	},
+	{
+		id: 'B10-status-overwritten',
+		fixedBy: 'B10',
+		defect: 'A terminal status could be replaced: Stop set `cancelled`, and the loop then recorded `completed` when the stream ended (Codex N5; R-15)',
+		detects: 'I-03/status-overwritten',
+		resurrects: 'OnyxMutantStopOnlyFlipsStatusControlPlane',
+		script: script('B10-status-overwritten', 'What does it do?', [
+			{ kind: 'text', text: 'Done.' },
+		], { dialogDefault: 'dismiss', userSteps: [{ at: 'betweenChunks', occurrence: 1, step: { kind: 'stop' } }] }),
+	},
+	{
+		id: 'B10-pause-without-budget',
+		fixedBy: 'B10',
+		defect: 'A run the user paused and did not resume never ended on its own: a pause had no time budget (Codex N5; I-03)',
+		detects: 'I-03/no-time-budget',
+		resurrects: 'OnyxMutantPauseWithoutBudgetControlPlane',
+		script: script('B10-pause-without-budget', 'Run the checks', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
+		], { dialogDefault: 'deny', userSteps: [{ at: 'betweenChunks', occurrence: 3, step: { kind: 'pause' } }] }),
+	},
 ];

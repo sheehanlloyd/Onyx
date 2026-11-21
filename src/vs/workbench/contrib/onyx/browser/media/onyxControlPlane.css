@@ -149,6 +149,10 @@
 	background: var(--vscode-onyx-ok);
 }
 
+.onyx-run.budget-exhausted .onyx-run-status {
+	background: var(--vscode-onyx-warn);
+}
+
 .onyx-run.failed .onyx-run-status,
 .onyx-run.cancelled .onyx-run-status {
 	background: var(--vscode-onyx-error);

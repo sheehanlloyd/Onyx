@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { OnyxControlPlaneService, OnyxLiveRun } from '../../../browser/controlPlane/onyxControlPlaneService.js';
 import { IOnyxChangeSetService, OnyxAcceptOutcome, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
 import { OnyxInlineEditSession, OnyxInlineStageOutcome } from '../../../browser/editor/onyxInlineEditSession.js';
 import { IOnyxProposedFile, OnyxProposeResult, openReview, proposalSizeProblem, proposeEdits } from '../../../common/onyxChangeSet.js';
@@ -28,7 +29,7 @@ import { digestValue, IOnyxTraceHeader } from '../../../common/onyxTrace.js';
 import { decideInferenceUse, IOnyxInferenceLocation, IOnyxInferencePolicy } from '../../../common/onyxInferenceLocation.js';
 import { OnyxTimelineOutput } from '../../../common/onyxTerminalOutput.js';
 import { buildApprovalRequest, IOnyxCommandInvocation, IOnyxTerminalApprovalRequest, normalizeCommand, OnyxTerminalDecision } from '../../../common/onyxTerminalPolicy.js';
-import { IOnyxModelProfile } from '../../../common/onyxTypes.js';
+import { IOnyxModelProfile, OnyxTerminalRunStatus } from '../../../common/onyxTypes.js';
 import { IOnyxSimProductClasses } from './onyxSimRig.js';
 
 /**
@@ -431,6 +432,27 @@ class OnyxMutantApplyBeforeReviewInlineSession extends OnyxInlineEditSession {
 	}
 }
 
+/**
+ * B10: Stop before it was a cancellation (Codex N5). Ending a run only set its status: nothing the run owned
+ * was cancelled, so the turn in flight went on to dispatch its tool, run its command and stage its edit; and
+ * whatever status came last replaced the one before it.
+ */
+class OnyxMutantStopOnlyFlipsStatusControlPlane extends OnyxControlPlaneService {
+	protected override _finish(run: OnyxLiveRun, status: OnyxTerminalRunStatus): void {
+		run.statusObs.set(status, undefined);
+		this._onDidRecordEvent.fire({ runId: run.runId, event: { t: Date.now() - run.startedAt, kind: 'outcome', data: { status } } });
+		run.resumeGate?.();
+		run.resumeGate = undefined;
+	}
+}
+
+/** B10: a pause with no time budget. A run the user paused and did not resume never ends. */
+class OnyxMutantPauseWithoutBudgetControlPlane extends OnyxControlPlaneService {
+	protected override _pauseBudgetMs(): number {
+		return 24 * 60 * 60 * 1000;
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -456,6 +478,9 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B7-no-size-guard': { ChangeSetService: OnyxMutantNoSizeGuardChangeSet },
 	'B8-deletion-leaves-line': { ChangeSetService: OnyxMutantDeletionLeavesLineChangeSet },
 	'B9-inline-apply-before-review': { InlineEditSession: OnyxMutantApplyBeforeReviewInlineSession },
+	'B10-stop-does-not-cancel': { ControlPlaneService: OnyxMutantStopOnlyFlipsStatusControlPlane },
+	'B10-status-overwritten': { ControlPlaneService: OnyxMutantStopOnlyFlipsStatusControlPlane },
+	'B10-pause-without-budget': { ControlPlaneService: OnyxMutantPauseWithoutBudgetControlPlane },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },

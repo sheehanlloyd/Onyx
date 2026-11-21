@@ -58,7 +58,9 @@ export async function runOneShot(
 	options?.controlPlane?.updateCompute({ inFlight: true });
 
 	try {
-		const response = await modelService.sendChatRequest(requestedModel, messages, undefined, {}, token);
+		// The run's own token when the request belongs to a run (B10): Stop in the control plane and the caller's
+		// own cancel both end the request, because the run was begun with the caller's token.
+		const response = await modelService.sendChatRequest(requestedModel, messages, undefined, {}, options?.run?.token ?? token);
 		let text = '';
 		for await (const part of response.stream) {
 			for (const one of Array.isArray(part) ? part : [part]) {

@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { OnyxRunStatus } from '../../common/onyxTypes.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import * as aria from '../../../../../base/browser/ui/aria/aria.js';
 import { DisposableMap, DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -247,7 +248,10 @@ export class OnyxActivityViewPane extends ViewPane {
 		runElement.classList.toggle('selected', isSelected);
 
 		const header = DOM.append(runElement, $('.onyx-run-header'));
-		DOM.append(header, $('.onyx-run-status'));
+		// The dot's colour is not the only word on how the run ended (B10): each status has its own name.
+		const statusDot = DOM.append(header, $('.onyx-run-status'));
+		statusDot.title = runStatusLabel(status);
+		statusDot.setAttribute('aria-label', runStatusLabel(status));
 		const title = DOM.append(header, $('.onyx-run-title'));
 		title.textContent = run.title || localize('onyx.activity.untitled', "Untitled run");
 		title.title = run.title;
@@ -392,5 +396,17 @@ function entryKindLabel(kind: IOnyxActivityEntry['kind']): string {
 		case 'route': return localize('onyx.entry.route', "route");
 		case 'steer': return localize('onyx.entry.steer', "steer");
 		default: return localize('onyx.entry.note', "note");
+	}
+}
+
+/** A run's status in words. `budget-exhausted` is not `completed`: the run was ended by its turn cap or its time budget. */
+export function runStatusLabel(status: OnyxRunStatus): string {
+	switch (status) {
+		case 'running': return localize('onyx.run.status.running', "Running");
+		case 'paused': return localize('onyx.run.status.paused', "Paused");
+		case 'completed': return localize('onyx.run.status.completed', "Completed");
+		case 'failed': return localize('onyx.run.status.failed', "Failed");
+		case 'cancelled': return localize('onyx.run.status.cancelled', "Stopped");
+		case 'budget-exhausted': return localize('onyx.run.status.budgetExhausted', "Ended at its turn or time limit, unfinished");
 	}
 }

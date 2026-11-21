@@ -86,7 +86,7 @@ export class OnyxAgentLoop {
 		@IOnyxHarnessConfigService private readonly _harnessConfigService: IOnyxHarnessConfigService,
 	) { }
 
-	async run(request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: readonly IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatAgentResult> {
+	async run(request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: readonly IChatAgentHistoryEntry[], requestToken: CancellationToken): Promise<IChatAgentResult> {
 		// The chat stack only caches a vendor's models once something has asked
 		// for them — usually the model picker. On a cold window nothing has, and
 		// the request would fail with "provider is not registered" before any
@@ -109,7 +109,11 @@ export class OnyxAgentLoop {
 			task,
 			modelKey: modelIdentifier,
 			request: request.message,
+			token: requestToken,
 		});
+		// From here on the run's own token is the one everything takes (B10): it is cancelled by the request's
+		// token and by Stop alike, so inference, tools, dialogs and commands all end with the run.
+		const token = run.token;
 		this._controlPlaneService.updateCompute({ modelKey: modelIdentifier, inFlight: true });
 
 		// Journal the git HEAD so a later resume can tell whether the workspace
@@ -124,8 +128,10 @@ export class OnyxAgentLoop {
 		try {
 			return await this._runLoop(request, progress, history, token, modelIdentifier, metadata, profile, run);
 		} catch (err) {
-			run.complete(token.isCancellationRequested ? 'cancelled' : 'failed');
-			if (token.isCancellationRequested) {
+			// Asked before the run is ended: ending it any way but completing cancels its token.
+			const stopped = token.isCancellationRequested;
+			run.complete(stopped ? 'cancelled' : 'failed');
+			if (stopped) {
 				return {};
 			}
 			this._logService.warn('[onyx] agent loop failed', err);
@@ -368,6 +374,13 @@ export class OnyxAgentLoop {
 				throw err;
 			}
 
+			// Stop during the stream (B10, R-15): whatever the reply held, a tool call included, is not acted on.
+			if (token.isCancellationRequested) {
+				recordTurn(textStream.finish().raw, 'cancelled', false, undefined, 'cancelled');
+				run.complete('cancelled');
+				return {};
+			}
+
 			// A reply that was cut off or went silent is not a reply (B12, I-11). Whatever arrived of it stays
 			// visible as it streamed; none of it is parsed for a tool call, run, staged or called complete.
 			const thought = reasoning.finish();
@@ -496,8 +509,10 @@ export class OnyxAgentLoop {
 			}
 		}
 
-		run.complete(token.isCancellationRequested ? 'cancelled' : 'completed');
-		return token.isCancellationRequested ? {} : { errorDetails: { message: `Stopped after the maximum of ${maxTurns} agent turns.`, responseIsIncomplete: true } };
+		// Out of turns is its own ending: the run did not finish, and nobody stopped it (B10).
+		const stopped = token.isCancellationRequested;
+		run.complete(stopped ? 'cancelled' : 'budget-exhausted');
+		return stopped ? {} : { errorDetails: { message: `Stopped after the maximum of ${maxTurns} agent turns.`, responseIsIncomplete: true } };
 	}
 
 	private _countWorkspaceErrors(): number {
@@ -623,6 +638,10 @@ export class OnyxAgentLoop {
 			run.activity({ kind: 'toolCall', label: toolUse.name, reason: `arguments do not match the tool's schema: ${problems[0]}`, ok: false });
 			return { text: `Error: the arguments for ${toolUse.name} do not match its schema: ${problems.join('; ')}. Nothing was run. Call the tool again with corrected arguments.`, ok: false };
 		}
+		if (token.isCancellationRequested) {
+			// Stopped (B10, I-05): the call is answered, never dispatched.
+			return { text: 'The run was stopped by the user before this was done. Nothing was run or changed.', ok: false };
+		}
 		run.activity({ kind: 'toolCall', label: toolUse.name });
 		const parameters = typeof toolUse.parameters === 'object' && toolUse.parameters !== null ? toolUse.parameters : {};
 		if (this._needsApprovalPerCall(toolId)) {
@@ -634,6 +653,11 @@ export class OnyxAgentLoop {
 				configuredBy: localize('onyx.agent.networkToolsSetting', "your setting {0}", ONYX_NETWORK_TOOLS_SETTING),
 				runId: run.runId,
 			});
+			if (token.isCancellationRequested) {
+				// Stop while the dialog was open: whatever it was then answered, the call is not dispatched (B10).
+				run.activity({ kind: 'toolResult', label: toolUse.name, ok: false, reason: 'the run was stopped' });
+				return { text: 'The run was stopped by the user before this was done. Nothing was run or changed.', ok: false };
+			}
 			if (!approved) {
 				run.activity({ kind: 'toolResult', label: toolUse.name, ok: false, reason: 'denied by the user' });
 				return { text: `Error: the user denied this ${toolUse.name} call. Do not retry it; continue without it or ask the user.`, ok: false };
@@ -661,6 +685,11 @@ export class OnyxAgentLoop {
 			}
 			return { text: failure ? `Error: ${failure}` : text, ok: !failure };
 		} catch (err) {
+			if (token.isCancellationRequested) {
+				// The run was stopped while the tool was starting or running: that is not a failure of the tool.
+				run.activity({ kind: 'toolResult', label: toolUse.name, ok: false, reason: 'the run was stopped' });
+				return { text: 'The run was stopped by the user before this was done. Nothing was run or changed.', ok: false };
+			}
 			run.activity({ kind: 'toolResult', label: toolUse.name, ok: false, reason: shortReason(toErrorMessage(err)) });
 			this._reportToolFailure(progress, toolUse.name, toErrorMessage(err));
 			return { text: `Error invoking ${toolUse.name}: ${toErrorMessage(err)}`, ok: false };

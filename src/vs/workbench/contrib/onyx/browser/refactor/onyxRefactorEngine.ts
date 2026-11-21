@@ -170,6 +170,7 @@ export class OnyxRefactorEngine {
 		const startLine = Math.max(1, aroundLine - SNIPPET_LINES / 2);
 		const snippet = model.getValueInRange(new Range(startLine, 1, Math.min(model.getLineCount(), startLine + SNIPPET_LINES), 1));
 
+		const cancellation = new CancellationTokenSource();
 		const handle = this._controlPlaneService.beginRun({
 			sessionResource: URI.from({ scheme: 'onyx-refactor', path: `/${generateUuid()}` }),
 			requestId: generateUuid(),
@@ -178,8 +179,8 @@ export class OnyxRefactorEngine {
 				: localize('onyx.refactor.extractRun', "Name for extracted function"),
 			task: 'quick-edit',
 			modelKey: 'auto',
+			token: cancellation.token,
 		});
-		const cancellation = new CancellationTokenSource();
 		let suggestions: { name: string; reason: string }[] = [];
 		try {
 			const reply = await runOneShot(

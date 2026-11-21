@@ -62,7 +62,11 @@ export class OnyxEditToolContribution extends Disposable {
 		this._register(toolsService.registerToolImplementation(ONYX_EDIT_TOOL_ID, impl));
 	}
 
-	private async _invoke(invocation: IToolInvocation, _token: CancellationToken): Promise<IToolResult> {
+	private async _invoke(invocation: IToolInvocation, token: CancellationToken): Promise<IToolResult> {
+		if (token.isCancellationRequested) {
+			// Stopped (B10, I-05): nothing more is staged for a run the user has stopped.
+			return { content: [{ kind: 'text', value: 'Error: the run was stopped by the user. Nothing was staged.' }], toolResultError: true };
+		}
 		const parameters = invocation.parameters as { path?: unknown; search?: unknown; replace?: unknown };
 		const path = typeof parameters.path === 'string' ? parameters.path.trim() : '';
 		const replace = typeof parameters.replace === 'string' ? parameters.replace : undefined;

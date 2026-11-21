@@ -41,6 +41,7 @@ Prompt markers steer it:
 | `DOCTEST <query>` | searches the offline docs mirror via the `docs` tool |
 | `PBTEST <name>` | fetches that repository playbook via the `playbook` tool |
 | `SLOWTEST` | streams a ~20s answer, giving interruption tests a window |
+| `SLOWTOOLTEST` | streams slowly for about 12 seconds, then calls a tool: a run stopped meanwhile must never make that call (R-15) |
 
 `ONYX_MOCK_KIND=lmstudio` hides the Ollama native API so discovery detects the
 endpoint as LM Studio — the speculative-decoding flow only offers runtimes that
@@ -107,7 +108,7 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (58 checks):
+asserting on the run journal and the live DOM (60 checks):
 
 - the tool list a default run advertises on the 7B profile (the six essential
   tools and the two documented optional ones, R-36), Onyx's own `listDirectory`
@@ -134,6 +135,9 @@ asserting on the run journal and the live DOM (58 checks):
   timeline, and the same command asking again and not running when denied
 - the offline docs mirror finding the workspace's own markdown
 - playbooks: the prompt index and the fetched recipe body
+- **Stop means stop** (R-15): a slow stream that would end in a tool call is
+  stopped from the run list; the journal says `cancelled` within two seconds,
+  the tool is never called and the status is never overwritten
 - stopping a streaming run and resuming it as a new briefing-run
 - the refactor engine: model-suggested names, the rename staged for review
 - the repo benchmark journaling a run and opening its evidence document

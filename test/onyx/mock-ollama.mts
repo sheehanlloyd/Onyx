@@ -17,6 +17,7 @@
  *   MEMTEST <text>  - call the remember tool with that note
  *   EDITTEST <path> - propose two staged edits to that file via editFile
  *   TERMTEST <cmd>  - propose that shell command via the terminal tool
+ *   SLOWTOOLTEST - stream slowly for about 12 seconds, then call a tool (R-15)
  *   DOCTEST <query> - search the offline docs mirror via the docs tool
  *   PBTEST <name>   - fetch that repository playbook via the playbook tool
  *   NETTEST <url>   - open that URL via the openBrowserPage tool, when it is
@@ -348,6 +349,22 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 		});
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
+		res.write('data: [DONE]\n\n');
+		res.end();
+		return;
+	}
+	// SLOWTOOLTEST: a slow answer (one word every 200ms for about 12 seconds) that ends in a tool call. A
+	// run stopped while it streams must never make that call (R-15).
+	if (body.tools?.length && /SLOWTOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult) {
+		for (let index = 0; index < 60; index++) {
+			send(chunk({ content: `slow-word-${index} ` }));
+			await sleep(200);
+		}
+		const tool = body.tools.find((t: any) => /^listDirectory$/.test(t.function.name)) ?? body.tools[0];
+		send({ ...chunk({ tool_calls: [{ index: 0, id: 'call_slow', type: 'function', function: { name: tool.function.name, arguments: '' } }] }) });
+		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: tool.function.name === 'listDirectory' ? JSON.stringify({ path: '.' }) : '{}' } }] }) });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 120, completion_tokens: 70 } });
 		res.write('data: [DONE]\n\n');
 		res.end();
 		return;

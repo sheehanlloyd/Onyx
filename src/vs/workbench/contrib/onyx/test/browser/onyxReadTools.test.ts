@@ -229,8 +229,10 @@ suite('OnyxReadTools', () => {
 			const scoped = await rig.invokeTool('grep', { pattern: 'export function', include: 'src/util.ts' });
 			const flood = await rig.invokeTool('grep', { pattern: 'needle' });
 			const floodLines = flood.text.split('\n');
+			// Cancelled once the tool is running and its search begins. (A call whose token is already cancelled is
+			// never handed to a tool: the tools service refuses it.)
 			const cancellation = new CancellationTokenSource();
-			cancellation.cancel();
+			rig.search.beforeNextTextSearch = () => cancellation.cancel();
 			const cancelled = await rig.invokeTool('grep', { pattern: 'needle' }, cancellation.token);
 			const cancelledQuery = rig.search.queries[rig.search.queries.length - 1];
 			cancellation.dispose();

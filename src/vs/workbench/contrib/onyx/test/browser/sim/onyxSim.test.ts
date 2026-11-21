@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { isTerminalRunStatus } from '../../../common/onyxTypes.js';
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { generateEpisode, OnyxSimEpisode, OnyxSimPersonaKind, serializeEpisode } from './onyxSimEpisode.js';
@@ -69,7 +70,7 @@ suite('OnyxSim', () => {
 			const result = await runEpisode(episode);
 			outcomes[persona] = { status: result.status, turns: result.turns, requests: result.trace.split('\n').filter(line => line.includes('"kind":"request"')).length };
 		}
-		assert.deepStrictEqual(Object.fromEntries(Object.entries(outcomes).map(([persona, outcome]) => [persona, { terminal: ['completed', 'failed', 'cancelled'].includes(outcome.status), requested: outcome.requests >= 1, requestsMatchTurns: outcome.requests === outcome.turns }])),
+		assert.deepStrictEqual(Object.fromEntries(Object.entries(outcomes).map(([persona, outcome]) => [persona, { terminal: isTerminalRunStatus(outcome.status), requested: outcome.requests >= 1, requestsMatchTurns: outcome.requests === outcome.turns }])),
 			Object.fromEntries(personas.map(persona => [persona, { terminal: true, requested: true, requestsMatchTurns: true }])),
 			JSON.stringify(outcomes, undefined, 2));
 	});
@@ -92,18 +93,21 @@ suite('OnyxSim', () => {
 			'e2e-edittest': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
 			'e2e-termtest': { status: 'completed', turns: 2, dispatched: ['terminal'], staged: 0, dialogs: ['allow-once'] },
 			'e2e-termtest-denied': { status: 'completed', turns: 2, dispatched: ['terminal'], staged: 0, dialogs: ['deny'] },
-			// Today a stop during a tool-less turn ends as "completed": the loop
-			// overwrites the cancelled status when the stream ends (Codex N5; B10
-			// owns the fix, I-03/I-05 flag it). The script expresses the scenario;
-			// the expectation records the baseline and changes when B10 lands.
-			'e2e-slowtest-stop': { status: 'completed', turns: 1, dispatched: [], staged: 0, dialogs: [] },
+			// A stop during a tool-less turn ends as "cancelled", and stays so when the stream ends (B10).
+			'e2e-slowtest-stop': { status: 'cancelled', turns: 1, dispatched: [], staged: 0, dialogs: [] },
+			'b10-stop-during-slow-stream-before-a-tool-call': { status: 'cancelled', turns: 1, dispatched: [], staged: 0, dialogs: [] },
+			'b10-paused-and-never-resumed': { status: 'budget-exhausted', turns: 1, dispatched: ['terminal'], staged: 0, dialogs: ['deny'] },
+			'b10-stop-then-the-stream-ends': { status: 'cancelled', turns: 1, dispatched: [], staged: 0, dialogs: [] },
+			'b10-stop-before-a-command': { status: 'cancelled', turns: 1, dispatched: ['terminal'], staged: 0, dialogs: [] },
+			'b10-stop-before-an-edit': { status: 'cancelled', turns: 1, dispatched: ['editFile'], staged: 0, dialogs: [] },
+			'b10-stop-while-an-approval-dialog-is-open': { status: 'cancelled', turns: 1, dispatched: [], staged: 0, dialogs: ['allow-once'] },
 			'audit-n2-type-above-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
 			'audit-n2-edit-hunk-0-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
 			'b8-delete-lines-then-accept-all': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			'b9-inline-edit-stages-then-save': { status: 'completed', turns: 1, dispatched: [], staged: 0, dialogs: [] },
 			'audit-h4-duplicates-shift-then-accept': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
-			// Eight tool turns, then the turn cap (compact profile): "completed" with an incomplete result.
-			'audit-h6-context-budget': { status: 'completed', turns: 8, dispatched: Array.from({ length: 8 }, () => 'terminal'), staged: 0, dialogs: Array.from({ length: 8 }, () => 'allow-once') },
+			// Eight tool turns, then the turn cap (compact profile): out of turns is its own status (B10).
+			'audit-h6-context-budget': { status: 'budget-exhausted', turns: 8, dispatched: Array.from({ length: 8 }, () => 'terminal'), staged: 0, dialogs: Array.from({ length: 8 }, () => 'allow-once') },
 			'e2e-readedittest': { status: 'completed', turns: 3, dispatched: ['readFile', 'editFile'], staged: 1, dialogs: [] },
 			'b1-numbered-search-is-decoded': { status: 'completed', turns: 3, dispatched: ['readFile', 'editFile'], staged: 1, dialogs: [] },
 			'b1-read-escape-attempts': { status: 'completed', turns: 7, dispatched: ['readFile', 'readFile', 'readFile', 'listDirectory', 'grep', 'findFiles'], staged: 0, dialogs: [] },
@@ -136,6 +140,36 @@ suite('OnyxSim', () => {
 			'audit-n2-edit-hunk-0-then-accept-hunk-0': { steps: '2 of 2', buffer: { typedInHunk0: true }, violations: [] },
 			// A function pasted above, so that the hunk's line is no longer the first of its kind: the hunk follows its own place.
 			'audit-h4-duplicates-shift-then-accept': { steps: '2 of 2', buffer: { pastedAbove: true, h4: true }, violations: [] },
+		});
+	});
+
+	test('R-15 at the service layer, I-03, I-05 (B10): Stop prevents every later dispatch, command and staging, a paused run ends on its own, and a run has one terminal status that nothing replaces', async () => {
+		const outcomes: Record<string, { status: string; journaled: string[]; dispatched: number; commands: number; staged: number; violations: string[] }> = {};
+		for (const scenario of SIM_SCENARIOS.filter(candidate => candidate.name.startsWith('b10-') || candidate.name === 'e2e-slowtest-stop')) {
+			const result = await runEpisode(scenario, allCheckers());
+			const lines = result.trace.split('\n');
+			outcomes[scenario.name] = {
+				status: result.status,
+				// Every terminal status the journal holds for the run: exactly one.
+				journaled: lines.map(line => /"kind":"status","run":"[^"]+","status":"(?<status>completed|failed|cancelled|budget-exhausted)"/.exec(line)?.groups?.status).filter((status): status is string => !!status),
+				dispatched: lines.filter(line => line.includes('"kind":"toolDispatch"')).length,
+				commands: result.commands.length,
+				staged: lines.filter(line => line.includes('"kind":"stage"')).length,
+				violations: result.violations.map(violation => violation.invariant),
+			};
+		}
+		const stopped = { status: 'cancelled', journaled: ['cancelled'], dispatched: 0, commands: 0, staged: 0, violations: [] };
+		assert.deepStrictEqual(outcomes, {
+			'e2e-slowtest-stop': stopped,
+			'b10-stop-during-slow-stream-before-a-tool-call': stopped,
+			// Paused and left: it ends when the pause has lasted as long as a pause may, and says so.
+			// A pause is not a stop: the turn in flight finishes (its command is asked about, and denied here).
+			'b10-paused-and-never-resumed': { status: 'budget-exhausted', journaled: ['budget-exhausted'], dispatched: 1, commands: 0, staged: 0, violations: [] },
+			'b10-stop-then-the-stream-ends': stopped,
+			// The call had been handed to the tools service when Stop came; the tool itself was never entered.
+			'b10-stop-before-a-command': { ...stopped, dispatched: 1 },
+			'b10-stop-before-an-edit': { ...stopped, dispatched: 1 },
+			'b10-stop-while-an-approval-dialog-is-open': stopped,
 		});
 	});
 

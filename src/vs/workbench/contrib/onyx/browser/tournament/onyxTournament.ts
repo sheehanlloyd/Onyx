@@ -150,6 +150,7 @@ export class OnyxTournament {
 			title: localize('onyx.tournament.runTitle', "Tournament: {0}", contestant.key),
 			task: 'quick-edit',
 			modelKey: contestant.key,
+			token: cancellation.token,
 		});
 		let worktreePath: string | undefined;
 		try {
