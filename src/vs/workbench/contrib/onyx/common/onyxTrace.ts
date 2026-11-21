@@ -44,6 +44,22 @@ export interface IOnyxTraceHeader {
 	readonly runtime: { readonly name: string; readonly version: string | null; readonly baseUrl: string };
 	readonly sampling: { readonly temperature: number | null; readonly seed: number | null; readonly maxTokens: number | null; readonly responseFormat: boolean };
 	readonly tools: readonly IOnyxTraceTool[];
+	/**
+	 * The context the run was budgeted against and where the number came
+	 * from (B15): what Onyx asked the runtime for, what the runtime reported
+	 * and what a probe verified, each null when unknown or not applicable.
+	 * No number in a trace is at an unknown context.
+	 */
+	readonly context: IOnyxTraceContext;
+}
+
+export interface IOnyxTraceContext {
+	readonly budgetedTokens: number;
+	readonly source: string;
+	readonly requestedTokens: number | null;
+	readonly reportedTokens: number | null;
+	readonly verifiedTokens: number | null;
+	readonly mechanism: string | null;
 }
 
 export interface IOnyxTraceToolCall {
@@ -170,7 +186,8 @@ export function parseTrace(text: string): IOnyxParsedTrace {
 	};
 }
 
-const HEADER_REQUIRED: readonly string[] = ['runId', 'startedAt', 'harness', 'model', 'runtime', 'sampling', 'tools'];
+const HEADER_REQUIRED: readonly string[] = ['runId', 'startedAt', 'harness', 'model', 'runtime', 'sampling', 'tools', 'context'];
+const CONTEXT_REQUIRED: readonly string[] = ['budgetedTokens', 'source', 'requestedTokens', 'reportedTokens', 'verifiedTokens', 'mechanism'];
 const TURN_REQUIRED: readonly string[] = ['turn', 'requestDigest', 'responseText', 'streamEnd', 'toolCalls', 'seed'];
 
 /**
@@ -210,6 +227,14 @@ export function validateTrace(trace: IOnyxParsedTrace): { readonly ok: boolean; 
 	const sampling = header.sampling;
 	if (isRecord(sampling) && !Object.hasOwn(sampling, 'seed')) {
 		errors.push('header.sampling lacks seed');
+	}
+	const context = header.context;
+	if (isRecord(context)) {
+		for (const field of CONTEXT_REQUIRED) {
+			if (!Object.hasOwn(context, field)) {
+				errors.push(`header.context lacks ${field}`);
+			}
+		}
 	}
 	if (Array.isArray(header.tools)) {
 		for (const tool of header.tools) {

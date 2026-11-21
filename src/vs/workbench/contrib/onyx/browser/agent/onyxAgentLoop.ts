@@ -43,6 +43,7 @@ import { IOnyxRouterService } from '../routing/onyxRouterService.js';
 import { estimateMessageTokens, estimateTokens, IRequestTool, toWireTools } from '../model/onyxOpenAITranslator.js';
 import { IOnyxHarnessConfigService } from './onyxHarnessConfigService.js';
 import { IOnyxPromptCacheService } from './onyxPromptCache.js';
+import { describeContextSource } from '../../common/onyxRuntimeErrors.js';
 import { OnyxPromptBuilder } from './onyxPromptBuilder.js';
 
 /** Fallback profile when the request targets a non-Onyx model, whose harness we don't manage. */
@@ -224,6 +225,12 @@ export class OnyxAgentLoop {
 			// null, not undefined: JSON drops undefined and the validator fails closed on an absent field.
 			sampling: { temperature: profile.temperature ?? null, seed: profile.seed ?? null, maxTokens: outputCapTokens(configuration.contextTokens), responseFormat: constrained },
 			tools: tools.map(tool => ({ name: tool.name, schemaHash: digestValue(tool.inputSchema) })),
+			// The context the run is budgeted against, and what was asked, reported and verified for it (B15).
+			context: {
+				budgetedTokens: configuration.contextTokens, source: profile.context?.source ?? 'default',
+				requestedTokens: known?.contextNumbers?.requestedTokens ?? null, reportedTokens: known?.contextNumbers?.reportedTokens ?? known?.discovered.serverContextLength ?? null,
+				verifiedTokens: known?.contextNumbers?.verifiedTokens ?? null, mechanism: known?.contextNumbers?.mechanism ?? null,
+			},
 		});
 
 		const promptBuilder = this._instantiationService.createInstance(OnyxPromptBuilder);
@@ -265,7 +272,7 @@ export class OnyxAgentLoop {
 				run.complete('failed');
 				return {
 					errorDetails: {
-						message: localize('onyx.agent.doesNotFit', "This request does not fit the model's context window: the instructions, the request and the tool schemas come to about {0} tokens, and {1} are available once room for the reply is set aside. Earlier tool results, history and workspace context were already dropped. Use a model or a runtime setting with a larger context, or shorten the request.", plan.messageTokens + plan.schemaTokens, plan.messageBudgetTokens + plan.schemaTokens),
+						message: localize('onyx.agent.doesNotFit', "This request does not fit the model's context window: the instructions, the request and the tool schemas come to about {0} tokens, and {1} are available once room for the reply is set aside. Earlier tool results, history and workspace context were already dropped. The context is {2} tokens ({3}). Run \"Onyx: Request a Larger Model Context\" to ask the runtime for more, or shorten the request.", plan.messageTokens + plan.schemaTokens, plan.messageBudgetTokens + plan.schemaTokens, contextTokens, describeContextSource(profile.context?.source ?? 'default')),
 						responseIsIncomplete: true,
 					},
 				};

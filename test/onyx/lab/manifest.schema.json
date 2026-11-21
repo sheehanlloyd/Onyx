@@ -16,8 +16,20 @@
 			"items": {
 				"type": "object",
 				"additionalProperties": false,
-				"required": ["identifier", "digest"],
+				"required": ["identifier", "digest", "context"],
 				"properties": {
+					"context": {
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["requestedTokens", "reportedTokens", "verifiedTokens", "mechanism"],
+						"description": "The context the model ran with (B15). No number is published at an unknown context: each value is a number of tokens or an explicit null",
+						"properties": {
+							"requestedTokens": { "type": ["integer", "null"], "minimum": 1, "description": "What Onyx asked the runtime for; null when nothing was asked and the allocation is the server's own" },
+							"reportedTokens": { "type": ["integer", "null"], "minimum": 1, "description": "What the runtime said it allocated; null when it did not say" },
+							"verifiedTokens": { "type": ["integer", "null"], "minimum": 1, "description": "What a canary probe confirmed; null when no probe confirmed the reported number" },
+							"mechanism": { "type": ["string", "null"], "description": "How the requested context was applied, e.g. derived-model; null when nothing was requested" }
+						}
+					},
 					"identifier": { "type": "string", "minLength": 1, "description": "The runtime-qualified model identifier, e.g. ollama:qwen2.5-coder:7b" },
 					"digest": { "type": "string", "pattern": "^(sha256:)?[0-9a-f]{12,64}$|^mock$", "description": "The weights digest the runtime reports; `mock` only for the mock runtime" },
 					"runtime": {

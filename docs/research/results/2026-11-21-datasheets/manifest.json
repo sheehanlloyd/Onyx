@@ -9,6 +9,12 @@
 			"runtime": {
 				"name": "ollama",
 				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 4096,
+				"verifiedTokens": null,
+				"mechanism": null
 			}
 		},
 		{
@@ -17,6 +23,12 @@
 			"runtime": {
 				"name": "ollama",
 				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 4096,
+				"verifiedTokens": null,
+				"mechanism": null
 			}
 		}
 	],
@@ -56,5 +68,5 @@
 			"command": "node test/onyx/lab/measure-models.mts --base-url <the runtime's base URL> --model qwen2.5-coder:7b --model qwen2.5-coder:1.5b --out docs/research/results/2026-11-21-datasheets"
 		}
 	],
-	"notes": "Model datasheets (L5). Sampling differs by probe and is in each trace line: 0.2 for most, 0 for the context probe, 1 with a seed for the repeatability probe. The probes do not go through the agent loop, so no harness configuration applies. A run talks to a runtime on the machine it runs on and to nothing else."
+	"notes": "Model datasheets (L5). Sampling differs by probe and is in each trace line: 0.2 for most, 0 for the context probe, 1 with a seed for the repeatability probe. The probes do not go through the agent loop, so no harness configuration applies. A run talks to a runtime on the machine it runs on and to nothing else. Amended on 2026-11-21 for B15: each model now names the context it was measured at. Nothing was requested in this run, the server reported 4,096 tokens for both models (summary.json, context.serverReportedTokens), and the probe of that day did not go past the allocation, so nothing was verified."
 }

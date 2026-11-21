@@ -11,7 +11,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { OnyxRuntimeService } from '../../../../../platform/onyxRuntime/node/onyxRuntimeService.js';
-import { IOnyxDatasheet } from '../../common/onyxDatasheet.js';
+import { IOnyxDatasheet, measuredContextTokens } from '../../common/onyxDatasheet.js';
 import { OnyxRuntimeProbeTransport, runDatasheetProbes } from '../../common/onyxDatasheetProbes.js';
 
 /**
@@ -136,7 +136,7 @@ suite('OnyxDatasheetProbes', () => {
 	}
 
 	/** Runs the suite against a mock and returns the datasheet without its date, and what the suite sent. */
-	async function measure(behaviour: IMockBehaviour, loadedAtStart: boolean | undefined = false): Promise<{ readonly datasheet: Omit<IOnyxDatasheet, 'measuredAt' | 'speed'>; readonly speed: IOnyxDatasheet['speed']; readonly bodies: IChatBody[] }> {
+	async function measure(behaviour: IMockBehaviour, loadedAtStart: boolean | undefined = false, context: { readonly serverContextTokens?: number; readonly requestedContextTokens?: number; readonly contextMechanism?: 'derived-model' } = {}): Promise<{ readonly datasheet: Omit<IOnyxDatasheet, 'measuredAt' | 'speed'>; readonly speed: IOnyxDatasheet['speed']; readonly bodies: IChatBody[] }> {
 		const server = await serve(behaviour);
 		const disposables = store.add(new DisposableStore());
 		try {
@@ -144,8 +144,8 @@ suite('OnyxDatasheetProbes', () => {
 			// A clock that moves ten milliseconds every time it is read: timings come out the same on every machine.
 			let clock = 0;
 			const transport = new OnyxRuntimeProbeTransport(service, { baseUrl: server.baseUrl, model: 'mock-coder:7b' }, 'probe', () => clock += 10);
-			const { measuredAt, speed, ...datasheet } = await runDatasheetProbes(transport, { model: 'mock-coder:7b', digest: 'abc123', runtime: 'ollama', runtimeVersion: '0.0.1', serverContextTokens: undefined, loadedAtStart }, CancellationToken.None,
-				{ toolTrials: 4, trials: 3, maxContextProbeTokens: 8192, now: () => new Date('2026-11-21T00:00:00Z') });
+			const { measuredAt, speed, ...datasheet } = await runDatasheetProbes(transport, { model: 'mock-coder:7b', digest: 'abc123', runtime: 'ollama', runtimeVersion: '0.0.1', serverContextTokens: undefined, ...context, loadedAtStart }, CancellationToken.None,
+				{ toolTrials: 4, trials: 3, ...(context.serverContextTokens === undefined ? { maxContextProbeTokens: 8192 } : {}), now: () => new Date('2026-11-21T00:00:00Z') });
 			assert.strictEqual(measuredAt, '2026-11-21T00:00:00.000Z');
 			return { datasheet, speed, bodies: server.bodies };
 		} finally {
@@ -162,14 +162,14 @@ suite('OnyxDatasheetProbes', () => {
 		const { datasheet, speed, bodies } = await measure(STRICT_SMALL);
 		assert.deepStrictEqual({ datasheet, speed, requests: bodies.length, toolRequestsCarriedTheTool: bodies.filter(body => body.tools?.length).length }, {
 			datasheet: {
-				version: 1, model: 'mock-coder:7b', digest: 'abc123', runtime: { name: 'ollama', version: '0.0.1' },
+				version: 2, model: 'mock-coder:7b', digest: 'abc123', runtime: { name: 'ollama', version: '0.0.1' },
 				nativeToolCalls: { successes: 0, trials: 4 },
 				repairableTextCalls: { successes: 4, trials: 4 },
 				schemaEnforced: { object: { successes: 3, trials: 3 }, enum: { successes: 3, trials: 3 }, nested: { successes: 3, trials: 3 } },
 				// 1,024 and 2,048 recalled, 4,096 lost; then the gap halved twice: 3,072 lost, 2,560 recalled.
 				context: {
-					recalledUpToTokens: 2560, failedFromTokens: 3072, serverReportedTokens: null,
-					steps: [{ promptTokens: 1024, recalled: true }, { promptTokens: 2048, recalled: true }, { promptTokens: 4096, recalled: false }, { promptTokens: 3072, recalled: false }, { promptTokens: 2560, recalled: true }],
+					recalledUpToTokens: 2560, failedFromTokens: 3072, serverReportedTokens: null, requestedTokens: null, verifiedTokens: null, cutObserved: false, mechanism: null,
+					steps: [{ promptTokens: 1024, recalled: true, sentTokens: 1024 }, { promptTokens: 2048, recalled: true, sentTokens: 2048 }, { promptTokens: 4096, recalled: false, sentTokens: 4096 }, { promptTokens: 3072, recalled: false, sentTokens: 3072 }, { promptTokens: 2560, recalled: true, sentTokens: 2560 }],
 				},
 				outputCapHonoured: { successes: 3, trials: 3 },
 				stopHonoured: { successes: 3, trials: 3 },
@@ -185,20 +185,46 @@ suite('OnyxDatasheetProbes', () => {
 		});
 	});
 
+	test('R-61: when the server says what it allocated, the probe goes past it on purpose: a context that is really served is verified with the cut seen, and one the server only claims is not', async function () {
+		this.timeout(60_000);
+		// The runtime serves 3,000 tokens. Once it says so, and the context was asked for; once it claims 12,000.
+		const honest = await measure(STRICT_SMALL, false, { serverContextTokens: 3000, requestedContextTokens: 3000, contextMechanism: 'derived-model' });
+		const claimed = await measure(STRICT_SMALL, false, { serverContextTokens: 12_000 });
+		assert.deepStrictEqual({ honest: honest.datasheet.context, honestBudget: measuredContextTokens({ ...honest.datasheet, measuredAt: '', speed: honest.speed }), claimed: claimed.datasheet.context, claimedBudget: measuredContextTokens({ ...claimed.datasheet, measuredAt: '', speed: claimed.speed }) }, {
+			honest: {
+				recalledUpToTokens: 2700, failedFromTokens: null, serverReportedTokens: 3000, requestedTokens: 3000, verifiedTokens: 3000, cutObserved: true, mechanism: 'derived-model',
+				steps: [
+					{ promptTokens: 1024, recalled: true, sentTokens: 1024, role: 'control' }, { promptTokens: 2048, recalled: true, sentTokens: 2048, role: 'control' },
+					{ promptTokens: 2700, recalled: true, sentTokens: 2700, role: 'inside' }, { promptTokens: 3750, recalled: false, sentTokens: 3750, role: 'past' },
+				],
+			},
+			honestBudget: 3000,
+			claimed: {
+				recalledUpToTokens: 2048, failedFromTokens: 4096, serverReportedTokens: 12_000, requestedTokens: null, verifiedTokens: null, cutObserved: false, mechanism: null,
+				steps: [
+					{ promptTokens: 1024, recalled: true, sentTokens: 1024, role: 'control' }, { promptTokens: 2048, recalled: true, sentTokens: 2048, role: 'control' },
+					{ promptTokens: 4096, recalled: false, sentTokens: 4096, role: 'control' },
+				],
+			},
+			// The longest prompt that kept its start: less than was claimed, and less than is served.
+			claimedBudget: 2048,
+		});
+	});
+
 	test('R-45: a model that calls tools natively, on a runtime that ignores schemas, caps, stops and seeds: the datasheet says each of those too', async function () {
 		this.timeout(60_000);
 		const { datasheet, speed } = await measure(LAX_LARGE, true);
 		assert.deepStrictEqual({ datasheet, speed }, {
 			datasheet: {
-				version: 1, model: 'mock-coder:7b', digest: 'abc123', runtime: { name: 'ollama', version: '0.0.1' },
+				version: 2, model: 'mock-coder:7b', digest: 'abc123', runtime: { name: 'ollama', version: '0.0.1' },
 				nativeToolCalls: { successes: 4, trials: 4 },
 				// Every reply had a native call, so there was none left to read as text.
 				repairableTextCalls: { successes: 0, trials: 0 },
 				schemaEnforced: { object: { successes: 0, trials: 3 }, enum: { successes: 0, trials: 3 }, nested: { successes: 0, trials: 3 } },
 				// No limit found up to the largest prompt the probe was allowed to send.
 				context: {
-					recalledUpToTokens: 8192, failedFromTokens: null, serverReportedTokens: null,
-					steps: [{ promptTokens: 1024, recalled: true }, { promptTokens: 2048, recalled: true }, { promptTokens: 4096, recalled: true }, { promptTokens: 8192, recalled: true }],
+					recalledUpToTokens: 8192, failedFromTokens: null, serverReportedTokens: null, requestedTokens: null, verifiedTokens: null, cutObserved: false, mechanism: null,
+					steps: [{ promptTokens: 1024, recalled: true, sentTokens: 1024 }, { promptTokens: 2048, recalled: true, sentTokens: 2048 }, { promptTokens: 4096, recalled: true, sentTokens: 4096 }, { promptTokens: 8192, recalled: true, sentTokens: 8192 }],
 				},
 				outputCapHonoured: { successes: 0, trials: 3 },
 				stopHonoured: { successes: 0, trials: 3 },

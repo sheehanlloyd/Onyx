@@ -1,0 +1,69 @@
+{
+	"probedAt": "2026-11-21T19:59:02.816Z",
+	"runtime": {
+		"name": "ollama",
+		"version": "0.33.0"
+	},
+	"model": "qwen2.5-coder:1.5b",
+	"trainedContextTokens": 32768,
+	"defaultContextTokens": 4096,
+	"findings": [
+		{
+			"mechanism": "nothing asked",
+			"request": "POST /v1/chat/completions",
+			"asked": null,
+			"reportedAfter": 4096,
+			"honoured": true,
+			"note": "The server's own allocation for this model on this machine."
+		},
+		{
+			"mechanism": "per-request option, OpenAI-style endpoint",
+			"request": "POST /v1/chat/completions with options.num_ctx",
+			"asked": 8192,
+			"reportedAfter": 4096,
+			"honoured": false,
+			"note": "The endpoint Onyx uses."
+		},
+		{
+			"mechanism": "per-request top-level field, OpenAI-style endpoint",
+			"request": "POST /v1/chat/completions with num_ctx",
+			"asked": 8192,
+			"reportedAfter": 4096,
+			"honoured": false,
+			"note": ""
+		},
+		{
+			"mechanism": "per-request option, native endpoint",
+			"request": "POST /api/chat with options.num_ctx",
+			"asked": 8192,
+			"reportedAfter": 8192,
+			"honoured": true,
+			"note": "A different wire protocol from the one Onyx speaks and L5 measured."
+		},
+		{
+			"mechanism": "load-time context, then an OpenAI-style request",
+			"request": "POST /api/chat with options.num_ctx, then POST /v1/chat/completions",
+			"asked": 8192,
+			"reportedAfter": 4096,
+			"honoured": false,
+			"note": "Whether a context given when the model is loaded survives the next request on the endpoint Onyx uses."
+		},
+		{
+			"mechanism": "derived model",
+			"request": "POST /api/create {from, parameters: {num_ctx}}, then POST /v1/chat/completions to the new name",
+			"asked": 8192,
+			"reportedAfter": 8192,
+			"honoured": true,
+			"note": "Creates a second model name. The server lists it at 986061770 bytes beside the original's 986062089: the same weights file is referenced, not copied (the difference is the parameters layer). Removed again with DELETE /api/delete: status 200; models listed before 3, with the alias 4, after removal 3."
+		},
+		{
+			"mechanism": "server setting",
+			"request": "a server started with OLLAMA_CONTEXT_LENGTH=8192, then POST /v1/chat/completions",
+			"asked": 8192,
+			"reportedAfter": 8192,
+			"honoured": true,
+			"note": "Applies to every model the server loads, needs the server restarted, and is the user's to change."
+		}
+	],
+	"lmStudio": "not probed: this script speaks to an Ollama server only"
+}

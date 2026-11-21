@@ -3,7 +3,7 @@
 	"name": "2026-11-19-example",
 	"createdAt": "2026-11-19T00:00:00Z",
 	"models": [
-		{ "identifier": "mock:mock-coder:7b", "digest": "mock", "runtime": { "name": "mock", "version": "e2e" } }
+		{ "identifier": "mock:mock-coder:7b", "digest": "mock", "runtime": { "name": "mock", "version": "e2e" }, "context": { "requestedTokens": null, "reportedTokens": 32768, "verifiedTokens": null, "mechanism": null } }
 	],
 	"seeds": [1, 2, 3],
 	"sampling": { "temperature": 0, "maxTokens": 2048, "responseFormat": false },

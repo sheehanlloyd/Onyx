@@ -73,7 +73,9 @@ import { IOnyxEndpointSecretService, OnyxEndpointSecretService } from '../browse
 import { OnyxDiagnosticsRedactor } from '../common/onyxDiagnostics.js';
 import { describeExecution, describeRefusal, describeTransport } from '../common/onyxInferenceLocation.js';
 import { IOnyxDatasheetService, OnyxDatasheetService } from '../browser/models/onyxDatasheetService.js';
+import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../browser/models/onyxContextAllocationService.js';
 import { OnyxMeasureModel } from '../browser/models/onyxMeasureModel.js';
+import { describeModelContexts, OnyxRequestContext } from '../browser/models/onyxRequestContext.js';
 import { OnyxModelLibrary } from '../browser/models/onyxModelLibrary.js';
 import { OnyxIdleReviewContribution } from '../browser/review/onyxIdleReview.js';
 import { OnyxTournament } from '../browser/tournament/onyxTournament.js';
@@ -106,6 +108,7 @@ registerSingleton(IOnyxEnergyService, OnyxEnergyService, InstantiationType.Delay
 registerSingleton(IOnyxPromptCacheService, OnyxPromptCacheService, InstantiationType.Delayed);
 registerSingleton(IOnyxHarnessConfigService, OnyxHarnessConfigService, InstantiationType.Delayed);
 registerSingleton(IOnyxDatasheetService, OnyxDatasheetService, InstantiationType.Delayed);
+registerSingleton(IOnyxContextAllocationService, OnyxContextAllocationService, InstantiationType.Delayed);
 registerSingleton(IOnyxProjectConfigService, OnyxProjectConfigService, InstantiationType.Delayed);
 registerSingleton(IOnyxChangeSetService, OnyxChangeSetService, InstantiationType.Delayed);
 registerSingleton(IOnyxTerminalService, OnyxTerminalService, InstantiationType.Delayed);
@@ -293,6 +296,34 @@ registerAction2(class MeasureOnyxModelAction extends Action2 {
 	}
 });
 
+registerAction2(class RequestOnyxModelContextAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.requestModelContext',
+			title: localize2('onyx.requestModelContext', "Onyx: Request a Larger Model Context"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IInstantiationService).createInstance(OnyxRequestContext).request();
+	}
+});
+
+registerAction2(class RemoveOnyxModelContextAliasAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.removeModelContextAlias',
+			title: localize2('onyx.removeModelContextAlias', "Onyx: Remove Model Context Alias"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IInstantiationService).createInstance(OnyxRequestContext).remove();
+	}
+});
+
 registerAction2(class ReviewChangesWithOnyxAction extends Action2 {
 	constructor() {
 		super({
@@ -354,6 +385,8 @@ registerAction2(class ShowOnyxProjectConfigAction extends Action2 {
 		const projectConfigService = accessor.get(IOnyxProjectConfigService);
 		const configurationService = accessor.get(IConfigurationService);
 		const editorService = accessor.get(IEditorService);
+		const modelService = accessor.get(IOnyxModelService);
+		const allocationService = accessor.get(IOnyxContextAllocationService);
 		const resolved = projectConfigService.resolved.get();
 		const userVerification = configurationService.getValue<string>('onyx.verification.task');
 		const lines = [
@@ -371,6 +404,9 @@ registerAction2(class ShowOnyxProjectConfigAction extends Action2 {
 			...(userVerification && resolved.config.verificationTask
 				? [`// NOTE: verificationTask "${resolved.config.verificationTask}" is overridden by the user setting onyx.verification.task = "${userVerification}"`]
 				: []),
+			// The context each model is budgeted against and where the number came from (B15).
+			'// Model context (change with "Onyx: Request a Larger Model Context"; undo with "Onyx: Remove Model Context Alias"; setting onyx.context.requestTokens):',
+			...describeModelContexts(modelService.getKnownModels(), allocationService).map(line => `//   ${line}`),
 			JSON.stringify(resolved.config, undefined, '\t'),
 		];
 		await editorService.openEditor({ resource: undefined, contents: lines.join('\n'), languageId: 'jsonc', options: { pinned: true } });

@@ -241,6 +241,8 @@ export class OnyxDiagnosticsRedactor {
 			runtime: { name: this.identifier(runtime.name), version: this.identifier(runtime.version), baseUrl: this.url(runtime.baseUrl) },
 			sampling: { temperature: this._number(sampling.temperature), seed: this._number(sampling.seed), maxTokens: this._number(sampling.maxTokens), responseFormat: this._boolean(sampling.responseFormat) },
 			tools: Array.isArray(data.tools) ? data.tools.filter(isObject).map(tool => ({ name: this.identifier(tool.name), schemaHash: this.identifier(tool.schemaHash) })) : [],
+			// Numbers and two names: how much context the run had and where the number came from (B15).
+			...(isObject(data.context) ? { context: { budgetedTokens: this._number(data.context.budgetedTokens), source: this.identifier(data.context.source), requestedTokens: this._number(data.context.requestedTokens), reportedTokens: this._number(data.context.reportedTokens), verifiedTokens: this._number(data.context.verifiedTokens), mechanism: this.identifier(data.context.mechanism) } } : {}),
 		};
 	}
 
