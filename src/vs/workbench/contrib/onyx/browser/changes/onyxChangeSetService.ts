@@ -8,7 +8,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { IObservable, ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { EditOperation } from '../../../../../editor/common/core/editOperation.js';
+import { EditOperation, ISingleEditOperation } from '../../../../../editor/common/core/editOperation.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import { EndOfLinePreference, ITextModel } from '../../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
@@ -440,21 +440,43 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		}
 	}
 
-	private _hunkToEdit(model: ITextModel, hunk: IOnyxEditHunk) {
+	/**
+	 * One hunk as a text-model edit (B8, R-13). A hunk is whole lines, so the
+	 * edit is too, and a line that goes takes its line break with it:
+	 *
+	 * - a replacement covers its lines and nothing of their neighbours;
+	 * - a deletion runs from the start of its first line to the start of the
+	 *   line after its last, so no empty line is left behind;
+	 * - a deletion that reaches the end of the buffer has no line after it,
+	 *   and takes the line break before its first line instead;
+	 * - an insertion goes before the line it precedes with a break after it,
+	 *   or after the last line with a break before it.
+	 *
+	 * The text is joined with `\n`; the text model writes its own line
+	 * endings, so a CRLF file stays CRLF.
+	 */
+	protected _hunkToEdit(model: ITextModel, hunk: IOnyxEditHunk): ISingleEditOperation {
+		const lineCount = model.getLineCount();
 		const startLine = hunk.originalStart + 1;
 		if (hunk.originalLength === 0) {
-			// Pure insertion: before the line that follows the insertion point.
-			const line = Math.min(startLine, model.getLineCount());
-			const insertAtEnd = startLine > model.getLineCount();
-			const text = insertAtEnd ? '\n' + hunk.newLines.join('\n') : hunk.newLines.join('\n') + '\n';
-			const position = insertAtEnd
-				? new Range(model.getLineCount(), model.getLineMaxColumn(model.getLineCount()), model.getLineCount(), model.getLineMaxColumn(model.getLineCount()))
-				: new Range(line, 1, line, 1);
-			return EditOperation.replace(position, text);
+			if (startLine > lineCount) {
+				const end = model.getLineMaxColumn(lineCount);
+				return EditOperation.replace(new Range(lineCount, end, lineCount, end), '\n' + hunk.newLines.join('\n'));
+			}
+			return EditOperation.replace(new Range(startLine, 1, startLine, 1), hunk.newLines.join('\n') + '\n');
 		}
 		const endLine = hunk.originalStart + hunk.originalLength;
-		const range = new Range(startLine, 1, endLine, model.getLineMaxColumn(endLine));
-		return EditOperation.replace(range, hunk.newLines.join('\n'));
+		if (hunk.newLines.length > 0) {
+			return EditOperation.replace(new Range(startLine, 1, endLine, model.getLineMaxColumn(endLine)), hunk.newLines.join('\n'));
+		}
+		if (endLine < lineCount) {
+			return EditOperation.replace(new Range(startLine, 1, endLine + 1, 1), '');
+		}
+		if (startLine > 1) {
+			return EditOperation.replace(new Range(startLine - 1, model.getLineMaxColumn(startLine - 1), endLine, model.getLineMaxColumn(endLine)), '');
+		}
+		// Every line of the buffer.
+		return EditOperation.replace(new Range(1, 1, endLine, model.getLineMaxColumn(endLine)), '');
 	}
 
 	private async _scoreRisk(proposal: IOnyxProposedFile): Promise<void> {

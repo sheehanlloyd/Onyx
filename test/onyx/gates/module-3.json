@@ -62,6 +62,22 @@
 			]
 		},
 		{
+			"id": "R-13",
+			"title": "B8 deletions through the text model: deleting the first, a middle, the last and every line, hunks one line apart, CRLF files and files with no final newline leave the buffer equal to the proposal byte for byte, whole and hunk by hunk, and one accept is one undo",
+			"layer": "service",
+			"regressions": [
+				"R-13"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChangeSetService.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxChangeSetService R-13"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

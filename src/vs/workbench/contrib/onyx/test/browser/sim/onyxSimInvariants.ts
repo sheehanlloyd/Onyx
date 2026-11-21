@@ -372,6 +372,9 @@ const i08: OnyxSimChecker = state => {
 
 /** I-09: accepting a hunk applies that hunk's reviewed content or nothing, and user edits made at any point survive. */
 const i09: OnyxSimChecker = state => {
+	if (state.acceptedBufferMismatches.length) {
+		return `I-09/accepted-buffer-differs: after the whole proposal for ${state.acceptedBufferMismatches[0]} was accepted against its own base, the buffer is not the proposal`;
+	}
 	if (!state.acceptedHunks.length) {
 		return undefined;
 	}

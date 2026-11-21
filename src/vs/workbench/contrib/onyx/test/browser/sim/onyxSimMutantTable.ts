@@ -335,4 +335,15 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: 'y'.repeat(300_000) } },
 		], { persona: 'flooder', dialogDefault: 'deny' }),
 	},
+	{
+		id: 'B8-deletion-leaves-line',
+		fixedBy: 'B8',
+		defect: 'A deleted line was replaced by nothing and its line break stayed, so an accepted deletion left an empty line and the buffer was not the proposal (Codex N3; R-13)',
+		detects: 'I-09/accepted-buffer-differs',
+		resurrects: 'OnyxMutantDeletionLeavesLineChangeSet',
+		script: script('B8-deletion-leaves-line', 'Remove multiply', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: 'export function multiply(a: number, b: number): number {\n\treturn a * b;\n}\n\n', replace: '' }, id: 'edit_1' },
+			{ kind: 'text', text: 'Staged the removal.' },
+		], { userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }] }),
+	},
 ];
