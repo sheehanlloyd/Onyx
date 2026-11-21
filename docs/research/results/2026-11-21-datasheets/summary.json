@@ -1,0 +1,184 @@
+{
+	"datasheets": {
+		"qwen2.5-coder:7b": {
+			"version": 1,
+			"model": "qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"measuredAt": "2026-11-21T16:33:16.900Z",
+			"nativeToolCalls": {
+				"successes": 0,
+				"trials": 5
+			},
+			"repairableTextCalls": {
+				"successes": 5,
+				"trials": 5
+			},
+			"schemaEnforced": {
+				"object": {
+					"successes": 3,
+					"trials": 3
+				},
+				"enum": {
+					"successes": 3,
+					"trials": 3
+				},
+				"nested": {
+					"successes": 3,
+					"trials": 3
+				}
+			},
+			"context": {
+				"recalledUpToTokens": 3514,
+				"failedFromTokens": null,
+				"serverReportedTokens": 4096,
+				"steps": [
+					{
+						"promptTokens": 908,
+						"recalled": true
+					},
+					{
+						"promptTokens": 1776,
+						"recalled": true
+					},
+					{
+						"promptTokens": 3514,
+						"recalled": true
+					}
+				]
+			},
+			"outputCapHonoured": {
+				"successes": 3,
+				"trials": 3
+			},
+			"stopHonoured": {
+				"successes": 3,
+				"trials": 3
+			},
+			"reasoning": {
+				"style": "none",
+				"replies": {
+					"successes": 0,
+					"trials": 3
+				}
+			},
+			"seedRepeatable": {
+				"successes": 3,
+				"trials": 3
+			},
+			"logprobs": {
+				"successes": 3,
+				"trials": 3
+			},
+			"speed": {
+				"coldFirstTokenMs": 1233,
+				"warmFirstTokenMs": 92.5,
+				"tokensPerSecond": 48.00380228136882
+			},
+			"unmeasured": []
+		},
+		"qwen2.5-coder:1.5b": {
+			"version": 1,
+			"model": "qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"measuredAt": "2026-11-21T16:33:29.439Z",
+			"nativeToolCalls": {
+				"successes": 0,
+				"trials": 5
+			},
+			"repairableTextCalls": {
+				"successes": 3,
+				"trials": 5
+			},
+			"schemaEnforced": {
+				"object": {
+					"successes": 3,
+					"trials": 3
+				},
+				"enum": {
+					"successes": 3,
+					"trials": 3
+				},
+				"nested": {
+					"successes": 3,
+					"trials": 3
+				}
+			},
+			"context": {
+				"recalledUpToTokens": 3514,
+				"failedFromTokens": null,
+				"serverReportedTokens": 4096,
+				"steps": [
+					{
+						"promptTokens": 908,
+						"recalled": true
+					},
+					{
+						"promptTokens": 1776,
+						"recalled": true
+					},
+					{
+						"promptTokens": 3514,
+						"recalled": true
+					}
+				]
+			},
+			"outputCapHonoured": {
+				"successes": 3,
+				"trials": 3
+			},
+			"stopHonoured": {
+				"successes": 3,
+				"trials": 3
+			},
+			"reasoning": {
+				"style": "none",
+				"replies": {
+					"successes": 0,
+					"trials": 3
+				}
+			},
+			"seedRepeatable": {
+				"successes": 3,
+				"trials": 3
+			},
+			"logprobs": {
+				"successes": 3,
+				"trials": 3
+			},
+			"speed": {
+				"coldFirstTokenMs": 1174,
+				"warmFirstTokenMs": 28.5,
+				"tokensPerSecond": 158.85947046843177
+			},
+			"unmeasured": []
+		}
+	},
+	"descriptions": {
+		"qwen2.5-coder:7b": [
+			"Tool calls: 0 of 5 on the tool channel; 5 of 5 of the rest readable as text",
+			"Schema enforced: object 3 of 3, enum 3 of 3, nested 3 of 3",
+			"Context: the start of a 3514-token prompt was recalled; no limit found (the server reports 4096)",
+			"Output cap honoured 3 of 3; stop honoured 3 of 3",
+			"Reasoning: none seen (0 of 3 replies)",
+			"Same seed, same reply: 3 of 3; log-probabilities returned: 3 of 3",
+			"First token: 1233 ms cold, 93 ms warm; 48 tokens a second"
+		],
+		"qwen2.5-coder:1.5b": [
+			"Tool calls: 0 of 5 on the tool channel; 3 of 5 of the rest readable as text",
+			"Schema enforced: object 3 of 3, enum 3 of 3, nested 3 of 3",
+			"Context: the start of a 3514-token prompt was recalled; no limit found (the server reports 4096)",
+			"Output cap honoured 3 of 3; stop honoured 3 of 3",
+			"Reasoning: none seen (0 of 3 replies)",
+			"Same seed, same reply: 3 of 3; log-probabilities returned: 3 of 3",
+			"First token: 1174 ms cold, 29 ms warm; 158.9 tokens a second"
+		]
+	}
+}

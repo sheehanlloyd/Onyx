@@ -127,13 +127,20 @@ export function measuredSchemaEnforcement(datasheet: IOnyxDatasheet): boolean | 
 }
 
 /**
- * The context the model was measured to have: the longest prompt whose
- * start it still had, when a longer one was tried and had lost it. A probe
- * that never found a limit measured none, and says nothing here.
+ * The context the model was measured to have. The longest prompt whose
+ * start it still had, when a longer one was tried and had lost it. The probe
+ * does not go past what the server said it allocated, so it often finds no
+ * limit; then the context is what the server said when the model was
+ * measured, provided the probe recalled something inside it. A prompt longer
+ * than that is cut by the runtime without an error, which is what the number
+ * is for. A probe that recalled nothing measured nothing.
  */
 export function measuredContextTokens(datasheet: IOnyxDatasheet): number | undefined {
-	const { recalledUpToTokens, failedFromTokens } = datasheet.context;
-	return recalledUpToTokens !== null && failedFromTokens !== null && recalledUpToTokens > 0 ? recalledUpToTokens : undefined;
+	const { recalledUpToTokens, failedFromTokens, serverReportedTokens } = datasheet.context;
+	if (recalledUpToTokens === null || recalledUpToTokens <= 0) {
+		return undefined;
+	}
+	return failedFromTokens !== null ? recalledUpToTokens : serverReportedTokens ?? undefined;
 }
 
 /**

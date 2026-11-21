@@ -322,6 +322,84 @@ folders.
 **Limit.** With `readToolLineNumbering` off the tool's description still tells the model its lines are
 numbered. An experiment that uses that switch has to account for it.
 
+## Model datasheets (L5)
+
+A model's profile used to be a guess from its size. A datasheet is what the model, on its runtime, was
+measured to do. `Onyx: Measure This Model` runs a suite of 36 short requests against the model's own runtime
+(about a minute), keeps the result on this machine, and shows it. Nothing is measured unless that command is
+run, the prompts are fixed text that carries nothing of the user's, and nothing leaves the machine.
+
+| Probe | What is sent | What counts as a success | Trials |
+|---|---|---|---|
+| Native tool calls | A question that needs the one tool offered | A valid call to that tool on the runtime's tool channel | 5 |
+| Readable text calls | The same replies | Of those with no native call: the text repair reads a valid call out of the text | the rest |
+| Schema enforced: object, enum, nested | A JSON schema, with a prompt that asks for something the schema does not allow | The reply matches the schema anyway | 3 each |
+| Context | A code at the start of a prompt, a question about it at the end; the prompt doubles from 1,024 estimated tokens up to what the server says it allocated, then the gap is halved twice | The code comes back | up to 7 |
+| Output cap | A long count with a cap of 12 tokens | The reply stops at the cap and says that is why | 3 |
+| Stop sequence | A count with a stop at "4" | The reply has 3 and not 4 | 3 |
+| Reasoning | A sum to think through | Counted, not scored: thinking in tags, in a field of its own, or none | 3 |
+| Same seed, same reply | One request twice with a seed, sampled at temperature 1 | The two replies are identical | 3 pairs |
+| Log-probabilities | A request that asks for them | They come back | 3 |
+| Speed | The first request (cold, when the model was not loaded), the short ones (warm), one 200-token reply | Timed, not scored | 1 |
+
+Every result is successes over trials. The trials are few; a result is what happened in them and no more.
+
+**What a profile takes from a datasheet.** Three things, each labelled `measured` or `default` in the model
+library and in the command's report. Nothing else in the profile changes.
+
+| Profile value | From the datasheet | Otherwise (default) |
+|---|---|---|
+| How often a native tool call is valid | native successes over trials, with three trials or more | a guess from the model's size |
+| Whether the runtime enforces a schema | yes only if every trial of all three shapes matched, with three trials or more each | assumed from the runtime's kind |
+| Context | the longest prompt whose start was recalled, when a longer one lost it; failing that, what the server said it had allocated when the model was measured. It only ever lowers the budget | the smallest of what the architecture allows, what the server says now and what an overflow taught (B13) |
+
+Those feed the harness configuration (L4): a turn is constrained to the tool-or-answer envelope only when
+native calls were not reliable and the schema was seen to hold.
+
+**When a datasheet stops being used.** It is of one set of weights on one version of one runtime. When the
+model's digest, the runtime or the runtime's version differs from what was measured, the datasheet is kept
+but not used, the profile goes back to defaults, and the model library says why.
+
+**What an Ollama server says about a loaded model.** `/api/ps` reports the context the server allocated when
+it loaded the model. Onyx reads it: for a loaded model that number is the server context, ahead of the
+model's own parameters. Checked against Ollama 0.33.0, which allocates 4,096 tokens for both pinned models
+by default, whatever the 32,768 their architecture allows.
+
+**The two pinned models, measured.** `docs/research/results/2026-11-21-datasheets/` holds the datasheets, the
+manifest and every probe's request and reply. Ollama 0.33.0, Apple M4 Pro, 24 GB, on 2026-11-21:
+
+| | `qwen2.5-coder:7b` | `qwen2.5-coder:1.5b` |
+|---|---|---|
+| Weights | `dae161e27b0e` | `d7372fd82851` |
+| Native tool calls valid | 0 of 5 | 0 of 5 |
+| Readable as text, of the rest | 5 of 5 | 3 of 5 |
+| Schema enforced: object, enum, nested | 3 of 3, 3 of 3, 3 of 3 | 3 of 3, 3 of 3, 3 of 3 |
+| Context | start of a 3,514-token prompt recalled; the server allocates 4,096 | the same |
+| Output cap honoured; stop honoured | 3 of 3; 3 of 3 | 3 of 3; 3 of 3 |
+| Reasoning | none seen in 3 replies | none seen in 3 replies |
+| Same seed, same reply | 3 of 3 | 3 of 3 |
+| Log-probabilities returned | 3 of 3 | 3 of 3 |
+| First token, cold and warm | 1,233 ms and 93 ms | 1,174 ms and 29 ms |
+| Tokens a second | 48 | 159 |
+
+What follows for the supported model: both advertise tool support and neither put one call on the tool
+channel, so their turns are constrained to the envelope, which the runtime was seen to enforce; and their
+context is budgeted at 4,096 tokens, not the 32,768 their architecture allows.
+
+**Limits.**
+
+- **Few trials.** The 1.5B model's text calls were readable 2 of 5 times in one run and 3 of 5 in the next.
+- **The context probe stays inside what the server says it allocated**, so on a server that reports its
+  allocation it confirms recall up to it and finds no limit of its own. Its sizes are estimates at four
+  characters a token; the filler text is denser than that, so the largest prompt was 3,514 tokens, not 4,096.
+- **A schema probe cannot tell enforcement from a model that complies anyway.** The prompts ask for what the
+  schema forbids to make that unlikely, not impossible.
+- **Speed is the machine's at that moment.** A first run with the battery nearly flat gave 15 tokens a second
+  for the 7B model; it was discarded. "Cold" means the runtime had not loaded the model; the file may still
+  have been in the operating system's cache.
+- **Datasheets are not in the diagnostics export**, and reasoning models remain unvalidated against a real
+  model (C4): neither pinned model reasons.
+
 ## Command execution and its limits (B5)
 
 An approved command is started by one module, `src/vs/platform/onyxRuntime/node/onyxCommandRunner.ts`, and by

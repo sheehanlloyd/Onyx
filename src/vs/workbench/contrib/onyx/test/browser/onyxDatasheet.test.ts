@@ -53,6 +53,9 @@ suite('OnyxDatasheet', () => {
 			// A measurement never raises the budget: another number known for the model is smaller.
 			measuredAboveWhatIsKnown: taken(applyDatasheet({ ...seeded, contextLength: 2048, context: { serverConfigured: 2048, architectural: 32_768, source: 'server' } }, sheet())),
 			capableModel: taken(applyDatasheet(seeded, sheet({ nativeToolCalls: of(5, 5), repairableTextCalls: of(0, 0) }))).toolCallQuality,
+			// The probe stays inside what the server said it allocated, so it can find no limit. What the server
+			// said when the model was measured is then the context: a prompt past it would be cut without a word.
+			noLimitFoundInsideWhatTheServerAllocated: taken(applyDatasheet(seeded, sheet({ context: { recalledUpToTokens: 3514, failedFromTokens: null, serverReportedTokens: 4096, steps: [] } }))),
 		}, {
 			measured: {
 				toolCallQuality: 0, contextLength: 3900, contextSource: 'measured', runtimeEnforcesSchema: true,
@@ -72,6 +75,10 @@ suite('OnyxDatasheet', () => {
 				provenance: { toolCallQuality: 'measured', contextLength: 'default', schemaEnforcement: 'measured' }, untouched: true,
 			},
 			capableModel: 1,
+			noLimitFoundInsideWhatTheServerAllocated: {
+				toolCallQuality: 0, contextLength: 4096, contextSource: 'measured', runtimeEnforcesSchema: true,
+				provenance: { toolCallQuality: 'measured', contextLength: 'measured', schemaEnforcement: 'measured' }, untouched: true,
+			},
 		});
 	});
 
