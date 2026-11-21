@@ -8,9 +8,10 @@ Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-
 Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; the gate machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
 
 ## Module 3
-Items done: none yet
-Items remaining: B15, B6, B7, B8, B9, B10, C1, C2, C3, C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`)
-Item in progress: B15 (branch `codex/b15-context-allocation`)
+Items done: B15 (codex/b15-context-allocation → #4; B15.md; gate checks R-61, module-3-tables)
+Items remaining: B6, B7, B8, B9, B10, C1, C2, C3, C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`)
+Item in progress: B6 (branch `codex/b6-exact-or-refuse`)
+Context (B15): both pinned models verified at 16,384 tokens through a derived model on Ollama 0.33.0, from a server allocation of 4,096; results in `docs/research/results/2026-11-21-context-allocation/`. The measurement's aliases were removed afterwards. LM Studio was not probed (installed, not running; not started).
 Baseline exceptions still open: the eight listed under Module 2, all owned here
 Gate: not run
 
