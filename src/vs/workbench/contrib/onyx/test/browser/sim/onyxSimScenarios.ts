@@ -96,6 +96,13 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 			{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptHunk', path: 'src/math.ts', hunk: 0 } },
 		],
 	}),
+	// Codex N3 (R-13): a function is deleted and the user accepts; the buffer has to be the proposal, with no line left where the function was.
+	scenario('b8-delete-lines-then-accept-all', 'EDITTEST src/math.ts remove multiply', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: 'export function multiply(a: number, b: number): number {\n\treturn a * b;\n}\n\n', replace: '' }, id: 'edit_1' },
+		{ kind: 'text', text: 'Staged the removal.' },
+	], {
+		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }],
+	}),
 	// Claude H4: a proposal against base V, the buffer edited above the hunk so that duplicates shift; accepting
 	// must re-anchor to the right duplicate or conflict, never the first occurrence by default.
 	scenario('audit-h4-duplicates-shift-then-accept', 'EDITTEST src/math.ts the closing brace', [

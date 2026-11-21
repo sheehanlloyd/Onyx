@@ -5,7 +5,10 @@
 
 import { OnyxAcceptOutcome, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
 import { IOnyxProposedFile, OnyxProposeResult, openReview, proposalSizeProblem, proposeEdits } from '../../../common/onyxChangeSet.js';
-import { IOnyxEditBlock } from '../../../common/onyxInlineEdit.js';
+import { IOnyxEditBlock, IOnyxEditHunk } from '../../../common/onyxInlineEdit.js';
+import { EditOperation, ISingleEditOperation } from '../../../../../../editor/common/core/editOperation.js';
+import { Range } from '../../../../../../editor/common/core/range.js';
+import { ITextModel } from '../../../../../../editor/common/model.js';
 import { IChatResponseToolUsePart, ILanguageModelChatMetadata } from '../../../../chat/common/languageModels.js';
 import { IChatAgentRequest } from '../../../../chat/common/participants/chatAgents.js';
 import { IOnyxSelectableTool, OnyxAgentLoop, OnyxSelectedTools } from '../../../browser/agent/onyxAgentLoop.js';
@@ -396,6 +399,17 @@ class OnyxMutantNoSizeGuardChangeSet extends OnyxChangeSetService {
 	}
 }
 
+/** B8: a deletion as a replacement of its lines by nothing. The line break that followed them stays, and with it an empty line (Codex N3). */
+class OnyxMutantDeletionLeavesLineChangeSet extends OnyxChangeSetService {
+	protected override _hunkToEdit(model: ITextModel, hunk: IOnyxEditHunk): ISingleEditOperation {
+		if (hunk.originalLength === 0 || hunk.newLines.length > 0) {
+			return super._hunkToEdit(model, hunk);
+		}
+		const endLine = hunk.originalStart + hunk.originalLength;
+		return EditOperation.replace(new Range(hunk.originalStart + 1, 1, endLine, model.getLineMaxColumn(endLine)), '');
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -419,6 +433,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B6-first-occurrence': { ChangeSetService: OnyxMutantFirstOccurrenceChangeSet },
 	'B7-index-accept': { ChangeSetService: OnyxMutantIndexAcceptChangeSet },
 	'B7-no-size-guard': { ChangeSetService: OnyxMutantNoSizeGuardChangeSet },
+	'B8-deletion-leaves-line': { ChangeSetService: OnyxMutantDeletionLeavesLineChangeSet },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },

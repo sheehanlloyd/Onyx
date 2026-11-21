@@ -104,6 +104,8 @@ export interface IOnyxSimState {
 	readonly typedTexts: readonly string[];
 	readonly stopped: boolean;
 	readonly acceptedHunks: readonly { readonly path: string; readonly hunk: number | 'all'; readonly newLines: readonly string[] }[];
+	/** Files whose buffer, after the whole proposal was accepted against its own base, is not the proposal. */
+	readonly acceptedBufferMismatches: readonly string[];
 	/** Staged proposals observed after each tool result: path, hunk count and the proposal's size. */
 	readonly stageEvents: readonly { readonly path: string; readonly hunks: number; readonly proposedChars: number; readonly search: string | undefined; readonly baseAtStage: string | undefined; readonly proposedBefore: string | undefined }[];
 	readonly profile: IOnyxModelProfile;
@@ -212,6 +214,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly pendingBuffer = new Map<string, string>();
 	readonly typedTexts: string[] = [];
 	readonly acceptedHunks: { path: string; hunk: number | 'all'; newLines: readonly string[] }[] = [];
+	readonly acceptedBufferMismatches: string[] = [];
 	readonly stageEvents: { path: string; hunks: number; proposedChars: number; search: string | undefined; baseAtStage: string | undefined; proposedBefore: string | undefined }[] = [];
 	private readonly _lastProposed = new Map<string, string>();
 	/** The generation of each file's staging at the last look: a new one is a new staging, the same one is a review that moved. */
@@ -511,10 +514,19 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 				break;
 			}
 			case 'acceptAll': {
-				const staged = this.changeSet.files.get();
-				await this.changeSet.acceptAll();
-				for (const file of staged) {
+				// File by file, as the product's accept-all does, so that what each accept came to is known.
+				for (const file of [...this.changeSet.files.get()]) {
+					const before = this.buffer(file.proposal.path)?.replace(/\r\n/g, '\n');
+					if (!(await this.changeSet.acceptFile(file.proposal.path)).applied) {
+						continue;
+					}
 					this.acceptedHunks.push({ path: file.proposal.path, hunk: 'all', newLines: file.hunks.flatMap(hunk => hunk.newLines) });
+					// The whole proposal was accepted against the very text it was computed from: the buffer is
+					// then the proposal, byte for byte (I-09, B8).
+					const after = this.buffer(file.proposal.path)?.replace(/\r\n/g, '\n');
+					if (before !== undefined && before === file.proposal.base && file.conflicts.length === 0 && after !== file.proposal.proposed) {
+						this.acceptedBufferMismatches.push(file.proposal.path);
+					}
 					this._sanction(file.proposal.path);
 				}
 				break;

@@ -99,6 +99,7 @@ suite('OnyxSim', () => {
 			'e2e-slowtest-stop': { status: 'completed', turns: 1, dispatched: [], staged: 0, dialogs: [] },
 			'audit-n2-type-above-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
 			'audit-n2-edit-hunk-0-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
+			'b8-delete-lines-then-accept-all': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			'audit-h4-duplicates-shift-then-accept': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			// Eight tool turns, then the turn cap (compact profile): "completed" with an incomplete result.
 			'audit-h6-context-budget': { status: 'completed', turns: 8, dispatched: Array.from({ length: 8 }, () => 'terminal'), staged: 0, dialogs: Array.from({ length: 8 }, () => 'allow-once') },

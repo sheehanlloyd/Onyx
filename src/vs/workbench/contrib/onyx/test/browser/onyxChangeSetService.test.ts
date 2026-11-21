@@ -167,4 +167,81 @@ suite('OnyxChangeSetService', () => {
 			buffer: true,
 		});
 	});
+
+	suite('R-13: accepted edits through the text model', () => {
+
+		const LINES = ['one', 'two', 'three', 'four', 'five', 'six'];
+		const text = (lines: readonly string[], eol = '\n', finalNewline = true) => lines.join(eol) + (finalNewline ? eol : '');
+		const without = (...indexes: number[]) => LINES.filter((_, index) => !indexes.includes(index));
+
+		/** Stages `proposed` for a file that holds `base`, accepts it whole and then, in a second rig, hunk by hunk; returns both buffers. */
+		async function accept(base: string, proposed: string): Promise<{ readonly whole: string | undefined; readonly hunkByHunk: string | undefined; readonly hunks: number; readonly undone: string | undefined }> {
+			const lf = (value: string) => value.replace(/\r\n/g, '\n');
+			const whole = await withRig(async rig => {
+				await rig.changeSet.stageProposal(PATH, lf(proposed));
+				const hunks = staged(rig)?.hunks.length ?? 0;
+				await rig.changeSet.acceptFile(PATH);
+				const buffer = rig.buffer(PATH);
+				// One accept is one undoable edit: undoing it gives the file back as it was.
+				await rig.textModel(PATH)!.undo();
+				return { buffer, hunks, undone: rig.buffer(PATH) };
+			}, { [PATH]: base });
+			const hunkByHunk = await withRig(async rig => {
+				await rig.changeSet.stageProposal(PATH, lf(proposed));
+				// Last hunk first, then the others: each accept leaves the rest to be carried over.
+				for (let guard = 0; guard < 20 && staged(rig); guard++) {
+					const hunks = staged(rig)!.hunks;
+					await rig.changeSet.acceptHunk(PATH, hunks[hunks.length - 1].id);
+				}
+				return rig.buffer(PATH);
+			}, { [PATH]: base });
+			return { whole: whole.buffer, hunkByHunk, hunks: whole.hunks, undone: whole.undone };
+		}
+
+		test('R-13: deleting the first line, a middle line, the last line, every line, and lines in two hunks one line apart leaves the buffer equal to the proposal, byte for byte', async () => {
+			const cases: Record<string, readonly string[]> = {
+				first: without(0), middle: without(2), last: without(5), firstTwo: without(0, 1), lastTwo: without(4, 5),
+				// Two hunks with one unchanged line between them, and a deletion next to a change.
+				adjacentHunks: without(1, 3), deletionNextToAChange: ['one', 'THREE', 'four', 'five', 'six'],
+				all: [],
+			};
+			const outcomes: Record<string, string> = {};
+			for (const [name, lines] of Object.entries(cases)) {
+				const base = text(LINES);
+				const proposed = lines.length ? text(lines) : '';
+				const result = await accept(base, proposed);
+				outcomes[name] = result.whole === proposed && result.hunkByHunk === proposed && result.undone === base ? 'equal' : JSON.stringify(result);
+			}
+			assert.deepStrictEqual(outcomes, Object.fromEntries(Object.keys(cases).map(name => [name, 'equal'])));
+		});
+
+		test('R-13: the same deletions in a file with CRLF line endings keep every remaining line ending as it was', async () => {
+			const cases: Record<string, readonly string[]> = { first: without(0), middle: without(2), last: without(5), adjacentHunks: without(1, 3), insertion: ['one', 'two', 'new', 'three', 'four', 'five', 'six'], replacement: ['one', 'TWO', 'three', 'four', 'five', 'six'] };
+			const outcomes: Record<string, string> = {};
+			for (const [name, lines] of Object.entries(cases)) {
+				const proposed = text(lines, '\r\n');
+				const result = await accept(text(LINES, '\r\n'), proposed);
+				outcomes[name] = result.whole === proposed && result.hunkByHunk === proposed ? 'equal' : JSON.stringify(result);
+			}
+			assert.deepStrictEqual(outcomes, Object.fromEntries(Object.keys(cases).map(name => [name, 'equal'])));
+		});
+
+		test('R-13: a file with no final newline: deleting or changing its last line, and adding or removing the final newline, give exactly the proposal', async () => {
+			const cases: Record<string, readonly [base: string, proposed: string]> = {
+				deleteLast: [text(LINES, '\n', false), text(without(5), '\n', false)],
+				deleteFirst: [text(LINES, '\n', false), text(without(0), '\n', false)],
+				changeLast: [text(LINES, '\n', false), text([...without(5), 'SIX'], '\n', false)],
+				appendALine: [text(LINES, '\n', false), text([...LINES, 'seven'], '\n', false)],
+				addTheFinalNewline: [text(LINES, '\n', false), text(LINES)],
+				removeTheFinalNewline: [text(LINES), text(LINES, '\n', false)],
+				deleteAll: [text(LINES, '\n', false), ''],
+			};
+			const outcomes: Record<string, string> = {};
+			for (const [name, [base, proposed]] of Object.entries(cases)) {
+				const result = await accept(base, proposed);
+				outcomes[name] = result.whole === proposed && result.hunkByHunk === proposed ? 'equal' : JSON.stringify(result);
+			}
+			assert.deepStrictEqual(outcomes, Object.fromEntries(Object.keys(cases).map(name => [name, 'equal'])));
+		});
+	});
 });
