@@ -1,42 +1,37 @@
 {
 	"mode": "baseline",
 	"app": "../VSCode-darwin-arm64/Onyx.app",
-	"ranAt": "2026-11-20T05:45:51.431Z",
+	"ranAt": "2026-11-21T17:20:32.258Z",
 	"observed": {
 		"product": {
 			"nameShort": "Onyx",
 			"version": "1.147.0",
-			"commit": "881936cd52cf284846d397a4354fe0f4cd65d403",
-			"date": "2026-11-20T00:35:00-05:00"
+			"commit": "719cfd5ba4dd5879195478ddc2ae9a6b3cf049e8",
+			"date": "2026-11-21T12:10:04-05:00"
 		},
-		"sourceRevision": "881936cd52cf284846d397a4354fe0f4cd65d403",
+		"sourceRevision": "719cfd5ba4dd5879195478ddc2ae9a6b3cf049e8",
 		"window": {
 			"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.147.0 Chrome/150.0.7871.250 Electron/43.8.9 Safari/537.36",
 			"title": "math.ts — ws"
 		},
 		"advertisedTools": [
-			"repoSymbols",
-			"editFile",
-			"terminal",
-			"docs",
-			"remember",
-			"openBrowserPage",
-			"readPage",
-			"playbook"
-		],
-		"model": "mock-coder:7b",
-		"missingEssentials": [
 			"readFile",
 			"listDirectory",
 			"findFiles",
-			"grep"
-		]
+			"grep",
+			"editFile",
+			"terminal",
+			"repoSymbols",
+			"docs"
+		],
+		"model": "mock-coder:7b",
+		"missingEssentials": []
 	},
 	"checks": [
 		{
 			"name": "the app bundle has a product.json with a commit",
 			"ok": true,
-			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.147.0\",\"commit\":\"881936cd52cf284846d397a4354fe0f4cd65d403\",\"date\":\"2026-11-20T00:35:00-05:00\"}",
+			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.147.0\",\"commit\":\"719cfd5ba4dd5879195478ddc2ae9a6b3cf049e8\",\"date\":\"2026-11-21T12:10:04-05:00\"}",
 			"claim": "infrastructure"
 		},
 		{
@@ -59,7 +54,7 @@
 		{
 			"name": "the run journal lives in the throwaway profile",
 			"ok": true,
-			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-J7ujG6/user-data/User/workspaceStorage/27e855f67594b076410e026c90e53ea9/onyx/journal/runs",
+			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-3QbN52/user-data/User/workspaceStorage/5232562fe8ccc68a1bf632b3d507b3e6/onyx/journal/runs",
 			"claim": "infrastructure"
 		},
 		{
