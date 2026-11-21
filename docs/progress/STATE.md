@@ -1,6 +1,6 @@
 # Onyx plan state
 Plan version: v4.1
-Current module: 3      Status: in progress; stopped at an item boundary on 2026-11-21 after B10. Six of fifteen items are done and merged; the gate has not been run. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
+Current module: 3      Status: in progress (resumed on the machine's 96 W charger). Seven of fifteen items are done and merged; the gate has not been run. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
 Revision: branch `module-3` at 6db50459a78 (the merge of B10) plus this file's commit; draft pull request sheehanlloyd/Onyx#4 into `main`, not merged, not marked ready
 Isolated checkout: branch `module-3` in a work clone that was moved out of the cloud-synchronised Desktop folder on 2026-11-21 into a plain developer folder under the same account (clone directory `onyx-work`; packaged builds land beside it); the four audit documents are excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
@@ -17,8 +17,9 @@ Items done:
 | B8 | codex/b8-deletion-edits → #4 | B8.md | R-13 |
 | B9 | codex/b9-inline-staging → #4 | B9.md | R-14-R-34, three end-to-end checks |
 | B10 | codex/b10-stop-means-stop → #4 | B10.md | R-15, two end-to-end checks, sim-campaign-20000-empty-baseline (not yet run), sim-mutants-module-3 |
-Items remaining, in order: C1, C2, C3, C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`). None of them is started: there is no branch and no uncommitted work for any of them.
-Why it stopped here: power. The machine was on a 13 W adapter and went from 100% to 55% over these six items. C1 ends with an end-to-end run, and the nine remaining items plus the gate (a 20,000-episode campaign, a packaged build, two end-to-end runs, real-model runs for L7 and L8) need more than what was left. The stop was made at 55%, above the 50% line, so that it fell on an item boundary and not inside C1.
+| C1 | codex/c1-proposal-diff → #4 | C1.md | R-25-service, two end-to-end checks |
+Items remaining, in order: C2, C3, C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`). None of them is started: there is no branch and no uncommitted work for any of them.
+Power: the first six items were done on a 13 W adapter (100% to 55%) and the session stopped there; the owner connected the 96 W charger and work resumed at C1.
 Scope dispositions:
   C9, C10, L7: still `planned` in `docs/SUPPORT.md`; all three are included by default (DEC-12) and none is started.
   B15: LM Studio was not probed. It is installed on the reference machine, was not running, and was not started. Onyx asks LM Studio for nothing and budgets against the loaded context it reports. Step 1 of B15 is unfinished for LM Studio.
@@ -43,6 +44,7 @@ Integration runs (local, node v24.22.3, pnpm 12.16.0, clean tree each time):
   after B6 and B8: unit, lint, layers, hygiene, self-checks, 2,000-episode campaign, mutants; end-to-end and packaged smoke by CI
   after B7, eda1a2c41f5: self-checks 34 of 34; end-to-end "all 57 checks passed"
   after B9, 40f7882ea6a: self-checks 34 of 34; end-to-end "all 58 checks passed"
+  after C1, af11a21007d plus the fixture line: self-checks 35 of 35; end-to-end "all 62 checks passed"; unit "321 passing, 2 pending"
   after B10, 7a49df7fedc: self-checks 35 of 35; end-to-end "all 60 checks passed"; unit "319 passing, 2 pending"; 2,000 episodes "exceptions":0, no class seen; 33 mutants detected
   The Section 11 suite in full and the packaged release smoke on the final tree have NOT been run since B15.
 CI on sheehanlloyd/Onyx#4 (both workflows on every push): green on 1ab21f4b273, 62afbc6d0df (first attempt of run 44945694282 failed at `Install dependencies` on a 403 from a release download, re-run green), 36b162427b9, 9127ad8bc9b, 1e314de5d6c and a5b653c71b7. The runs for the B10 merge and for this file are recorded in the session's report.
