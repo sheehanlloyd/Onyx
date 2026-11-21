@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import {
+import { acceptReviewHunks, ONYX_PROPOSAL_LIMITS, openReview, proposalSizeProblem, rebaseReview, rejectReviewHunk, reviewProposed,
 	applyHunkSelection, IOnyxProposedFile, proposalHunks, proposalToUnifiedDiff, proposeEdits, rebaseProposal, summarizeChangeSet
 } from '../../common/onyxChangeSet.js';
 
@@ -151,6 +151,88 @@ suite('OnyxChangeSet', () => {
 			const newBase = FILE.split('\n').filter(line => !line.includes('a - b')).join('\n');
 			const rebased = rebaseProposal(file, newBase);
 			assert.deepStrictEqual({ droppedHunks: rebased.droppedHunks, proposed: rebased.file.proposed }, { droppedHunks: 1, proposed: newBase });
+		});
+
+		test('R-09: the buffer is edited above a hunk and the hunk\'s lines occur twice: the hunk follows its own place, never the first occurrence', () => {
+			const twin = ['function first() {', '\tlog("start");', '\treturn compute();', '}', '', 'function second() {', '\tlog("start");', '\treturn compute();', '}'].join('\n');
+			// The proposal changes the second `return compute();`. The line before it is the same in both functions:
+			// one line of context does not tell them apart, three do.
+			const file = proposed(twin, twin.replace('function second() {\n\tlog("start");\n\treturn compute();', 'function second() {\n\tlog("start");\n\treturn compute() + 1;'));
+			// The user adds two lines at the top: both occurrences move down, the first one is still first.
+			const newBase = '// header\n// more\n' + twin;
+			const rebased = rebaseProposal(file, newBase);
+			assert.deepStrictEqual({ dropped: rebased.droppedHunks, proposed: rebased.file.proposed }, { dropped: 0, proposed: '// header\n// more\n' + file.proposed });
+		});
+
+		test('R-09: when the hunk\'s lines and their context are in the buffer twice, it is a conflict, not a choice', () => {
+			const block = ['function work() {', '\tprepare();', '\treturn run();', '}'].join('\n');
+			const file = proposed(block, block.replace('\treturn run();', '\treturn run(true);'));
+			// The user duplicates the whole function while the proposal waits.
+			const newBase = block + '\n' + block;
+			const rebased = rebaseProposal(file, newBase);
+			assert.deepStrictEqual({ dropped: rebased.droppedHunks, proposed: rebased.file.proposed }, { dropped: 1, proposed: newBase });
+		});
+
+		test('R-10: a hunk whose context no longer exists is a conflict that keeps both texts; the hunks that still correspond keep their ids', () => {
+			const opened = openReview(FILE, FILE.replace('\treturn a + b;', '\treturn b + a;').replace('\treturn a - b;', '\treturn b - a;'), 7);
+			assert.ok(opened.ok);
+			// The user rewrites the first function; the second is untouched.
+			const newBase = FILE.replace('\treturn a + b;', '\treturn Number(a) + Number(b);');
+			const rebased = rebaseReview(opened.review, FILE, newBase);
+			assert.deepStrictEqual({
+				idsBefore: opened.review.hunks.map(hunk => hunk.id),
+				hunks: rebased.hunks.map(hunk => ({ id: hunk.id, line: hunk.originalStart + 1, newLines: hunk.newLines })),
+				conflicts: rebased.conflicts,
+				proposed: reviewProposed(newBase, rebased.hunks),
+			}, {
+				idsBefore: ['g7.h1', 'g7.h2'],
+				hunks: [{ id: 'g7.h2', line: 6, newLines: ['\treturn b - a;'] }],
+				conflicts: [{ id: 'g7.h1', reason: 'missing', originalLines: ['\treturn a + b;'], newLines: ['\treturn b + a;'], wasAtLine: 2 }],
+				proposed: newBase.replace('\treturn a - b;', '\treturn b - a;'),
+			});
+		});
+
+		test('B7: accepting some hunks moves the rest by the lines added or removed and keeps their ids; a new generation shares no id with the one before', () => {
+			const opened = openReview(FILE, FILE.replace('\treturn a + b;', '\tconst sum = a + b;\n\treturn sum;').replace('\treturn a - b;', '\treturn b - a;'), 3);
+			assert.ok(opened.ok);
+			const accepted = acceptReviewHunks(opened.review, FILE, id => id === 'g3.h1');
+			const next = openReview(FILE, FILE.replace('\treturn a - b;', '\treturn b - a;'), 4);
+			assert.ok(next.ok);
+			assert.deepStrictEqual({
+				base: accepted.base,
+				rest: accepted.review.hunks.map(hunk => ({ id: hunk.id, line: hunk.originalStart + 1 })),
+				restProposed: reviewProposed(accepted.base, accepted.review.hunks),
+				rejected: rejectReviewHunk(opened.review, 'g3.h1').hunks.map(hunk => hunk.id),
+				nextGeneration: next.review.hunks.map(hunk => hunk.id),
+			}, {
+				base: FILE.replace('\treturn a + b;', '\tconst sum = a + b;\n\treturn sum;'),
+				rest: [{ id: 'g3.h2', line: 7 }],
+				restProposed: FILE.replace('\treturn a + b;', '\tconst sum = a + b;\n\treturn sum;').replace('\treturn a - b;', '\treturn b - a;'),
+				rejected: ['g3.h2'],
+				nextGeneration: ['g4.h1'],
+			});
+		});
+
+		test('R-38: a proposal over the documented size is refused before it is diffed, by lines, by table cells and by bytes', () => {
+			const lines = (count: number) => Array.from({ length: count }, (_, index) => `line ${index}`).join('\n');
+			const outcome = (base: string, next: string) => { const opened = openReview(base, next, 1); return opened.ok ? 'reviewed' : opened.error; };
+			assert.deepStrictEqual({
+				limits: ONYX_PROPOSAL_LIMITS,
+				atTheLineLimit: outcome(lines(900), lines(900) + '\nmore'),
+				tooManyLines: outcome(lines(1001), lines(1001) + '\nmore'),
+				tooManyCells: outcome(lines(1000), lines(1000)),
+				tooManyBytes: outcome('a'.repeat(200 * 1024), 'b'.repeat(57 * 1024)),
+				multibyteCountsAsBytes: outcome('é'.repeat(70 * 1024), 'é'.repeat(60 * 1024)),
+				sizeOnly: proposalSizeProblem('a', 'b'),
+			}, {
+				limits: { maxLinesPerSide: 1000, maxDiffCells: 1_000_000, maxCombinedBytes: 262_144 },
+				atTheLineLimit: 'reviewed',
+				tooManyLines: 'the file has 1001 lines and the proposed content 1002; a proposal is reviewed up to 1000 lines a side',
+				tooManyCells: 'comparing 1000 lines with 1000 is more than a proposal is reviewed at',
+				tooManyBytes: 'the file and the proposed content together are 263168 bytes; a proposal is reviewed up to 262144',
+				multibyteCountsAsBytes: 'the file and the proposed content together are 266240 bytes; a proposal is reviewed up to 262144',
+				sizeOnly: undefined,
+			});
 		});
 
 		test('R-33: rebasing never re-anchors on a line that only matches after trimming: a hunk whose lines the user re-indented is dropped', () => {

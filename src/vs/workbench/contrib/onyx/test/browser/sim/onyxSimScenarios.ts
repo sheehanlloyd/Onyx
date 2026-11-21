@@ -80,6 +80,22 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 			{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptHunk', path: 'src/math.ts', hunk: 0 } },
 		],
 	}),
+	// R-12 proper: the user changes the very line hunk 0 replaces, then accepts what is still shown as hunk 0.
+	// It is refused; nothing of hunk 1 is applied in its place, and what the user typed stays.
+	scenario('audit-n2-edit-hunk-0-then-accept-hunk-0', 'EDITTEST src/math.ts two hunks', [
+		{
+			kind: 'toolCalls', calls: [
+				{ tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a; // hunk 0' }, id: 'edit_1' },
+				{ tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a * b;', replace: '\treturn b * a; // hunk 1' }, id: 'edit_2' },
+			],
+		},
+		{ kind: 'text', text: 'Staged two hunks.' },
+	], {
+		userSteps: [
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'typeInTarget', text: '/* mine */', line: 2 } },
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptHunk', path: 'src/math.ts', hunk: 0 } },
+		],
+	}),
 	// Claude H4: a proposal against base V, the buffer edited above the hunk so that duplicates shift; accepting
 	// must re-anchor to the right duplicate or conflict, never the first occurrence by default.
 	scenario('audit-h4-duplicates-shift-then-accept', 'EDITTEST src/math.ts the closing brace', [

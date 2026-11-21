@@ -178,13 +178,13 @@ export class OnyxChangesViewPane extends ViewPane {
 			return;
 		}
 		const body = DOM.append(element, $('.onyx-change-file-body'));
-		file.hunks.forEach((hunk, index) => {
+		for (const hunk of file.hunks) {
 			const hunkElement = DOM.append(body, $('.onyx-change-hunk'));
 			const hunkHeader = DOM.append(hunkElement, $('.onyx-change-hunk-header'));
 			DOM.append(hunkHeader, $('span.onyx-change-hunk-line')).textContent = localize('onyx.changes.hunkAt', "Line {0}", hunk.originalStart + 1);
 			const hunkActions = DOM.append(hunkHeader, $('.onyx-run-actions'));
-			this._iconButton(hunkActions, 'check', localize('onyx.changes.acceptHunk', "Accept this hunk"), () => this._changeSetService.acceptHunk(file.proposal.path, index));
-			this._iconButton(hunkActions, 'close', localize('onyx.changes.rejectHunk', "Reject this hunk"), () => this._changeSetService.rejectHunk(file.proposal.path, index));
+			this._iconButton(hunkActions, 'check', localize('onyx.changes.acceptHunk', "Accept this hunk"), () => this._changeSetService.acceptHunk(file.proposal.path, hunk.id));
+			this._iconButton(hunkActions, 'close', localize('onyx.changes.rejectHunk', "Reject this hunk"), () => this._changeSetService.rejectHunk(file.proposal.path, hunk.id));
 			const lines = DOM.append(hunkElement, $('.onyx-change-hunk-lines'));
 			for (const removed of hunk.originalLines) {
 				DOM.append(lines, $('.onyx-change-line.removed')).textContent = `− ${removed}`;
@@ -192,7 +192,24 @@ export class OnyxChangesViewPane extends ViewPane {
 			for (const added of hunk.newLines) {
 				DOM.append(lines, $('.onyx-change-line.added')).textContent = `+ ${added}`;
 			}
-		});
+		}
+		// Hunks that no longer correspond to the file: both texts on show, nothing to accept (B7).
+		for (const conflict of file.conflicts) {
+			const conflictElement = DOM.append(body, $('.onyx-change-hunk.onyx-change-conflict'));
+			const conflictHeader = DOM.append(conflictElement, $('.onyx-change-hunk-header'));
+			DOM.append(conflictHeader, $('span.onyx-change-hunk-line')).textContent = conflict.reason === 'ambiguous'
+				? localize('onyx.changes.conflictAmbiguous', "Conflict: these lines are now in the file at more than one place (was line {0}). Not applied.", conflict.wasAtLine)
+				: localize('onyx.changes.conflictMissing', "Conflict: the file changed here and these lines are no longer in it (was line {0}). Not applied.", conflict.wasAtLine);
+			const conflictActions = DOM.append(conflictHeader, $('.onyx-run-actions'));
+			this._iconButton(conflictActions, 'close', localize('onyx.changes.dismissConflict', "Dismiss this conflict"), () => this._changeSetService.rejectHunk(file.proposal.path, conflict.id));
+			const lines = DOM.append(conflictElement, $('.onyx-change-hunk-lines'));
+			for (const removed of conflict.originalLines) {
+				DOM.append(lines, $('.onyx-change-line.removed')).textContent = `− ${removed}`;
+			}
+			for (const added of conflict.newLines) {
+				DOM.append(lines, $('.onyx-change-line.added')).textContent = `+ ${added}`;
+			}
+		}
 	}
 
 	private _iconButton(parent: HTMLElement, codicon: string, title: string, onClick: () => void): void {

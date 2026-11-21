@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
-import { IOnyxProposedFile, OnyxProposeResult, proposeEdits } from '../../../common/onyxChangeSet.js';
+import { OnyxAcceptOutcome, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
+import { IOnyxProposedFile, OnyxProposeResult, openReview, proposalSizeProblem, proposeEdits } from '../../../common/onyxChangeSet.js';
 import { IOnyxEditBlock } from '../../../common/onyxInlineEdit.js';
 import { IChatResponseToolUsePart, ILanguageModelChatMetadata } from '../../../../chat/common/languageModels.js';
 import { IChatAgentRequest } from '../../../../chat/common/participants/chatAgents.js';
@@ -373,6 +373,29 @@ class OnyxMutantFirstOccurrenceChangeSet extends OnyxChangeSetService {
 	}
 }
 
+/**
+ * B7: accepting a hunk by where it was in the list (Codex N2). The user's click names a place; the buffer has
+ * changed, the proposal is carried onto it, and whatever hunk is at that place afterwards is the one applied.
+ */
+class OnyxMutantIndexAcceptChangeSet extends OnyxChangeSetService {
+	override async acceptHunk(path: string, hunkId: string): Promise<OnyxAcceptOutcome> {
+		const index = this.files.get().find(file => file.proposal.path === path)?.hunks.findIndex(hunk => hunk.id === hunkId) ?? -1;
+		await this.refresh();
+		const atThatPlace = this.files.get().find(file => file.proposal.path === path)?.hunks[index];
+		return super.acceptHunk(path, atThatPlace?.id ?? hunkId);
+	}
+}
+
+/** B7: a proposal of any size is diffed and staged (C9, R-38, I-13). */
+class OnyxMutantNoSizeGuardChangeSet extends OnyxChangeSetService {
+	protected override _openReview(base: string, proposed: string, generation: number): ReturnType<typeof openReview> {
+		// The line diff is not run on the oversized text here either: the defect is that the proposal is staged, and one hunk says so.
+		return proposalSizeProblem(base, proposed)
+			? { ok: true, review: { generation, hunks: [{ id: `g${generation}.h1`, originalStart: 0, originalLength: base.split('\n').length, originalLines: base.split('\n'), newLines: proposed.split('\n') }], conflicts: [] } }
+			: openReview(base, proposed, generation);
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -394,6 +417,8 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B13-no-eviction': { AgentLoop: OnyxMutantNoEvictionLoop },
 	'B6-fuzzy-applier': { ChangeSetService: OnyxMutantFuzzyApplierChangeSet },
 	'B6-first-occurrence': { ChangeSetService: OnyxMutantFirstOccurrenceChangeSet },
+	'B7-index-accept': { ChangeSetService: OnyxMutantIndexAcceptChangeSet },
+	'B7-no-size-guard': { ChangeSetService: OnyxMutantNoSizeGuardChangeSet },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },

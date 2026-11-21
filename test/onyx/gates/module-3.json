@@ -40,6 +40,28 @@
 			]
 		},
 		{
+			"id": "R-09-R-12-R-38",
+			"title": "B7 versioned proposals with stable hunk identity: a hunk follows its own place by three lines of exact context or becomes a conflict with both texts; a hunk is accepted by the id it was shown with, after a rebase, or refused with \"look again\"; nothing of another hunk is applied in its place; a new generation invalidates an older review; a file that is not open; an oversized proposal is refused before it is diffed",
+			"layer": "pure, service",
+			"regressions": [
+				"R-09",
+				"R-10",
+				"R-11",
+				"R-12",
+				"R-38"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChangeSet.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChangeSetService.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxChangeSet|OnyxSim the scripted user steps"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

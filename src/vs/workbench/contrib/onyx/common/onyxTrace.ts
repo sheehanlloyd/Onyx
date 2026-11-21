@@ -100,7 +100,8 @@ export interface IOnyxTraceApproval {
 export interface IOnyxTraceAcceptance {
 	readonly kind: 'acceptance';
 	readonly path: string;
-	readonly hunk: number | 'all';
+	/** The id of the hunk as it was shown (B7), or `all` for a whole file. Journals written before B7 hold the hunk's index, a number. */
+	readonly hunk: string | number;
 }
 
 /** FNV-1a over UTF-16 code units, hex. Stable across platforms; not a security digest. */

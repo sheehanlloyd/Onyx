@@ -293,6 +293,33 @@ server's allocation. The alias is another name to the runtime: a datasheet measu
 name does not describe it, so measure again after requesting a context. Speculative-decoding measurement
 still addresses the model's own name.
 
+## Proposals: identity, conflicts and size (B6, B7)
+
+**An edit is placed exactly or not at all.** A SEARCH text has to be in the file exactly as quoted, and at
+exactly one place. Nothing is trimmed or re-indented and no line is matched on its own; a quote with another
+indentation, other line endings or a second occurrence is refused, the file is untouched, and the model is
+told which line did not match or how many places there were. A quote may begin in the middle of a line; a
+block of several lines may not begin inside a line's indentation.
+
+**What you review is what is applied.** Every staging of a file is a *generation*, and each of its hunks
+has an id that does not change while that generation lasts. Accepting a hunk names it by that id.
+
+| What happened since you looked | What accepting does |
+|---|---|
+| Nothing | Applies that hunk; the others stay staged under their own ids |
+| You edited the file elsewhere | The hunk is found again by its own lines and up to three unchanged lines on each side, exactly and at one place, and applied there |
+| You edited the hunk's own lines or its context, or the same lines are now in the file twice | Nothing is applied. The hunk is shown as a conflict with both texts, and the message is "The review of <file> changed; look again." No other hunk is applied in its place |
+| The agent staged the file again | Nothing is applied: the ids you saw belong to the earlier generation |
+| Accept the whole file while a conflict is on show | Nothing is applied until the conflict is dismissed |
+
+A proposal for a file that is not open is computed against its content on disk and treated the same way.
+Staged proposals survive a restart as a new generation and are checked against the files as they are then.
+
+**Size.** A proposal is diffed line by line, at a cost that grows with the product of the two sides. One
+over any of these is refused before the diff, with the numbers, and whatever was already staged for the
+file stays: 1,000 lines on either side; 1,000,000 cells of the diff table; 256 KiB for the file and the
+proposed content together. C9 replaces the diff and raises the first two.
+
 ## Streams, tool arguments and the content index (B12)
 
 **How a reply ended is said, not assumed.**

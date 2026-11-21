@@ -218,30 +218,4 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 			faults: [],
 		}),
 	},
-	{
-		class: 'I-13/oversized-proposal',
-		owner: 'B7',
-		finding: 'C9 / R-38 (Section 15): a proposal above the documented 256 KiB bound is staged and diffed without a size guard',
-		script: script({
-			name: 'I-13-oversized-proposal',
-			seed: 1,
-			persona: 'flooder',
-			prompt: 'Run the',
-			target: 'src/math.ts',
-			turns: [
-				{
-					kind: 'toolCall',
-					tool: 'editFile',
-					arguments: {
-						path: 'src/math.ts',
-						search: '\treturn a + b;',
-						replace: '<<repeat:y:300000>>',
-					},
-				},
-			],
-			dialogDefault: 'deny',
-			userSteps: [],
-			faults: [],
-		}),
-	},
 ];

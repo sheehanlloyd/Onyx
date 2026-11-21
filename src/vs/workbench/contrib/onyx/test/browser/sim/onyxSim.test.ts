@@ -98,6 +98,7 @@ suite('OnyxSim', () => {
 			// the expectation records the baseline and changes when B10 lands.
 			'e2e-slowtest-stop': { status: 'completed', turns: 1, dispatched: [], staged: 0, dialogs: [] },
 			'audit-n2-type-above-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
+			'audit-n2-edit-hunk-0-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
 			'audit-h4-duplicates-shift-then-accept': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			// Eight tool turns, then the turn cap (compact profile): "completed" with an incomplete result.
 			'audit-h6-context-budget': { status: 'completed', turns: 8, dispatched: Array.from({ length: 8 }, () => 'terminal'), staged: 0, dialogs: Array.from({ length: 8 }, () => 'allow-once') },
@@ -108,6 +109,31 @@ suite('OnyxSim', () => {
 			'b1-essential-tool-excluded': { status: 'failed', turns: 0, dispatched: [], staged: 0, dialogs: [] },
 			// Three slots: the read tools only. The edit the model then asks for is an unknown tool, not a dispatch.
 			'b1-read-only-profile': { status: 'completed', turns: 3, dispatched: ['readFile'], staged: 0, dialogs: [] },
+		});
+	});
+
+	test('the scripted user steps are carried out, and leave the buffer as the audits require (R-11, R-12, R-25\'s accept-all): no scenario passes because its user never acted', async () => {
+		const outcomes: Record<string, { steps: string; buffer: Record<string, boolean>; violations: string[] }> = {};
+		const marks = { typedAbove: '// user typed above hunk 0', typedInHunk0: '/* mine */', pastedAbove: 'export function extra(): number {', hunk0: '// hunk 0', hunk1: '// hunk 1', mock: '// edited-by-mock', h4: '} // multiply' };
+		for (const name of ['e2e-edittest', 'audit-n2-type-above-then-accept-hunk-0', 'audit-n2-edit-hunk-0-then-accept-hunk-0', 'audit-h4-duplicates-shift-then-accept']) {
+			const scenario = SIM_SCENARIOS.find(candidate => candidate.name === name)!;
+			const result = await runEpisode(scenario, allCheckers());
+			const buffer = result.targetBuffer ?? '';
+			outcomes[name] = {
+				steps: `${result.userStepsTaken} of ${scenario.userSteps.length}`,
+				buffer: Object.fromEntries(Object.entries(marks).filter(([, mark]) => buffer.includes(mark)).map(([key]) => [key, true])),
+				violations: result.violations.map(violation => violation.invariant),
+			};
+		}
+		assert.deepStrictEqual(outcomes, {
+			// Accept all: both edits are in the buffer.
+			'e2e-edittest': { steps: '1 of 1', buffer: { mock: true }, violations: [] },
+			// Typed above hunk 0, accepted hunk 0: the typing stays, hunk 0 is applied at its new place, hunk 1 is not.
+			'audit-n2-type-above-then-accept-hunk-0': { steps: '2 of 2', buffer: { typedAbove: true, hunk0: true }, violations: [] },
+			// Typed into hunk 0's own line, accepted what was shown as hunk 0: refused, and hunk 1 is not applied in its place.
+			'audit-n2-edit-hunk-0-then-accept-hunk-0': { steps: '2 of 2', buffer: { typedInHunk0: true }, violations: [] },
+			// A function pasted above, so that the hunk's line is no longer the first of its kind: the hunk follows its own place.
+			'audit-h4-duplicates-shift-then-accept': { steps: '2 of 2', buffer: { pastedAbove: true, h4: true }, violations: [] },
 		});
 	});
 

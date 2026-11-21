@@ -303,4 +303,36 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '}', replace: '} // sim' } },
 		], { persona: 'anchor-liar' }),
 	},
+	{
+		id: 'B7-index-accept',
+		fixedBy: 'B7',
+		defect: 'A hunk was accepted by its place in the list: after the user changed the lines of the first hunk, accepting what was shown as the first hunk applied the one that had moved into its place (Codex N2; R-12)',
+		detects: 'I-09/accepted-content-missing',
+		resurrects: 'OnyxMutantIndexAcceptChangeSet',
+		script: script('B7-index-accept', 'Change both functions', [
+			{
+				kind: 'toolCalls', calls: [
+					{ tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a; // hunk 0' }, id: 'edit_1' },
+					{ tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a * b;', replace: '\treturn b * a; // hunk 1' }, id: 'edit_2' },
+				],
+			},
+			{ kind: 'text', text: 'Staged two hunks.' },
+		], {
+			userSteps: [
+				// The user changes the very line hunk 0 replaces, then accepts what is still shown as hunk 0.
+				{ at: 'afterRun', occurrence: 2, step: { kind: 'typeInTarget', text: '/* mine */', line: 2 } },
+				{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptHunk', path: 'src/math.ts', hunk: 0 } },
+			],
+		}),
+	},
+	{
+		id: 'B7-no-size-guard',
+		fixedBy: 'B7',
+		defect: 'A proposal of any size was diffed and staged: nothing refused one above the documented bound before the quadratic line diff ran (C9; R-38)',
+		detects: 'I-13/oversized-proposal',
+		resurrects: 'OnyxMutantNoSizeGuardChangeSet',
+		script: script('B7-no-size-guard', 'Fill the function', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: 'y'.repeat(300_000) } },
+		], { persona: 'flooder', dialogDefault: 'deny' }),
+	},
 ];
