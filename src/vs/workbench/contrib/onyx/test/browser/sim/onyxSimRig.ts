@@ -139,6 +139,7 @@ export interface IOnyxSimProductClasses {
 	readonly ModelService: typeof OnyxModelService;
 	readonly ChangeSetService: typeof OnyxChangeSetService;
 	readonly InlineEditSession: typeof OnyxInlineEditSession;
+	readonly ControlPlaneService: typeof OnyxControlPlaneService;
 }
 
 export interface IOnyxSimRigOptions {
@@ -256,7 +257,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private _prepared = false;
 
 	constructor(readonly episode: OnyxSimEpisode, checkers: readonly OnyxSimChecker[] = [], options: IOnyxSimRigOptions = {}) {
-		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ChangeSetService: OnyxChangeSetService, InlineEditSession: OnyxInlineEditSession, ...options.classes };
+		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ChangeSetService: OnyxChangeSetService, InlineEditSession: OnyxInlineEditSession, ControlPlaneService: OnyxControlPlaneService, ...options.classes };
 		this._redactorClass = classes.DiagnosticsRedactor;
 		this._checkers.push(...checkers);
 		this.trace = new OnyxSimTrace(() => Date.now());
@@ -321,7 +322,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this._changeSetClass = classes.ChangeSetService;
 		this._inlineEditSessionClass = classes.InlineEditSession;
 
-		this.controlPlane = this._disposables.add(new OnyxControlPlaneService());
+		this.controlPlane = this._disposables.add(new classes.ControlPlaneService());
 		instantiationService.stub(IOnyxControlPlaneService, this.controlPlane);
 		// No endpoint is configured in the rig, so there is no key to store or read.
 		instantiationService.stub(IOnyxEndpointSecretService, { _serviceBrand: undefined, onDidChange: Event.None, setApiKey: async () => { }, configuredApiKeys: async () => new Map<string, string>() });
@@ -577,10 +578,14 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 				break;
 			case 'stop':
 				this.stopped = true;
+				// The Stop button on the run list, and nothing else: the chat request's own token is not cancelled
+				// here. That one press has to end everything the run owns (B10, R-15). Before a run exists there is
+				// only the request to cancel.
 				if (this._runId) {
 					this.controlPlane.stop(this._runId);
+				} else {
+					this._cancellation.cancel();
 				}
-				this._cancellation.cancel();
 				break;
 			case 'pause':
 				if (this._runId) {

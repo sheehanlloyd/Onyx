@@ -75,3 +75,16 @@ test('B15, L3: a manifest whose model does not say what context it ran at is ref
 		withoutVerified: ['manifest.models[0].context: missing required field "verifiedTokens"'],
 	});
 });
+
+test('Module 3 gate: the baseline exception table is empty, and every defect this module fixed has a mutant descriptor', () => {
+	const table = JSON.parse(fs.readFileSync(path.join(repoRoot, 'test', 'onyx', 'sim', 'baseline-exceptions.json'), 'utf8')) as { exceptions: unknown[] };
+	const baselineDir = path.join(repoRoot, 'test', 'onyx', 'sim', 'baseline');
+	const mutants = fs.readdirSync(path.join(repoRoot, 'test', 'onyx', 'sim', 'mutants')).map(name => name.replace(/\.json$/, ''));
+	// The items of this module that fixed a defect the simulation can see, each with at least one mutant.
+	const fixedHere = ['B6', 'B7', 'B8', 'B9', 'B10'];
+	assert.deepStrictEqual({
+		exceptions: table.exceptions.length,
+		baselineScriptsLeft: fs.existsSync(baselineDir) ? fs.readdirSync(baselineDir) : [],
+		itemsWithoutAMutant: fixedHere.filter(item => !mutants.some(name => name.startsWith(`${item}-`))),
+	}, { exceptions: 0, baselineScriptsLeft: [], itemsWithoutAMutant: [] });
+});

@@ -112,6 +112,44 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 			{ at: 'afterRun', occurrence: 2, step: { kind: 'save' } },
 		],
 	}),
+	// B10 (R-15, I-03, I-05): Stop means stop. The first is R-15 itself at the service layer: a slow stream that
+	// would end in a tool call, stopped half way. The other five are what the baseline campaign found.
+	scenario('b10-stop-during-slow-stream-before-a-tool-call', 'SLOWTOOLTEST think, then list the folder', [
+		{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'ls src && echo ' + Array.from({ length: 40 }, (_, index) => `slow-word-${index}`).join(' ') }, chunks: 40 },
+		{ kind: 'text', text: 'Listed.' },
+	], {
+		userSteps: [{ at: 'betweenChunks', occurrence: 10, step: { kind: 'stop' } }],
+	}),
+	scenario('b10-paused-and-never-resumed', 'Run the checks', [
+		{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
+	], {
+		dialogDefault: 'deny',
+		userSteps: [{ at: 'betweenChunks', occurrence: 3, step: { kind: 'pause' } }],
+	}),
+	scenario('b10-stop-then-the-stream-ends', 'What does it do?', [
+		{ kind: 'text', text: 'Done.' },
+	], {
+		dialogDefault: 'dismiss',
+		userSteps: [{ at: 'betweenChunks', occurrence: 1, step: { kind: 'stop' } }],
+	}),
+	scenario('b10-stop-before-a-command', 'List the folder', [
+		{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'ls src' } },
+	], {
+		userSteps: [{ at: 'beforeToolDispatch', occurrence: 1, step: { kind: 'stop' } }],
+	}),
+	scenario('b10-stop-before-an-edit', 'Change addNumbers', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a; // edited-by-sim' } },
+	], {
+		dialogDefault: 'deny',
+		userSteps: [{ at: 'beforeToolDispatch', occurrence: 1, step: { kind: 'stop' } }],
+	}),
+	scenario('b10-stop-while-an-approval-dialog-is-open', 'Fetch the page', [
+		{ kind: 'toolCall', tool: 'vscode_fetchWebPage_internal', arguments: { url: 'https://example.test/' } },
+	], {
+		networkTools: true,
+		profile: { promptStyle: 'compact', contextLength: 4096, maxTools: 24 },
+		userSteps: [{ at: 'dialogOpen', occurrence: 1, step: { kind: 'stop' } }],
+	}),
 	// Claude H4: a proposal against base V, the buffer edited above the hunk so that duplicates shift; accepting
 	// must re-anchor to the right duplicate or conflict, never the first occurrence by default.
 	scenario('audit-h4-duplicates-shift-then-accept', 'EDITTEST src/math.ts the closing brace', [

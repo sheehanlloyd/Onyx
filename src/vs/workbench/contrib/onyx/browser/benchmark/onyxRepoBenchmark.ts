@@ -77,16 +77,18 @@ export class OnyxRepoBenchmark {
 			return;
 		}
 
+		// The run is begun with this token, so Stop in the control plane and a cancel here are one cancellation (B10).
+		const cancellation = new CancellationTokenSource();
 		const handle = this._controlPlaneService.beginRun({
 			sessionResource: URI.from({ scheme: 'onyx-bench', path: `/${generateUuid()}` }),
 			requestId: generateUuid(),
 			title: localize('onyx.bench.runTitle', "Repo benchmark: {0} tasks × {1} models", tasks.length, chosen.length),
 			task: 'plan',
 			modelKey: 'benchmark',
+			token: cancellation.token,
 		});
 
 		const results: IOnyxBenchResult[] = [];
-		const cancellation = new CancellationTokenSource();
 		try {
 			await this._progressService.withProgress({
 				location: ProgressLocation.Notification,

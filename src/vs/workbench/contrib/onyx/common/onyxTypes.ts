@@ -89,7 +89,24 @@ export interface IOnyxRunEvent {
 	readonly data: unknown;
 }
 
-export type OnyxRunStatus = 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+/**
+ * `budget-exhausted` is a terminal status of its own (B10): the run was ended
+ * by its turn cap or its time budget, not by finishing and not by the user.
+ */
+export type OnyxRunStatus = 'running' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'budget-exhausted';
+
+/** The statuses a run ends in. The first one a run reaches is its status; nothing replaces it (I-03). */
+export type OnyxTerminalRunStatus = Extract<OnyxRunStatus, 'completed' | 'failed' | 'cancelled' | 'budget-exhausted'>;
+
+export function isTerminalRunStatus(status: string): status is OnyxTerminalRunStatus {
+	return status === 'completed' || status === 'failed' || status === 'cancelled' || status === 'budget-exhausted';
+}
+
+/** How long a run may wait, in milliseconds (B10, I-03). */
+export const ONYX_RUN_BUDGET = {
+	/** A paused run that is not resumed ends as `budget-exhausted` after this long. */
+	pausedMs: 10 * 60 * 1000,
+} as const;
 
 /** Summary of a run, as listed in the journal index and the timeline view. */
 export interface IOnyxRunSummary {

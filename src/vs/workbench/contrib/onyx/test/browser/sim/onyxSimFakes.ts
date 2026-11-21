@@ -5,6 +5,7 @@
 
 import { timeout } from '../../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { observableValue } from '../../../../../../base/common/observable.js';
@@ -591,6 +592,11 @@ export class OnyxSimToolsService {
 			this._trace.record({ kind: 'toolResult', call, tool: name, ok: false, resultDigest: digest(message) });
 			return { content: [{ kind: 'text', value: message }], toolResultError: true };
 		}
+		// As the product's tools service does: a call whose token is cancelled before the tool is entered is not invoked.
+		if (token.isCancellationRequested) {
+			this._trace.record({ kind: 'toolResult', call, tool: name, ok: false, resultDigest: digest('cancelled') });
+			throw new CancellationError();
+		}
 		const result = await impl.invoke(invocation, countTokens, { report: () => { } }, token);
 		const text = result.content.map(part => part.kind === 'text' ? part.value : '').join('');
 		this.results.push({ toolId: invocation.toolId, text, ok: !result.toolResultError });
@@ -760,7 +766,12 @@ export class OnyxSimSearchService extends Disposable implements Pick<ISearchServ
 		return this._files.fileSearch(query, token);
 	}
 
+	/** Called once, as the next text search begins: the moment a test cancels a search that is already under way. */
+	beforeNextTextSearch: (() => void) | undefined;
+
 	async textSearch(query: ITextQuery, token: CancellationToken = CancellationToken.None): Promise<ISearchComplete> {
+		this.beforeNextTextSearch?.();
+		this.beforeNextTextSearch = undefined;
 		this.queries.push({ kind: 'text', ignoreSymlinks: query.folderQueries.every(folder => folder.ignoreSymlinks === true), cancelled: token.isCancellationRequested });
 		const files = await this._files.fileSearch({ type: QueryType.File, folderQueries: query.folderQueries, includePattern: query.includePattern, excludePattern: query.excludePattern }, token);
 		const source = query.contentPattern.isRegExp ? query.contentPattern.pattern : query.contentPattern.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

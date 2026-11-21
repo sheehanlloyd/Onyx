@@ -159,6 +159,9 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 		const runId = chatRequestId ? this._controlPlaneService.runs.get().find(run => run.requestId === chatRequestId)?.runId : undefined;
 		const label = normalizeCommand(command);
 
+		if (token.isCancellationRequested) {
+			return errorResult('The run was stopped by the user. Nothing was run.');
+		}
 		const decision = await this._authorize(invocation);
 		this._remember(invocation, decision);
 		if (runId) {
@@ -169,6 +172,11 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 			return { content: [{ kind: 'text', value: 'The user denied this command. Do not retry it; ask the user what to do instead, or continue without it.' }] };
 		}
 
+		if (token.isCancellationRequested) {
+			// Stop while the dialog was open (B10, I-05): an approval given after Stop runs nothing.
+			this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.stopped', "Not run: the run was stopped"), reason: label, ok: false });
+			return errorResult('The run was stopped by the user while the approval was open. Nothing was run.');
+		}
 		const operationId = `terminal-${generateUuid()}`;
 		const running: IOnyxRunningCommand = { operationId, command: label, startedAt: Date.now(), runId };
 		this._runningObs.set([...this._runningObs.get(), running], undefined);

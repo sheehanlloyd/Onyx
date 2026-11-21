@@ -96,6 +96,23 @@
 			]
 		},
 		{
+			"id": "R-15",
+			"title": "B10 Stop means stop, at the service layer: a stop during a slow stream that would end in a tool call, before a command, before an edit and while an approval dialog is open dispatches, runs and stages nothing afterwards; a paused run ends on its own as budget-exhausted; a run has one terminal status that nothing replaces (the end-to-end suite has R-15 itself: cancelled in the journal within two seconds, the tool never called)",
+			"layer": "service, e2e",
+			"regressions": [
+				"R-15"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts",
+				"test/onyx/run-e2e.mts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim R-15"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",
@@ -112,6 +129,47 @@
 				"--test",
 				"test/onyx/checks/module3-gate.test.mts"
 			]
+		},
+		{
+			"id": "sim-campaign-20000-empty-baseline",
+			"title": "A 20,000-episode campaign with every checker, seeds 1 to 20,000 in ten processes, against an empty baseline table: zero violations of every invariant, I-01 to I-14",
+			"layer": "service",
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimBaseline.ts",
+				"test/onyx/sim/run-campaign.mts",
+				"test/onyx/sim/baseline-exceptions.json"
+			],
+			"command": [
+				"node",
+				"test/onyx/sim/run-campaign.mts",
+				"--episodes",
+				"20000",
+				"--seed",
+				"1",
+				"--shard",
+				"2000"
+			],
+			"timeoutMs": 3600000
+		},
+		{
+			"id": "sim-mutants-module-3",
+			"title": "Every defect fixed in Modules 2 and 3 has a resurrection mutant that its script and the seeded campaign detect, and the unmutated harness is not flagged",
+			"layer": "service",
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutantTable.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim mutants"
+			],
+			"env": {
+				"ONYX_SIM_MUTANT_EPISODES": "2000",
+				"ONYX_SIM_SEED": "1"
+			},
+			"timeoutMs": 1800000
 		}
 	]
 }

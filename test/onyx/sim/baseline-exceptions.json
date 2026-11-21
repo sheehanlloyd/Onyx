@@ -1,36 +1,5 @@
 {
 	"recordedAt": "2026-11-19",
 	"campaign": "1,000 seeded episodes from seed 1 plus the scripted scenarios, unmodified harness",
-	"exceptions": [
-		{
-			"class": "I-03/no-time-budget",
-			"owner": "B10",
-			"finding": "Codex N5 (R-15): a run the user paused and did not resume never ends on its own. (The other way into this class, a stream that never produces a token, was closed by B12's deadlines.)",
-			"script": "test/onyx/sim/baseline/I-03-no-time-budget.json"
-		},
-		{
-			"class": "I-03/status-overwritten",
-			"owner": "B10",
-			"finding": "Codex N5 (R-15): Stop sets `cancelled`, and the loop then records `completed` when the stream ends without a tool call",
-			"script": "test/onyx/sim/baseline/I-03-status-overwritten.json"
-		},
-		{
-			"class": "I-05/command-after-stop",
-			"owner": "B10",
-			"finding": "Codex N5 (R-15): Stop is honoured only at the gate after a tool turn; a command dispatched in the current turn still runs",
-			"script": "test/onyx/sim/baseline/I-05-command-after-stop.json"
-		},
-		{
-			"class": "I-05/dispatch-after-stop",
-			"owner": "B10",
-			"finding": "Codex N5 (R-15), found by the 20,000-episode campaign in Module 2: Stop is honoured only at the gate after a tool turn; a tool whose approval dialog was open when the user pressed Stop is still dispatched when the dialog is answered",
-			"script": "test/onyx/sim/baseline/I-05-dispatch-after-stop.json"
-		},
-		{
-			"class": "I-05/stage-after-stop",
-			"owner": "B10",
-			"finding": "Codex N5 (R-15): Stop is honoured only at the gate after a tool turn; an edit in the current turn is still staged",
-			"script": "test/onyx/sim/baseline/I-05-stage-after-stop.json"
-		}
-	]
+	"exceptions": []
 }

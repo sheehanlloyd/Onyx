@@ -293,6 +293,29 @@ server's allocation. The alias is another name to the runtime: a datasheet measu
 name does not describe it, so measure again after requesting a context. Speculative-decoding measurement
 still addresses the model's own name.
 
+## Stopping a run (B10)
+
+**Stop means stop.** A run owns one cancellation. The Stop button on the run list, the chat's own stop and
+closing the request all cancel it, and everything the run started takes it: the model request in flight,
+every tool, an approval dialog that is open, a command that is running (which is killed). After Stop no
+further tool is called, no command is started and nothing more is staged, including the tool call a reply
+was about to make and a command whose approval you answer afterwards.
+
+| A run ends as | When | Shown as |
+|---|---|---|
+| `completed` | The model finished | Completed |
+| `failed` | The request or the runtime failed, or the reply was cut off | Failed |
+| `cancelled` | You stopped it | Stopped |
+| `budget-exhausted` | It reached its turn limit, or stayed paused for ten minutes | Ended at its turn or time limit, unfinished |
+
+The first of these a run reaches is its status. Nothing replaces it, and its journal holds one outcome.
+Commit messages, reviews, name suggestions, the repository benchmark, tournaments and inline edits are runs
+too, and Stop on the run list cancels their model request the same way.
+
+Two limits. An approval dialog that is open when you press Stop stays on screen until you answer it; the
+answer is ignored and nothing runs. And a one-shot flow stopped from the run list may still show its own
+"failed" notice, because it learns of the stop as a failed request; the run itself is recorded as stopped.
+
 ## Proposals: identity, conflicts and size (B6, B7)
 
 **An edit is placed exactly or not at all.** A SEARCH text has to be in the file exactly as quoted, and at

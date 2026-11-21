@@ -821,6 +821,31 @@ async function main() {
 	check('the prompt advertises the repository playbooks', playbookSnapshots.some(text => text.includes('ships playbooks') && text.includes('e2e-recipe')), 'no playbook index in any prompt');
 	check('the playbook tool fetched the recipe body', playbookSnapshots.some(text => text.includes('Follow this repository playbook') && text.includes('Confirm the recipe body reached the model')), 'the recipe body never reached a tool result');
 
+	// --- R-15: Stop means stop. A slow stream that would end in a tool call is stopped from the run list. The
+	// journal has to say `cancelled` within two seconds, the tool must never be called, and the status must
+	// still be `cancelled` after the stream would have ended.
+	await send('SLOWTOOLTEST think slowly, then list the folder');
+	await waitUntil(() => readRunIndex().some(run => run.title.startsWith('SLOWTOOLTEST') && run.status === 'running'), 15_000, 250);
+	await sleep(2500);
+	await runCommand('Open Onyx Control Plane');
+	await sleep(1500);
+	const slowStop = pwValue(pw('run-code', `async (page) => {
+		const stop = await page.$('.onyx-run.running .codicon-debug-stop');
+		if (!stop) { return 'no-stop-button'; }
+		await stop.click(); return 'stopped';
+	}`));
+	const stoppedAt = Date.now();
+	const slowRun = () => readRunIndex().find(run => run.title.startsWith('SLOWTOOLTEST'));
+	await waitUntil(() => slowRun()?.status === 'cancelled', 10_000, 100);
+	const cancelledAfterMs = Date.now() - stoppedAt;
+	check('R-15: Stop from the run list journals the run as cancelled within two seconds', slowStop === 'stopped' && slowRun()?.status === 'cancelled' && cancelledAfterMs <= 2000, `${slowStop}; status ${slowRun()?.status} after ${cancelledAfterMs} ms`);
+	// Past the point where the stream would have ended and asked for its tool.
+	await sleep(13_000);
+	const slowEvents = readRuns().find(run => run.events.some((event: { data?: { status?: string } }) => event.data?.status === 'cancelled') && JSON.stringify(run.events).includes('SLOWTOOLTEST'))?.events ?? [];
+	const slowToolCalls = slowEvents.filter((event: { kind?: string }) => event.kind === 'toolCall' || event.kind === 'toolResult').length;
+	const slowOutcomes = slowEvents.filter((event: { kind?: string }) => event.kind === 'outcome').map((event: { data?: { status?: string } }) => event.data?.status);
+	check('R-15: the tool call the stopped stream would have made never happens, and the status is not overwritten', slowEvents.length > 0 && slowToolCalls === 0 && slowOutcomes.length === 1 && slowOutcomes[0] === 'cancelled' && slowRun()?.status === 'cancelled', `events ${slowEvents.length}; tool events ${slowToolCalls}; outcomes ${JSON.stringify(slowOutcomes)}; status ${slowRun()?.status}`);
+
 	// --- Resume: stop a deliberately slow run mid-stream, then resume it.
 	await send('SLOWTEST take your time with this one');
 	await sleep(4000);

@@ -148,6 +148,7 @@ export class OnyxInlineEditController implements IEditorContribution {
 			title: localize('onyx.inlineEdit.runTitle', "Inline edit: {0}", instruction.slice(0, 60)),
 			task: 'quick-edit',
 			modelKey: 'auto',
+			token: cancellation.token,
 		});
 
 		let streamed = 0;

@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { isTerminalRunStatus } from '../../../common/onyxTypes.js';
 import { decodeNumberedSearch } from '../../../common/onyxReadTools.js';
 import { harnessConfigHash, IOnyxHarnessConfig } from '../../../common/onyxHarnessConfig.js';
 import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
@@ -168,7 +169,7 @@ const i02: OnyxSimChecker = state => {
 const i03: OnyxSimChecker = (state, boundary) => {
 	const statuses = events(state).filter((event): event is Extract<OnyxSimTraceEvent, { kind: 'status' }> => event.kind === 'status');
 	// Journaled outcomes are the record; live transitions show a terminal status being replaced by another.
-	const isTerminal = (status: string) => status === 'completed' || status === 'failed' || status === 'cancelled';
+	const isTerminal = (status: string) => isTerminalRunStatus(status);
 	const outcomes = statuses.filter(event => !event.status.startsWith('live:') && isTerminal(event.status));
 	// First, because everything after it is a consequence: the run did not end on its own, and the rig's
 	// watchdog had to stop it. What the statuses did after that stop is not a second finding.
