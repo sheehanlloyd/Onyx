@@ -81,10 +81,12 @@ export function numberedLine(lineNumber: number, text: string): string {
  * cut with a marker that names how much is missing; a cut line cannot be
  * quoted for an edit, and the marker says so by not being source text.
  */
-export function formatNumberedLines(lines: readonly string[], firstLineNumber: number, lineMaxChars: number = ONYX_READ_LINE_MAX_CHARS): string {
-	return lines.map((line, index) => numberedLine(firstLineNumber + index, line.length > lineMaxChars
+export function formatNumberedLines(lines: readonly string[], firstLineNumber: number, lineMaxChars: number = ONYX_READ_LINE_MAX_CHARS, numbered = true): string {
+	const cut = (line: string) => line.length > lineMaxChars
 		? `${line.slice(0, lineMaxChars)} [… ${line.length - lineMaxChars} more characters on this line …]`
-		: line)).join('\n');
+		: line;
+	// Without numbers the lines go out as they are: a lab arm of the harness configuration (L4), never the product's default.
+	return lines.map((line, index) => numbered ? numberedLine(firstLineNumber + index, cut(line)) : cut(line)).join('\n');
 }
 
 const NUMBERED_LINE = /^(?<number>\d+)\|(?: (?<text>.*)|(?<empty>))$/;

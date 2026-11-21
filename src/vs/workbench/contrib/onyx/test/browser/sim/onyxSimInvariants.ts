@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { harnessConfigHash, IOnyxHarnessConfig } from '../../../common/onyxHarnessConfig.js';
 import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
 import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
 import { ONYX_TERMINAL_OUTPUT_LIMITS } from '../../../common/onyxTerminalOutput.js';
@@ -612,6 +613,39 @@ const r28: OnyxSimChecker = state => {
 	return undefined;
 };
 
+/**
+ * R-44 (L4), checked beside the invariants: a run's trace says which harness configuration it ran under, and
+ * the hash it carries is the hash of that configuration. Nothing in a campaign asks for a lab configuration,
+ * so every run's configuration is the default one. A run that was refused before it began has no trace.
+ */
+const r44: OnyxSimChecker = (state, boundary) => {
+	if (boundary !== 'end') {
+		return undefined;
+	}
+	let headers = 0;
+	for (const line of state.journalLines) {
+		if (!line.includes('"kind":"trace"')) {
+			continue;
+		}
+		const entry = JSON.parse(line) as { readonly kind?: string; readonly data?: { readonly harness?: { readonly configurationHash?: string; readonly configuration?: IOnyxHarnessConfig; readonly source?: string } } };
+		if (entry.kind !== 'trace') {
+			continue;
+		}
+		headers++;
+		const harness = entry.data?.harness;
+		if (!harness?.configuration || typeof harness.configuration.toolCallProtocol !== 'string' || harness.configurationHash !== harnessConfigHash(harness.configuration)) {
+			return `R-44/trace-hash-not-of-configuration: the trace's hash ${harness?.configurationHash} is not the hash of a harness configuration it carries`;
+		}
+		if (harness.source !== 'default') {
+			return `R-44/configuration-not-default: nothing was requested and the trace says its configuration is ${harness.source}`;
+		}
+	}
+	if (headers === 0 && events(state).some(event => event.kind === 'request')) {
+		return 'R-44/trace-without-configuration: a model request was sent by a run whose trace has no header';
+	}
+	return undefined;
+};
+
 export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-01', title: 'No model-authored text reaches a live buffer or the disk before an explicit accept', check: (state, boundary) => i01(state, boundary) ?? i01Disk(state, boundary) },
 	{ id: 'I-02', title: 'No command is dispatched without an affirmative approval for that exact invocation', check: i02 },
@@ -631,6 +665,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'DEC-04', title: 'No prompt is sent to a model the inference settings refuse', check: dec04 },
 	{ id: 'R-27', title: 'A reply that opens with a code fence is shown as it streams', check: r27 },
 	{ id: 'R-28', title: 'A constrained answer is shown as it streams', check: r28 },
+	{ id: 'R-44', title: 'Every trace carries the hash of the harness configuration that ran', check: r44 },
 ];
 
 /** Invariants the rig cannot observe in Module 1, each with the reason the contract records. */

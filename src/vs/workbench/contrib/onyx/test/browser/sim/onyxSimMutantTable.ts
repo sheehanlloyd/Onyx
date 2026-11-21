@@ -253,6 +253,16 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		], { constrained: true }),
 	},
 	{
+		id: 'L4-inline-harness-record',
+		fixedBy: 'L4',
+		defect: 'The loop took its harness decisions inline and hashed a record of some of them into the trace; the hash named no configuration a second run could be given (R-44)',
+		detects: 'R-44/trace-hash-not-of-configuration',
+		resurrects: 'OnyxMutantInlineHarnessRecordLoop',
+		script: script('L4-inline-harness-record', 'What does this repository do?', [
+			{ kind: 'text', text: 'It adds numbers.' },
+		]),
+	},
+	{
 		id: 'B3-uncontracted-tools',
 		fixedBy: 'B3',
 		defect: 'Whatever core\'s tool registry holds reaches the model: `runTask`, `createAndRunTask`, a rename that writes without staging, the browser tools, MCP and extension tools, each with core\'s own confirmations or none (Claude H2; R-05)',

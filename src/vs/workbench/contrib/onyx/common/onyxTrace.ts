@@ -33,7 +33,13 @@ export interface IOnyxTraceHeader {
 	readonly v: typeof ONYX_TRACE_VERSION;
 	readonly runId: string;
 	readonly startedAt: number;
-	readonly harness: { readonly configurationHash: string; readonly configuration: Readonly<Record<string, unknown>> };
+	/**
+	 * The harness configuration the run used and its hash (L4). `source` says
+	 * whether it is the one derived for the model or a lab manifest's;
+	 * `requested` names the manifest entry that was asked for, and `refused`
+	 * says why it was not applied when it was not.
+	 */
+	readonly harness: { readonly configurationHash: string; readonly configuration: Readonly<Record<string, unknown>>; readonly source?: 'default' | 'lab'; readonly requested?: string; readonly refused?: string };
 	readonly model: { readonly identifier: string; readonly digest: string | null };
 	readonly runtime: { readonly name: string; readonly version: string | null; readonly baseUrl: string };
 	readonly sampling: { readonly temperature: number | null; readonly seed: number | null; readonly maxTokens: number | null; readonly responseFormat: boolean };

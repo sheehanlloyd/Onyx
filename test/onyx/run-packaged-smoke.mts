@@ -32,6 +32,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { labOnlyMarkers, scanBundle } from './checks/bundle-scan.mts';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -281,6 +282,11 @@ async function main() {
 		throw new Error(`the mock runtime never answered on :${mockPort} — stop any real runtime on that port, or set ONYX_MOCK_PORT`);
 	}
 
+	// The packaged app is started with a lab manifest asking for a one-turn run (R-44). A packaged build must
+	// refuse it: were it applied, the multi-turn flows below could not complete.
+	const labManifest = path.join(runDir, 'lab-manifest.json');
+	fs.writeFileSync(labManifest, JSON.stringify({ version: 1, name: '2026-11-21-packaged-smoke', harnessConfigurations: [{ name: 'one-turn', hash: '00000000', configuration: { turnCap: 1 } }] }));
+
 	children.push(spawn(executable, [
 		`--user-data-dir=${userDataDir}`,
 		`--extensions-dir=${extensionsDir}`,
@@ -295,7 +301,7 @@ async function main() {
 		'--disable-updates',
 		workspace,
 		path.join(workspace, 'src', 'math.ts'),
-	], { cwd: runDir, env: { ...process.env }, stdio: 'ignore', detached: true }));
+	], { cwd: runDir, env: { ...process.env, ONYX_LAB_MANIFEST: labManifest }, stdio: 'ignore', detached: true }));
 	const cdpUp = await waitForCdp(120_000);
 	check('infrastructure', 'the packaged app launched and opened a CDP endpoint', cdpUp);
 	if (!cdpUp) {
@@ -481,6 +487,18 @@ async function main() {
 	await sleep(3000);
 	const networkNotes = readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolResult' && event.data?.label === 'openBrowserPage').map(event => String(event.data?.reason ?? event.data?.ok));
 	check('contract', 'R-05: the denied network call did not run', networkNotes.length === 1 && networkNotes[0].includes('denied by the user'), networkNotes.join(' | ') || 'no openBrowserPage result on the timeline');
+
+	// --- Lab configurations and lab-only code stay out of the product (R-44, L4) ---
+	const harnessHeaders = readRuns().flatMap(run => run.events).filter(event => event.kind === 'trace').map(event => (event.data?.harness ?? {}) as { source?: string; requested?: string; refused?: string; configuration?: { turnCap?: number } });
+	observed.labHarnessRequest = harnessHeaders[0];
+	check('contract', 'R-44: a lab harness configuration asked for through a manifest is refused by the packaged build, and every run used the default one',
+		harnessHeaders.length > 0 && harnessHeaders.every(header => header.source === 'default' && header.requested === '2026-11-21-packaged-smoke/one-turn' && /packaged build/.test(header.refused ?? '') && header.configuration?.turnCap !== 1),
+		harnessHeaders.length ? JSON.stringify(harnessHeaders[0]).slice(0, 400) : 'no trace header in any run journal');
+	const bundle = scanBundle(path.join(app, 'Contents', 'Resources', 'app'), labOnlyMarkers(repoRoot));
+	observed.bundleScan = { filesScanned: bundle.filesScanned, charsScanned: bundle.charsScanned, markers: bundle.markers };
+	check('contract', 'R-44: no mutant and nothing of the simulation rig is in the product bundle',
+		bundle.filesScanned > 100 && bundle.findings.length === 0,
+		bundle.findings.length ? bundle.findings.slice(0, 5).map(finding => `${finding.marker} in ${finding.file}`).join('; ') : `only ${bundle.filesScanned} files scanned`);
 
 	// --- The Agent Host is excluded (B3) -----------------------------------
 	// When upstream's Agent Host starts it writes agenthost.log into the

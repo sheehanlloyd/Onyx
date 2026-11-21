@@ -200,12 +200,40 @@ function extractParameters(source: Record<string, unknown>): object {
 	return {};
 }
 
+/** What a reply's text goes through on its way to the transcript, and what is known about it when the reply ends. */
+export interface IOnyxAssistantTextStream {
+	append(chunk: string): void;
+	/** The prose of the turn, the tool call it turned out to be when it was one, and everything the model emitted. */
+	finish(): { readonly text: string; readonly toolCall: IOnyxTextToolCall | undefined; readonly raw: string };
+}
+
+/**
+ * The reply as it is, shown as it arrives: nothing is withheld and nothing
+ * in it is read as a tool call. What the bare native tool-call protocol
+ * uses (L4), where a call counts only when it comes on the tool channel.
+ */
+export class OnyxPlainTextStream implements IOnyxAssistantTextStream {
+
+	private _text = '';
+
+	constructor(private readonly _emit: (text: string) => void) { }
+
+	append(chunk: string): void {
+		this._text += chunk;
+		this._emit(chunk);
+	}
+
+	finish(): { readonly text: string; readonly toolCall: undefined; readonly raw: string } {
+		return { text: this._text, toolCall: undefined, raw: this._text };
+	}
+}
+
 /**
  * Streams assistant text to the transcript, holding back a leading tool
  * envelope until it is clear whether the turn is prose or a mis-channelled
  * tool call. Everything that is prose still streams token by token.
  */
-export class OnyxAssistantTextStream {
+export class OnyxAssistantTextStream implements IOnyxAssistantTextStream {
 
 	private _held = '';
 	private _deciding = true;

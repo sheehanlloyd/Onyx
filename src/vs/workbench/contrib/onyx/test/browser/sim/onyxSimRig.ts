@@ -20,7 +20,8 @@ import { ExtensionIdentifier } from '../../../../../../platform/extensions/commo
 import { FileService } from '../../../../../../platform/files/common/fileService.js';
 import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
-import { IOnyxRuntimeService } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IEnvironmentService } from '../../../../../../platform/environment/common/environment.js';
+import { IOnyxLabHarnessRequest, IOnyxRuntimeService } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService } from '../../../../../../platform/workspace/common/workspaceTrust.js';
 import { testWorkspace } from '../../../../../../platform/workspace/test/common/testWorkspace.js';
@@ -55,6 +56,7 @@ import { IOnyxPinService } from '../../../browser/intelligence/onyxPinService.js
 import { IOnyxEndpointSecretService } from '../../../browser/model/onyxEndpointSecrets.js';
 import { IOnyxModelService, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
+import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../../../browser/agent/onyxHarnessConfigService.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
 import { IOnyxRouterService, OnyxRouterService } from '../../../browser/routing/onyxRouterService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../../../browser/terminal/onyxTerminalTool.js';
@@ -110,6 +112,8 @@ export interface IOnyxSimState {
 	readonly commandsOutlivingWindow: readonly string[];
 	/** This run's journal as a default diagnostics export would carry it; set once the run has ended. */
 	readonly defaultExport: string | undefined;
+	/** Every journal event the control plane recorded so far, one JSON line each. */
+	readonly journalLines: readonly string[];
 }
 
 export type OnyxSimChecker = (state: IOnyxSimState, boundary: OnyxSimBoundary | 'end') => string | undefined;
@@ -132,6 +136,8 @@ export interface IOnyxSimRigOptions {
 	readonly classes?: Partial<IOnyxSimProductClasses>;
 	/** Whether the workspace is trusted (Workspace Trust). Default true; trust must change nothing about approval (R-02). */
 	readonly workspaceTrusted?: boolean;
+	/** A harness configuration asked for through a lab manifest (L4), and whether the product is a packaged build. */
+	readonly labHarness?: { readonly request: IOnyxLabHarnessRequest; readonly packaged: boolean };
 }
 
 export interface IOnyxSimResult {
@@ -255,6 +261,13 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		const instantiationService = workbenchInstantiationService({ fileService: () => fileService }, this._disposables);
 		instantiationService.stub(IWorkspaceContextService, new TestContextService(testWorkspace(simWorkspaceUri())));
 		instantiationService.stub(IOnyxRuntimeService, this.runtime);
+		this.runtime.labHarness = options.labHarness?.request;
+		if (options.labHarness?.packaged) {
+			// A packaged build: the same environment, except that it says it is built.
+			const environment: IEnvironmentService = Object.create(instantiationService.get(IEnvironmentService), { isBuilt: { value: true } });
+			instantiationService.stub(IEnvironmentService, environment);
+		}
+		instantiationService.stub(IOnyxHarnessConfigService, instantiationService.createInstance(OnyxHarnessConfigService));
 		instantiationService.stub(IDialogService, this.dialogs);
 		instantiationService.stub(ILanguageModelToolsService, this.tools);
 		// A constrained episode is a model whose tool calls are unreliable enough to be forced into the envelope.

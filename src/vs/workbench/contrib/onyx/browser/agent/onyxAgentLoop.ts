@@ -19,10 +19,11 @@ import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
 import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudgetedKind, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
-import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
+import { elideMiddle } from '../../common/onyxContextCompression.js';
+import { IOnyxResolvedHarness } from '../../common/onyxHarnessConfig.js';
 import { buildToolEnvelopeFormat, OnyxEnvelopeAnswerStream, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
-import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
-import { classifyStreamEnd, digestValue, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
+import { IOnyxAssistantTextStream, OnyxAssistantTextStream, OnyxPlainTextStream } from '../../common/onyxTextToolCalls.js';
+import { classifyStreamEnd, digestValue, IOnyxTraceHeader, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxPlaybookService } from '../playbooks/onyxPlaybookService.js';
 import { IOnyxTerminalService } from '../terminal/onyxTerminalTool.js';
 import { validateToolArguments } from '../../common/onyxToolArguments.js';
@@ -39,6 +40,7 @@ import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxRouterService } from '../routing/onyxRouterService.js';
 import { estimateMessageTokens, estimateTokens, IRequestTool, toWireTools } from '../model/onyxOpenAITranslator.js';
+import { IOnyxHarnessConfigService } from './onyxHarnessConfigService.js';
 import { IOnyxPromptCacheService } from './onyxPromptCache.js';
 import { OnyxPromptBuilder } from './onyxPromptBuilder.js';
 
@@ -79,6 +81,7 @@ export class OnyxAgentLoop {
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IOnyxTerminalService private readonly _terminalService: IOnyxTerminalService,
 		@ILogService private readonly _logService: ILogService,
+		@IOnyxHarnessConfigService private readonly _harnessConfigService: IOnyxHarnessConfigService,
 	) { }
 
 	async run(request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: readonly IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatAgentResult> {
@@ -137,9 +140,44 @@ export class OnyxAgentLoop {
 		token: CancellationToken,
 		modelIdentifier: string,
 		metadata: ILanguageModelChatMetadata | undefined,
-		profile: IOnyxModelProfile,
+		modelProfile: IOnyxModelProfile,
 		run: ReturnType<IOnyxControlPlaneService['beginRun']>,
 	): Promise<IChatAgentResult> {
+		// The harness configuration (L4): every decision below about how this run talks to the model is read
+		// from it. The profile and the runtime's facts produce it; a lab manifest may change it, in a
+		// development build only.
+		const modelKey = modelIdentifier.startsWith(`${ONYX_VENDOR}:`) ? modelIdentifier.slice(ONYX_VENDOR.length + 1) : modelIdentifier;
+		const harness = await this._harnessConfigService.resolve(modelProfile, { runtimeEnforcesSchema: this._onyxModelService.getKnownModel(modelKey)?.discovered.supportsJsonSchema === true });
+		const configuration = harness.configuration;
+		if (harness.requested) {
+			run.activity(harness.refused
+				? { kind: 'note', label: 'A lab harness configuration was requested and not applied', reason: `${harness.requested.name} (${harness.requested.manifest}): ${harness.refused}. This run uses the default configuration.`, ok: false }
+				: { kind: 'note', label: 'This run uses a lab harness configuration', reason: `${harness.requested.name} (${harness.requested.manifest}), hash ${harness.hash}` });
+		}
+		// What the prompt builder and the slot policy are given: the model's profile, with the fields the
+		// configuration decides taken from the configuration.
+		const profile: IOnyxModelProfile = { ...modelProfile, promptStyle: configuration.promptStyle, contextLength: configuration.contextTokens, maxTools: configuration.maxTools };
+		const running = this._harnessConfigService.begin(request.requestId, configuration);
+		try {
+			return await this._runConfigured(request, progress, history, token, modelIdentifier, modelKey, metadata, profile, harness, run);
+		} finally {
+			running.dispose();
+		}
+	}
+
+	private async _runConfigured(
+		request: IChatAgentRequest,
+		progress: (parts: IChatProgress[]) => void,
+		history: readonly IChatAgentHistoryEntry[],
+		token: CancellationToken,
+		modelIdentifier: string,
+		modelKey: string,
+		metadata: ILanguageModelChatMetadata | undefined,
+		profile: IOnyxModelProfile,
+		harness: IOnyxResolvedHarness,
+		run: ReturnType<IOnyxControlPlaneService['beginRun']>,
+	): Promise<IChatAgentResult> {
+		const configuration = harness.configuration;
 		const selection = this._selectTools(request, metadata, profile);
 		if (selection.kind === 'refused') {
 			// An editing agent with part of its tool set looks usable and is not
@@ -160,30 +198,28 @@ export class OnyxAgentLoop {
 			progress([{ kind: 'markdownContent', content: new MarkdownString(localize('onyx.agent.readOnlyRun', "This model's profile has room for {0} tools and agent editing needs {1}, so this run can read the workspace but cannot propose edits or run commands.\n\n", selection.tools.length, ONYX_MIN_EDIT_SLOTS)) }]);
 		}
 
-		// Grammar-constrained tool calling: when this model keeps mangling the
-		// tool_calls channel but its runtime can enforce a JSON schema, every
-		// turn is constrained to the tool/answer envelope — a constrained turn
-		// can be wrong, but it cannot be malformed.
-		const modelKey = modelIdentifier.startsWith(`${ONYX_VENDOR}:`) ? modelIdentifier.slice(ONYX_VENDOR.length + 1) : modelIdentifier;
-		const constrained = tools.length > 0
-			&& profile.toolCallQuality < 0.75
-			&& this._onyxModelService.getKnownModel(modelKey)?.discovered.supportsJsonSchema === true;
-		run.activity({ kind: 'route', label: modelIdentifier, reason: `${tools.length} tools exposed, ${profile.promptStyle} prompt${constrained ? ', constrained decoding' : ''}` });
+		// Grammar-constrained tool calling: when the configuration says so (a model that keeps mangling the
+		// tool_calls channel, on a runtime that can enforce a JSON schema), every turn is constrained to the
+		// tool/answer envelope. A constrained turn can be wrong, but it cannot be malformed. A run with no
+		// tools has no call to constrain.
+		const constrained = tools.length > 0 && configuration.toolCallProtocol === 'constrained-envelope';
+		// Whether a call the model wrote as text is recognised and run. Only the bare native protocol does not.
+		const repairsText = configuration.toolCallProtocol !== 'native';
+		run.activity({ kind: 'route', label: modelIdentifier, reason: `${tools.length} tools exposed, ${configuration.promptStyle} prompt${constrained ? ', constrained decoding' : ''}` });
 
 		// Trace v2 header (L3): what this run was configured with, so a result can be repeated.
 		const known = this._onyxModelService.getKnownModel(modelKey);
-		const maxTurns = profile.promptStyle === 'compact' ? 8 : 16;
-		const harnessConfiguration = { promptStyle: profile.promptStyle, maxTools: profile.maxTools, maxTurns, constrained, toolResultBudget: toolResultBudget(profile.promptStyle), contextLength: profile.contextLength, toolCallQuality: profile.toolCallQuality };
+		const maxTurns = configuration.turnCap;
 		run.record({
 			kind: 'trace',
 			v: ONYX_TRACE_VERSION,
 			runId: run.runId,
 			startedAt: Date.now(),
-			harness: { configurationHash: digestValue(harnessConfiguration), configuration: harnessConfiguration },
+			harness: this._harnessRecord(harness),
 			model: { identifier: modelIdentifier, digest: known?.discovered.digest ?? null },
 			runtime: { name: known?.discovered.runtime ?? 'unknown', version: known?.discovered.runtimeVersion ?? null, baseUrl: known?.discovered.baseUrl ?? '' },
 			// null, not undefined: JSON drops undefined and the validator fails closed on an absent field.
-			sampling: { temperature: profile.temperature ?? null, seed: profile.seed ?? null, maxTokens: outputCapTokens(profile.contextLength), responseFormat: constrained },
+			sampling: { temperature: profile.temperature ?? null, seed: profile.seed ?? null, maxTokens: outputCapTokens(configuration.contextTokens), responseFormat: constrained },
 			tools: tools.map(tool => ({ name: tool.name, schemaHash: digestValue(tool.inputSchema) })),
 		});
 
@@ -208,7 +244,7 @@ export class OnyxAgentLoop {
 		const schemaTokens = estimateTokens(JSON.stringify(toWireTools(tools))) + (constrained ? estimateTokens(JSON.stringify(buildToolEnvelopeFormat(tools))) : 0);
 		// The context to fit in. It starts as the smallest number known for the model and only ever gets
 		// smaller during a run: an overflow error teaches what does not fit.
-		let contextTokens = profile.contextLength;
+		let contextTokens = configuration.contextTokens;
 		let overflowRetried = false;
 
 		const errorsBefore = this._countWorkspaceErrors();
@@ -270,14 +306,12 @@ export class OnyxAgentLoop {
 			// a tool call the model wrote as prose can be recognized and executed
 			// instead of shown to the user as raw JSON. Constrained turns stream
 			// nothing: the whole turn is one envelope, parsed when complete.
-			const textStream = this._createTextStream(
-				tools.map(tool => tool.name),
-				text => {
-					if (!constrained) {
-						progress([{ kind: 'markdownContent', content: new MarkdownString(text) }]);
-					}
-				},
-			);
+			const showText = (text: string) => {
+				if (!constrained) {
+					progress([{ kind: 'markdownContent', content: new MarkdownString(text) }]);
+				}
+			};
+			const textStream: IOnyxAssistantTextStream = repairsText ? this._createTextStream(tools.map(tool => tool.name), showText) : new OnyxPlainTextStream(showText);
 			// A reasoning model's thinking is taken out before the text reaches anything that reads it (C4):
 			// from `<think>` tags in the text, or from the part of its own a runtime sends it in.
 			const reasoning = this._createReasoningFilter();
@@ -411,7 +445,9 @@ export class OnyxAgentLoop {
 
 			if (toolUses.length === 0) {
 				recordTurn(assistantText, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured);
-				this._reportVerification(run, errorsBefore, anyToolRan);
+				if (configuration.verificationFeedback) {
+					this._reportVerification(run, errorsBefore, anyToolRan);
+				}
 				run.complete('completed');
 				return {};
 			}
@@ -434,7 +470,7 @@ export class OnyxAgentLoop {
 				// (signatures and errors) and mark the elided middle.
 				messages.push({
 					role: ChatMessageRole.User,
-					content: [{ type: 'tool_result', toolCallId: toolUse.toolCallId, value: [{ type: 'text', value: elideMiddle(resultText, toolResultBudget(profile.promptStyle)) }] }],
+					content: [{ type: 'tool_result', toolCallId: toolUse.toolCallId, value: [{ type: 'text', value: elideMiddle(resultText, configuration.toolResultChars) }] }],
 				});
 			}
 			recordTurn(assistantText, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured);
@@ -516,6 +552,17 @@ export class OnyxAgentLoop {
 				location: { path: badge.path, line: 1 },
 			});
 		}
+	}
+
+	/** What the trace says the run was configured with: the configuration itself, its hash, and where it came from (L4). */
+	protected _harnessRecord(harness: IOnyxResolvedHarness): IOnyxTraceHeader['harness'] {
+		return {
+			configurationHash: harness.hash,
+			configuration: { ...harness.configuration },
+			source: harness.source,
+			...(harness.requested ? { requested: `${harness.requested.manifest}/${harness.requested.name}` } : {}),
+			...(harness.refused ? { refused: harness.refused } : {}),
+		};
 	}
 
 	/** What decides, as a reply streams, how much of it is withheld in case it is a tool call written as text. */
