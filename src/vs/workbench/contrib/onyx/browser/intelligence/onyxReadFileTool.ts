@@ -11,6 +11,7 @@ import { localize } from '../../../../../nls.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { ILanguageModelToolsService, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource } from '../../../chat/common/tools/languageModelToolsService.js';
 import { formatNumberedLines, formatSize, ONYX_READ_FILE_MAX_BYTES, ONYX_READ_FILE_MAX_LINES, resolveLineRange, splitLines } from '../../common/onyxReadTools.js';
+import { IOnyxHarnessConfigService } from '../agent/onyxHarnessConfigService.js';
 import { IOnyxWorkspaceAccessService } from './onyxWorkspaceAccess.js';
 
 export const ONYX_READ_FILE_TOOL_ID = 'onyx_readFile';
@@ -30,6 +31,7 @@ export class OnyxReadFileToolContribution extends Disposable {
 		@IOnyxWorkspaceAccessService private readonly _accessService: IOnyxWorkspaceAccessService,
 		@IFileService private readonly _fileService: IFileService,
 		@IModelService private readonly _modelService: IModelService,
+		@IOnyxHarnessConfigService private readonly _harnessConfigService: IOnyxHarnessConfigService,
 	) {
 		super();
 
@@ -119,7 +121,9 @@ export class OnyxReadFileToolContribution extends Disposable {
 		if (totalLines === 0) {
 			return { content: [{ kind: 'text', value: `${resolved.qualifiedPath} is empty (0 lines).` }], toolResultDetails: [resolved.uri] };
 		}
-		const body = formatNumberedLines(lines.slice(range.startLine - 1, range.endLine), range.startLine);
+		// Numbered unless the run this call belongs to was configured otherwise (L4). A call from anywhere else is numbered.
+		const numbered = this._harnessConfigService.forRequest(invocation.chatRequestId)?.readToolLineNumbering ?? true;
+		const body = formatNumberedLines(lines.slice(range.startLine - 1, range.endLine), range.startLine, undefined, numbered);
 		const header = `${resolved.qualifiedPath} (lines ${range.startLine}-${range.endLine} of ${totalLines}${liveModel ? ', as open in the editor' : ''})`;
 		const footer = range.clipped
 			? `\n[one call returns at most ${ONYX_READ_FILE_MAX_LINES} lines; call readFile again with "startLine": ${range.endLine + 1} for more]`

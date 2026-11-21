@@ -283,6 +283,45 @@ eligible by its path alone, so that number can be high by the few files too larg
 it would rank ahead of one that is held. The text cap is applied when the index is built and reconciled, not
 on each later change. Search is one pass over the held documents in the shared process (26 ms here).
 
+## The harness configuration (L4)
+
+How the agent loop talks to a model is a set of named switches, the harness configuration, and the loop
+reads its decisions from nowhere else. A run's configuration and its hash are in the first record of its
+trace, so two runs can be told to have been run the same way.
+
+| Switch | What it decides | What the product runs | Other values (lab only) |
+|---|---|---|---|
+| `toolCallProtocol` | How a tool call is read | `constrained-envelope` when the model's tool calls are well-formed less than 75% of the time and its runtime enforces a JSON schema; otherwise `repaired-text` (the tool channel, and a call written as text is recognised and run) | `native`: the tool channel only |
+| `editProtocol` | How an edit is proposed | `search-replace` | none yet (constrained anchors, L7) |
+| `promptStyle` | How much the prompt carries | `compact` or `full`, from the model's profile | the other one |
+| `toolResultChars` | The most of one tool result that goes back to the model | 4,000 with a compact prompt, 16,000 with a full one | 200 to 1,000,000 |
+| `evictionPolicy` | What is dropped when a turn does not fit | `oldest-results-first` (B13) | none yet (L17) |
+| `contextTokens` | The context a turn is fitted to | the smallest context known for the model (B13) | 512 to 4,000,000 |
+| `turnCap` | The most model turns in a run | 8 with a compact prompt, 16 with a full one | 1 to 64 |
+| `verificationFeedback` | Whether a run that used a tool ends by comparing the workspace's problems to how it started | on | off |
+| `readToolLineNumbering` | Whether `readFile` numbers its lines | on | off |
+| `toolSlotPolicy` | Which tools are advertised when there are more than places | `essentials-first` (B1) | none yet |
+| `maxTools` | How many places there are | from the model's profile | 1 to 64 |
+
+**The default is what Onyx did before the switches existed.** 1,000 seeded simulation episodes and every
+scripted scenario produce the same trace, event for event, as they did at the commit before
+(`OnyxHarnessConfigRun`).
+
+**Lab values come from a manifest, in a development build only.** Starting Onyx with `ONYX_LAB_MANIFEST`
+set to a lab manifest (and optionally `ONYX_LAB_HARNESS` to the name of one of its harness configurations)
+asks for that configuration. A build from source applies it over the default and says so on the run's
+timeline. A packaged build refuses it whatever it asks for, runs the default configuration, and says so on
+the timeline and in the trace; the packaged smoke starts the app that way and checks it. A request with an
+unknown switch or a value out of range is refused everywhere, whole. There is no setting for any of this.
+
+**What is not a switch.** Approval, staging, the workspace boundary and the tool contract are not
+configurable. Code that is unsafe by design (the resurrected defects the simulation campaign uses) exists
+only under test paths; the packaged smoke scans the built app for it and the gate scans the compiled product
+folders.
+
+**Limit.** With `readToolLineNumbering` off the tool's description still tells the model its lines are
+numbered. An experiment that uses that switch has to account for it.
+
 ## Command execution and its limits (B5)
 
 An approved command is started by one module, `src/vs/platform/onyxRuntime/node/onyxCommandRunner.ts`, and by

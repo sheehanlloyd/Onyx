@@ -14,9 +14,10 @@ import { ILogService } from '../../log/common/log.js';
 import { OnyxArchitectureScanner } from './onyxArchitectureScanner.js';
 import { IOnyxCommandProcess, OnyxCommandRunner } from './onyxCommandRunner.js';
 import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
+import { readLabHarnessRequest } from './onyxLabManifest.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
 import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -379,6 +380,10 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 			this._indexers.set(rootPath, indexer);
 		}
 		return indexer;
+	}
+
+	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> {
+		return readLabHarnessRequest(process.env, path => fs.promises.readFile(path, 'utf8'));
 	}
 
 	async configureWorkspaceIndex(rootPath: string, options: IOnyxIndexOptions): Promise<void> {

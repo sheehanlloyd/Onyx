@@ -149,6 +149,23 @@ export interface IOnyxIndexLimits {
  */
 export const ONYX_INDEX_LIMITS: IOnyxIndexLimits = { maxFiles: 20_000, maxTotalBytes: 256 * 1024 * 1024 };
 
+/**
+ * A harness configuration asked for from outside the product (L4): a named
+ * entry of a lab manifest, as far as it differs from what the product would
+ * run. Reading it decides nothing. Whether it is applied is the workbench's
+ * decision, and a packaged build refuses every one.
+ */
+export interface IOnyxLabHarnessRequest {
+	/** The manifest it came from, for the record: its name, not where it is on disk. */
+	readonly manifest: string;
+	/** The entry's name in the manifest. */
+	readonly name: string;
+	/** The fields to change, as the manifest has them. Untrusted until checked. */
+	readonly configuration: unknown;
+	/** Why the manifest could not be read or has no such entry. A request with a problem is refused. */
+	readonly problem?: string;
+}
+
 /** What decides which files a workspace index covers, beyond its built-in rules (C7). */
 export interface IOnyxIndexOptions extends Partial<IOnyxIndexLimits> {
 	/** Glob patterns, relative to the root, for files and folders to leave out: the workspace's `files.exclude` and `search.exclude`. */
@@ -412,6 +429,13 @@ export interface IOnyxRuntimeService {
 	 * builds one under these.
 	 */
 	configureWorkspaceIndex(rootPath: string, options: IOnyxIndexOptions): Promise<void>;
+
+	/**
+	 * The harness configuration this process was started with a request for,
+	 * from the lab manifest its environment names (L4). Undefined on every
+	 * ordinary start.
+	 */
+	labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined>;
 
 	/** Searches the workspace index; empty until {@link ensureWorkspaceIndex} has run. */
 	searchWorkspaceIndex(rootPath: string, persistPath: string, query: string, limit: number): Promise<readonly { path: string; score: number }[]>;

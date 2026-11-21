@@ -308,6 +308,41 @@
 			]
 		},
 		{
+			"id": "R-44",
+			"title": "L4 harness configuration as data: the default configuration is what the loop decided before, 1,000 seeded episodes and every scripted scenario run identically, a requested configuration is followed in a development build and refused in a packaged one, and every trace carries the hash of the configuration that ran",
+			"layer": "pure, node, service",
+			"regressions": [
+				"R-44"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxHarnessConfig.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxHarnessConfigRun.test.ts",
+				"src/vs/platform/onyxRuntime/test/node/onyxLabManifest.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxHarnessConfig|OnyxLabManifest"
+			]
+		},
+		{
+			"id": "R-44-bundle-scan",
+			"title": "L4, DEC-10: the scan for mutants and the simulation rig finds them where they are, finds none in the compiled product folders, and has a marker for every mutant (the packaged smoke runs the same scan over the built app)",
+			"layer": "node",
+			"regressions": [
+				"R-44"
+			],
+			"files": [
+				"test/onyx/checks/r44-bundle-scan.test.mts",
+				"test/onyx/checks/bundle-scan.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r44-bundle-scan.test.mts"
+			]
+		},
+		{
 			"id": "sim-mutants",
 			"title": "Every defect fixed in this module has a resurrection mutant that its script and the seeded campaign detect",
 			"layer": "service",

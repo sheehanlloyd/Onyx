@@ -14,8 +14,10 @@ import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from
 import { IOnyxBudgetedMessage, IOnyxTurnPlan } from '../../../common/onyxContextBudget.js';
 import { OnyxEnvelopeAnswerStream } from '../../../common/onyxConstrainedToolCalls.js';
 import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
+import { IOnyxResolvedHarness } from '../../../common/onyxHarnessConfig.js';
 import { IOnyxReasoningSplit, OnyxReasoningFilter } from '../../../common/onyxReasoning.js';
 import { OnyxAssistantTextStream } from '../../../common/onyxTextToolCalls.js';
+import { digestValue, IOnyxTraceHeader } from '../../../common/onyxTrace.js';
 import { decideInferenceUse, IOnyxInferenceLocation, IOnyxInferencePolicy } from '../../../common/onyxInferenceLocation.js';
 import { OnyxTimelineOutput } from '../../../common/onyxTerminalOutput.js';
 import { buildApprovalRequest, IOnyxCommandInvocation, IOnyxTerminalApprovalRequest, normalizeCommand, OnyxTerminalDecision } from '../../../common/onyxTerminalPolicy.js';
@@ -287,6 +289,25 @@ class OnyxMutantConstrainedAnswerWithheldLoop extends OnyxAgentLoop {
 	}
 }
 
+/**
+ * Before L4 the loop took its decisions inline and wrote a record of some of them into the trace: a prompt
+ * style, a turn count, a flag. The hash was of that record. No configuration existed that a second run
+ * could be given, so the hash named nothing that could be reproduced.
+ */
+class OnyxMutantInlineHarnessRecordLoop extends OnyxAgentLoop {
+	protected override _harnessRecord(harness: IOnyxResolvedHarness): IOnyxTraceHeader['harness'] {
+		const inline = {
+			promptStyle: harness.configuration.promptStyle,
+			maxTools: harness.configuration.maxTools,
+			maxTurns: harness.configuration.turnCap,
+			constrained: harness.configuration.toolCallProtocol === 'constrained-envelope',
+			toolResultBudget: harness.configuration.toolResultChars,
+			contextLength: harness.configuration.contextTokens,
+		};
+		return { configurationHash: digestValue(inline), configuration: inline };
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -310,6 +331,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },
 	'C6-constrained-answer-withheld': { AgentLoop: OnyxMutantConstrainedAnswerWithheldLoop },
+	'L4-inline-harness-record': { AgentLoop: OnyxMutantInlineHarnessRecordLoop },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
 };

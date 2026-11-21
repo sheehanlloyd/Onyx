@@ -65,6 +65,7 @@ import { IOnyxLedgerService, OnyxLedgerService } from '../browser/compute/onyxLe
 import { IOnyxPinService, OnyxPinService } from '../browser/intelligence/onyxPinService.js';
 import { IOnyxEnergyService, OnyxEnergyService } from '../browser/compute/onyxEnergyService.js';
 import { IOnyxSpeculativeService, OnyxSpeculativeService } from '../browser/compute/onyxSpeculativeService.js';
+import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../browser/agent/onyxHarnessConfigService.js';
 import { IOnyxPromptCacheService, OnyxPromptCacheService } from '../browser/agent/onyxPromptCache.js';
 import { IOnyxProjectConfigService, OnyxProjectConfigService } from '../browser/config/onyxProjectConfigService.js';
 import { OnyxDiagnosticsExport } from '../browser/diagnostics/onyxDiagnosticsExport.js';
@@ -101,6 +102,7 @@ registerSingleton(IOnyxLedgerService, OnyxLedgerService, InstantiationType.Delay
 registerSingleton(IOnyxPinService, OnyxPinService, InstantiationType.Delayed);
 registerSingleton(IOnyxEnergyService, OnyxEnergyService, InstantiationType.Delayed);
 registerSingleton(IOnyxPromptCacheService, OnyxPromptCacheService, InstantiationType.Delayed);
+registerSingleton(IOnyxHarnessConfigService, OnyxHarnessConfigService, InstantiationType.Delayed);
 registerSingleton(IOnyxProjectConfigService, OnyxProjectConfigService, InstantiationType.Delayed);
 registerSingleton(IOnyxChangeSetService, OnyxChangeSetService, InstantiationType.Delayed);
 registerSingleton(IOnyxTerminalService, OnyxTerminalService, InstantiationType.Delayed);

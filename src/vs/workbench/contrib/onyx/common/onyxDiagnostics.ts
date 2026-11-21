@@ -229,7 +229,14 @@ export class OnyxDiagnosticsRedactor {
 			v: this._number(data.v),
 			runId: this.identifier(data.runId),
 			startedAt: this._number(data.startedAt),
-			harness: { configurationHash: this.identifier(harness.configurationHash), configuration: this._switches(harness.configuration) },
+			harness: {
+				configurationHash: this.identifier(harness.configurationHash),
+				configuration: this._switches(harness.configuration),
+				source: this.identifier(harness.source),
+				// Which manifest entry was asked for is a name; why it was refused repeats what the manifest said, which is content.
+				...(harness.requested !== undefined ? { requested: this.identifier(harness.requested) } : {}),
+				...(harness.refused !== undefined ? { refused: this.content(harness.refused) } : {}),
+			},
 			model: { identifier: this.identifier(model.identifier), digest: this.identifier(model.digest) },
 			runtime: { name: this.identifier(runtime.name), version: this.identifier(runtime.version), baseUrl: this.url(runtime.baseUrl) },
 			sampling: { temperature: this._number(sampling.temperature), seed: this._number(sampling.seed), maxTokens: this._number(sampling.maxTokens), responseFormat: this._boolean(sampling.responseFormat) },

@@ -16,7 +16,7 @@ import { InMemoryFileSystemProvider } from '../../../../../../platform/files/com
 import { FileSystemFileSearchProvider } from '../../../../../services/search/common/fileSystemFileSearchProvider.js';
 import { IFileMatch, IFileQuery, ISearchComplete, ISearchService, ITextQuery, OneLineRange, QueryType, TextSearchMatch } from '../../../../../services/search/common/search.js';
 import { commandEnvironment } from '../../../../../../platform/onyxRuntime/common/onyxCommandExecution.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../../../chat/common/tools/languageModelToolsService.js';
 import { ITaskService } from '../../../../tasks/common/taskService.js';
@@ -363,6 +363,9 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	async warmUpModel(): Promise<void> { }
 	async ensureWorkspaceIndex(): Promise<IOnyxIndexStats> { return { files: 0, eligibleFiles: 0, buildMs: 0, truncated: false, source: 'built', builtAt: 0 }; }
 	async configureWorkspaceIndex(): Promise<void> { }
+	/** What a lab manifest named by the environment would ask for; nothing unless a test sets it. */
+	labHarness: IOnyxLabHarnessRequest | undefined;
+	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> { return this.labHarness; }
 	async searchWorkspaceIndex(): Promise<readonly { path: string; score: number }[]> { return []; }
 	async updateWorkspaceIndex(): Promise<void> { }
 	async worktreeCreate(): Promise<{ readonly worktreePath: string }> { throw new Error('not simulated'); }
