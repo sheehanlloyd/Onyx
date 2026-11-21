@@ -33,6 +33,7 @@ import { ONYX_VENDOR } from '../common/onyxTypes.js';
 import { OnyxChatAgentContribution } from '../browser/agent/onyxChatAgent.js';
 import { IOnyxChangeSetService, OnyxChangeSetService } from '../browser/changes/onyxChangeSetService.js';
 import { OnyxEditToolContribution } from '../browser/changes/onyxEditTool.js';
+import { OnyxProposalDocuments } from '../browser/changes/onyxProposalDiff.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../browser/terminal/onyxTerminalTool.js';
 import { OnyxInlineCompletionsContribution } from '../browser/autocomplete/onyxInlineCompletions.js';
 import { IOnyxMemoryService, OnyxMemoryService } from '../browser/intelligence/onyxMemoryService.js';
@@ -207,6 +208,7 @@ class OnyxModelsContribution extends Disposable {
 
 registerWorkbenchContribution2(OnyxModelsContribution.ID, OnyxModelsContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxChatAgentContribution.ID, OnyxChatAgentContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxProposalDocuments.ID, OnyxProposalDocuments, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxStatusBarContribution.ID, OnyxStatusBarContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxInlineCompletionsContribution.ID, OnyxInlineCompletionsContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(OnyxReadFileToolContribution.ID, OnyxReadFileToolContribution, WorkbenchPhase.AfterRestored);

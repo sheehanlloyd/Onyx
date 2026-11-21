@@ -60,6 +60,7 @@ import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../../../br
 import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../../../browser/models/onyxContextAllocationService.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, WillSaveStateReason } from '../../../../../../platform/storage/common/storage.js';
+import { OnyxProposalDocuments } from '../../../browser/changes/onyxProposalDiff.js';
 import { OnyxInlineEditSession } from '../../../browser/editor/onyxInlineEditSession.js';
 import { Range } from '../../../../../../editor/common/core/range.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
@@ -406,6 +407,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	closeModel(path: string): void {
 		this._close(path);
 		this._modelService.getModel(this._uri(path))?.dispose();
+	}
+
+	/** The product's proposal documents (C1), over this rig's change set and text models. */
+	proposalDocuments(): OnyxProposalDocuments {
+		return this._disposables.add(this._instantiationService.createInstance(OnyxProposalDocuments));
 	}
 
 	/** Whether the file has unsaved changes, as the editor would show it. */

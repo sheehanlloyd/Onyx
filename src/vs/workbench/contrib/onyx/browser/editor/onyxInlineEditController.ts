@@ -272,7 +272,7 @@ export class OnyxInlineEditController implements IEditorContribution {
 			});
 		});
 		const position = hunks.findIndex(hunk => hunk.id === this._currentHunkId);
-		this._widget?.setStatus(localize('onyx.inlineEdit.review', "Proposed, not yet in the file: hunk {0} of {1} — ⌘⏎ keep · ⌘⌫ reject · F7 next · esc discard the rest", position + 1, hunks.length), 'polite');
+		this._widget?.setStatus(localize('onyx.inlineEdit.review', "Proposed, not yet in the file: hunk {0} of {1} — ⌘⏎ keep · ⌘⌫ reject · F7 next · ⌥D diff · esc discard the rest", position + 1, hunks.length), 'polite');
 	}
 
 	private _focusHunk(): void {
@@ -321,6 +321,13 @@ export class OnyxInlineEditController implements IEditorContribution {
 		}
 		this._changeSetService.rejectHunk(review.path, hunkId);
 		this._focusHunk();
+	}
+
+	/** Opens the proposal under review in a diff editor (C1). The review here goes on; both show the same change set. */
+	async openDiff(): Promise<void> {
+		if (this._state === SessionState.Review && this._review) {
+			await this._changeSetService.openDiff(this._review.path);
+		}
 	}
 
 	/** Escape: streaming cancels; review discards what is left of the proposal; prompting closes. */
@@ -458,6 +465,20 @@ registerAction2(class OnyxInlineEditAcceptAction extends EditorAction2 {
 	}
 	runEditorCommand(_accessor: ServicesAccessor, editor: ICodeEditor): void {
 		OnyxInlineEditController.get(editor)?.acceptCurrentHunk();
+	}
+});
+
+registerAction2(class OnyxInlineEditOpenDiffAction extends EditorAction2 {
+	constructor() {
+		super({
+			id: 'onyx.inlineEdit.openDiff',
+			title: localize2('onyx.inlineEdit.openDiff', "Onyx: Open Inline Edit Proposal in Diff Editor"),
+			precondition: CONTEXT_ONYX_INLINE_EDIT_REVIEW,
+			keybinding: { weight: KeybindingWeight.WorkbenchContrib + 10, primary: KeyMod.Alt | KeyCode.KeyD, when: CONTEXT_ONYX_INLINE_EDIT_REVIEW },
+		});
+	}
+	runEditorCommand(_accessor: ServicesAccessor, editor: ICodeEditor): void {
+		OnyxInlineEditController.get(editor)?.openDiff();
 	}
 });
 

@@ -740,6 +740,40 @@ async function main() {
 	const changesState = readChangesState();
 	const wasStaged = changesState.includes('src/math.ts');
 	check('the staged file appears in Onyx Changes', wasStaged, changesState.slice(0, 160));
+	// --- R-25 (C1): the proposal in a real diff editor. Open it from Onyx Changes, accept one hunk from the
+	// editor, and the file holds that hunk and not the other; the side bar follows.
+	const openedDiff = pwValue(pw('run-code', `async (page) => {
+		const open = await page.$('.onyx-change-file-header .codicon-go-to-file');
+		if (!open) { return 'no-open-button'; }
+		await open.click(); return 'opened';
+	}`));
+	const readDiffState = () => pw('run-code', `async (page) => page.evaluate(() => {
+		const lines = side => Array.from(document.querySelectorAll('.monaco-diff-editor .editor.' + side + ' .view-line')).map(l => (l.textContent || '').replace(/\\u00a0/g, ' '));
+		const has = (side, text) => lines(side).some(l => l.includes(text));
+		return {
+			diff: !!document.querySelector('.monaco-diff-editor'),
+			fileHasFirst: has('original', 'return b + a; // edited-by-mock'),
+			fileHasSecond: has('original', 'return b * a; // edited-by-mock'),
+			proposalHasFirst: has('modified', 'return b + a; // edited-by-mock'),
+			proposalHasSecond: has('modified', 'return b * a; // edited-by-mock'),
+			stat: (document.querySelector('.onyx-change-file-stat') || {}).textContent || '',
+		};
+	})`);
+	await waitUntil(() => /"proposalHasFirst"\s*:\s*true/.test(readDiffState()));
+	const diffState = readDiffState();
+	check('R-25: the proposal opens in a diff editor, the file on the left without the edits and the proposal on the right with them', openedDiff === 'opened' && /"diff"\s*:\s*true/.test(diffState) && /"fileHasFirst"\s*:\s*false/.test(diffState) && /"fileHasSecond"\s*:\s*false/.test(diffState) && /"proposalHasFirst"\s*:\s*true/.test(diffState) && /"proposalHasSecond"\s*:\s*true/.test(diffState), `${openedDiff}; ${diffState.slice(0, 260)}`);
+	// The caret goes to the first changed line of the proposal, and that hunk is accepted from the editor.
+	pw('run-code', 'async (page) => { const ed = await page.$(".monaco-diff-editor .editor.modified .native-edit-context, .monaco-diff-editor .editor.modified textarea.inputarea"); if (!ed) { throw new Error("no proposal editor input"); } await ed.focus(); }');
+	pw('press', 'Control+g');
+	await sleep(800);
+	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ':2'); }`);
+	pw('press', 'Enter');
+	await sleep(800);
+	await runCommand('Onyx: Accept Hunk at Cursor');
+	await waitUntil(() => /"fileHasFirst"\s*:\s*true/.test(readDiffState()));
+	const acceptedHunkState = readDiffState();
+	check('R-25: accepting one hunk from the editor puts that hunk in the file and not the other, and the side bar shows one hunk left', /"fileHasFirst"\s*:\s*true/.test(acceptedHunkState) && /"fileHasSecond"\s*:\s*false/.test(acceptedHunkState) && /"stat"\s*:\s*"\+1 −1"/.test(acceptedHunkState), acceptedHunkState.slice(0, 260));
+	// Back to the side bar for the rest: Accept All takes the hunk that is left.
 	pw('run-code', 'async (page) => { const el = await page.$(".onyx-changes-summary button"); await el.click(); }'); // Accept All
 	const readAcceptedState = () => pw('run-code', `async (page) => page.evaluate(() => ({
 		empty: !!document.querySelector('.onyx-changes .onyx-empty'),

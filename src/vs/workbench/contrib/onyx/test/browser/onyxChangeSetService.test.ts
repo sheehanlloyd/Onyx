@@ -6,7 +6,9 @@
 import assert from 'assert';
 import { runWithFakedTimers } from '../../../../../base/test/common/timeTravelScheduler.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { IOnyxStagedFile } from '../../browser/changes/onyxChangeSetService.js';
+import { onyxProposalUri } from '../../browser/changes/onyxProposalDiff.js';
 import { OnyxSimRig } from './sim/onyxSimRig.js';
 
 /**
@@ -165,6 +167,35 @@ suite('OnyxChangeSetService', () => {
 			whole: 'Proposal refused for src/math.ts: the file has 8 lines and the proposed content 1200; a proposal is reviewed up to 1000 lines a side. Nothing was staged, and anything already staged for the file is unchanged.',
 			unchanged: true,
 			buffer: true,
+		});
+	});
+
+	test('C1 (R-25, service half): the proposal is a document of its own that follows the change set; its lenses name hunks by id; accepting from it changes the file and not before', async () => {
+		const result = await withRig(async rig => {
+			const documents = rig.proposalDocuments();
+			await rig.changeSet.stage(PATH, [ADD, SUB]);
+			const model = (await documents.provideTextContent(onyxProposalUri(PATH)))!;
+			const shownFirst = model.getValue();
+			const lenses = documents.provideCodeLenses(model, CancellationToken.None).lenses.map(lens => `${lens.range.startLineNumber}: ${lens.command?.title} ${JSON.stringify(lens.command?.arguments)}`);
+			const fileUntouched = rig.buffer(PATH) === FILE;
+			// The second hunk is accepted by the id its lens carries.
+			await rig.changeSet.acceptHunk(PATH, 'g1.h2');
+			const afterAccept = { file: rig.buffer(PATH), proposal: model.getValue(), lenses: documents.provideCodeLenses(model, CancellationToken.None).lenses.length };
+			rig.changeSet.rejectHunk(PATH, 'g1.h1');
+			// Nothing staged any more: the document is the file as it is, so a diff of the two shows nothing.
+			const afterAll = { sameAsFile: model.getValue() === rig.buffer(PATH), lenses: documents.provideCodeLenses(model, CancellationToken.None).lenses.length };
+			return { isItsOwnModel: model.uri.scheme, shownFirst: shownFirst === FILE.replace(ADD.search, ADD.replace).replace(SUB.search, SUB.replace), lenses, fileUntouched, afterAccept: { file: afterAccept.file === FILE.replace(SUB.search, SUB.replace), proposalStillShowsBoth: afterAccept.proposal === shownFirst, lenses: afterAccept.lenses }, afterAll };
+		});
+		assert.deepStrictEqual(result, {
+			isItsOwnModel: 'onyx-proposal',
+			shownFirst: true,
+			lenses: [
+				'2: Accept Hunk ["src/math.ts","g1.h1"]', '2: Reject Hunk ["src/math.ts","g1.h1"]',
+				'6: Accept Hunk ["src/math.ts","g1.h2"]', '6: Reject Hunk ["src/math.ts","g1.h2"]',
+			],
+			fileUntouched: true,
+			afterAccept: { file: true, proposalStillShowsBoth: true, lenses: 2 },
+			afterAll: { sameAsFile: true, lenses: 0 },
 		});
 	});
 
