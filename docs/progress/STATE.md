@@ -1,7 +1,7 @@
 # Onyx plan state
 Plan version: v4.1
-Current module: 3      Status: in progress (resumed on the machine's 96 W charger). Eight of fifteen items are done and merged; the gate has not been run. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
-Revision: branch `module-3` at 25b8679ed4b (the merge of C2) plus this file's commit; draft pull request sheehanlloyd/Onyx#4 into `main`, not merged, not marked ready
+Current module: 3      Status: in progress (resumed on the machine's 96 W charger). Nine of fifteen items are done and merged; the gate has not been run. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
+Revision: branch `module-3` at 8631396e90b (the merge of C3) plus this file's commit; draft pull request sheehanlloyd/Onyx#4 into `main`, not merged, not marked ready
 Isolated checkout: branch `module-3` in a work clone that was moved out of the cloud-synchronised Desktop folder on 2026-11-21 into a plain developer folder under the same account (clone directory `onyx-work`; packaged builds land beside it); the four audit documents are excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-11-20 the base was 36d38757a15 (August 2026)
@@ -19,7 +19,8 @@ Items done:
 | B10 | codex/b10-stop-means-stop → #4 | B10.md | R-15, two end-to-end checks, sim-campaign-20000-empty-baseline (not yet run), sim-mutants-module-3 |
 | C1 | codex/c1-proposal-diff → #4 | C1.md | R-25-service, two end-to-end checks |
 | C2 | codex/c2-verify-accepted → #4 | C2.md | R-21, three end-to-end checks |
-Items remaining, in order: C3, C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`). None of them is started: there is no branch and no uncommitted work for any of them.
+| C3 | codex/c3-multi-block-edits → #4 | C3.md | C3-multi-block, one end-to-end check |
+Items remaining, in order: C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`). None of them is started: there is no branch and no uncommitted work for any of them.
 Power: the first six items were done on a 13 W adapter (100% to 55%) and the session stopped there; the owner connected the 96 W charger and work resumed at C1.
 Scope dispositions:
   C9, C10, L7: still `planned` in `docs/SUPPORT.md`; all three are included by default (DEC-12) and none is started.
@@ -41,6 +42,7 @@ Rig corrections found in this module, each one a check that had been passing wit
   B10: the stop step cancelled the chat request as well as pressing Stop, which hid the path the audit reported.
 Gate: NOT RUN. `test/onyx/gates/module-3.json` holds the checks for the six items done (R-61, R-07 to R-15, R-33, R-34, R-38, the evidence tables, the 20,000-episode campaign against the empty table, the mutants). R-21 and the service half of R-25 are in. Still to add as their items land: R-22, R-29, R-30 (write side), R-46, R-47, R-48, the end-to-end and packaged release checks, and the `docs/SUPPORT.md` states of C9, C10 and L7.
 Integration runs (local, node v24.22.3, pnpm 12.16.0, clean tree each time):
+  after C3, 8631396e90b: self-checks exit 0; end-to-end "all 65 checks passed"; unit "326 passing, 2 pending"; 2,000 episodes "exceptions":0, no class seen; 34 mutants detected
   after B15, c8f0402e55b: self-checks 34 of 34; packaged release smoke "all 26 checks passed"; end-to-end "all 57 checks passed"
   after B6 and B8: unit, lint, layers, hygiene, self-checks, 2,000-episode campaign, mutants; end-to-end and packaged smoke by CI
   after B7, eda1a2c41f5: self-checks 34 of 34; end-to-end "all 57 checks passed"
@@ -54,7 +56,7 @@ Human actions waiting:
   None for power: the 96 W charger is connected. On the 13 W adapter the machine does not last a module.
   LM Studio: say whether a session may start it to finish B15's step 1 there, or whether "not probed, best effort" is the disposition.
 Notes for the next session:
-  Resume Module 3 at C3 on `module-3`. C2.md's limits matter to L6: a clean file that stays clean ends as "timed out", because the marker service raises no event for an unchanged report.
+  Resume Module 3 at C8 on `module-3`. C8 needs a real-model benchmark run to commit raw results for the published charts: start a private runtime on a free port, and check power first.
   The work clone moved. Two links the build makes inside `node_modules` point at absolute paths; after any move, remove dangling ones (`find . -type l -lname '*<old location>*'`) before a packaged build.
   The rig's users now act after a run and its Stop is the button alone. A new check that "holds" should come with a test that its user steps ran (`OnyxSim the scripted user steps are carried out`).
 
