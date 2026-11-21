@@ -170,9 +170,18 @@ Two numbers come out: how many produced a usable edit, and **how many wrote a
 conflict marker into the file** — the second must be zero, because a marker in
 your source is a far worse failure than a refused edit.
 
-The prose case ("you should swap the operands") is excluded from the recovery
-rate: refusing to edit is the *correct* outcome there, and counting it as a
-failure would reward a parser that guesses.
+Two shapes are excluded from the recovery rate because refusing is the
+*correct* outcome for them, and they are counted on a line of their own: the
+prose case ("you should swap the operands"), and whitespace drift, where the
+quoted text has a different indentation from the file. Until B6 the drifted
+quote was matched after trimming and re-indented, and counted as recovered.
+An edit is now placed only where its SEARCH text is in the file exactly, and
+exactly once (DEC-07), so that reply changes nothing and says why. Remeasured
+on 2026-11-21: 8 of 8 shapes whose SEARCH text is exact are recovered, 2 of 2
+are refused, and none is applied where its text is not (`node
+test/onyx/run-benchmarks.mts --skip-models`, "Parser resilience"). The chart
+in the README was drawn before this change, when the drifted quote counted
+as recovered; it is redrawn with its manifest under C8.
 
 Then 5,000 fuzzed inputs, assembled from marker fragments, fences, braces,
 CJK text and emoji with a seeded PRNG, assert that the parser never throws and

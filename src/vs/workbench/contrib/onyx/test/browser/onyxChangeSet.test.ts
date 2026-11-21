@@ -45,6 +45,25 @@ suite('OnyxChangeSet', () => {
 			assert.ok(result.error.includes('no such line'));
 		});
 
+		test('R-07, R-08, R-33: a search that is not in the file exactly once stages nothing and says why: the first unmatched line, the number of places, or the indentation', () => {
+			const outcome = (search: string) => { const result = proposeEdits(undefined, 'src/math.ts', FILE, [{ search, replace: 'x' }]); return result.ok ? 'staged' : result.error; };
+			const twice = FILE + '\n' + FILE;
+			const ambiguous = proposeEdits(undefined, 'src/math.ts', twice, [{ search: '\treturn a + b;', replace: '\treturn b + a;' }]);
+			const composed = proposeEdits(proposed(FILE, FILE.replace('a + b', 'a + b + 0')), 'src/math.ts', FILE, [{ search: '  return a + b + 0;', replace: 'x' }]);
+			assert.deepStrictEqual({
+				firstLineUniqueRestInvented: outcome('\treturn a + b;\n\tconsole.log(a);'),
+				reindented: outcome('    return a + b;'),
+				ambiguous: ambiguous.ok ? 'staged' : ambiguous.error,
+				// The same rule against content that is already staged.
+				composed: composed.ok ? 'staged' : composed.error,
+			}, {
+				firstLineUniqueRestInvented: 'Edit refused for src/math.ts (staged content included). The "search" text is not in the file exactly as quoted. The first line that does not match is line 2 of it: "\\tconsole.log(a);". Nothing was changed. Quote the lines exactly as they are in the file, including indentation.',
+				reindented: 'Edit refused for src/math.ts (staged content included). The "search" text is not in the file exactly as quoted. The first line that does not match is line 1 of it: "    return a + b;". Nothing was changed. Quote the lines exactly as they are in the file, including indentation.',
+				ambiguous: 'Edit refused for src/math.ts (staged content included). The "search" text occurs 2 times in the file, so it does not say which place to change. Nothing was changed. Quote more of the surrounding lines so that the text occurs exactly once.',
+				composed: 'Edit refused for src/math.ts (staged content included). The "search" text is not in the file exactly as quoted. The first line that does not match is line 1 of it: "  return a + b + 0;". Nothing was changed. Quote the lines exactly as they are in the file, including indentation.',
+			});
+		});
+
 		test('creating a file needs an empty search and stages the full content', () => {
 			const rejected = proposeEdits(undefined, 'src/new.ts', undefined, [{ search: 'something', replace: 'x' }]);
 			assert.ok(!rejected.ok);
@@ -130,6 +149,14 @@ suite('OnyxChangeSet', () => {
 		test('a hunk whose anchor vanished is dropped, never guessed', () => {
 			const file = proposed(FILE, FILE.replace('\treturn a - b;', '\treturn b - a;'));
 			const newBase = FILE.split('\n').filter(line => !line.includes('a - b')).join('\n');
+			const rebased = rebaseProposal(file, newBase);
+			assert.deepStrictEqual({ droppedHunks: rebased.droppedHunks, proposed: rebased.file.proposed }, { droppedHunks: 1, proposed: newBase });
+		});
+
+		test('R-33: rebasing never re-anchors on a line that only matches after trimming: a hunk whose lines the user re-indented is dropped', () => {
+			const file = proposed(FILE, FILE.replace('\treturn a - b;', '\treturn b - a;'));
+			// The user re-indented the file with spaces while the proposal waited.
+			const newBase = FILE.replace(/\t/g, '    ');
 			const rebased = rebaseProposal(file, newBase);
 			assert.deepStrictEqual({ droppedHunks: rebased.droppedHunks, proposed: rebased.file.proposed }, { droppedHunks: 1, proposed: newBase });
 		});

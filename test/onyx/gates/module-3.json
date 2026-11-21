@@ -21,6 +21,25 @@
 			]
 		},
 		{
+			"id": "R-07-R-08-R-33",
+			"title": "B6 exact-or-refuse: a SEARCH text is placed only where it is exactly, and exactly once; a unique first line, a duplicate, different indentation, tabs, trailing spaces, multiline strings and line endings are refused with the text unchanged and the reason named, in the applier, in staging and in rebasing",
+			"layer": "pure",
+			"regressions": [
+				"R-07",
+				"R-08",
+				"R-33"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxInlineEdit.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChangeSet.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxInlineEdit|OnyxChangeSet"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

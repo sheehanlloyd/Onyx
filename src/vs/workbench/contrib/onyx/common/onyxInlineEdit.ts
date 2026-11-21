@@ -192,77 +192,115 @@ function looksLikeCode(text: string): boolean {
 	return codeish / lines.length >= 0.4;
 }
 
+/** Why a block was not placed (B6, DEC-07). The text it was meant for is unchanged. */
+export interface IOnyxEditRefusal {
+	readonly block: IOnyxEditBlock;
+	/** `missing`: the SEARCH text is not in the text exactly. `ambiguous`: it is there more than once. `empty-search`: there is nothing to look for. */
+	readonly reason: 'missing' | 'ambiguous' | 'empty-search';
+	/** How many times the SEARCH text occurs, counting overlapping places. */
+	readonly occurrences: number;
+	/** For `missing`: the first line of the SEARCH text from which it stops matching anywhere, and its 1-based number within the SEARCH text. */
+	readonly firstUnmatchedLine?: string;
+	readonly firstUnmatchedLineNumber?: number;
+	/** For `missing`: the text would match if its line endings were the file's. It is refused all the same. */
+	readonly lineEndingsDiffer?: boolean;
+}
+
 export interface IOnyxAppliedEdit {
 	readonly text: string;
 	readonly appliedCount: number;
-	/** Blocks whose SEARCH text could not be located, verbatim. */
+	/** Blocks whose SEARCH text could not be placed, verbatim. */
 	readonly failed: readonly IOnyxEditBlock[];
+	/** Why each of them could not, in the same order. */
+	readonly refusals: readonly IOnyxEditRefusal[];
+}
+
+/** The places `search` occurs in `text`, counting overlapping ones, up to `limit`. */
+function occurrencesOf(text: string, search: string, limit: number): number[] {
+	const found: number[] = [];
+	for (let index = text.indexOf(search); index !== -1 && found.length < limit; index = text.indexOf(search, index + 1)) {
+		found.push(index);
+	}
+	return found;
 }
 
 /**
- * Applies edit blocks to the original selection text. Matching falls back:
- * exact substring → exact after trimming each line's edges → unique
- * first-line anchor (replaces as many lines as SEARCH had). A block that
- * still cannot be located is reported, never guessed.
+ * Places one block: the SEARCH text has to be in `text` exactly, and exactly
+ * once (B6, DEC-07). Nothing is trimmed, re-indented or matched by its first
+ * line, and line endings are compared as they are. A quote may begin or end
+ * in the middle of a line; a block of several lines may not begin inside a
+ * line's indentation, because its lines would then be indented differently
+ * from one another. Anything else is a
+ * refusal that says what was wrong, and `text` is not altered.
+ */
+export function placeEditBlock(text: string, block: IOnyxEditBlock): { readonly ok: true; readonly text: string } | { readonly ok: false; readonly refusal: IOnyxEditRefusal } {
+	if (block.search.length === 0) {
+		return { ok: false, refusal: { block, reason: 'empty-search', occurrences: 0 } };
+	}
+	const found = occurrencesOf(text, block.search, 1000);
+	if (found.length === 1) {
+		// A quote may begin in the middle of a line: the characters quoted are the characters replaced. One
+		// case is refused. When all it leaves out before it is indentation and the block has more than one
+		// line, its first line would keep the file's indentation while the others take the model's, and the
+		// block's own shape would be sheared. That is a different indentation, not a shorter quote.
+		const start = found[0];
+		const end = start + block.search.length;
+		const before = text.slice(text.lastIndexOf('\n', start - 1) + 1, start);
+		if (before.length > 0 && before.trim().length === 0 && (block.search.includes('\n') || block.replace.includes('\n'))) {
+			return { ok: false, refusal: { block, reason: 'missing', occurrences: 0, firstUnmatchedLine: block.search.split('\n')[0], firstUnmatchedLineNumber: 1 } };
+		}
+		return { ok: true, text: text.slice(0, start) + block.replace + text.slice(end) };
+	}
+	if (found.length > 1) {
+		return { ok: false, refusal: { block, reason: 'ambiguous', occurrences: found.length } };
+	}
+	// Not there. The longest run of leading SEARCH lines that is somewhere in the text says where the quote goes wrong.
+	const searchLines = block.search.split('\n');
+	let matched = 0;
+	while (matched < searchLines.length && text.includes(searchLines.slice(0, matched + 1).join('\n'))) {
+		matched++;
+	}
+	const unix = (value: string) => value.replace(/\r\n/g, '\n');
+	const lineEndingsDiffer = (text.includes('\r\n') !== block.search.includes('\r\n')) && unix(text).includes(unix(block.search));
+	return { ok: false, refusal: { block, reason: 'missing', occurrences: 0, firstUnmatchedLine: searchLines[Math.min(matched, searchLines.length - 1)], firstUnmatchedLineNumber: Math.min(matched, searchLines.length - 1) + 1, ...(lineEndingsDiffer ? { lineEndingsDiffer } : {}) } };
+}
+
+/** A refusal in words the model can act on. Not localized: it is a tool result, read by the model. */
+export function describeEditRefusal(refusal: IOnyxEditRefusal): string {
+	switch (refusal.reason) {
+		case 'empty-search':
+			return 'The "search" text is empty. Nothing was changed. Quote the lines to change.';
+		case 'ambiguous':
+			return `The "search" text occurs ${refusal.occurrences} times in the file, so it does not say which place to change. Nothing was changed. Quote more of the surrounding lines so that the text occurs exactly once.`;
+		case 'missing':
+			return refusal.lineEndingsDiffer
+				? 'The "search" text is in the file only with different line endings. Nothing was changed. Quote the lines with the line endings the file has.'
+				: `The "search" text is not in the file exactly as quoted. The first line that does not match is line ${refusal.firstUnmatchedLineNumber ?? 1} of it: ${JSON.stringify(refusal.firstUnmatchedLine ?? '')}. Nothing was changed. Quote the lines exactly as they are in the file, including indentation.`;
+	}
+}
+
+/**
+ * Applies edit blocks in order, each to the result of the one before. A
+ * block is placed only where its SEARCH text is exactly, and exactly once
+ * (`placeEditBlock`); one that is not is reported with its reason and
+ * leaves the text as it was.
  */
 export function applyEditBlocks(original: string, blocks: readonly IOnyxEditBlock[]): IOnyxAppliedEdit {
 	let text = original;
 	let appliedCount = 0;
 	const failed: IOnyxEditBlock[] = [];
+	const refusals: IOnyxEditRefusal[] = [];
 	for (const block of blocks) {
-		const applied = applyOne(text, block);
-		if (applied === undefined) {
-			failed.push(block);
-		} else {
-			text = applied;
+		const placed = placeEditBlock(text, block);
+		if (placed.ok) {
+			text = placed.text;
 			appliedCount++;
+		} else {
+			failed.push(block);
+			refusals.push(placed.refusal);
 		}
 	}
-	return { text, appliedCount, failed };
-}
-
-function applyOne(text: string, block: IOnyxEditBlock): string | undefined {
-	if (block.search.length === 0) {
-		return undefined;
-	}
-	// 1. Exact match.
-	const exactIndex = text.indexOf(block.search);
-	if (exactIndex >= 0) {
-		return text.slice(0, exactIndex) + block.replace + text.slice(exactIndex + block.search.length);
-	}
-	// 2. Line-trimmed match: whitespace drift is the most common corruption.
-	const textLines = text.split('\n');
-	const searchLines = block.search.split('\n');
-	const trimmedSearch = searchLines.map(line => line.trim());
-	for (let start = 0; start + searchLines.length <= textLines.length; start++) {
-		let matches = true;
-		for (let offset = 0; offset < searchLines.length; offset++) {
-			if (textLines[start + offset].trim() !== trimmedSearch[offset]) {
-				matches = false;
-				break;
-			}
-		}
-		if (matches) {
-			// Re-indent the replacement by the drift of the first matched line.
-			const indent = leadingWhitespace(textLines[start]);
-			const claimed = leadingWhitespace(searchLines[0]);
-			const replaceLines = block.replace.split('\n').map(line => reindent(line, claimed, indent));
-			return [...textLines.slice(0, start), ...replaceLines, ...textLines.slice(start + searchLines.length)].join('\n');
-		}
-	}
-	// 3. Unique first-line anchor for off-by-one hunks: same line count is replaced.
-	const anchor = trimmedSearch[0];
-	if (anchor) {
-		const hits = textLines.map((line, index) => line.trim() === anchor ? index : -1).filter(index => index >= 0);
-		if (hits.length === 1 && hits[0] + searchLines.length <= textLines.length) {
-			const start = hits[0];
-			const indent = leadingWhitespace(textLines[start]);
-			const claimed = leadingWhitespace(searchLines[0]);
-			const replaceLines = block.replace.split('\n').map(line => reindent(line, claimed, indent));
-			return [...textLines.slice(0, start), ...replaceLines, ...textLines.slice(start + searchLines.length)].join('\n');
-		}
-	}
-	return undefined;
+	return { text, appliedCount, failed, refusals };
 }
 
 export interface IOnyxEditHunk {
@@ -331,16 +369,4 @@ export function computeLineHunks(original: string, modified: string): IOnyxEditH
 	}
 	closeHunk(i, j);
 	return hunks;
-}
-
-function leadingWhitespace(line: string): string {
-	return line.match(/^[\t ]*/)?.[0] ?? '';
-}
-
-/** Shifts a replacement line from the indentation the model claimed to the file's actual indentation. */
-function reindent(line: string, claimed: string, actual: string): string {
-	if (claimed === actual || line.trim().length === 0) {
-		return line;
-	}
-	return line.startsWith(claimed) ? actual + line.slice(claimed.length) : line;
 }
