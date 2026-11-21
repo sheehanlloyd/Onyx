@@ -237,6 +237,8 @@ time is virtual, so the same seed gives a byte-identical trace (R-41).
 ./scripts/test.sh --grep OnyxSim                                   # R-41, personas, scenarios, shrinking, a 25-episode smoke
 ONYX_SIM_EPISODES=2000 ./scripts/test.sh --grep "OnyxSim smoke"     # the smoke campaign (every pull request, the module gate)
 ONYX_SIM_EPISODES=50000 ONYX_SIM_SEED=<seed> ./scripts/test.sh --grep "OnyxSim smoke"   # module and full campaigns
+node test/onyx/sim/run-campaign.mts --episodes 20000 --seed 1       # every invariant checker over 20,000 seeds, 2,000 a process:
+                                                                    # one process runs out of memory near 14,000 episodes
 ```
 
 The campaign reports episodes per second, the status mix, the persona mix and

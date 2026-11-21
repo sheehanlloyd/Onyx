@@ -143,6 +143,48 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 		}),
 	},
 	{
+		class: 'I-05/dispatch-after-stop',
+		owner: 'B10',
+		finding: 'Codex N5 (R-15), found by the 20,000-episode campaign in Module 2: Stop is honoured only at the gate after a tool turn; a tool whose approval dialog was open when the user pressed Stop is still dispatched when the dialog is answered',
+		script: script({
+			name: 'I-05-dispatch-after-stop',
+			seed: 5545,
+			persona: 'squatter',
+			prompt: 'Run the',
+			target: 'src/math.ts',
+			turns: [
+				{
+					kind: 'toolCall',
+					tool: 'vscode_fetchWebPage_internal',
+					arguments: {
+						command: 'echo sq',
+						path: 'src/ma',
+						url: 'https:',
+						task: 'build',
+						newName: 'x',
+					},
+				},
+			],
+			dialogDefault: 'allow-once',
+			userSteps: [
+				{
+					at: 'dialogOpen',
+					occurrence: 1,
+					step: {
+						kind: 'stop',
+					},
+				},
+			],
+			faults: [],
+			profile: {
+				promptStyle: 'compact',
+				contextLength: 4096,
+				maxTools: 24,
+			},
+			networkTools: true,
+		}),
+	},
+	{
 		class: 'I-05/stage-after-stop',
 		owner: 'B10',
 		finding: 'Codex N5 (R-15): Stop is honoured only at the gate after a tool turn; an edit in the current turn is still staged',

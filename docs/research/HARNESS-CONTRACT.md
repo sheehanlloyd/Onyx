@@ -61,7 +61,7 @@ the terminal tool that are reachable through the model stream, the dialog and th
 | Finding | Rediscovered as | How |
 |---|---|---|
 | Cursor red flag 2 / Claude B2 / Codex R-01: repository allowlist runs commands | `I-02/repository-allowlist` | random episodes (24 of 1,000) |
-| Codex N5: Stop is not cancellation of current work | `I-05/command-after-stop`, `I-05/stage-after-stop`, `I-03/status-overwritten` | random episodes and the SLOWTEST stop scenario |
+| Codex N5: Stop is not cancellation of current work | `I-05/command-after-stop`, `I-05/stage-after-stop`, `I-05/dispatch-after-stop` (found by Module 2's 20,000-episode campaign at seed 5545: a tool whose approval dialog was open when Stop was pressed is dispatched when the dialog is answered), `I-03/status-overwritten` | random episodes and the SLOWTEST stop scenario |
 | Codex N12: interrupted streams look successful | `I-11/truncated-reported-complete`, `I-03/no-time-budget` | random episodes (truncating and staller personas). Fixed by B12: neither class is seen from these personas any more, and three mutants bring the defects back |
 | Claude H3: first-line-unique SEARCH is placed | `I-08/inexact-anchor-staged` | random episodes (anchor-liar persona) |
 | Claude H4 / DEC-07: duplicate anchors | `I-08/ambiguous-anchor-staged` | random episodes (anchor-liar persona) |
@@ -80,6 +80,7 @@ items, not by L2.
 ```bash
 ./scripts/test.sh --grep OnyxSim                                   # R-41, R-42, personas, scenarios, shrinking, a 25-episode smoke
 ONYX_SIM_EPISODES=2000 ./scripts/test.sh --grep "OnyxSim"           # the smoke campaign with R-42 at gate size
+node test/onyx/sim/run-campaign.mts --episodes 20000 --seed 1       # a module campaign: R-42 over 20,000 seeds, in ten processes
 ONYX_SIM_BASELINE_EPISODES=1000 ./scripts/test.sh --grep "OnyxSim baseline"   # list every class with a seed
 ONYX_SIM_BASELINE_EPISODES=1000 ONYX_SIM_WRITE_BASELINE=<dir> ./scripts/test.sh --grep "OnyxSim baseline"   # and shrink each to a script
 node test/onyx/sim/export-episodes.mts --check                     # the JSON tables match their TypeScript sources
