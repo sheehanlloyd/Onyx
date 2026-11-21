@@ -66,6 +66,11 @@ const MATH_TS_CONTENT = [
 	'\treturn total;',
 	'}',
 	'',
+	// The second line the mock's EDITTEST edits: without it the flow stages one hunk, not two (R-25 needs two).
+	'export function multiply(a: number, b: number): number {',
+	'\treturn a * b;',
+	'}',
+	'',
 ].join('\n');
 
 function sleep(ms: number) {
