@@ -15,6 +15,7 @@ import { workbenchInstantiationService } from '../../../../test/browser/workbenc
 import { ChatMessageRole } from '../../../chat/common/languageModels.js';
 import { IOnyxEndpointSecretService } from '../../browser/model/onyxEndpointSecrets.js';
 import { OnyxModelService } from '../../browser/model/onyxLanguageModelProvider.js';
+import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../../browser/models/onyxContextAllocationService.js';
 import { IOnyxProfileService } from '../../browser/profiles/onyxProfileService.js';
 import { classifyTransport, decideInferenceUse, describeExecution, describeRefusal, describeTransport, IOnyxInferencePolicy, locationBadge } from '../../common/onyxInferenceLocation.js';
 import { seedProfile } from '../../common/onyxSeedProfiles.js';
@@ -65,6 +66,7 @@ suite('OnyxInferenceLocation', () => {
 		instantiationService.stub(IOnyxProfileService, { _serviceBrand: undefined, onDidChangeProfiles: Event.None, getProfile: (_key: string, discovered: IOnyxDiscoveredModel) => seedProfile(discovered) } as Partial<IOnyxProfileService> as IOnyxProfileService);
 		instantiationService.stub(IOnyxEndpointSecretService, { _serviceBrand: undefined, onDidChange: Event.None, setApiKey: async () => { }, configuredApiKeys: async () => new Map<string, string>() });
 
+		instantiationService.stub(IOnyxContextAllocationService, disposables.add(instantiationService.createInstance(OnyxContextAllocationService)));
 		const service = disposables.add(instantiationService.createInstance(OnyxModelService));
 		await service.refresh();
 		const picker = await service.provideLanguageModelChatInfo();

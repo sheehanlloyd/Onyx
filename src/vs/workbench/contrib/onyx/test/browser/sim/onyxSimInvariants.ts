@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { decodeNumberedSearch } from '../../../common/onyxReadTools.js';
 import { harnessConfigHash, IOnyxHarnessConfig } from '../../../common/onyxHarnessConfig.js';
 import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
 import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
@@ -353,7 +354,12 @@ const i08: OnyxSimChecker = state => {
 			continue;
 		}
 		// A second edit to an already-staged file is matched against the staged text, not the base.
-		const exact = occurrences(stage.proposedBefore ?? stage.baseAtStage, stage.search);
+		const text = stage.proposedBefore ?? stage.baseAtStage;
+		// SEARCH text copied from a numbered `readFile` result ("12| text") is that file's own lines once the
+		// known wrapper is taken off (B1, R-24). The product decodes it against the live file when the text as
+		// sent is not there; the check does the same, and then holds the decoded text to the same rule.
+		const decoding = occurrences(text, stage.search) === 0 ? decodeNumberedSearch(stage.search, stage.baseAtStage) : undefined;
+		const exact = occurrences(text, decoding?.kind === 'decoded' ? decoding.text : stage.search);
 		if (exact === 0) {
 			return `I-08/inexact-anchor-staged: an edit whose SEARCH text is not in ${stage.path} was staged anyway`;
 		}

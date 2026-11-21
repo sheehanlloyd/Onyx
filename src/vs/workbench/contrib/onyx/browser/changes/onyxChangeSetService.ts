@@ -10,7 +10,7 @@ import { IObservable, ISettableObservable, observableValue } from '../../../../.
 import { URI } from '../../../../../base/common/uri.js';
 import { EditOperation } from '../../../../../editor/common/core/editOperation.js';
 import { Range } from '../../../../../editor/common/core/range.js';
-import { ITextModel } from '../../../../../editor/common/model.js';
+import { EndOfLinePreference, ITextModel } from '../../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { localize } from '../../../../../nls.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
@@ -20,7 +20,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../../pla
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import {
-	applyHunkSelection, IOnyxProposedFile, proposalHunks, proposalToUnifiedDiff, proposeEdits, rebaseProposal, summarizeChangeSet
+	applyHunkSelection, IOnyxProposedFile, OnyxProposeResult, proposalHunks, proposalToUnifiedDiff, proposeEdits, rebaseProposal, summarizeChangeSet
 } from '../../common/onyxChangeSet.js';
 import { IOnyxChangeRisk } from '../../common/onyxChangeRisk.js';
 import { IOnyxEditBlock, IOnyxEditHunk } from '../../common/onyxInlineEdit.js';
@@ -146,7 +146,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 			return { ok: false, error: decoded.error };
 		}
 		blocks = decoded.blocks;
-		const result = proposeEdits(existing?.proposal, path, existing ? existing.proposal.base : current, blocks);
+		const result = this._propose(existing?.proposal, path, existing ? existing.proposal.base : current, blocks);
 		if (!result.ok) {
 			return { ok: false, error: result.error };
 		}
@@ -163,6 +163,11 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 			ok: true,
 			summary: `Staged ${result.appliedCount} edit(s) to ${path} (+${summary.addedLines} −${summary.removedLines}). The user reviews them in Onyx Changes before anything is applied — do not re-apply the same edit.`,
 		};
+	}
+
+	/** Places a tool call's blocks: exactly, and exactly once, or not at all (B6, DEC-07). */
+	protected _propose(existing: IOnyxProposedFile | undefined, path: string, currentContent: string | undefined, blocks: readonly IOnyxEditBlock[]): OnyxProposeResult {
+		return proposeEdits(existing, path, currentContent, blocks);
 	}
 
 	async stageProposal(path: string, proposedContent: string, runId?: string): Promise<OnyxStageOutcome> {
@@ -324,7 +329,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 			const model = reference.object.textEditorModel;
 			let proposal = staged.proposal;
 			let hunks = staged.hunks;
-			const live = model.getValue();
+			const live = model.getValue(EndOfLinePreference.LF);
 			if (live !== proposal.base) {
 				const rebased = rebaseProposal(proposal, live);
 				proposal = rebased.file;
@@ -345,7 +350,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 			model.pushStackElement();
 
 			const remaining = applyHunkSelection(proposal.base, hunks, index => !keep(index));
-			const newBase = model.getValue();
+			const newBase = model.getValue(EndOfLinePreference.LF);
 			if (remaining === proposal.base) {
 				this._remove(staged.proposal.path);
 			} else {
@@ -431,13 +436,20 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		return folder?.toResource(resolved.relativePath);
 	}
 
+	/**
+	 * The file as lines joined by `\n`, whatever its own line endings are.
+	 * Proposals are computed and matched in that form, and applied through
+	 * the text model, which keeps the file's line endings: they are never
+	 * rewritten to make a SEARCH text match (B6), and a SEARCH text that
+	 * carries a carriage return matches nothing.
+	 */
 	private async _readCurrentContent(uri: URI): Promise<string | undefined> {
 		if (!await this._fileService.exists(uri)) {
 			return undefined;
 		}
 		const reference = await this._textModelService.createModelReference(uri);
 		try {
-			return reference.object.textEditorModel.getValue();
+			return reference.object.textEditorModel.getValue(EndOfLinePreference.LF);
 		} finally {
 			reference.dispose();
 		}

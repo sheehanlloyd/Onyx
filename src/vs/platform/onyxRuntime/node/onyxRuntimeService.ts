@@ -17,7 +17,8 @@ import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
 import { readLabHarnessRequest } from './onyxLabManifest.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
 import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxLoadedModel, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { contextAliasName, ONYX_CONTEXT_ALIAS_BOUNDS, parseContextAlias, sameOllamaModel } from '../common/onyxContextAlias.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxLoadedModel, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxContextAliasResult, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -28,6 +29,8 @@ const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = 
 ];
 
 const PROBE_TIMEOUT_MS = 1500;
+/** Creating or removing a context alias writes a manifest on the runtime; it copies no weights (B15). */
+const ALIAS_TIMEOUT_MS = 30_000;
 const WATCH_INTERVAL_MS = 30_000;
 const COMPLETION_TIMEOUT_MS = 15_000;
 const GIT_RECENT_CACHE_MS = 60_000;
@@ -41,6 +44,7 @@ interface IOllamaTagsResponse {
 	readonly models?: readonly {
 		readonly name: string;
 		readonly digest?: string;
+		readonly size?: number;
 		/** Set for a model Ollama forwards to a remote service instead of running: the remote name and where it is served. */
 		readonly remote_model?: string;
 		readonly remote_host?: string;
@@ -400,6 +404,58 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		return loaded.models
 			.map(model => ({ id: model.name ?? model.model ?? '', ...(typeof model.context_length === 'number' && model.context_length > 0 ? { contextLength: model.context_length } : {}) }))
 			.filter(model => model.id.length > 0);
+	}
+
+	async createContextAlias(baseUrl: string, model: string, tokens: number): Promise<OnyxContextAliasResult> {
+		const root = ollamaRootUrl(normalizeBaseUrl(baseUrl));
+		if (!Number.isInteger(tokens) || tokens < ONYX_CONTEXT_ALIAS_BOUNDS.minTokens || tokens > ONYX_CONTEXT_ALIAS_BOUNDS.maxTokens) {
+			return { ok: false, error: `a context of ${tokens} tokens is outside what an alias is made for` };
+		}
+		if (parseContextAlias(model)) {
+			return { ok: false, error: `${model} is itself a context alias` };
+		}
+		const alias = contextAliasName(model, tokens);
+		try {
+			const response = await fetch(`${root}/api/create`, {
+				method: 'POST',
+				signal: AbortSignal.timeout(ALIAS_TIMEOUT_MS),
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ model: alias, from: model, parameters: { num_ctx: tokens }, stream: false }),
+			});
+			if (!response.ok) {
+				return { ok: false, error: `${response.status} ${response.statusText}: ${truncate(await response.text().catch(() => ''), 300)}` };
+			}
+		} catch (err) {
+			return { ok: false, error: err instanceof Error ? err.message : String(err) };
+		}
+		// What was asked for is read back: the alias has to exist and name the context in its parameters.
+		const show = await this._fetchJson<IOllamaShowResponse>(`${root}/api/show`, { model: alias });
+		const numCtx = /^\s*num_ctx\s+(?<tokens>\d+)\s*$/m.exec(show?.parameters ?? '')?.groups?.tokens;
+		if (numCtx === undefined || Number(numCtx) !== tokens) {
+			return { ok: false, error: `the runtime accepted the request, but ${alias} does not carry a context of ${tokens} tokens` };
+		}
+		return { ok: true, alias };
+	}
+
+	async removeContextAlias(baseUrl: string, alias: string): Promise<OnyxContextAliasResult> {
+		if (!parseContextAlias(alias)) {
+			return { ok: false, error: `${alias} is not a context alias; Onyx removes only the aliases it names` };
+		}
+		try {
+			const response = await fetch(`${ollamaRootUrl(normalizeBaseUrl(baseUrl))}/api/delete`, {
+				method: 'DELETE',
+				signal: AbortSignal.timeout(ALIAS_TIMEOUT_MS),
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ model: alias }),
+			});
+			if (!response.ok) {
+				return { ok: false, error: `${response.status} ${response.statusText}: ${truncate(await response.text().catch(() => ''), 300)}` };
+			}
+		} catch (err) {
+			return { ok: false, error: err instanceof Error ? err.message : String(err) };
+		}
+		this._modelDetailCache.delete(`${normalizeBaseUrl(baseUrl)}|${alias}`);
+		return { ok: true, alias };
 	}
 
 	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> {
@@ -794,6 +850,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				continue;
 			}
 			const detail = runtime === 'ollama' ? await this._getOllamaDetail(baseUrl, entry.id) : undefined;
+			const alias = parseContextAlias(entry.id);
 			models.push({
 				id: entry.id,
 				baseUrl,
@@ -814,6 +871,9 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				...executionOf(identified, entry.id, tag),
 				digest: tag?.digest,
 				runtimeVersion: ollamaVersion,
+				...(typeof tag?.size === 'number' ? { sizeBytes: tag.size } : {}),
+				// One of Onyx's own context aliases, when the model it stands for is here too (B15).
+				...(runtime === 'ollama' && alias && list.data.some(other => sameOllamaModel(other.id, alias.base)) ? { contextAlias: alias } : {}),
 			});
 		}
 		return models;

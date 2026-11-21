@@ -176,6 +176,8 @@ A runtime that allocates less than the model's architecture and does not say so 
 metadata. Ollama serves a model at its default context unless told otherwise, and cuts a longer prompt
 without an error. Until the datasheet has measured the model, Onyx budgets against the architectural number
 in that case, and the oldest part of a long prompt may be lost at the runtime.
+Once the model is loaded an Ollama server says what it allocated, and that number is used from the next
+discovery on. Asking the runtime for a larger context is the next section.
 
 **Every request is planned before it is sent.**
 
@@ -202,6 +204,94 @@ ever gets smaller until the model is measured.
 **Smallest workable context.** The eight-tool agent's instructions and schemas are about 1,400 estimated
 tokens. A 2,048-token context cannot hold them with room for a reply and is refused; 4,096 works, with one
 tool result in view at a time. The supported profile is 8,192 or more.
+
+## Context allocation: asking for what the model can use (B15)
+
+A default Ollama install gives each of the supported models a context of 4,096 tokens, whatever the
+model was trained with (32,768 for both), and cuts a longer prompt without an error. Onyx can ask for more.
+It does so only when you run **Onyx: Request a Larger Model Context**, only after you agree to what that
+creates, and it uses the result only after a check has seen it work.
+
+**How a context can be asked of Ollama 0.33.0** (measured on the reference machine with
+`test/onyx/lab/probe-context-mechanisms.mts`; `mechanisms.json` in the results directory below):
+
+| Way | Request | Asked | `/api/ps` reports afterwards | Honoured |
+|---|---|---|---|---|
+| Nothing asked | `POST /v1/chat/completions` | nothing | 4,096 | yes |
+| Per-request option, OpenAI-style endpoint | `POST /v1/chat/completions with options.num_ctx` | 8,192 | 4,096 | no |
+| Per-request top-level field, OpenAI-style endpoint | `POST /v1/chat/completions with num_ctx` | 8,192 | 4,096 | no |
+| Per-request option, native endpoint | `POST /api/chat with options.num_ctx` | 8,192 | 8,192 | yes |
+| Load-time context, then an OpenAI-style request | `POST /api/chat with options.num_ctx, then POST /v1/chat/completions` | 8,192 | 4,096 | no |
+| Derived model | `POST /api/create {from, parameters: {num_ctx}}, then POST /v1/chat/completions to the new name` | 8,192 | 8,192 | yes |
+| Server setting | `a server started with OLLAMA_CONTEXT_LENGTH=8192, then POST /v1/chat/completions` | 8,192 | 8,192 | yes |
+
+Onyx speaks the OpenAI-style endpoint, which ignores a context sent with a request and reloads the model at
+the server's own allocation even when it had been loaded with more. Two ways remain that such a request then
+gets: a server setting, which is yours to change and applies to every model, and a derived model. Onyx uses
+the derived model. The native endpoint's per-request option also works; it is another wire protocol, whose
+tool calls, schemas and stream endings L5 did not measure, and any request on the OpenAI-style endpoint
+(autocomplete, another tool) would reload the model at the old context. LM Studio was not probed: it was not
+running, and starting it was outside what this work was authorised to do. Onyx reads the loaded context
+LM Studio reports and asks it for nothing; set the context length in LM Studio's own load settings.
+
+**What is created, and how to undo it.** A model alias: a second model name over the same weights, with
+`num_ctx` in its parameters, named `<model>-onyx-ctx<tokens>` (for example `qwen2.5-coder:7b-onyx-ctx16384`). It adds
+a parameters layer of a few bytes and no second copy of the weights; it appears in `ollama list`. Undo with
+**Onyx: Remove Model Context Alias**, or `ollama rm qwen2.5-coder:7b-onyx-ctx16384`. Onyx removes only names of that form, and
+never a model you made.
+
+**The number asked for** is the smallest of three, rounded down to a multiple of 1,024:
+
+| Bound | Value |
+|---|---|
+| What the model was trained with | as the runtime reports it; never exceeded, and nothing is asked when it is unknown |
+| A ceiling from this machine's memory | (half the machine's memory − the size of the model's files) ÷ 96 KiB a token |
+| The setting `onyx.context.requestTokens` | 16,384 by default; `0` keeps the server's allocation and asks for nothing |
+
+The memory cost of a token was measured between 4,096 and 16,384 tokens at 69 KiB for the 7B model and
+35 KiB for the 1.5B; 96 KiB is the larger rounded up by a third. Half the memory is left for the editor, the
+system and everything else. On the reference machine (24 GiB) the ceiling is 83,433 tokens for the 7B
+model, so the setting decides. To change the context, change the setting and run the command again.
+
+**Requested, reported, verified.** After the alias is created Onyx sends three prompts with a code at the
+start and a question about it at the end: one inside the old allocation, one aimed at nine tenths of the new
+allocation in the runtime's own tokens, and one a quarter longer than the new allocation. The context
+is **verified** when the code comes back from the first two; the third shows the cut. The budget (B13) uses
+the verified number and no other. When the runtime does not raise the context, or reports a context and
+loses the start of a prompt inside it, the alias is removed again, the server's own allocation stays in
+force, and the configuration view says the request was not honoured. If you decline, nothing is created.
+**Onyx: Show Effective Project Configuration** shows each model's budgeted context and where the number
+came from; a request that does not fit names both and the command. Every run's trace header, every
+datasheet and every experiment manifest carries the three numbers, or an explicit null.
+
+**Measured on the reference machine** (M4 Pro, 24 GiB, Ollama 0.33.0;
+`docs/research/results/2026-11-21-context-allocation/`, regenerated by the command in its manifest):
+
+| | 7B at the server's 4,096 | 7B at 16,384 | 1.5B at the server's 4,096 | 1.5B at 16,384 |
+|---|---|---|---|---|
+| Loaded, as the runtime reports | 4,521 MiB | 5,346 MiB | 1,109 MiB | 1,532 MiB |
+| Runtime resident memory, idle | 4,731 MiB | 5,498 MiB | 1,188 MiB | 1,540 MiB |
+| Runtime resident memory, peak in a run | 4,736 MiB | 5,499 MiB | 1,188 MiB | 1,541 MiB |
+| First token, cold | 2,725 ms | 1,206 ms | 1,112 ms | 594 ms |
+| First token, warm | 149 ms | 148 ms | 40 ms | 40 ms |
+| Tokens a second | 50 | 49 | 167 | 167 |
+
+Verification, 7B: control: 1,776 tokens by the runtime's count, code recalled; inside: 14,466 tokens by the runtime's count, code recalled; past: 8,194 tokens by the runtime's count, code lost. 1.5B: control: 1,776 tokens by the runtime's count, code recalled; inside: 14,466 tokens by the runtime's count, code recalled; past: 8,194 tokens by the runtime's count, code lost.
+
+The inside prompt came to 88% of the allocation: the aim is set from how the runtime counted the short
+prompt, and the count is not exactly proportional. A prompt the runtime cuts is counted at what it kept,
+which is why the longest one shows 8,194.
+
+**What it buys.** With the eight-tool set's schemas and instructions set aside, one whole tool result
+(4,000 characters) fits in a turn at 4,096 tokens, and nine at 16,384 (the `metric` test in
+`onyxContextAllocation.test.ts` computes both with the product's planner).
+
+**Limits.** Verified means recall at about nine tenths of the allocation and loss a quarter past it, with one
+prompt each; it is not a measurement of every size, and it says nothing about how well a model uses a long
+context. A model too small to recall the code from a short prompt cannot be verified, and stays on the
+server's allocation. The alias is another name to the runtime: a datasheet measured under the model's own
+name does not describe it, so measure again after requesting a context. Speculative-decoding measurement
+still addresses the model's own name.
 
 ## Streams, tool arguments and the content index (B12)
 
@@ -334,7 +424,7 @@ run, the prompts are fixed text that carries nothing of the user's, and nothing 
 | Native tool calls | A question that needs the one tool offered | A valid call to that tool on the runtime's tool channel | 5 |
 | Readable text calls | The same replies | Of those with no native call: the text repair reads a valid call out of the text | the rest |
 | Schema enforced: object, enum, nested | A JSON schema, with a prompt that asks for something the schema does not allow | The reply matches the schema anyway | 3 each |
-| Context | A code at the start of a prompt, a question about it at the end; the prompt doubles from 1,024 estimated tokens up to what the server says it allocated, then the gap is halved twice | The code comes back | up to 7 |
+| Context | A code at the start of a prompt, a question about it at the end; the prompt doubles from 1,024 estimated tokens up to what the server says it allocated, then the gap is halved twice (since B15: doubling towards nine tenths of the server's allocation, one prompt there, one a quarter past it) | The code comes back | up to 7 |
 | Output cap | A long count with a cap of 12 tokens | The reply stops at the cap and says that is why | 3 |
 | Stop sequence | A count with a stop at "4" | The reply has 3 and not 4 | 3 |
 | Reasoning | A sum to think through | Counted, not scored: thinking in tags, in a field of its own, or none | 3 |
@@ -375,6 +465,7 @@ manifest and every probe's request and reply. Ollama 0.33.0, Apple M4 Pro, 24 GB
 | Readable as text, of the rest | 5 of 5 | 3 of 5 |
 | Schema enforced: object, enum, nested | 3 of 3, 3 of 3, 3 of 3 | 3 of 3, 3 of 3, 3 of 3 |
 | Context | start of a 3,514-token prompt recalled; the server allocates 4,096 | the same |
+| Context after B15 (re-measured at a requested 16,384) | 16,384 verified: recalled at 14,466 tokens, lost past the allocation | the same |
 | Output cap honoured; stop honoured | 3 of 3; 3 of 3 | 3 of 3; 3 of 3 |
 | Reasoning | none seen in 3 replies | none seen in 3 replies |
 | Same seed, same reply | 3 of 3 | 3 of 3 |
@@ -384,13 +475,15 @@ manifest and every probe's request and reply. Ollama 0.33.0, Apple M4 Pro, 24 GB
 
 What follows for the supported model: both advertise tool support and neither put one call on the tool
 channel, so their turns are constrained to the envelope, which the runtime was seen to enforce; and their
-context is budgeted at 4,096 tokens, not the 32,768 their architecture allows.
+context is budgeted at 4,096 tokens, not the 32,768 their architecture allows, until a larger one is
+requested and verified ("Context allocation", above).
 
 **Limits.**
 
 - **Few trials.** The 1.5B model's text calls were readable 2 of 5 times in one run and 3 of 5 in the next.
-- **The context probe stays inside what the server says it allocated**, so on a server that reports its
-  allocation it confirms recall up to it and finds no limit of its own. Its sizes are estimates at four
+- **The context probe of 2026-11-21's first datasheets stayed inside what the server said it allocated**, so
+  it confirmed recall up to it and found no limit of its own. Since B15 the probe goes to nine tenths of the
+  reported allocation and then a quarter past it (datasheet format 2; "Context allocation", above). Its sizes are estimates at four
   characters a token; the filler text is denser than that, so the largest prompt was 3,514 tokens, not 4,096.
 - **A schema probe cannot tell enforcement from a model that complies anyway.** The prompts ask for what the
   schema forbids to make that unlikely, not impossible.

@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { applyEditBlocks, computeLineHunks, parseInlineEdits } from '../../common/onyxInlineEdit.js';
+import { applyEditBlocks, describeEditRefusal, computeLineHunks, parseInlineEdits } from '../../common/onyxInlineEdit.js';
 
 suite('OnyxInlineEdit', () => {
 
@@ -139,20 +139,73 @@ suite('OnyxInlineEdit', () => {
 				{ appliedCount: 1, failed: [], hasNew: true });
 		});
 
-		test('whitespace drift falls back to trimmed matching and re-indents', () => {
-			// The model claimed 4-space indentation; the file uses tabs.
-			const applied = applyEditBlocks(original, [{ search: '    const count = add(1, 2);', replace: '    const count = add(2, 3);' }]);
+		test('R-33: whitespace drift is refused, not repaired: the text is unchanged and the refusal says what was not found', () => {
+			// The model claimed 4-space indentation; the file uses tabs. Before B6 this was matched after trimming and re-indented.
+			const block = { search: '    const count = add(1, 2);', replace: '    const count = add(2, 3);' };
+			const applied = applyEditBlocks(original, [block]);
 			assert.deepStrictEqual(
-				{ appliedCount: applied.appliedCount, line: applied.text.split('\n')[1] },
-				{ appliedCount: 1, line: '\tconst count = add(2, 3);' });
+				{ text: applied.text, appliedCount: applied.appliedCount, failed: applied.failed, refusals: applied.refusals.map(refusal => ({ reason: refusal.reason, occurrences: refusal.occurrences, firstUnmatchedLine: refusal.firstUnmatchedLine })) },
+				{ text: original, appliedCount: 0, failed: [block], refusals: [{ reason: 'missing', occurrences: 0, firstUnmatchedLine: '    const count = add(1, 2);' }] });
 		});
 
-		test('off-by-one hunks anchor on a unique first line', () => {
-			// SEARCH quotes one line too many (a line that does not exist).
-			const applied = applyEditBlocks(original, [{ search: '\tconst count = add(1, 2);\n\tlet unrelated = 0;', replace: '\tconst count = 3;\n\tlet unrelated = 0;' }]);
+		test('R-07: a SEARCH whose first line is unique and whose next line is not in the file is refused, naming the first unmatched line', () => {
+			// Before B6 the unique first line anchored the block and two lines the model never quoted were replaced.
+			const block = { search: '\tconst count = add(1, 2);\n\tlet unrelated = 0;', replace: '\tconst count = 3;\n\tlet unrelated = 0;' };
+			const applied = applyEditBlocks(original, [block]);
 			assert.deepStrictEqual(
-				{ appliedCount: applied.appliedCount, second: applied.text.split('\n')[1], third: applied.text.split('\n')[2] },
-				{ appliedCount: 1, second: '\tconst count = 3;', third: '\tlet unrelated = 0;' });
+				{ text: applied.text, appliedCount: applied.appliedCount, refusal: { reason: applied.refusals[0]?.reason, firstUnmatchedLine: applied.refusals[0]?.firstUnmatchedLine }, message: applied.refusals[0] ? describeEditRefusal(applied.refusals[0]) : '' },
+				{ text: original, appliedCount: 0, refusal: { reason: 'missing', firstUnmatchedLine: '\tlet unrelated = 0;' }, message: 'The "search" text is not in the file exactly as quoted. The first line that does not match is line 2 of it: "\\tlet unrelated = 0;". Nothing was changed. Quote the lines exactly as they are in the file, including indentation.' });
+		});
+
+		test('R-08: a SEARCH that occurs at two places is refused as ambiguous, whichever comes first', () => {
+			const twice = 'function a() {\n\treturn value;\n}\n\nfunction b() {\n\treturn value;\n}';
+			const applied = applyEditBlocks(twice, [{ search: '\treturn value;', replace: '\treturn other;' }]);
+			const overlapping = applyEditBlocks('aaa', [{ search: 'aa', replace: 'b' }]);
+			assert.deepStrictEqual(
+				{ text: applied.text, appliedCount: applied.appliedCount, refusal: { reason: applied.refusals[0]?.reason, occurrences: applied.refusals[0]?.occurrences }, message: applied.refusals[0] ? describeEditRefusal(applied.refusals[0]) : '', overlapping: { text: overlapping.text, reason: overlapping.refusals[0]?.reason } },
+				{ text: twice, appliedCount: 0, refusal: { reason: 'ambiguous', occurrences: 2 }, message: 'The "search" text occurs 2 times in the file, so it does not say which place to change. Nothing was changed. Quote more of the surrounding lines so that the text occurs exactly once.', overlapping: { text: 'aaa', reason: 'ambiguous' } });
+		});
+
+		test('R-33: indentation in Python and YAML, tabs against spaces, trailing spaces, whitespace inside a multiline string and line endings are never normalized to make a match', () => {
+			const python = 'def total(values):\n    result = 0\n    for value in values:\n        result += value\n    return result\n';
+			const yaml = 'services:\n  web:\n    image: app\n  db:\n    image: postgres\n';
+			const literal = 'const text = `first line\n   indented in the string\nlast`;\n';
+			const nested = 'class Sum:\n    def total(self, values):\n        result = 0\n        for value in values:\n            result += value\n        return result\n';
+			const cases: Record<string, { text: string; search: string; replace?: string }> = {
+				// One level less than the file has, on every line.
+				pythonIndentation: { text: nested, search: '    for value in values:\n        result += value' },
+				// One line, under-indented, with a replacement of two lines: the second would land a level out.
+				pythonFirstLineOnly: { text: nested, search: '        result += value', replace: '        result += value\n        count += 1' },
+				yamlIndentation: { text: yaml, search: 'web:\n  image: app' },
+				tabsForSpaces: { text: python, search: '\tresult = 0' },
+				trailingSpaces: { text: python, search: '    result = 0  \n    for value in values:' },
+				trailingSpacesInTheFile: { text: 'a = 1  \nb = 2\n', search: 'a = 1\nb = 2' },
+				multilineString: { text: literal, search: 'first line\nindented in the string' },
+				crlfQuotedAgainstLf: { text: python, search: '    result = 0\r\n    for value in values:' },
+				lfQuotedAgainstCrlf: { text: python.replace(/\n/g, '\r\n'), search: '    result = 0\n    for value in values:' },
+			};
+			const outcomes = Object.fromEntries(Object.entries(cases).map(([name, { text, search, replace }]) => {
+				const applied = applyEditBlocks(text, [{ search, replace: replace ?? 'REPLACED' }]);
+				return [name, { unchanged: applied.text === text, applied: applied.appliedCount, reason: applied.refusals[0]?.reason, lineEndings: applied.refusals[0]?.lineEndingsDiffer === true }];
+			}));
+			const refused = () => ({ unchanged: true, applied: 0, reason: 'missing', lineEndings: false });
+			assert.deepStrictEqual(outcomes, {
+				pythonIndentation: refused(), pythonFirstLineOnly: refused(), yamlIndentation: refused(), tabsForSpaces: refused(), trailingSpaces: refused(), trailingSpacesInTheFile: refused(), multilineString: refused(),
+				// Refused the same way, and the refusal says the difference is the line endings.
+				crlfQuotedAgainstLf: { ...refused(), lineEndings: true }, lfQuotedAgainstCrlf: { ...refused(), lineEndings: true },
+			});
+		});
+
+		test('a quote that begins in the middle of a line is an exact match: the characters quoted are replaced and the rest of the line, its indentation included, stays', () => {
+			const python = 'for value in values:\n        result += value\n';
+			const applied = applyEditBlocks(python, [{ search: 'result += value', replace: 'result += 2 * value' }]);
+			assert.deepStrictEqual({ text: applied.text, appliedCount: applied.appliedCount }, { text: 'for value in values:\n        result += 2 * value\n', appliedCount: 1 });
+		});
+
+		test('an exact SEARCH keeps the file\'s own bytes around it: CRLF line endings, tabs and trailing spaces outside the match are untouched', () => {
+			const crlf = 'one\r\n\ttwo  \r\nthree\r\n';
+			const applied = applyEditBlocks(crlf, [{ search: '\ttwo  ', replace: '\tTWO' }]);
+			assert.deepStrictEqual({ text: applied.text, appliedCount: applied.appliedCount }, { text: 'one\r\n\tTWO\r\nthree\r\n', appliedCount: 1 });
 		});
 
 		test('an unlocatable block is reported, not guessed', () => {

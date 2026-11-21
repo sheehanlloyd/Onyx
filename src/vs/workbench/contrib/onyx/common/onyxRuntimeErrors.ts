@@ -15,7 +15,7 @@ import { isContextOverflowError } from './onyxContextBudget.js';
  * `terminated`. Unknown errors pass through unchanged: inventing an
  * explanation would be worse than showing the raw one.
  */
-export function humanizeRuntimeError(raw: string, modelId?: string): string {
+export function humanizeRuntimeError(raw: string, modelId?: string, context?: { readonly tokens: number; readonly source: string }): string {
 	const text = raw.trim();
 	const model = modelId ? ` (${modelId})` : '';
 
@@ -29,7 +29,8 @@ export function humanizeRuntimeError(raw: string, modelId?: string): string {
 		return localize('onyx.error.timeout', "The local runtime took too long to answer{0}. A smaller model, or a shorter prompt, will respond faster.", model);
 	}
 	if (isContextOverflowError(text)) {
-		return localize('onyx.error.context', "This request is longer than the context the runtime allocated for the model{0}. Onyx drops earlier tool results and history and retries once when that happens; if you are reading this, it still did not fit. Use a model or a runtime setting with a larger context, or shorten the request.", model);
+		return localize('onyx.error.context', "This request is longer than the context the runtime allocated for the model{0}. Onyx drops earlier tool results and history and retries once when that happens; if you are reading this, it still did not fit. {1} Run \"Onyx: Request a Larger Model Context\" to ask the runtime for more (it asks before it changes anything and checks the result), or shorten the request.", model,
+			context ? localize('onyx.error.context.effective', "Onyx budgeted {0} tokens for it ({1}).", context.tokens, describeContextSource(context.source)) : '');
 	}
 	if (/\b404\b|model not found|no such model|does not exist/i.test(text)) {
 		return localize('onyx.error.missingModel', "The runtime does not have that model loaded{0}. Pull it with Onyx: Manage Models, or pick another model.", model);
@@ -41,4 +42,16 @@ export function humanizeRuntimeError(raw: string, modelId?: string): string {
 		return localize('onyx.error.serverError', "The local runtime returned an error{0}: {1}", model, text);
 	}
 	return text;
+}
+
+/** Where a budgeted context came from, in words (B15, step 6). */
+export function describeContextSource(source: string): string {
+	switch (source) {
+		case 'verified': return localize('onyx.contextSource.verified', "a context Onyx requested and verified");
+		case 'measured': return localize('onyx.contextSource.measured', "measured for this model");
+		case 'observed': return localize('onyx.contextSource.observed', "learned from a request the runtime rejected");
+		case 'server': return localize('onyx.contextSource.server', "the server's own allocation");
+		case 'architectural': return localize('onyx.contextSource.architectural', "what the model's architecture allows; the server has not said what it allocates");
+		default: return localize('onyx.contextSource.default', "a default; the runtime reported nothing");
+	}
 }

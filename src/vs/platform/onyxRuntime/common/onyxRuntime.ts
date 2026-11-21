@@ -66,7 +66,18 @@ export interface IOnyxDiscoveredModel {
 	readonly digest?: string;
 	/** The runtime's reported version, when it reports one (L3). */
 	readonly runtimeVersion?: string;
+	/** The size of the model's files on the runtime, in bytes, when it says (B15: what loading it costs before any context). */
+	readonly sizeBytes?: number;
+	/**
+	 * Set when this entry is a context alias Onyx created (B15): a second name
+	 * over the weights of `base` whose parameters ask for `tokens` of context.
+	 * Such an entry is not a model to offer; it is how `base` is requested.
+	 */
+	readonly contextAlias?: { readonly base: string; readonly tokens: number };
 }
+
+/** The outcome of asking a runtime to create or remove a context alias (B15). */
+export type OnyxContextAliasResult = { readonly ok: true; readonly alias: string } | { readonly ok: false; readonly error: string };
 
 /** A model a runtime has in memory, and what it allocated for it, as the runtime reports them. */
 export interface IOnyxLoadedModel {
@@ -369,6 +380,18 @@ export interface IOnyxRuntimeService {
 	 * same as none being loaded.
 	 */
 	listLoadedModels(baseUrl: string): Promise<readonly IOnyxLoadedModel[] | undefined>;
+
+	/**
+	 * Asks an Ollama server for a second name over `model`'s weights whose
+	 * parameters carry a context of `tokens` (B15). It creates a model on the
+	 * user's runtime, so a caller asks the user first. No weights are copied:
+	 * the new name points at the files `model` already has. Any other context
+	 * alias of the same model is left alone; `removeContextAlias` removes one.
+	 */
+	createContextAlias(baseUrl: string, model: string, tokens: number): Promise<OnyxContextAliasResult>;
+
+	/** Removes a context alias. Refuses a name that is not one of Onyx's aliases, whatever the caller says. */
+	removeContextAlias(baseUrl: string, alias: string): Promise<OnyxContextAliasResult>;
 
 	/**
 	 * Starts a streaming chat completion. Resolves once the stream has ended

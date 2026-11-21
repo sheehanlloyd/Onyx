@@ -57,6 +57,7 @@ import { IOnyxEndpointSecretService } from '../../../browser/model/onyxEndpointS
 import { IOnyxModelService, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
 import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../../../browser/agent/onyxHarnessConfigService.js';
+import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../../../browser/models/onyxContextAllocationService.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
 import { IOnyxRouterService, OnyxRouterService } from '../../../browser/routing/onyxRouterService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../../../browser/terminal/onyxTerminalTool.js';
@@ -130,6 +131,7 @@ export interface IOnyxSimProductClasses {
 	readonly MemoryTool: typeof OnyxMemoryToolContribution;
 	readonly DiagnosticsRedactor: typeof OnyxDiagnosticsRedactor;
 	readonly ModelService: typeof OnyxModelService;
+	readonly ChangeSetService: typeof OnyxChangeSetService;
 }
 
 export interface IOnyxSimRigOptions {
@@ -235,7 +237,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private _prepared = false;
 
 	constructor(readonly episode: OnyxSimEpisode, checkers: readonly OnyxSimChecker[] = [], options: IOnyxSimRigOptions = {}) {
-		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ...options.classes };
+		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ChangeSetService: OnyxChangeSetService, ...options.classes };
 		this._redactorClass = classes.DiagnosticsRedactor;
 		this._checkers.push(...checkers);
 		this.trace = new OnyxSimTrace(() => Date.now());
@@ -299,6 +301,9 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IOnyxControlPlaneService, this.controlPlane);
 		// No endpoint is configured in the rig, so there is no key to store or read.
 		instantiationService.stub(IOnyxEndpointSecretService, { _serviceBrand: undefined, onDidChange: Event.None, setApiKey: async () => { }, configuredApiKeys: async () => new Map<string, string>() });
+		// The real allocation service over the simulated runtime (B15): nothing was asked of that runtime, so
+		// every model is requested under its own name at the server's allocation.
+		instantiationService.stub(IOnyxContextAllocationService, this._disposables.add(instantiationService.createInstance(OnyxContextAllocationService)));
 		const modelService: IOnyxModelService = this._disposables.add(instantiationService.createInstance(classes.ModelService));
 		instantiationService.stub(IOnyxModelService, modelService);
 		this._languageModels = new OnyxSimLanguageModelsService(modelService);
@@ -307,7 +312,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IOnyxPromptCacheService, this._disposables.add(new OnyxPromptCacheService()));
 		this.memory = this._disposables.add(instantiationService.createInstance(OnyxMemoryService));
 		instantiationService.stub(IOnyxMemoryService, this.memory);
-		this.changeSet = this._disposables.add(instantiationService.createInstance(OnyxChangeSetService));
+		this.changeSet = this._disposables.add(instantiationService.createInstance(classes.ChangeSetService));
 		instantiationService.stub(IOnyxChangeSetService, this.changeSet);
 		this._terminal = this._disposables.add(instantiationService.createInstance(classes.TerminalService));
 		instantiationService.stub(IOnyxTerminalService, this._terminal);

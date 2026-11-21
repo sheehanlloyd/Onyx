@@ -27,6 +27,7 @@ export const enum OnyxSettingId {
 	InferenceStrictLocal = 'onyx.inference.strictLocal',
 	InferenceAllowLan = 'onyx.inference.allowLan',
 	IndexMaxFiles = 'onyx.index.maxFiles',
+	ContextRequestTokens = 'onyx.context.requestTokens',
 }
 
 export interface IOnyxEndpointSetting {
@@ -185,6 +186,15 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			minimum: ONYX_INDEX_MAX_FILES.minimum,
 			maximum: ONYX_INDEX_MAX_FILES.maximum,
 			markdownDescription: localize('onyx.index.maxFiles', "The most files of one workspace folder that Onyx's content index holds. Files that `files.exclude`, `search.exclude` or the folder's `.gitignore` leave out are not indexed. When a folder has more files than this, source folders are indexed first and tests, documentation and examples last, and search results from the index say how much of the folder it holds. The index keeps roughly one and a half times the size of the indexed text in memory, and stops at 256 MB of text whatever this number is."),
+		},
+		[OnyxSettingId.ContextRequestTokens]: {
+			type: 'integer',
+			// A user setting: a workspace cannot raise the memory a model takes on this machine.
+			scope: ConfigurationScope.APPLICATION,
+			default: 16384,
+			minimum: 0,
+			maximum: 1048576,
+			markdownDescription: localize('onyx.context.requestTokens', "The context, in tokens, that Onyx asks a runtime to give a model when you run **Onyx: Request a Larger Model Context**. Onyx asks for the smallest of this number, the context the model was trained with, and a ceiling from this machine's memory (half the memory, less the model's size, at 96 KiB a token). `0` keeps the server's own allocation and asks for nothing. Nothing is created or changed on the runtime until you agree in the dialog, and the larger context is used only after a check has seen it work."),
 		},
 		[OnyxSettingId.TerminalPassEnvironment]: {
 			type: 'boolean',

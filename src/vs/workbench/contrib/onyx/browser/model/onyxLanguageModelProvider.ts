@@ -21,6 +21,8 @@ import { isContextOverflowError } from '../../common/onyxContextBudget.js';
 import { classifyTransport, decideInferenceUse, describeExecution, describeRefusal, describeTransport, IOnyxInferenceLocation, IOnyxInferencePolicy, locationBadge, OnyxLocationRefusal } from '../../common/onyxInferenceLocation.js';
 import { humanizeRuntimeError } from '../../common/onyxRuntimeErrors.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
+import { IOnyxContextNumbersRecord } from '../../common/onyxContextAllocation.js';
+import { IOnyxContextAllocationService } from '../models/onyxContextAllocationService.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxRouterService } from '../routing/onyxRouterService.js';
 import { IOnyxEndpointSecretService } from './onyxEndpointSecrets.js';
@@ -47,6 +49,10 @@ export interface IOnyxKnownModel {
 	readonly apiKey?: string;
 	/** Where requests go and where the runtime says the model runs (B14). */
 	readonly location: IOnyxInferenceLocation;
+	/** The name requests are sent to, when it is not the model's own: a verified context alias (B15). */
+	readonly wireModel?: string;
+	/** What Onyx asked the runtime for, what it reported and what was verified, for the trace (B15). */
+	readonly contextNumbers?: IOnyxContextNumbersRecord;
 }
 
 /** A discovered model that is not used under the user's inference settings, and why. */
@@ -141,6 +147,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@IOnyxEndpointSecretService private readonly _endpointSecretService: IOnyxEndpointSecretService,
+		@IOnyxContextAllocationService private readonly _allocationService: IOnyxContextAllocationService,
 	) {
 		super();
 		this._register(this._endpointSecretService.onDidChange(() => this.refresh()));
@@ -198,7 +205,13 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		const policy = this._inferencePolicy();
 		const next = new Map<string, IOnyxKnownModel>();
 		const refused = new Map<string, IOnyxRefusedModel>();
+		// Which context aliases the runtimes list decides which recorded allocations still hold (B15).
+		this._allocationService.noteListed(discovered);
 		for (const model of discovered) {
+			if (model.contextAlias) {
+				// Not a model to offer: it is how the model it stands for is requested.
+				continue;
+			}
 			const key = modelKey(model);
 			const setting = settings.find(s => normalizeEndpointBaseUrl(s.baseUrl) === model.baseUrl);
 			const withOverrides = setting?.contextWindow ? { ...model, contextLength: setting.contextWindow } : model;
@@ -211,6 +224,8 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				profile: this._profileService.getProfile(key, withOverrides),
 				apiKey: this._apiKeys.get(model.baseUrl),
 				location,
+				wireModel: this._allocationService.wireModel(key, withOverrides),
+				contextNumbers: this._allocationService.numbers(key, withOverrides),
 			};
 			const decision = this._decideUse(location, policy);
 			if (decision.allowed) {
@@ -229,7 +244,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 
 	private _reapplyProfiles(): void {
 		for (const [key, model] of this._models) {
-			this._models.set(key, { ...model, profile: this._profileService.getProfile(key, model.discovered) });
+			this._models.set(key, { ...model, profile: this._profileService.getProfile(key, model.discovered), wireModel: this._allocationService.wireModel(key, model.discovered), contextNumbers: this._allocationService.numbers(key, model.discovered) });
 		}
 		this._onDidChange.fire();
 	}
@@ -370,7 +385,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 			return;
 		}
 		this._logService.trace(`[onyx] warming up ${modelKey}`);
-		await this._runtimeService.warmUpModel(model.discovered.baseUrl, model.discovered.id, this._keepAliveFor(model));
+		await this._runtimeService.warmUpModel(model.discovered.baseUrl, model.wireModel ?? model.discovered.id, this._keepAliveFor(model));
 		this._lastUsedAt.set(modelKey, Date.now());
 	}
 
@@ -487,7 +502,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						settled = true;
 						// Transport failures reach the user as sentences, not as
 						// undici's `terminated` / `ECONNREFUSED`.
-						const message = humanizeRuntimeError(event.message, model.discovered.id);
+						const message = humanizeRuntimeError(event.message, model.discovered.id, { tokens: model.profile.contextLength, source: model.profile.context?.source ?? 'default' });
 						const error = isContextOverflowError(event.message) ? new OnyxContextOverflowError(message) : new Error(message);
 						source.reject(error);
 						this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
@@ -505,7 +520,8 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 			this._runtimeService.startChatCompletion(operationId, {
 				baseUrl: model.discovered.baseUrl,
 				apiKey: model.apiKey,
-				model: model.discovered.id,
+				// The verified context alias when there is one: the same weights, with the context that was asked for (B15).
+				model: model.wireModel ?? model.discovered.id,
 				messages: toWireMessages(messages),
 				tools: tools.length ? toWireTools(tools.slice(0, model.profile.maxTools)) : undefined,
 				temperature: model.profile.temperature,
