@@ -7,17 +7,15 @@ Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; m
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-11-20 the base was 36d38757a15 (August 2026)
 Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; the gate machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
 
-## Module 2 (in progress; this section is updated after every merge and rewritten when the module ends)
+## Module 2 (in progress; this section is rewritten when the module ends)
 Branch: `module-2` → draft pull request sheehanlloyd/Onyx#3. One branch per item, merged into `module-2` with a merge commit when its checks pass.
-Merged and pushed: B1, B2, B3, B4, B5, B11, B12, B13, B14, C4, C5, C6, C7, L4. Reports: `docs/progress/<item>.md`.
-In progress, not merged: L5, on branch `codex/l5-datasheet` (pushed, f11af5de5c7). Done there: the datasheet and its probe suite, the runtime's part, the datasheet and profile services, the command, the model library labels, and R-45 against mock runtimes (the Onyx unit suite is at 275 passing on that branch). Not done: the measurement of the two pinned models and its results directory, `docs/SUPPORT.md`'s datasheet section, `docs/progress/L5.md`, and the integration run (self-checks, packaged smoke, end-to-end).
-Stopped on 2026-11-21 for a reason outside the work: the machine was on a 13 W power source with the battery at 2% and discharging, having already shut down once that day. Model runs, packaging and the end-to-end suite draw more than that source supplies. Nothing was running when work stopped; the Ollama server started for L5 (port 11500) was stopped.
-Next, once the machine is on its own charger: finish L5 (measure, document, integrate, merge), then the gate (`node test/onyx/run-module-gate.mts --module 2` with `ONYX_PACKAGED_APP` set; its definition already has R-44, R-45, the 20,000-episode campaign and the `docs/SUPPORT.md` and baseline-table check on the L5 branch), the Section 11 integration suite once more, CI green twice, and this file's rewrite.
-Optional scope: C6 included, C7 included (`docs/SUPPORT.md`, "Optional feature states"). Agent Host: excluded (B3).
-Mutants so far: 24 (`test/onyx/sim/mutants/`). Baseline exceptions still open: 7, all owned by Module 3.
-Integration on the L4 tree (3e66f3b7f10): harness self-checks 29 of 29, packaged smoke in release mode 26 of 26, end-to-end 57 of 57.
-CI: green on 1a1ecf34f55 (44785897566, 44785897694) and on 7055ed1faa3 (44785973722, 44785973332), after the failure on 669dd50b67d (44756056767, 44756057488) that C7's commit fixed. The run on 288b78e12f3 covers L4.
-To resume: `git checkout codex/l5-datasheet`. Start `OLLAMA_HOST=127.0.0.1:11500 ollama serve`, run `node test/onyx/lab/measure-models.mts --base-url http://127.0.0.1:11500/v1 --model qwen2.5-coder:7b --model qwen2.5-coder:1.5b --out docs/research/results/<date>-datasheets` on fresh output, and stop the server. Pull nothing.
+Merged and pushed: all fifteen items, B1, B2, B3, B4, B5, B11, B12, B13, B14, C4, C5, C6, C7, L4, L5. Reports: `docs/progress/<item>.md`.
+Not done: the Module 2 gate run on the final tree (`ONYX_PACKAGED_APP=<the rebuilt Onyx.app> node test/onyx/run-module-gate.mts --module 2`), the Section 11 integration suite once more, CI green twice in a row, and this file's rewrite from the template.
+Optional scope: C6 included, C7 included. Agent Host: excluded (B3).
+Mutants: 24 (`test/onyx/sim/mutants/`). Baseline exceptions still open: 7, all owned by Module 3.
+Integration on the L5 tree (f11af5de5c7): harness self-checks 32 of 32, packaged smoke in release mode 26 of 26, end-to-end 57 of 57.
+Datasheets: `docs/research/results/2026-11-21-datasheets/` (qwen2.5-coder:7b and :1.5b on Ollama 0.33.0).
+To resume if this session stops: `git checkout module-2`; rebuild the packaged app (`pnpm run gulp vscode-darwin-arm64-min`) and run the gate.
 
 ## DEC-05 (upstream baseline)
 Decision: confirmed by the owner on 2026-11-20: move the fork to upstream release 1.147.0. Completed the same day as its own step between Module 1 and Module 2; report in `docs/progress/DEC-05.md`, merge record in `REBASE.md`.
