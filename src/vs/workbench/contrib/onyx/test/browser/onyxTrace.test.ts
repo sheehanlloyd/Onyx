@@ -19,6 +19,7 @@ suite('OnyxTrace', () => {
 			runtime: { name: 'ollama', version: null, baseUrl: 'http://localhost:11434/v1' },
 			sampling: { temperature: 0.2, seed: 7, maxTokens: null, responseFormat: false },
 			tools: [{ name: 'editFile', schemaHash: 'ff' }],
+			context: { budgetedTokens: 16384, source: 'server', requestedTokens: null, reportedTokens: 16384, verifiedTokens: null, mechanism: null },
 		},
 	};
 	const turn = {

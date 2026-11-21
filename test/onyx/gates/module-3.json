@@ -1,0 +1,42 @@
+{
+	"module": 3,
+	"title": "Module 3: edit integrity and the review workflow",
+	"checks": [
+		{
+			"id": "R-61",
+			"title": "B15 context allocation: a runtime that honours the request, one that ignores it and one that reports more than it serves, with consent given and refused; the budget uses only the verified context, nothing is created without consent, and the trace carries requested, reported and verified",
+			"layer": "service, node",
+			"regressions": [
+				"R-61"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxContextAllocation.test.ts",
+				"src/vs/platform/onyxRuntime/test/node/onyxContextAlias.test.ts",
+				"src/vs/workbench/contrib/onyx/test/node/onyxDatasheetProbes.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxContextAllocation|OnyxContextAlias|OnyxDatasheetProbes|OnyxTrace"
+			]
+		},
+		{
+			"id": "module-3-tables",
+			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
+			"layer": "node",
+			"regressions": [
+				"R-61"
+			],
+			"files": [
+				"test/onyx/checks/module3-gate.test.mts",
+				"docs/research/results/2026-11-21-context-allocation/manifest.json",
+				"docs/research/results/2026-11-21-context-allocation/summary.json"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/module3-gate.test.mts"
+			]
+		}
+	]
+}

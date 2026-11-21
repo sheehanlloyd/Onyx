@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { OnyxAllocationMechanism, OnyxCanaryRole } from './onyxContextAllocation.js';
 import { IOnyxModelProfile } from './onyxTypes.js';
 
 /**
@@ -35,10 +36,14 @@ export interface IOnyxContextStep {
 	/** The prompt's size in tokens: as the runtime counted it when it said, estimated otherwise. */
 	readonly promptTokens: number;
 	readonly recalled: boolean;
+	/** The prompt's size as it was sent, in estimated tokens (B15). A prompt the runtime cut is counted smaller than it was sent. */
+	readonly sentTokens?: number;
+	/** What the step was for, when the server had said what it allocates: inside it, or deliberately past it (B15). */
+	readonly role?: OnyxCanaryRole;
 }
 
 export interface IOnyxDatasheet {
-	readonly version: 1;
+	readonly version: 2;
 	/** The model's id as requests name it. */
 	readonly model: string;
 	/** The weights digest the runtime reported when the model was measured; null when it reports none. */
@@ -57,8 +62,19 @@ export interface IOnyxDatasheet {
 		readonly recalledUpToTokens: number | null;
 		/** The shortest prompt at which it was not. Null when every prompt tried was recalled. */
 		readonly failedFromTokens: number | null;
-		/** What the server said it allocates, when it said. The probe does not go past it. */
+		/** What the server said it allocated for the model as it was measured, when it said. */
 		readonly serverReportedTokens: number | null;
+		/** What Onyx had asked the runtime for before the measurement (B15). Null: nothing was asked, and the allocation is the server's own. */
+		readonly requestedTokens: number | null;
+		/**
+		 * The reported context, when the probe confirmed it: the code came back from every prompt inside it,
+		 * up to nine tenths of it by the runtime's own count. Null when the server reported nothing or a prompt inside lost its start.
+		 */
+		readonly verifiedTokens: number | null;
+		/** Whether a prompt a quarter longer than the reported context was seen to lose its start. */
+		readonly cutObserved: boolean;
+		/** How the requested context was applied, when one was. */
+		readonly mechanism: OnyxAllocationMechanism | null;
 		readonly steps: readonly IOnyxContextStep[];
 	};
 	/** A reply asked to stay under an output cap did, and ended for that reason. */
@@ -127,18 +143,21 @@ export function measuredSchemaEnforcement(datasheet: IOnyxDatasheet): boolean | 
 }
 
 /**
- * The context the model was measured to have. The longest prompt whose
- * start it still had, when a longer one was tried and had lost it. The probe
- * does not go past what the server said it allocated, so it often finds no
- * limit; then the context is what the server said when the model was
- * measured, provided the probe recalled something inside it. A prompt longer
- * than that is cut by the runtime without an error, which is what the number
- * is for. A probe that recalled nothing measured nothing.
+ * The context the model was measured to have. When the server said what it
+ * allocated and the probe confirmed it, that number (B15): the probe goes
+ * past it on purpose, so a lost prompt beyond it is the cut being seen, not
+ * a smaller context. When a prompt inside the reported context lost its
+ * start, the longest prompt that kept it. When the server said nothing, the
+ * longest prompt recalled, provided a longer one was lost. A probe that
+ * recalled nothing measured nothing.
  */
 export function measuredContextTokens(datasheet: IOnyxDatasheet): number | undefined {
-	const { recalledUpToTokens, failedFromTokens, serverReportedTokens } = datasheet.context;
+	const { recalledUpToTokens, failedFromTokens, serverReportedTokens, verifiedTokens } = datasheet.context;
 	if (recalledUpToTokens === null || recalledUpToTokens <= 0) {
 		return undefined;
+	}
+	if (verifiedTokens !== null) {
+		return verifiedTokens;
 	}
 	return failedFromTokens !== null ? recalledUpToTokens : serverReportedTokens ?? undefined;
 }
@@ -191,7 +210,13 @@ export function describeDatasheet(datasheet: IOnyxDatasheet): string[] {
 		localize('onyx.datasheet.schema', "Schema enforced: object {0}, enum {1}, nested {2}", formatTally(datasheet.schemaEnforced.object), formatTally(datasheet.schemaEnforced.enum), formatTally(datasheet.schemaEnforced.nested)),
 		context.recalledUpToTokens === null
 			? localize('onyx.datasheet.context.none', "Context: not measured")
-			: context.failedFromTokens === null
+			: context.verifiedTokens !== null
+				? localize('onyx.datasheet.context.verified', "Context: {0} tokens verified (requested {1}, reported {2}); a prompt past it {3}",
+					context.verifiedTokens,
+					context.requestedTokens === null ? localize('onyx.datasheet.context.notRequested', "nothing") : String(context.requestedTokens),
+					context.serverReportedTokens ?? 0,
+					context.cutObserved ? localize('onyx.datasheet.context.cut', "lost its start") : localize('onyx.datasheet.context.noCut', "still kept its start"))
+				: context.failedFromTokens === null
 				? localize('onyx.datasheet.context.noLimit', "Context: the start of a {0}-token prompt was recalled; no limit found{1}", context.recalledUpToTokens, server)
 				: localize('onyx.datasheet.context.limit', "Context: recalled up to {0} tokens, lost from {1}{2}", context.recalledUpToTokens, context.failedFromTokens, server),
 		localize('onyx.datasheet.capAndStop', "Output cap honoured {0}; stop honoured {1}", formatTally(datasheet.outputCapHonoured), formatTally(datasheet.stopHonoured)),

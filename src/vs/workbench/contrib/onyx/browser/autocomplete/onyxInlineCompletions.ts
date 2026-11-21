@@ -127,7 +127,7 @@ export class OnyxInlineCompletionsProvider extends Disposable implements InlineC
 			const text = await this._runtimeService.completeText(operationId, {
 				baseUrl: target.discovered.baseUrl,
 				apiKey: target.apiKey,
-				model: target.discovered.id,
+				model: target.wireModel ?? target.discovered.id,
 				prompt: contextHeader + prefix,
 				suffix,
 				maxTokens: 96,

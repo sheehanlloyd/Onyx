@@ -5,6 +5,7 @@
 
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IOnyxChatParams, IOnyxRuntimeService, IOnyxStreamEvent, IOnyxWireMessage, IOnyxWireTool, OnyxStreamEnding } from '../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxCanaryStep, OnyxAllocationMechanism, OnyxCanaryRole, ONYX_CONTEXT_ALLOCATION, canaryPlan } from './onyxContextAllocation.js';
 import { IOnyxContextStep, IOnyxDatasheet, tallyOf } from './onyxDatasheet.js';
 import { stripReasoning } from './onyxReasoning.js';
 import { parseTextToolCall } from './onyxTextToolCalls.js';
@@ -59,8 +60,11 @@ export interface IOnyxProbeSubject {
 	readonly digest: string | undefined;
 	readonly runtime: string;
 	readonly runtimeVersion: string | undefined;
-	/** The context the server says it allocates, when it says. The context probe does not go past it. */
+	/** The context the server says it allocates, when it says. The context probe goes past it once, on purpose (B15). */
 	readonly serverContextTokens: number | undefined;
+	/** What Onyx asked the runtime for before this measurement, and how, when it asked (B15). */
+	readonly requestedContextTokens?: number;
+	readonly contextMechanism?: OnyxAllocationMechanism;
 	/** Whether the model was already loaded when the suite began. Unknown: the cold first token is not measured. */
 	readonly loadedAtStart: boolean | undefined;
 }
@@ -73,7 +77,11 @@ export interface IOnyxProbeOptions {
 	readonly toolTrials?: number;
 	/** Trials for each of the other counted probes. */
 	readonly trials?: number;
-	/** The largest prompt the context probe sends, in estimated tokens. */
+	/**
+	 * The largest prompt the context probe sends, in estimated tokens. When
+	 * the server says what it allocated the probe has to reach nine tenths
+	 * of it to confirm it; a bound below that leaves the context unverified.
+	 */
 	readonly maxContextProbeTokens?: number;
 	/** Called before each probe with its name and how far the suite is. */
 	readonly onProgress?: (probe: OnyxProbeName, done: number, total: number) => void;
@@ -172,6 +180,44 @@ export function canaryPrompt(tokens: number): string {
 	return opening + FILLER_LINE.repeat(Math.ceil(fillerChars / FILLER_LINE.length)).slice(0, fillerChars) + closing;
 }
 
+/**
+ * One verification prompt: sends it and says whether the code came back
+ * (B15). `sentTokens` is the size in estimated tokens; what the runtime
+ * counted is reported as it came, and a runtime that cut the prompt counts
+ * what was left of it.
+ */
+export async function canaryStep(send: (request: IOnyxProbeRequest) => Promise<IOnyxProbeReply>, sentTokens: number, role: OnyxCanaryRole): Promise<IOnyxCanaryStep> {
+	const reply = await send({ messages: [user(canaryPrompt(sentTokens))], temperature: 0, maxTokens: 24 });
+	return { role, sentTokens, promptTokens: reply.ending !== 'error' && reply.promptTokens ? reply.promptTokens : null, recalled: reply.ending !== 'error' && reply.text.includes(CANARY) };
+}
+
+/**
+ * Verifies an allocation (B15). The control prompt goes first: it is inside
+ * the old allocation, and answering it loads the model, after which the
+ * runtime can say what it allocated. That report decides whether the longer
+ * prompts are sent at all: a runtime that did not raise the context is not
+ * sent a prompt it cannot hold. Then one prompt past the old allocation and
+ * inside the new, and one past the new.
+ */
+export async function runAllocationCanary(send: (request: IOnyxProbeRequest) => Promise<IOnyxProbeReply>, input: { readonly requestedTokens: number; readonly previousTokens: number | undefined; readonly readReportedTokens: () => Promise<number | undefined> }): Promise<{ readonly steps: readonly IOnyxCanaryStep[]; readonly reportedTokens: number | undefined }> {
+	const steps: IOnyxCanaryStep[] = [];
+	const control = await canaryStep(send, canaryPlan(input.requestedTokens, input.previousTokens)[0].sentTokens, 'control');
+	steps.push(control);
+	const reportedTokens = await input.readReportedTokens();
+	if (!control.recalled || reportedTokens === undefined || (input.previousTokens !== undefined && reportedTokens <= input.previousTokens)) {
+		return { steps, reportedTokens };
+	}
+	const counted = control.promptTokens ? control.promptTokens / control.sentTokens : 1;
+	for (const planned of canaryPlan(reportedTokens, input.previousTokens, counted).slice(1)) {
+		const step = await canaryStep(send, planned.sentTokens, planned.role);
+		steps.push(step);
+		if (!step.recalled) {
+			break;
+		}
+	}
+	return { steps, reportedTokens };
+}
+
 function median(values: readonly number[]): number | null {
 	if (values.length === 0) {
 		return null;
@@ -259,45 +305,64 @@ export async function runDatasheetProbes(transport: IOnyxProbeTransport, subject
 		nested: await schemaProbe('nested', NESTED_SCHEMA, 'Do not use JSON. In one plain sentence: which file should be read first, src/math.ts lines 1 to 10 or README.md?'),
 	};
 
-	// 4. Context by canary recall: a code at the start of a prompt, a question about it at the end. Sizes
-	// double until the code is lost or the bound is reached, then the gap is halved twice.
+	// 4. Context by canary recall: a code at the start of a prompt, a question about it at the end. When the
+	// server says what it allocated, prompts double towards nine tenths of that, one is sent at nine tenths, and
+	// then one a quarter longer than the allocation, so that the cut is seen (B15). When it says nothing, sizes double until
+	// the code is lost or the bound is reached, then the gap is halved twice.
 	begin('context');
 	const serverContextTokens = (await options.resolveServerContextTokens?.()) ?? subject.serverContextTokens;
-	const maxContextProbeTokens = Math.min(options.maxContextProbeTokens ?? 16_384, serverContextTokens ?? Number.MAX_SAFE_INTEGER);
 	const steps: IOnyxContextStep[] = [];
 	/** Tokens the runtime counted for a prompt of a given character length, for sizing a prompt it cut. */
 	let charsPerToken = 4;
-	const recall = async (tokens: number): Promise<boolean> => {
-		const prompt = canaryPrompt(tokens);
-		const reply = await send({ messages: [user(prompt)], temperature: 0, maxTokens: 24 }, false);
-		const recalled = reply.ending !== 'error' && reply.text.includes(CANARY);
-		if (recalled && reply.promptTokens) {
-			charsPerToken = prompt.length / reply.promptTokens;
+	const recall = async (tokens: number, role?: OnyxCanaryRole): Promise<boolean> => {
+		const step = await canaryStep(request => send(request, false), tokens, role ?? 'control');
+		if (step.recalled && step.promptTokens) {
+			charsPerToken = canaryPrompt(tokens).length / step.promptTokens;
 		}
 		// A prompt whose start was lost was cut by the runtime, and what the runtime counted is what was left of it.
-		steps.push({ promptTokens: recalled && reply.promptTokens ? reply.promptTokens : Math.round(prompt.length / charsPerToken), recalled });
-		return recalled;
+		steps.push({ promptTokens: step.recalled && step.promptTokens ? step.promptTokens : Math.round(canaryPrompt(tokens).length / charsPerToken), recalled: step.recalled, sentTokens: tokens, ...(role ? { role } : {}) });
+		return step.recalled;
 	};
-	let lastGood: number | undefined;
-	let firstBad: number | undefined;
-	for (let size = 1024; size <= maxContextProbeTokens; size *= 2) {
-		if (await recall(size)) {
-			lastGood = size;
-		} else {
-			firstBad = size;
-			break;
+	let verifiedTokens: number | null = null;
+	let cutObserved = false;
+	if (serverContextTokens !== undefined) {
+		// The two deciding prompts are sized in the runtime's own tokens, from what the shorter ones showed
+		// about how it counts this text: nine tenths of the allocation, then a quarter more than all of it.
+		const sized = (share: number) => Math.round(serverContextTokens * share * charsPerToken / 4);
+		const bound = options.maxContextProbeTokens ?? Number.MAX_SAFE_INTEGER;
+		let allRecalled = true;
+		for (let size = 1024; size < sized(ONYX_CONTEXT_ALLOCATION.insideShare) && size <= bound && allRecalled; size *= 2) {
+			allRecalled = await recall(size, 'control');
+		}
+		const inside = sized(ONYX_CONTEXT_ALLOCATION.insideShare);
+		if (allRecalled && inside <= bound && await recall(inside, 'inside')) {
+			verifiedTokens = serverContextTokens;
+			cutObserved = !(await recall(sized(ONYX_CONTEXT_ALLOCATION.pastShare), 'past'));
+		}
+	} else {
+		const maxContextProbeTokens = options.maxContextProbeTokens ?? 16_384;
+		let lastGood: number | undefined;
+		let firstBad: number | undefined;
+		for (let size = 1024; size <= maxContextProbeTokens; size *= 2) {
+			if (await recall(size)) {
+				lastGood = size;
+			} else {
+				firstBad = size;
+				break;
+			}
+		}
+		for (let halving = 0; halving < 2 && lastGood !== undefined && firstBad !== undefined; halving++) {
+			const middle = Math.round((lastGood + firstBad) / 2);
+			if (await recall(middle)) {
+				lastGood = middle;
+			} else {
+				firstBad = middle;
+			}
 		}
 	}
-	for (let halving = 0; halving < 2 && lastGood !== undefined && firstBad !== undefined; halving++) {
-		const middle = Math.round((lastGood + firstBad) / 2);
-		if (await recall(middle)) {
-			lastGood = middle;
-		} else {
-			firstBad = middle;
-		}
-	}
+	// A prompt sent past the allocation on purpose is not a prompt the context failed to hold.
 	const recalledSteps = steps.filter(step => step.recalled).map(step => step.promptTokens);
-	const lostSteps = steps.filter(step => !step.recalled).map(step => step.promptTokens);
+	const lostSteps = steps.filter(step => !step.recalled && step.role !== 'past').map(step => step.promptTokens);
 	if (recalledSteps.length === 0) {
 		unmeasured.push({ probe: 'context', reason: steps.length === 0 ? 'the server reports a context smaller than the smallest prompt the probe sends' : 'the code was not recalled even from the shortest prompt' });
 	}
@@ -363,7 +428,7 @@ export async function runDatasheetProbes(transport: IOnyxProbeTransport, subject
 	options.onProgress?.('done', totalProbes, totalProbes);
 
 	return {
-		version: 1,
+		version: 2,
 		model: subject.model,
 		digest: subject.digest ?? null,
 		runtime: { name: subject.runtime, version: subject.runtimeVersion ?? null },
@@ -375,6 +440,10 @@ export async function runDatasheetProbes(transport: IOnyxProbeTransport, subject
 			recalledUpToTokens: recalledSteps.length ? Math.max(...recalledSteps) : null,
 			failedFromTokens: lostSteps.length ? Math.min(...lostSteps) : null,
 			serverReportedTokens: serverContextTokens ?? null,
+			requestedTokens: subject.requestedContextTokens ?? null,
+			verifiedTokens,
+			cutObserved,
+			mechanism: subject.contextMechanism ?? null,
 			steps,
 		},
 		outputCapHonoured,

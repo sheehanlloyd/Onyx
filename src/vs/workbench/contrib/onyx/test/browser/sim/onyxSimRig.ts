@@ -57,6 +57,7 @@ import { IOnyxEndpointSecretService } from '../../../browser/model/onyxEndpointS
 import { IOnyxModelService, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
 import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../../../browser/agent/onyxHarnessConfigService.js';
+import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../../../browser/models/onyxContextAllocationService.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
 import { IOnyxRouterService, OnyxRouterService } from '../../../browser/routing/onyxRouterService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../../../browser/terminal/onyxTerminalTool.js';
@@ -299,6 +300,9 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IOnyxControlPlaneService, this.controlPlane);
 		// No endpoint is configured in the rig, so there is no key to store or read.
 		instantiationService.stub(IOnyxEndpointSecretService, { _serviceBrand: undefined, onDidChange: Event.None, setApiKey: async () => { }, configuredApiKeys: async () => new Map<string, string>() });
+		// The real allocation service over the simulated runtime (B15): nothing was asked of that runtime, so
+		// every model is requested under its own name at the server's allocation.
+		instantiationService.stub(IOnyxContextAllocationService, this._disposables.add(instantiationService.createInstance(OnyxContextAllocationService)));
 		const modelService: IOnyxModelService = this._disposables.add(instantiationService.createInstance(classes.ModelService));
 		instantiationService.stub(IOnyxModelService, modelService);
 		this._languageModels = new OnyxSimLanguageModelsService(modelService);

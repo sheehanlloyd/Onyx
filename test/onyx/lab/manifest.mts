@@ -27,7 +27,8 @@ export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export const schemaPath = path.join(repoRoot, 'test', 'onyx', 'lab', 'manifest.schema.json');
 
 type JsonSchema = {
-	readonly type?: string;
+	/** One type, or several when a value may be null. */
+	readonly type?: string | readonly string[];
 	readonly const?: unknown;
 	readonly enum?: readonly unknown[];
 	readonly required?: readonly string[];
@@ -40,7 +41,9 @@ type JsonSchema = {
 	readonly pattern?: string;
 };
 
-export interface IManifestModel { readonly identifier: string; readonly digest: string; readonly runtime?: { readonly name: string; readonly version?: string } }
+/** The context a model ran with (B15): what was asked of the runtime, what it reported and what a probe verified. Null: not known or not applicable. */
+export interface IManifestContext { readonly requestedTokens: number | null; readonly reportedTokens: number | null; readonly verifiedTokens: number | null; readonly mechanism: string | null }
+export interface IManifestModel { readonly identifier: string; readonly digest: string; readonly runtime?: { readonly name: string; readonly version?: string }; readonly context: IManifestContext }
 export interface IManifest {
 	readonly version: 1;
 	readonly name: string;
@@ -81,9 +84,10 @@ function check(schema: JsonSchema, value: unknown, at: string, errors: string[])
 	}
 	if (schema.type) {
 		const actual = typeOf(value);
-		const matches = schema.type === 'integer' ? actual === 'number' && Number.isInteger(value) : actual === schema.type;
+		const allowed = typeof schema.type === 'string' ? [schema.type] : schema.type;
+		const matches = allowed.some(type => type === 'integer' ? actual === 'number' && Number.isInteger(value) : actual === type);
 		if (!matches) {
-			errors.push(`${at}: expected ${schema.type}, got ${actual}`);
+			errors.push(`${at}: expected ${allowed.join(' or ')}, got ${actual}`);
 			return;
 		}
 	}

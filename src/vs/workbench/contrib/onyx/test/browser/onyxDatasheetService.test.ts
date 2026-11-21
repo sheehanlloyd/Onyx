@@ -8,8 +8,11 @@ import { CancellationToken, CancellationTokenSource } from '../../../../../base/
 import { Emitter } from '../../../../../base/common/event.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IOnyxChatParams, IOnyxDiscoveredModel, IOnyxLoadedModel, IOnyxRuntimeService, IOnyxStreamEvent } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
+import { OnyxContextAllocationService } from '../../browser/models/onyxContextAllocationService.js';
 import { OnyxDatasheetService } from '../../browser/models/onyxDatasheetService.js';
 import { buildPicks, measurementLabel } from '../../browser/models/onyxModelLibrary.js';
 import { OnyxProfileService } from '../../browser/profiles/onyxProfileService.js';
@@ -28,9 +31,9 @@ suite('OnyxDatasheetService', () => {
 
 	const of = (successes: number, trials: number): IOnyxTally => ({ successes, trials });
 	const SHEET: IOnyxDatasheet = {
-		version: 1, model: 'coder:7b', digest: 'sha256:aaaa', runtime: { name: 'ollama', version: '0.33.0' }, measuredAt: '2026-11-21T00:00:00.000Z',
+		version: 2, model: 'coder:7b', digest: 'sha256:aaaa', runtime: { name: 'ollama', version: '0.33.0' }, measuredAt: '2026-11-21T00:00:00.000Z',
 		nativeToolCalls: of(0, 5), repairableTextCalls: of(5, 5), schemaEnforced: { object: of(3, 3), enum: of(3, 3), nested: of(3, 3) },
-		context: { recalledUpToTokens: 3900, failedFromTokens: 4600, serverReportedTokens: 4096, steps: [] },
+		context: { recalledUpToTokens: 3900, failedFromTokens: 4600, serverReportedTokens: 4096, requestedTokens: null, verifiedTokens: null, cutObserved: false, mechanism: null, steps: [] },
 		outputCapHonoured: of(3, 3), stopHonoured: of(3, 3), reasoning: { style: 'none', replies: of(0, 3) }, seedRepeatable: of(3, 3), logprobs: of(0, 3),
 		speed: { coldFirstTokenMs: 2100, warmFirstTokenMs: 180, tokensPerSecond: 41 }, unmeasured: [],
 	};
@@ -61,8 +64,9 @@ suite('OnyxDatasheetService', () => {
 
 	function services(storage = store.add(new TestStorageService())) {
 		const runtime = new ScriptedRuntime();
-		const datasheets = store.add(new OnyxDatasheetService(storage, runtime));
-		const profiles = store.add(new OnyxProfileService(storage, datasheets));
+		const allocations = store.add(new OnyxContextAllocationService(storage, runtime, new class extends mock<IDialogService>() { }, new TestConfigurationService()));
+		const datasheets = store.add(new OnyxDatasheetService(storage, runtime, allocations));
+		const profiles = store.add(new OnyxProfileService(storage, datasheets, allocations));
 		return { storage, runtime, datasheets, profiles };
 	}
 
@@ -144,7 +148,7 @@ suite('OnyxDatasheetService', () => {
 	test('R-45: the model library says of each installed model whether its profile was measured here, was measured and is no longer used, or is defaults', () => {
 		const { profiles } = services();
 		const defaults = profiles.getProfile(KEY, MODEL);
-		const inconclusive: IOnyxDatasheet = { ...SHEET, nativeToolCalls: of(1, 1), schemaEnforced: { object: of(0, 0), enum: of(0, 0), nested: of(0, 0) }, context: { recalledUpToTokens: 16_384, failedFromTokens: null, serverReportedTokens: null, steps: [] } };
+		const inconclusive: IOnyxDatasheet = { ...SHEET, nativeToolCalls: of(1, 1), schemaEnforced: { object: of(0, 0), enum: of(0, 0), nested: of(0, 0) }, context: { recalledUpToTokens: 16_384, failedFromTokens: null, serverReportedTokens: null, requestedTokens: null, verifiedTokens: null, cutObserved: false, mechanism: null, steps: [] } };
 		const label = 'Measured 2026-11-21: tool calls 0 of 5, schema enforced, context 3900 tokens; the rest of the profile is defaults';
 		assert.deepStrictEqual({
 			never: measurementLabel(undefined, defaults),

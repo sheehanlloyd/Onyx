@@ -13,6 +13,7 @@ import { applyDatasheet } from '../../common/onyxDatasheet.js';
 import { seedProfile } from '../../common/onyxSeedProfiles.js';
 import { IOnyxModelProfile, IOnyxObservedStats } from '../../common/onyxTypes.js';
 import { IOnyxRequestMeasurement } from '../model/onyxLanguageModelProvider.js';
+import { IOnyxContextAllocationService } from '../models/onyxContextAllocationService.js';
 import { IOnyxDatasheetService } from '../models/onyxDatasheetService.js';
 
 export const IOnyxProfileService = createDecorator<IOnyxProfileService>('onyxProfileService');
@@ -89,8 +90,19 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 	constructor(
 		@IStorageService private readonly _storageService: IStorageService,
 		@IOnyxDatasheetService private readonly _datasheetService: IOnyxDatasheetService,
+		@IOnyxContextAllocationService private readonly _allocationService: IOnyxContextAllocationService,
 	) {
 		super();
+		// A context that was just verified, or just undone, is another budget from that moment (B15). What an
+		// overflow taught about the old allocation says nothing about the new one.
+		this._register(this._allocationService.onDidChange(modelKey => {
+			const stats = this._stats.get(modelKey);
+			if (stats?.observedContextTokens !== undefined && this._allocationService.record(modelKey)?.status === 'verified') {
+				stats.observedContextTokens = undefined;
+				this._persistScheduler.schedule();
+			}
+			this._onDidChangeProfiles.fire();
+		}));
 		// A model that has just been measured has another profile from that moment.
 		this._register(this._datasheetService.onDidChange(() => this._onDidChangeProfiles.fire()));
 		this._stats = new Map(Object.entries(this._storageService.getObject<Record<string, Partial<IMutableStats>>>(STATS_STORAGE_KEY, StorageScope.APPLICATION, {}))
@@ -116,6 +128,20 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		// What was measured for this model replaces what was guessed for it (L5), and says which is which.
 		// The user's own override still has the last word.
 		profile = applyDatasheet(profile, this._datasheetService.current(modelKey, discovered));
+		// A context Onyx asked for is budgeted only when it was verified, and then at the verified number and
+		// no other (B15, R-61). The server's number for the model's own name describes another allocation, and
+		// so does a datasheet measured under it; an overflow learned since still narrows it.
+		const allocation = this._allocationService.inForce(modelKey, discovered);
+		if (allocation) {
+			const observed = this._stats.get(modelKey)?.observedContextTokens;
+			const contextLength = Math.min(allocation.verifiedTokens, discovered.contextLength ?? allocation.verifiedTokens, observed ?? allocation.verifiedTokens);
+			profile = {
+				...profile,
+				contextLength,
+				context: { ...profile.context, requested: allocation.requestedTokens ?? undefined, reported: allocation.reportedTokens ?? undefined, verified: allocation.verifiedTokens, source: contextLength === allocation.verifiedTokens ? 'verified' : 'observed' },
+				...(profile.provenance ? { provenance: { ...profile.provenance, contextLength: 'measured' } } : {}),
+			};
+		}
 		const override = this._overrides.get(modelKey);
 		return override ? { ...profile, ...override } : profile;
 	}
