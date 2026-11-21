@@ -438,7 +438,9 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 				this.sanctionedDisk.set(fault.path, fault.content);
 				if (!dirtyBefore) {
 					const previous = this.sanctionedBuffer.get(fault.path);
-					if (previous !== undefined) {
+					// What a clean editor still shows until it reloads. A second change on disk before it has
+					// reloaded the first does not change what it shows: it is still the text from before both.
+					if (previous !== undefined && !this.pendingBuffer.has(fault.path)) {
 						this.pendingBuffer.set(fault.path, previous);
 					}
 					this.sanctionedBuffer.set(fault.path, fault.content);
@@ -542,7 +544,20 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 				const model = this._modelService.getModel(this._uri(this.episode.target));
 				if (model) {
 					model.undo();
-					this.sanctionedBuffer.set(this.episode.target, model.getValue());
+					const after = model.getValue();
+					// An undo that leaves a clean buffer showing what it showed before a disk change it has not
+					// reloaded yet changes nothing the user sanctioned: the disk's text is still what it will show.
+					if (this.pendingBuffer.get(this.episode.target) !== after) {
+						this.sanctionedBuffer.set(this.episode.target, after);
+						this.pendingBuffer.delete(this.episode.target);
+						// What the user undid, the user took back: a hunk they accepted earlier in this file is no
+						// longer something the buffer has to hold (I-09 is about what an accept does, not an undo).
+						for (let index = this.acceptedHunks.length - 1; index >= 0; index--) {
+							if (this.acceptedHunks[index].path === this.episode.target) {
+								this.acceptedHunks.splice(index, 1);
+							}
+						}
+					}
 				}
 				break;
 			}

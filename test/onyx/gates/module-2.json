@@ -363,21 +363,23 @@
 		},
 		{
 			"id": "sim-campaign-20000",
-			"title": "A 20,000-episode campaign with every checker: no violation class outside the baseline table, so none of the invariants this module owns (I-02, I-04, I-06, I-07 read side, I-10, I-11, I-13 output, I-14), whose entries are gone from it",
+			"title": "A 20,000-episode campaign with every checker, seeds 1 to 20,000 in ten processes: no violation class outside the baseline table, so none of the invariants this module owns (I-02, I-04, I-06, I-07 read side, I-10, I-11, I-13 output, I-14), whose entries are gone from it",
 			"layer": "service",
 			"files": [
 				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts",
-				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimBaseline.ts"
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimBaseline.ts",
+				"test/onyx/sim/run-campaign.mts"
 			],
 			"command": [
-				"./scripts/test.sh",
-				"--grep",
-				"OnyxSim R-42"
+				"node",
+				"test/onyx/sim/run-campaign.mts",
+				"--episodes",
+				"20000",
+				"--seed",
+				"1",
+				"--shard",
+				"2000"
 			],
-			"env": {
-				"ONYX_SIM_EPISODES": "20000",
-				"ONYX_SIM_SEED": "1"
-			},
 			"timeoutMs": 3600000
 		},
 		{

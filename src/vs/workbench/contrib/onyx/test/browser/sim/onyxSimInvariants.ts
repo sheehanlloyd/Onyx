@@ -396,7 +396,19 @@ const i11: OnyxSimChecker = state => {
 	// never closed and the request for it was made, the run does not complete, and the call the model was
 	// only considering does not run.
 	const thoughtAt = state.episode.turns.findIndex(turn => turn.kind === 'text' && turn.text === SIM_UNFINISHED_THOUGHT);
-	if (thoughtAt !== -1 && state.runtime.requests.length > thoughtAt && state.episode.persona !== 'looping') {
+	// The reply has to have ended on its own, mid-thought. One the user stopped while it streamed ended because
+	// of the user; what a stopped run is then reported as is I-03's question, not this one's.
+	let requests = 0;
+	let endedOnItsOwn = false;
+	for (const event of all) {
+		if (event.kind === 'request') {
+			requests++;
+		} else if (requests === thoughtAt + 1 && event.kind === 'chunk' && event.delta === 'done') {
+			endedOnItsOwn = event.finishReason === 'stop';
+			break;
+		}
+	}
+	if (thoughtAt !== -1 && endedOnItsOwn && state.episode.persona !== 'looping') {
 		if (all.some(event => event.kind === 'status' && event.status === 'completed')) {
 			return `I-11/unterminated-reasoning-complete: a reply that ended while the model was still thinking was reported as completed`;
 		}

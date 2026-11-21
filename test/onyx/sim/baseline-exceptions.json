@@ -21,6 +21,12 @@
 			"script": "test/onyx/sim/baseline/I-05-command-after-stop.json"
 		},
 		{
+			"class": "I-05/dispatch-after-stop",
+			"owner": "B10",
+			"finding": "Codex N5 (R-15), found by the 20,000-episode campaign in Module 2: Stop is honoured only at the gate after a tool turn; a tool whose approval dialog was open when the user pressed Stop is still dispatched when the dialog is answered",
+			"script": "test/onyx/sim/baseline/I-05-dispatch-after-stop.json"
+		},
+		{
 			"class": "I-05/stage-after-stop",
 			"owner": "B10",
 			"finding": "Codex N5 (R-15): Stop is honoured only at the gate after a tool turn; an edit in the current turn is still staged",
