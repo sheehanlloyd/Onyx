@@ -105,6 +105,7 @@ suite('OnyxSim', () => {
 			'audit-n2-edit-hunk-0-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
 			'b8-delete-lines-then-accept-all': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			'b9-inline-edit-stages-then-save': { status: 'completed', turns: 1, dispatched: [], staged: 0, dialogs: [] },
+			'c2-check-task-asks-after-accept-and-save': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: ['deny'] },
 			'audit-h4-duplicates-shift-then-accept': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			// Eight tool turns, then the turn cap (compact profile): out of turns is its own status (B10).
 			'audit-h6-context-budget': { status: 'budget-exhausted', turns: 8, dispatched: Array.from({ length: 8 }, () => 'terminal'), staged: 0, dialogs: Array.from({ length: 8 }, () => 'allow-once') },

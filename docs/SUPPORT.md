@@ -362,6 +362,46 @@ over any of these is refused before the diff, with the numbers, and whatever was
 file stays: 1,000 lines on either side; 1,000,000 cells of the diff table; 256 KiB for the file and the
 proposed content together. C9 replaces the diff and raises the first two.
 
+## Verification: of what you accepted, and only that (C2)
+
+Onyx checks an edit when you accept it, not when the model proposes it. A staged proposal is not in the
+file, so nothing a language service says about the file is about the proposal.
+
+| It says | When | What it means |
+|---|---|---|
+| not applied | A file has staged changes and none was accepted | Nothing was checked. A run that staged edits ends with this line for each file |
+| running | You accepted a hunk | Onyx is waiting for the file's diagnostics to be reported again |
+| verified | Diagnostics were reported again, and none is a problem that was not there before the acceptance | No new error or warning in that file. Not that the change is correct |
+| new problems | Diagnostics were reported again, and some were not there before | The line names how many, and the first with its line |
+| timed out | No diagnostics were reported for the file within 15 seconds | Nothing is known about what you accepted |
+| stale | The file changed after the acceptance | The result was for content that is no longer there |
+
+Any of the last five ends with "Partial: N hunks are still staged and not part of this" while hunks of the
+same proposal are still waiting.
+
+**Problems are compared one by one, not counted.** Two diagnostics are the same problem when the file, the
+reporter, the code, the severity and the message are the same. The line is not part of it: accepting an edit
+moves what is below it. One error replaced by another is one new problem and one resolved, although the
+count is unchanged. Errors and warnings are compared; hints and information are not.
+
+**The project check reads the disk, so it runs on what you saved.** When the repository names a check task
+(B2 asks you before it runs), it runs after an acceptance only if the accepted file is saved. If it is not,
+Onyx says which file is unsaved and does not save it for you; the check runs when you save it. The result
+records the file and a digest of the content it ran on. Onyx never saves another buffer to make a check
+possible.
+
+Agent edits, inline edits and refactors are all accepted through the change set, so all three are verified
+this way. Limits:
+
+- Only the accepted file's diagnostics are compared. A problem the change causes in another file is not
+  reported here; the project check is what finds those.
+- A language service that looks at the accepted content and reports exactly what it reported before sends
+  no update. Onyx cannot tell that from silence, so a file with no language service, and a file whose
+  problems did not change at all, both end as "timed out". It never says "verified" without a fresh report.
+- The wait is 15 seconds, and a report is taken as complete after 0.75 seconds of quiet. A slower language
+  service is reported as timed out.
+- Results are not kept across a reload.
+
 ## Streams, tool arguments and the content index (B12)
 
 **How a reply ended is said, not assumed.**
@@ -457,7 +497,7 @@ trace, so two runs can be told to have been run the same way.
 | `evictionPolicy` | What is dropped when a turn does not fit | `oldest-results-first` (B13) | none yet (L17) |
 | `contextTokens` | The context a turn is fitted to | the smallest context known for the model (B13) | 512 to 4,000,000 |
 | `turnCap` | The most model turns in a run | 8 with a compact prompt, 16 with a full one | 1 to 64 |
-| `verificationFeedback` | Whether a run that used a tool ends by comparing the workspace's problems to how it started | on | off |
+| `verificationFeedback` | Whether a run that staged edits ends by saying that nothing was verified yet ("not applied"); verification itself runs when a hunk is accepted, whatever this is set to | on | off |
 | `readToolLineNumbering` | Whether `readFile` numbers its lines | on | off |
 | `toolSlotPolicy` | Which tools are advertised when there are more than places | `essentials-first` (B1) | none yet |
 | `maxTools` | How many places there are | from the model's profile | 1 to 64 |

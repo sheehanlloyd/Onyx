@@ -131,6 +131,23 @@
 			]
 		},
 		{
+			"id": "R-21",
+			"title": "C2 verification of what was accepted: \"not applied\" while a proposal is only staged; after an acceptance, one error swapped for another is a new problem although the count did not move; a problem that only moved is not new; a partial acceptance says so; no report in time is \"timed out\"; a later change makes the result stale; the project check runs only on the accepted file as saved",
+			"layer": "pure, service",
+			"regressions": [
+				"R-21"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxVerification.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxTerminalApproval.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxVerification|OnyxTerminalApproval"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

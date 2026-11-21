@@ -137,3 +137,18 @@
 	color: var(--vscode-gitDecoration-deletedResourceForeground);
 	background: color-mix(in srgb, var(--vscode-gitDecoration-deletedResourceForeground) 8%, transparent);
 }
+
+/* Where verification stands for each file: a plain sentence a line, never a badge that says more than was checked. */
+.onyx-changes-verification {
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-caption1);
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-changes-verification-line.new-problems {
+	color: var(--vscode-onyx-error);
+}
+
+.onyx-changes-verification-line.verified {
+	color: var(--vscode-onyx-ok);
+}

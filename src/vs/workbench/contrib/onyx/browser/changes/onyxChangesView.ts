@@ -22,6 +22,8 @@ import { ViewPane } from '../../../../browser/parts/views/viewPane.js';
 import { IViewletViewOptions } from '../../../../browser/parts/views/viewsViewlet.js';
 import { IViewDescriptorService } from '../../../../common/views.js';
 import { IOnyxStagedFile, IOnyxChangeSetService } from './onyxChangeSetService.js';
+import { IOnyxVerificationService } from '../verification/onyxVerificationService.js';
+import { describeVerification } from '../../common/onyxVerification.js';
 import { summarizeChangeSet } from '../../common/onyxChangeSet.js';
 
 const $ = DOM.$;
@@ -55,6 +57,7 @@ export class OnyxChangesViewPane extends ViewPane {
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@IOnyxChangeSetService private readonly _changeSetService: IOnyxChangeSetService,
+		@IOnyxVerificationService private readonly _verificationService: IOnyxVerificationService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -64,6 +67,8 @@ export class OnyxChangesViewPane extends ViewPane {
 		this._content = DOM.append(container, $('.onyx-view.onyx-changes'));
 		this._register(autorun(reader => {
 			const files = this._changeSetService.files.read(reader);
+			// What is known about each file's verification changes what the view says, too (C2).
+			this._verificationService.results.read(reader);
 			this._render(files);
 		}));
 		// Coming back to the view is the moment staleness matters: re-check every
@@ -98,6 +103,18 @@ export class OnyxChangesViewPane extends ViewPane {
 					: localize('onyx.changes.announce', "Onyx staged edits to {0} files, pending your review.", files.length));
 			}
 			this._lastAnnouncedCount = files.length;
+		}
+
+		// Where verification stands for each file: nothing verified while only staged, and what was found after an
+		// acceptance. Shown whether or not anything is still staged: the last hunk accepted is when it matters.
+		const results = this._verificationService.results.get();
+		if (results.length > 0) {
+			const verification = DOM.append(content, $('.onyx-changes-verification'));
+			verification.setAttribute('role', 'status');
+			for (const result of results) {
+				const line = DOM.append(verification, $(`.onyx-changes-verification-line.${result.state.replace(' ', '-')}`));
+				line.textContent = describeVerification(result);
+			}
 		}
 
 		if (files.length === 0) {

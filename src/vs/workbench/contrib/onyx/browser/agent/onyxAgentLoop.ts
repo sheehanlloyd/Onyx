@@ -10,7 +10,6 @@ import { generateUuid } from '../../../../../base/common/uuid.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
-import { IMarkerService, MarkerSeverity } from '../../../../../platform/markers/common/markers.js';
 import { IOnyxRuntimeService, OnyxStreamEnding } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { localize } from '../../../../../nls.js';
@@ -30,12 +29,14 @@ import { IOnyxTerminalService } from '../terminal/onyxTerminalTool.js';
 import { validateToolArguments } from '../../common/onyxToolArguments.js';
 import { admitTool, needsApprovalPerCall, ONYX_NETWORK_TOOLS_SETTING } from '../../common/onyxToolContract.js';
 import { IOnyxToolExclusion, ONYX_MIN_EDIT_SLOTS, OnyxToolSlotSelection, requestedOptionalTools, selectToolSlots } from '../../common/onyxToolSlots.js';
-import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
+import { IOnyxVerificationService } from '../verification/onyxVerificationService.js';
+import { IOnyxChangeSetService } from '../changes/onyxChangeSetService.js';
+import { describeVerification } from '../../common/onyxVerification.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
 import { qualifyWorkspacePath } from '../../common/onyxWorkspacePaths.js';
 import { OnyxReasoningFilter } from '../../common/onyxReasoning.js';
 import { IOnyxBudgetSlice, IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
-import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
+import { IOnyxControlPlaneService, IOnyxRunHandle } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService, IOnyxStreamOutcome, OnyxContextOverflowError } from '../model/onyxLanguageModelProvider.js';
 import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
@@ -73,7 +74,6 @@ export class OnyxAgentLoop {
 		@IOnyxRouterService private readonly _routerService: IOnyxRouterService,
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IMarkerService private readonly _markerService: IMarkerService,
 		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
 		@IOnyxProfileService private readonly _profileService: IOnyxProfileService,
@@ -84,6 +84,8 @@ export class OnyxAgentLoop {
 		@IOnyxTerminalService private readonly _terminalService: IOnyxTerminalService,
 		@ILogService private readonly _logService: ILogService,
 		@IOnyxHarnessConfigService private readonly _harnessConfigService: IOnyxHarnessConfigService,
+		@IOnyxVerificationService private readonly _verificationService: IOnyxVerificationService,
+		@IOnyxChangeSetService private readonly _changeSetService: IOnyxChangeSetService,
 	) { }
 
 	async run(request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: readonly IChatAgentHistoryEntry[], requestToken: CancellationToken): Promise<IChatAgentResult> {
@@ -263,7 +265,6 @@ export class OnyxAgentLoop {
 		let contextTokens = configuration.contextTokens;
 		let overflowRetried = false;
 
-		const errorsBefore = this._countWorkspaceErrors();
 		let anyToolRan = false;
 
 		for (let turn = 0; turn < maxTurns && !token.isCancellationRequested; turn++) {
@@ -469,7 +470,7 @@ export class OnyxAgentLoop {
 			if (toolUses.length === 0) {
 				recordTurn(assistantText, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured);
 				if (configuration.verificationFeedback) {
-					this._reportVerification(run, errorsBefore, anyToolRan);
+					this._reportVerification(run, anyToolRan);
 				}
 				run.complete('completed');
 				return {};
@@ -515,36 +516,27 @@ export class OnyxAgentLoop {
 		return stopped ? {} : { errorDetails: { message: `Stopped after the maximum of ${maxTurns} agent turns.`, responseIsIncomplete: true } };
 	}
 
-	private _countWorkspaceErrors(): number {
-		return this._markerService.read({ severities: MarkerSeverity.Error }).length;
-	}
-
 	/**
 	 * Verification-lite: after a run that changed things, compare the
 	 * workspace's error markers against the pre-run baseline and put the
 	 * verdict on the timeline. Honest and local — no claims beyond what the
 	 * language services actually report.
 	 */
-	private _reportVerification(run: ReturnType<IOnyxControlPlaneService['beginRun']>, errorsBefore: number, anyToolRan: boolean): void {
+	/**
+	 * What the end of a tool-using run can say about verification (C2): only
+	 * that nothing was verified, when its edits are staged and not accepted.
+	 * The file does not hold them yet, so the diagnostics on record are not
+	 * about them. Verification runs when a hunk is accepted, on the content
+	 * that was accepted (`OnyxVerificationService`).
+	 */
+	protected _reportVerification(run: IOnyxRunHandle, anyToolRan: boolean): void {
 		if (!anyToolRan) {
 			return;
 		}
-		const errorsAfter = this._countWorkspaceErrors();
-		const delta = errorsAfter - errorsBefore;
-		run.activity({
-			kind: 'note',
-			label: delta > 0
-				? `Verification: ${delta} new problem${delta === 1 ? '' : 's'} (${errorsAfter} total)`
-				: `Verification: no new problems (${errorsAfter} total)`,
-			ok: delta <= 0,
-		});
-
-		// Project checks (Phase 4 slice): run the workspace's configured
-		// build/test task and post the verdict when it finishes. Deliberately
-		// not awaited — the chat response must not wait for a build.
-		const taskVerification = this._instantiationService.createInstance(OnyxTaskVerification);
-		if (taskVerification.enabled) {
-			taskVerification.run(run).catch(err => this._logService.warn('[onyx] project checks failed', err));
+		for (const result of this._verificationService.results.get()) {
+			if (result.state === 'not applied' && this._changeSetService.files.get().some(file => file.proposal.path === result.path && file.runId === run.runId)) {
+				run.activity({ kind: 'note', label: describeVerification(result), ok: undefined, location: { path: result.path, line: 1 } });
+			}
 		}
 
 		// Risk badges for whatever the run left uncommitted, so the user knows

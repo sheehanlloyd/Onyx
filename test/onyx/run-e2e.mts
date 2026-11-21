@@ -609,8 +609,9 @@ async function main() {
 	const symbolResult = snapshots.map(snapshot => JSON.stringify(snapshot.data)).find(text => text.includes('Call graph of computeTotal'));
 	check('repoSymbols returned a call graph', !!symbolResult, 'no call-graph section in any tool result');
 
-	const verdicts = all.filter(event => event.kind === 'note' && /Verification/.test(event.data?.label ?? ''));
-	check('post-run verification reported', verdicts.length >= 1, 'no verification note');
+	// C2: a run that staged nothing and accepted nothing has nothing to verify, and says nothing about verification.
+	const verdicts = all.filter(event => event.kind === 'note' && /^Verification/.test(event.data?.label ?? ''));
+	check('R-21: runs that accepted nothing report no verification verdict', verdicts.length === 0, verdicts.map(event => String(event.data?.label)).slice(0, 3).join(' | '));
 
 	await typeInEditor();
 	// The FIM model is the smallest one discovered; with two mock endpoints it
@@ -778,6 +779,18 @@ async function main() {
 	await waitUntil(() => /"fileHasFirst"\s*:\s*true/.test(readDiffState()));
 	const acceptedHunkState = readDiffState();
 	check('R-25: accepting one hunk from the editor puts that hunk in the file and not the other, and the side bar shows one hunk left', /"fileHasFirst"\s*:\s*true/.test(acceptedHunkState) && /"fileHasSecond"\s*:\s*false/.test(acceptedHunkState) && /"stat"\s*:\s*"\+1 −1"/.test(acceptedHunkState), acceptedHunkState.slice(0, 260));
+	// R-21 (C2), end to end: before the acceptance the run's timeline said "not applied"; after it, a result for
+	// the accepted content arrives, and it is never the old "no new problems" said of an unapplied edit.
+	// The notes are read run by run: the inline edit above has verification notes of its own.
+	const verificationNotesByRun = () => readRuns().map(run => run.events.filter(event => event.kind === 'note' && /^Verification/.test(event.data?.label ?? '')).map(event => String(event.data?.label)));
+	const settled = /^Verification: (verified|new problems|timed out)/;
+	const agentRunNotes = () => verificationNotesByRun().find(labels => labels.some(label => label.startsWith('Verification: not applied'))) ?? [];
+	await waitUntil(() => agentRunNotes().some(label => settled.test(label)), 30_000);
+	const verificationSeen = agentRunNotes();
+	check('R-21: verification says "not applied" while the edit is only staged, and reports on the accepted content after the acceptance', verificationSeen.length >= 2 && verificationSeen[0].startsWith('Verification: not applied') && settled.test(verificationSeen[verificationSeen.length - 1]) && verificationSeen[verificationSeen.length - 1].includes('Partial: 1 hunk is still staged'), verificationSeen.join(' | ').slice(0, 400));
+	// The inline edit went through the same path: its kept hunk was verified, and undoing it made that result stale.
+	const inlineRunNotes = verificationNotesByRun().find(labels => labels.some(label => label.startsWith('Verification: stale'))) ?? [];
+	check('R-21: an inline edit is verified through the same path: undoing the kept hunk makes its result stale', inlineRunNotes.length > 0 && !inlineRunNotes.some(label => label.startsWith('Verification: not applied')), verificationNotesByRun().flat().join(' | ').slice(0, 400));
 	// Back to the side bar for the rest: Accept All takes the hunk that is left.
 	pw('run-code', 'async (page) => { const el = await page.$(".onyx-changes-summary button"); await el.click(); }'); // Accept All
 	const readAcceptedState = () => pw('run-code', `async (page) => page.evaluate(() => ({

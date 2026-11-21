@@ -150,6 +150,16 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 		profile: { promptStyle: 'compact', contextLength: 4096, maxTools: 24 },
 		userSteps: [{ at: 'dialogOpen', occurrence: 1, step: { kind: 'stop' } }],
 	}),
+	// C2 with B2: the repository names a check task. The user accepts the edit and saves; the check then asks,
+	// like any execution, and here the answer is no: nothing runs.
+	scenario('c2-check-task-asks-after-accept-and-save', 'EDITTEST src/math.ts with a check configured', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' }, id: 'edit_1' },
+		{ kind: 'text', text: 'Staged.' },
+	], {
+		dialogDefault: 'deny',
+		projectConfig: { verificationTask: 'test' },
+		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }, { at: 'afterRun', occurrence: 2, step: { kind: 'save' } }],
+	}),
 	// Claude H4: a proposal against base V, the buffer edited above the hunk so that duplicates shift; accepting
 	// must re-anchor to the right duplicate or conflict, never the first occurrence by default.
 	scenario('audit-h4-duplicates-shift-then-accept', 'EDITTEST src/math.ts the closing brace', [
