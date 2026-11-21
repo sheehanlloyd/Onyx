@@ -363,6 +363,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	async warmUpModel(): Promise<void> { }
 	async ensureWorkspaceIndex(): Promise<IOnyxIndexStats> { return { files: 0, eligibleFiles: 0, buildMs: 0, truncated: false, source: 'built', builtAt: 0 }; }
 	async configureWorkspaceIndex(): Promise<void> { }
+	async listLoadedModels(): Promise<undefined> { return undefined; }
 	/** What a lab manifest named by the environment would ask for; nothing unless a test sets it. */
 	labHarness: IOnyxLabHarnessRequest | undefined;
 	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> { return this.labHarness; }

@@ -343,6 +343,59 @@
 			]
 		},
 		{
+			"id": "R-45",
+			"title": "L5 model datasheet: the probe suite against mock runtimes of known behaviour reports each behaviour in counts; the profile uses what was measured and labels the rest as defaults; a changed digest or runtime version stops a datasheet being used; an Ollama server's loaded context is read",
+			"layer": "pure, node, service",
+			"regressions": [
+				"R-45"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxDatasheet.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxDatasheetService.test.ts",
+				"src/vs/workbench/contrib/onyx/test/node/onyxDatasheetProbes.test.ts",
+				"src/vs/platform/onyxRuntime/test/node/onyxLoadedModels.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxDatasheet|OnyxLoadedModels"
+			]
+		},
+		{
+			"id": "sim-campaign-20000",
+			"title": "A 20,000-episode campaign with every checker: no violation class outside the baseline table, so none of the invariants this module owns (I-02, I-04, I-06, I-07 read side, I-10, I-11, I-13 output, I-14), whose entries are gone from it",
+			"layer": "service",
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimBaseline.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim R-42"
+			],
+			"env": {
+				"ONYX_SIM_EPISODES": "20000",
+				"ONYX_SIM_SEED": "1"
+			},
+			"timeoutMs": 3600000
+		},
+		{
+			"id": "module-2-tables",
+			"title": "docs/SUPPORT.md lists exactly the tools the contract can expose and records C6 and C7 as included; no baseline exception is left for an invariant this module owns, and every one left has a Module 3 owner",
+			"layer": "node",
+			"files": [
+				"test/onyx/checks/module2-gate.test.mts",
+				"docs/SUPPORT.md",
+				"test/onyx/sim/baseline-exceptions.json"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/module2-gate.test.mts"
+			]
+		},
+		{
 			"id": "sim-mutants",
 			"title": "Every defect fixed in this module has a resurrection mutant that its script and the seeded campaign detect",
 			"layer": "service",

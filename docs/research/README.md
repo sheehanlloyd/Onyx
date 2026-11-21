@@ -52,7 +52,7 @@ every published number regenerates from committed data.
 |---|---|---|
 | `HARNESS-CONTRACT.md` | L2 | I-01 to I-14, observable definitions, baseline exceptions with owners |
 | `PREREGISTRATION.md` | L3 | H-1 to H-10 with metric, sample size, analysis, thresholds; amendments |
-| `results/<date>-<name>/` | L9 to L18 | manifest, raw traces or digests, summary, regeneration command |
+| `results/<date>-<name>/` | L5, L9 to L18 | manifest, raw traces or digests, summary, regeneration command |
 | `RELATED.md` | L19 | the dated prior-art check |
 | `REPORT.md` | L19 | the paper-form report; every number regenerates (R-58) |
 
@@ -63,4 +63,15 @@ every published number regenerates from committed data.
 ./scripts/test.sh --grep "OnyxTrace|OnyxRuntimeService"             # trace schema, seed on the wire (L3)
 node --test test/onyx/checks/r43-provenance.test.mts                # charts refuse without a manifest (L3)
 node test/onyx/lab/manifest.mts test/onyx/lab/manifest.example.json # validate a manifest
+./scripts/test.sh --grep "OnyxHarnessConfig|OnyxLabManifest"        # the harness configuration and lab requests (L4)
+./scripts/test.sh --grep "OnyxDatasheet|OnyxLoadedModels"           # the datasheet's probes against mock runtimes (L5)
+node test/onyx/lab/manifest.mts --results docs/research/results/2026-11-21-datasheets   # check a results directory
+```
+
+Measuring installed models (L5) needs a runtime that is already running on this machine and has them; it
+starts nothing and downloads nothing:
+
+```bash
+node test/onyx/lab/measure-models.mts --base-url http://127.0.0.1:11434/v1 \
+     --model qwen2.5-coder:7b --model qwen2.5-coder:1.5b --out docs/research/results/<date>-datasheets
 ```

@@ -20,6 +20,7 @@ import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
 import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudgetedKind, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
 import { elideMiddle } from '../../common/onyxContextCompression.js';
+import { runtimeEnforcesSchema } from '../../common/onyxDatasheet.js';
 import { IOnyxResolvedHarness } from '../../common/onyxHarnessConfig.js';
 import { buildToolEnvelopeFormat, OnyxEnvelopeAnswerStream, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
 import { IOnyxAssistantTextStream, OnyxAssistantTextStream, OnyxPlainTextStream } from '../../common/onyxTextToolCalls.js';
@@ -147,7 +148,9 @@ export class OnyxAgentLoop {
 		// from it. The profile and the runtime's facts produce it; a lab manifest may change it, in a
 		// development build only.
 		const modelKey = modelIdentifier.startsWith(`${ONYX_VENDOR}:`) ? modelIdentifier.slice(ONYX_VENDOR.length + 1) : modelIdentifier;
-		const harness = await this._harnessConfigService.resolve(modelProfile, { runtimeEnforcesSchema: this._onyxModelService.getKnownModel(modelKey)?.discovered.supportsJsonSchema === true });
+		// Whether the runtime enforces a schema: what the model's datasheet measured when there is one (L5),
+		// and otherwise what a runtime of its kind is assumed to do.
+		const harness = await this._harnessConfigService.resolve(modelProfile, { runtimeEnforcesSchema: runtimeEnforcesSchema(modelProfile, this._onyxModelService.getKnownModel(modelKey)?.discovered.supportsJsonSchema) });
 		const configuration = harness.configuration;
 		if (harness.requested) {
 			run.activity(harness.refused

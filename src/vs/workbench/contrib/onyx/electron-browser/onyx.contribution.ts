@@ -72,6 +72,8 @@ import { OnyxDiagnosticsExport } from '../browser/diagnostics/onyxDiagnosticsExp
 import { IOnyxEndpointSecretService, OnyxEndpointSecretService } from '../browser/model/onyxEndpointSecrets.js';
 import { OnyxDiagnosticsRedactor } from '../common/onyxDiagnostics.js';
 import { describeExecution, describeRefusal, describeTransport } from '../common/onyxInferenceLocation.js';
+import { IOnyxDatasheetService, OnyxDatasheetService } from '../browser/models/onyxDatasheetService.js';
+import { OnyxMeasureModel } from '../browser/models/onyxMeasureModel.js';
 import { OnyxModelLibrary } from '../browser/models/onyxModelLibrary.js';
 import { OnyxIdleReviewContribution } from '../browser/review/onyxIdleReview.js';
 import { OnyxTournament } from '../browser/tournament/onyxTournament.js';
@@ -103,6 +105,7 @@ registerSingleton(IOnyxPinService, OnyxPinService, InstantiationType.Delayed);
 registerSingleton(IOnyxEnergyService, OnyxEnergyService, InstantiationType.Delayed);
 registerSingleton(IOnyxPromptCacheService, OnyxPromptCacheService, InstantiationType.Delayed);
 registerSingleton(IOnyxHarnessConfigService, OnyxHarnessConfigService, InstantiationType.Delayed);
+registerSingleton(IOnyxDatasheetService, OnyxDatasheetService, InstantiationType.Delayed);
 registerSingleton(IOnyxProjectConfigService, OnyxProjectConfigService, InstantiationType.Delayed);
 registerSingleton(IOnyxChangeSetService, OnyxChangeSetService, InstantiationType.Delayed);
 registerSingleton(IOnyxTerminalService, OnyxTerminalService, InstantiationType.Delayed);
@@ -273,6 +276,20 @@ registerAction2(class ManageOnyxModelsAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		await accessor.get(IInstantiationService).createInstance(OnyxModelLibrary).show();
+	}
+});
+
+registerAction2(class MeasureOnyxModelAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.measureModel',
+			title: localize2('onyx.measureModel', "Onyx: Measure This Model"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IInstantiationService).createInstance(OnyxMeasureModel).run();
 	}
 });
 
