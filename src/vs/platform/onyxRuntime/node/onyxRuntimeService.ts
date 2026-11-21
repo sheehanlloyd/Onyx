@@ -17,7 +17,7 @@ import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
 import { readLabHarnessRequest } from './onyxLabManifest.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
 import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxLoadedModel, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -77,6 +77,11 @@ interface IOllamaShowResponse {
 	readonly parameters?: string;
 }
 
+/** Ollama's `/api/ps`: the models it has in memory, each with the context it was loaded with. */
+interface IOllamaLoadedResponse {
+	readonly models?: readonly { readonly name?: string; readonly model?: string; readonly context_length?: number }[];
+}
+
 /** One parsed chat-completions SSE payload (the fields we consume). */
 interface ISseChunk {
 	readonly usage?: { readonly prompt_tokens?: number; readonly completion_tokens?: number };
@@ -85,6 +90,8 @@ interface ISseChunk {
 	readonly system_fingerprint?: string;
 	readonly choices?: readonly {
 		readonly finish_reason?: string;
+		/** Token log-probabilities, when they were asked for and the runtime returns them. */
+		readonly logprobs?: { readonly content?: readonly object[] | null } | null;
 		readonly delta?: {
 			readonly content?: string;
 			/** A reasoning model's thinking: `reasoning` on Ollama's OpenAI-compatible endpoint, `reasoning_content` on LM Studio, llama.cpp and vLLM. */
@@ -216,6 +223,8 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					...(params.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
 					...(params.keepAlive ? { keep_alive: params.keepAlive } : {}),
 					...(params.responseFormat ? { response_format: params.responseFormat } : {}),
+					...(params.stop?.length ? { stop: params.stop } : {}),
+					...(params.logprobs ? { logprobs: true } : {}),
 				}),
 			});
 
@@ -380,6 +389,17 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 			this._indexers.set(rootPath, indexer);
 		}
 		return indexer;
+	}
+
+	async listLoadedModels(baseUrl: string): Promise<readonly IOnyxLoadedModel[] | undefined> {
+		const loaded = await this._fetchJson<IOllamaLoadedResponse>(`${ollamaRootUrl(normalizeBaseUrl(baseUrl))}/api/ps`);
+		if (!Array.isArray(loaded?.models)) {
+			// No such endpoint, or not this shape: the runtime has not said, which is not "nothing is loaded".
+			return undefined;
+		}
+		return loaded.models
+			.map(model => ({ id: model.name ?? model.model ?? '', ...(typeof model.context_length === 'number' && model.context_length > 0 ? { contextLength: model.context_length } : {}) }))
+			.filter(model => model.id.length > 0);
 	}
 
 	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> {
@@ -639,6 +659,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		let finishReason: string | undefined;
 		let echoedSeed: number | undefined;
 		let fingerprint: string | undefined;
+		let sawLogprobs = false;
 
 		const reader = body.getReader();
 		try {
@@ -693,6 +714,9 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					if (choice.finish_reason) {
 						finishReason = choice.finish_reason;
 					}
+					if (choice.logprobs?.content?.length) {
+						sawLogprobs = true;
+					}
 					if (typeof choice.delta?.content === 'string' && choice.delta.content.length > 0) {
 						textDelta += choice.delta.content;
 					}
@@ -727,7 +751,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				this._logService.warn('[onyxRuntime] chat completion truncated: the body ended without a finish reason or [DONE]');
 			}
 			// Honoured only when the runtime echoed the seed it was sent; a silent runtime leaves it unknown.
-			this._onDidStream.fire({ operationId, kind: 'done', finishReason, ending, fingerprint, seedHonoured: requestedSeed !== undefined && echoedSeed === requestedSeed ? true : undefined });
+			this._onDidStream.fire({ operationId, kind: 'done', finishReason, ending, fingerprint, seedHonoured: requestedSeed !== undefined && echoedSeed === requestedSeed ? true : undefined, ...(sawLogprobs ? { logprobs: true } : {}) });
 		} finally {
 			reader.releaseLock();
 		}
@@ -756,6 +780,9 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		const runtime: OnyxRuntimeKind = identified ?? kindHint;
 		// The runtime's own version, for trace provenance (L3); only Ollama reports one today.
 		const ollamaVersion = runtime === 'ollama' ? (await this._fetchJson<{ readonly version?: string }>(`${ollamaRootUrl(baseUrl)}/api/version`))?.version : undefined;
+		// What an Ollama server allocated for the models it has in memory. For a loaded model this is the
+		// number a prompt has to fit, whatever the model's own parameters name (B13).
+		const loaded = runtime === 'ollama' ? await this.listLoadedModels(baseUrl) : undefined;
 
 		const models: IOnyxDiscoveredModel[] = [];
 		for (const entry of list.data) {
@@ -775,7 +802,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				parameterB: parseParameterB(tag?.details?.parameter_size) ?? parseParameterBFromId(entry.id),
 				quantization: tag?.details?.quantization_level ?? native?.quantization,
 				contextLength: detail?.contextLength ?? native?.max_context_length,
-				serverContextLength: detail?.serverContextLength ?? native?.loaded_context_length,
+				serverContextLength: loaded?.find(model => model.id === entry.id)?.contextLength ?? detail?.serverContextLength ?? native?.loaded_context_length,
 				supportsTools: detail?.supportsTools,
 				supportsVision: detail?.supportsVision ?? (native?.type === 'vlm' ? true : undefined),
 				// The four known runtimes all accept OpenAI `response_format:

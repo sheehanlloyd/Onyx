@@ -9,9 +9,11 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IOnyxDiscoveredModel } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { applyDatasheet } from '../../common/onyxDatasheet.js';
 import { seedProfile } from '../../common/onyxSeedProfiles.js';
 import { IOnyxModelProfile, IOnyxObservedStats } from '../../common/onyxTypes.js';
 import { IOnyxRequestMeasurement } from '../model/onyxLanguageModelProvider.js';
+import { IOnyxDatasheetService } from '../models/onyxDatasheetService.js';
 
 export const IOnyxProfileService = createDecorator<IOnyxProfileService>('onyxProfileService');
 
@@ -86,8 +88,11 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 
 	constructor(
 		@IStorageService private readonly _storageService: IStorageService,
+		@IOnyxDatasheetService private readonly _datasheetService: IOnyxDatasheetService,
 	) {
 		super();
+		// A model that has just been measured has another profile from that moment.
+		this._register(this._datasheetService.onDidChange(() => this._onDidChangeProfiles.fire()));
 		this._stats = new Map(Object.entries(this._storageService.getObject<Record<string, Partial<IMutableStats>>>(STATS_STORAGE_KEY, StorageScope.APPLICATION, {}))
 			.map(([key, stored]) => [key, { ...emptyStats(), ...stored }]));
 		this._overrides = new Map(Object.entries(this._storageService.getObject<Record<string, Partial<IOnyxModelProfile>>>(OVERRIDES_STORAGE_KEY, StorageScope.APPLICATION, {})));
@@ -108,6 +113,9 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 				maxTools: toolCallQuality < 0.5 ? Math.min(profile.maxTools, 3) : profile.maxTools,
 			};
 		}
+		// What was measured for this model replaces what was guessed for it (L5), and says which is which.
+		// The user's own override still has the last word.
+		profile = applyDatasheet(profile, this._datasheetService.current(modelKey, discovered));
 		const override = this._overrides.get(modelKey);
 		return override ? { ...profile, ...override } : profile;
 	}

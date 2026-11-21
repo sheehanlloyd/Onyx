@@ -68,6 +68,13 @@ export interface IOnyxDiscoveredModel {
 	readonly runtimeVersion?: string;
 }
 
+/** A model a runtime has in memory, and what it allocated for it, as the runtime reports them. */
+export interface IOnyxLoadedModel {
+	readonly id: string;
+	/** The context the runtime allocated when it loaded the model, in tokens: the number a prompt really has to fit. */
+	readonly contextLength?: number;
+}
+
 /** OpenAI chat-completions wire shapes. Kept loose on purpose: they mirror the JSON we send/receive. */
 export interface IOnyxWireMessage {
 	readonly role: 'system' | 'user' | 'assistant' | 'tool';
@@ -106,6 +113,10 @@ export interface IOnyxChatParams {
 	readonly responseFormat?: unknown;
 	/** Sent as `seed` when a profile or a manifest sets one (L3); the stream's `done` says whether the runtime echoed it. */
 	readonly seed?: number;
+	/** Sequences at which the runtime is asked to end the reply. Sent only by the datasheet's probe of whether it does (L5). */
+	readonly stop?: readonly string[];
+	/** Asks for token log-probabilities; the stream's `done` says whether any came back (L5). */
+	readonly logprobs?: boolean;
 	/** How long to wait for the first byte of the response. Default {@link ONYX_STREAM_DEADLINES}. */
 	readonly firstByteTimeoutMs?: number;
 	/** How long the stream may then stay silent before it is called stalled. Default {@link ONYX_STREAM_DEADLINES}. */
@@ -257,7 +268,7 @@ export type IOnyxStreamEvent =
 	| { readonly operationId: string; readonly kind: 'reasoning'; readonly text: string }
 	| { readonly operationId: string; readonly kind: 'toolCallDelta'; readonly index: number; readonly id?: string; readonly name?: string; readonly argumentsDelta?: string }
 	| { readonly operationId: string; readonly kind: 'usage'; readonly promptTokens: number; readonly completionTokens: number }
-	| { readonly operationId: string; readonly kind: 'done'; readonly ending: OnyxStreamEnding; readonly finishReason: string | undefined; readonly seedHonoured?: boolean; readonly fingerprint?: string }
+	| { readonly operationId: string; readonly kind: 'done'; readonly ending: OnyxStreamEnding; readonly finishReason: string | undefined; readonly seedHonoured?: boolean; readonly fingerprint?: string; readonly logprobs?: boolean }
 	| { readonly operationId: string; readonly kind: 'error'; readonly message: string };
 
 /** One commit summarized for on-your-repo benchmark selection. */
@@ -351,6 +362,13 @@ export interface IOnyxRuntimeService {
 
 	/** Lists models for one endpoint, enriched with runtime-specific metadata where available. */
 	listModels(baseUrl: string): Promise<readonly IOnyxDiscoveredModel[]>;
+
+	/**
+	 * The models the runtime at this endpoint has in memory now (Ollama's
+	 * `/api/ps`). Undefined when the runtime does not say, which is not the
+	 * same as none being loaded.
+	 */
+	listLoadedModels(baseUrl: string): Promise<readonly IOnyxLoadedModel[] | undefined>;
 
 	/**
 	 * Starts a streaming chat completion. Resolves once the stream has ended
