@@ -1,11 +1,18 @@
 # Onyx plan state
 Plan version: v4
-Current module: 2      Status: complete; gate passed on 719cfd5ba4d (2026-11-21). Module 3 is next.
-Revision: 719cfd5ba4d on branch `module-2` (pull request sheehanlloyd/Onyx#3, into `main`, not merged); this file's commit follows it and changes only documents and the gate's result files
-Isolated checkout: branch `module-2` in a sibling clone of the owner's folder (clone directory `onyx-module-1`); the four audit documents are excluded there via `.git/info/exclude` and never committed
+Current module: 3      Status: in progress (started 2026-11-21). Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
+Revision: branch `module-3`, from `main` at 7fda8b457b5
+Isolated checkout: branch `module-3` in a work clone kept outside any cloud-synchronised folder (moved on 2026-11-21); the four audit documents are excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-11-20 the base was 36d38757a15 (August 2026)
 Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; the gate machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
+
+## Module 3
+Items done: none yet
+Items remaining: B15, B6, B7, B8, B9, B10, C1, C2, C3, C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`)
+Item in progress: B15 (branch `codex/b15-context-allocation`)
+Baseline exceptions still open: the eight listed under Module 2, all owned here
+Gate: not run
 
 ## Module 2
 Items done:
