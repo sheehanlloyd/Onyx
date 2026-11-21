@@ -8,14 +8,14 @@ Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-
 Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; the gate machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
 
 ## Module 3
-Items done: B15 (codex/b15-context-allocation → #4; B15.md; gate checks R-61, module-3-tables); B6 (codex/b6-exact-or-refuse → #4; B6.md; gate check R-07-R-08-R-33); B7 (codex/b7-versioned-proposals → #4; B7.md; gate check R-09-R-12-R-38); B8 (codex/b8-deletion-edits → #4; B8.md; gate check R-13)
-Items remaining: B9, B10, C1, C2, C3, C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`)
-Item in progress: B9 (branch `codex/b9-inline-staging`)
+Items done: B15 (codex/b15-context-allocation → #4; B15.md; gate checks R-61, module-3-tables); B6 (codex/b6-exact-or-refuse → #4; B6.md; gate check R-07-R-08-R-33); B7 (codex/b7-versioned-proposals → #4; B7.md; gate check R-09-R-12-R-38); B8 (codex/b8-deletion-edits → #4; B8.md; gate check R-13); B9 (codex/b9-inline-staging → #4; B9.md; gate check R-14-R-34 and three end-to-end checks)
+Items remaining: B10, C1, C2, C3, C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`)
+Item in progress: B10 (branch `codex/b10-stop-means-stop`)
 Context (B15): both pinned models verified at 16,384 tokens through a derived model on Ollama 0.33.0, from a server allocation of 4,096; results in `docs/research/results/2026-11-21-context-allocation/`. The measurement's aliases were removed afterwards. LM Studio was not probed (installed, not running; not started).
 Baseline exceptions still open (5), all B10's: I-03/no-time-budget, I-03/status-overwritten, I-05/command-after-stop, I-05/dispatch-after-stop, I-05/stage-after-stop. Removed so far: I-08/inexact-anchor-staged, I-08/ambiguous-anchor-staged (B6), I-13/oversized-proposal (B7); zero of each in 2,000 episodes, and the 20,000-episode campaign is the gate's
-Mutants added in this module: B6-fuzzy-applier, B6-first-occurrence, B7-index-accept, B7-no-size-guard, B8-deletion-leaves-line (29 in all)
+Mutants added in this module: B6-fuzzy-applier, B6-first-occurrence, B7-index-accept, B7-no-size-guard, B8-deletion-leaves-line, B9-inline-apply-before-review (30 in all)
 Rig correction (B7): the simulation rig never raised its after-run boundary, so no user step scheduled after a run was ever carried out, in generated episodes or in the scripted N2 and H4 audit scenarios; Modules 1 and 2 reported those scenarios as holding I-09 when their user had never acted. Fixed, asserted by a test, and corrected in `docs/research/HARNESS-CONTRACT.md`
-Integration runs: after B15, on c8f0402e55b: self-checks 34 of 34, packaged release smoke 26 of 26, end-to-end 57 of 57. After B7, on eda1a2c41f5: self-checks 34 of 34, end-to-end 57 of 57 locally; packaged smoke by CI. After B6: unit, lint, layers, hygiene, self-checks, 2,000-episode campaign and mutants locally; end-to-end and packaged smoke by CI on the push (the machine is on a 13 W charger, so the local window runs are kept for milestones)
+Integration runs: after B15, on c8f0402e55b: self-checks 34 of 34, packaged release smoke 26 of 26, end-to-end 57 of 57. After B9, on 40f7882ea6a: self-checks 34 of 34, end-to-end 58 of 58 locally (one check more: the inline edit is staged, kept, undone); packaged smoke by CI. After B7, on eda1a2c41f5: self-checks 34 of 34, end-to-end 57 of 57 locally; packaged smoke by CI. After B6: unit, lint, layers, hygiene, self-checks, 2,000-episode campaign and mutants locally; end-to-end and packaged smoke by CI on the push (the machine is on a 13 W charger, so the local window runs are kept for milestones)
 Gate: not run
 
 ## Module 2
