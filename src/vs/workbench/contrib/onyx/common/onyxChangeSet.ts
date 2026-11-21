@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { applyEditBlocks, computeLineHunks, describeEditRefusal, IOnyxEditBlock, IOnyxEditHunk, IOnyxEditRefusal, placeEditBlock } from './onyxInlineEdit.js';
+import { applyEditBlocks, computeLineHunks, describeEditRefusal, IOnyxEditBlock, IOnyxEditHunk, IOnyxEditRefusal } from './onyxInlineEdit.js';
 
 /**
  * The change-set model behind "Onyx Changes": every edit the agent proposes is
@@ -102,58 +102,218 @@ export function applyHunkSelection(base: string, hunks: readonly IOnyxEditHunk[]
 	return out.join('\n');
 }
 
+/**
+ * The most a proposal may be before it is diffed (B7, I-13, R-38). The line
+ * diff builds a table of one cell per pair of lines, so its cost is the
+ * product of the two sides. A proposal over any of these is refused before
+ * that table is allocated, on every path that diffs: an agent edit, an
+ * inline edit, a refactor, a restored proposal.
+ */
+export const ONYX_PROPOSAL_LIMITS = {
+	/** Lines on either side. */
+	maxLinesPerSide: 1000,
+	/** Cells of the diff table, its sentinel row and column included. */
+	maxDiffCells: 1_000_000,
+	/** Base and proposed text together, as UTF-8. */
+	maxCombinedBytes: 256 * 1024,
+} as const;
+
+function utf8Length(text: string): number {
+	let bytes = 0;
+	for (let index = 0; index < text.length; index++) {
+		const code = text.charCodeAt(index);
+		if (code < 0x80) {
+			bytes += 1;
+		} else if (code < 0x800) {
+			bytes += 2;
+		} else if (code >= 0xd800 && code <= 0xdbff) {
+			bytes += 4;
+			index++;
+		} else {
+			bytes += 3;
+		}
+	}
+	return bytes;
+}
+
+function lineCount(text: string): number {
+	let lines = 1;
+	for (let index = text.indexOf('\n'); index !== -1; index = text.indexOf('\n', index + 1)) {
+		lines++;
+	}
+	return lines;
+}
+
+/** Why a proposal is too large to be diffed, or undefined when it is not. Costs one pass over the text and allocates nothing. */
+export function proposalSizeProblem(base: string, proposed: string): string | undefined {
+	const bytes = utf8Length(base) + utf8Length(proposed);
+	if (bytes > ONYX_PROPOSAL_LIMITS.maxCombinedBytes) {
+		return `the file and the proposed content together are ${bytes} bytes; a proposal is reviewed up to ${ONYX_PROPOSAL_LIMITS.maxCombinedBytes}`;
+	}
+	const baseLines = lineCount(base);
+	const proposedLines = lineCount(proposed);
+	if (baseLines > ONYX_PROPOSAL_LIMITS.maxLinesPerSide || proposedLines > ONYX_PROPOSAL_LIMITS.maxLinesPerSide) {
+		return `the file has ${baseLines} lines and the proposed content ${proposedLines}; a proposal is reviewed up to ${ONYX_PROPOSAL_LIMITS.maxLinesPerSide} lines a side`;
+	}
+	if ((baseLines + 1) * (proposedLines + 1) > ONYX_PROPOSAL_LIMITS.maxDiffCells) {
+		return `comparing ${baseLines} lines with ${proposedLines} is more than a proposal is reviewed at`;
+	}
+	return undefined;
+}
+
+/** A hunk under review: the lines it replaces, what it puts there, and a name that does not change (B7). */
+export interface IOnyxReviewHunk extends IOnyxEditHunk {
+	/**
+	 * Given once, when the proposal generation is opened, from the
+	 * generation and the hunk's place in it. It is never recomputed from
+	 * where the hunk has moved to, and never given to another hunk.
+	 */
+	readonly id: string;
+}
+
+/** A hunk that could not be carried onto the buffer as it now is. Nothing of it is applied. */
+export interface IOnyxHunkConflict {
+	readonly id: string;
+	/** `missing`: its lines and their context are no longer in the buffer. `ambiguous`: they are there more than once. */
+	readonly reason: 'missing' | 'ambiguous';
+	/** Both texts, for the reader: what the hunk expected to replace, and what it proposed. */
+	readonly originalLines: readonly string[];
+	readonly newLines: readonly string[];
+	/** The 1-based line it was at in the base it was reviewed against. */
+	readonly wasAtLine: number;
+}
+
+/**
+ * One generation of a proposal under review (B7). A generation begins when
+ * the agent, an inline edit or a refactor stages content for a file, and
+ * ends when it stages again: every hunk id of the earlier generation is gone
+ * then, so a review of it cannot be accepted by mistake.
+ */
+export interface IOnyxReview {
+	readonly generation: number;
+	readonly hunks: readonly IOnyxReviewHunk[];
+	readonly conflicts: readonly IOnyxHunkConflict[];
+}
+
+/** Opens a generation: diffs the proposal once and names its hunks. Refuses a proposal too large to diff (R-38). */
+export function openReview(base: string, proposed: string, generation: number): { readonly ok: true; readonly review: IOnyxReview } | { readonly ok: false; readonly error: string } {
+	const problem = proposalSizeProblem(base, proposed);
+	if (problem) {
+		return { ok: false, error: problem };
+	}
+	return { ok: true, review: { generation, hunks: computeLineHunks(base, proposed).map((hunk, index) => ({ ...hunk, id: `g${generation}.h${index + 1}` })), conflicts: [] } };
+}
+
+/** The content a review proposes: the base with every hunk of the review applied. */
+export function reviewProposed(base: string, hunks: readonly IOnyxEditHunk[]): string {
+	return applyHunkSelection(base, hunks, () => true);
+}
+
+/** How many lines of unchanged text on each side tie a hunk to its place (B7, step 4). */
+const CONTEXT_LINES = 3;
+
+function linesEqual(lines: readonly string[], at: number, pattern: readonly string[]): boolean {
+	if (at < 0 || at + pattern.length > lines.length) {
+		return false;
+	}
+	for (let offset = 0; offset < pattern.length; offset++) {
+		if (lines[at + offset] !== pattern[offset]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/**
+ * Carries a review onto a buffer that changed underneath it (B7, DEC-07).
+ * Each hunk is looked for by its own lines with up to three lines of the old
+ * base on each side, exactly. Found at one place, it keeps its id and moves
+ * there. Found nowhere, or at more than one place, it becomes a conflict
+ * that keeps both texts and is never applied: there is no trimming and no
+ * choosing of the nearest or the first. A hunk that would overlap one
+ * already placed is a conflict too.
+ */
+export function rebaseReview(review: IOnyxReview, oldBase: string, newBase: string): IOnyxReview {
+	if (oldBase === newBase) {
+		return review;
+	}
+	const oldLines = oldBase.split('\n');
+	const newLines = newBase.split('\n');
+	const hunks: IOnyxReviewHunk[] = [];
+	const conflicts: IOnyxHunkConflict[] = [...review.conflicts];
+	let floor = 0;
+	for (const hunk of review.hunks) {
+		const before = oldLines.slice(Math.max(0, hunk.originalStart - CONTEXT_LINES), hunk.originalStart);
+		const after = oldLines.slice(hunk.originalStart + hunk.originalLength, hunk.originalStart + hunk.originalLength + CONTEXT_LINES);
+		const pattern = [...before, ...hunk.originalLines, ...after];
+		// At the start or the end of the file there are fewer lines of context to take; the rule is the same.
+		const found: number[] = [];
+		for (let at = 0; at + pattern.length <= newLines.length && found.length < 2; at++) {
+			if (linesEqual(newLines, at, pattern)) {
+				found.push(at);
+			}
+		}
+		const conflict = (reason: IOnyxHunkConflict['reason']) => conflicts.push({ id: hunk.id, reason, originalLines: hunk.originalLines, newLines: hunk.newLines, wasAtLine: hunk.originalStart + 1 });
+		if (found.length !== 1) {
+			conflict(found.length === 0 ? 'missing' : 'ambiguous');
+			continue;
+		}
+		const originalStart = found[0] + before.length;
+		if (originalStart < floor) {
+			conflict('ambiguous');
+			continue;
+		}
+		floor = originalStart + hunk.originalLength;
+		hunks.push({ ...hunk, originalStart });
+	}
+	return { generation: review.generation, hunks, conflicts };
+}
+
+/**
+ * Accepts some hunks of a review whose base is the buffer as it is: the new
+ * base is the old one with those hunks applied, and the hunks that remain
+ * keep their ids and move by the lines the accepted ones added or removed.
+ */
+export function acceptReviewHunks(review: IOnyxReview, base: string, accept: (id: string) => boolean): { readonly base: string; readonly review: IOnyxReview } {
+	const newBase = applyHunkSelection(base, review.hunks, index => accept(review.hunks[index].id));
+	let shift = 0;
+	const hunks: IOnyxReviewHunk[] = [];
+	for (const hunk of review.hunks) {
+		if (accept(hunk.id)) {
+			shift += hunk.newLines.length - hunk.originalLength;
+		} else {
+			hunks.push({ ...hunk, originalStart: hunk.originalStart + shift });
+		}
+	}
+	return { base: newBase, review: { generation: review.generation, hunks, conflicts: review.conflicts } };
+}
+
+/** Drops one hunk or one conflict from a review. The other hunks keep their ids and their places. */
+export function rejectReviewHunk(review: IOnyxReview, id: string): IOnyxReview {
+	return { generation: review.generation, hunks: review.hunks.filter(hunk => hunk.id !== id), conflicts: review.conflicts.filter(conflict => conflict.id !== id) };
+}
+
 export interface IOnyxRebaseResult {
 	readonly file: IOnyxProposedFile;
-	/** Hunks whose anchor no longer exists in the new base — dropped, not guessed. */
+	/** Hunks that could not be carried onto the new base: dropped from the proposal, not guessed. */
 	readonly droppedHunks: number;
 }
 
 /**
- * Re-anchors a proposal onto a buffer that changed underneath it. Each hunk is
- * replayed as a SEARCH/REPLACE block (with one line of leading context so pure
- * insertions have an anchor); a hunk whose anchor vanished is dropped and
- * counted rather than applied somewhere wrong. Matching is exact and unique,
- * as everywhere (B6, DEC-07): the user edited this file, and a "probably
- * meant here" application would silently corrupt their work.
+ * Re-anchors a proposal onto a buffer that changed underneath it, by
+ * `rebaseReview`'s rule. For callers that hold a proposal and no review; the
+ * change set keeps the review, and with it the conflicts and the hunk ids.
  */
 export function rebaseProposal(file: IOnyxProposedFile, newBase: string): IOnyxRebaseResult {
 	if (newBase === file.base) {
 		return { file: file.stale ? { ...file, stale: false } : file, droppedHunks: 0 };
 	}
-	const baseLines = file.base.split('\n');
-	const blocks: IOnyxEditBlock[] = proposalHunks(file).map(hunk => {
-		const context = hunk.originalStart > 0 ? [baseLines[hunk.originalStart - 1]] : [];
-		return {
-			search: [...context, ...hunk.originalLines].join('\n'),
-			replace: [...context, ...hunk.newLines].join('\n'),
-		};
-	});
-	let proposed = newBase;
-	let dropped = 0;
-	for (const block of blocks) {
-		if (block.search === '') {
-			// An insertion at the very top of an empty file: prepend.
-			proposed = block.replace + (proposed ? '\n' + proposed : '');
-			continue;
-		}
-		const replaced = strictReplace(proposed, block);
-		if (replaced === undefined) {
-			dropped++;
-		} else {
-			proposed = replaced;
-		}
+	const opened = openReview(file.base, file.proposed, 0);
+	if (!opened.ok) {
+		return { file: { ...file, base: newBase, proposed: newBase, stale: false }, droppedHunks: 1 };
 	}
-	if (proposed === newBase) {
-		// Nothing survived: the proposal has no remaining effect.
-		return { file: { ...file, base: newBase, proposed: newBase, stale: false }, droppedHunks: dropped };
-	}
-	return { file: { ...file, base: newBase, proposed, stale: false }, droppedHunks: dropped };
-}
-
-/** Exactly, and exactly once, or not at all (B6, DEC-07): the same rule as for a model's own SEARCH text. */
-function strictReplace(text: string, block: IOnyxEditBlock): string | undefined {
-	const placed = placeEditBlock(text, block);
-	return placed.ok ? placed.text : undefined;
+	const rebased = rebaseReview(opened.review, file.base, newBase);
+	return { file: { ...file, base: newBase, proposed: reviewProposed(newBase, rebased.hunks), stale: false }, droppedHunks: rebased.conflicts.length };
 }
 
 export interface IOnyxChangeSetSummary {

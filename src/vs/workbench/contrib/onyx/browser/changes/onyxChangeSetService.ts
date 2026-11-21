@@ -20,8 +20,9 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../../pla
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import {
-	applyHunkSelection, IOnyxProposedFile, OnyxProposeResult, proposalHunks, proposalToUnifiedDiff, proposeEdits, rebaseProposal, summarizeChangeSet
+	acceptReviewHunks, applyHunkSelection, IOnyxHunkConflict, IOnyxProposedFile, IOnyxReview, IOnyxReviewHunk, OnyxProposeResult, openReview, proposalToUnifiedDiff, proposeEdits, rebaseReview, rejectReviewHunk, reviewProposed, summarizeChangeSet
 } from '../../common/onyxChangeSet.js';
+import { traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxChangeRisk } from '../../common/onyxChangeRisk.js';
 import { IOnyxEditBlock, IOnyxEditHunk } from '../../common/onyxInlineEdit.js';
 import { decodeNumberedSearch, replacementCarriesNumbering } from '../../common/onyxReadTools.js';
@@ -36,7 +37,14 @@ const STAGED_STORAGE_KEY = 'onyx.changes.staged';
 /** One staged file plus everything the review surface shows about it. */
 export interface IOnyxStagedFile {
 	readonly proposal: IOnyxProposedFile;
-	readonly hunks: readonly IOnyxEditHunk[];
+	/** The hunks under review, each with an id that does not change while this generation lasts (B7). */
+	readonly hunks: readonly IOnyxReviewHunk[];
+	/** Hunks that no longer correspond to the buffer: shown with both texts, never applied. */
+	readonly conflicts: readonly IOnyxHunkConflict[];
+	/** Which staging of this file the hunks belong to. A later one replaces every id. */
+	readonly generation: number;
+	/** What the proposal was computed against: the text model's version when it was read, and a digest of its content. */
+	readonly baseVersion: { readonly versionId: number | undefined; readonly contentHash: string };
 	readonly risk: IOnyxChangeRisk | undefined;
 	/** The run that most recently staged into this file, for the timeline link. */
 	readonly runId: string | undefined;
@@ -45,6 +53,11 @@ export interface IOnyxStagedFile {
 export type OnyxStageOutcome =
 	| { readonly ok: true; readonly summary: string }
 	| { readonly ok: false; readonly error: string };
+
+/** What an accept came to. `applied: false` always has the reason the user is shown. */
+export type OnyxAcceptOutcome =
+	| { readonly applied: true }
+	| { readonly applied: false; readonly reason: 'review-changed' | 'conflict' | 'not-staged' | 'failed'; readonly message: string };
 
 /**
  * Holds the agent's proposed edits between "the model asked for a change" and
@@ -55,31 +68,38 @@ export type OnyxStageOutcome =
  */
 export interface IOnyxChangeSetService {
 	readonly _serviceBrand: undefined;
-
 	readonly files: IObservable<readonly IOnyxStagedFile[]>;
 	readonly onDidApply: Event<{ readonly path: string }>;
-
 	/** Stages SEARCH/REPLACE blocks for a workspace-qualified path. Never edits the buffer. */
 	stage(path: string, blocks: readonly IOnyxEditBlock[], runId?: string): Promise<OnyxStageOutcome>;
-
 	/**
 	 * Stages complete proposed content for a path (the refactor engine's entry:
 	 * language services compute whole-file results). Replaces any existing
 	 * proposal for the file. Never edits the buffer.
 	 */
 	stageProposal(path: string, proposedContent: string, runId?: string): Promise<OnyxStageOutcome>;
-
-	acceptFile(path: string): Promise<boolean>;
+	acceptFile(path: string): Promise<OnyxAcceptOutcome>;
 	rejectFile(path: string): void;
-	/** Accepts one hunk (by index into the staged file's hunks); the rest stay staged. */
-	acceptHunk(path: string, hunkIndex: number): Promise<boolean>;
-	rejectHunk(path: string, hunkIndex: number): void;
+	/**
+	 * Accepts one hunk by the id it was shown with (B7); the rest stay
+	 * staged. When the buffer has changed the proposal is carried onto it
+	 * first, and when the hunk is no longer there under that id the accept
+	 * is refused and the review is refreshed: nothing else is applied in
+	 * its place.
+	 */
+	acceptHunk(path: string, hunkId: string): Promise<OnyxAcceptOutcome>;
+	/** Drops one hunk, or one conflict, by id. */
+	rejectHunk(path: string, hunkId: string): void;
 	acceptAll(): Promise<number>;
 	rejectAll(): void;
-
 	/** Re-checks every staged file against its live buffer, rebasing stale proposals. */
 	refresh(): Promise<void>;
 	openDiff(path: string): Promise<void>;
+}
+
+/** What the user is told when what they reviewed is no longer what would be applied. */
+function reviewChangedMessage(path: string): string {
+	return localize('onyx.changes.reviewChanged', "The review of {0} changed; look again. Nothing was applied.", path);
 }
 
 export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetService {
@@ -91,6 +111,9 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 
 	private readonly _onDidApply = this._register(new Emitter<{ path: string }>());
 	readonly onDidApply = this._onDidApply.event;
+
+	/** The last generation given out. Every staging of a file takes the next one. */
+	private _generation = 0;
 
 	constructor(
 		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
@@ -105,16 +128,25 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		super();
 		// Staged edits survive a crash: restore them marked stale, so the next
 		// look at the view rebases each proposal against today's buffers and
-		// drops (with a count, never silently) whatever no longer applies.
+		// shows (with both texts, never silently) whatever no longer applies.
+		// A restored proposal is a new generation: no earlier review of it holds.
 		try {
 			const persisted: IOnyxProposedFile[] = JSON.parse(this._storageService.get(STAGED_STORAGE_KEY, StorageScope.WORKSPACE, '[]'));
 			if (Array.isArray(persisted) && persisted.length > 0) {
-				this._filesObs.set(persisted.map(proposal => ({
-					proposal: { ...proposal, stale: true },
-					hunks: proposalHunks(proposal),
-					risk: undefined,
-					runId: undefined,
-				})), undefined);
+				const restored: IOnyxStagedFile[] = [];
+				for (const proposal of persisted) {
+					if (typeof proposal?.path !== 'string' || typeof proposal.base !== 'string' || typeof proposal.proposed !== 'string') {
+						continue;
+					}
+					// Refused before it is diffed when it is over the size a proposal is reviewed at (R-38).
+					const opened = openReview(proposal.base, proposal.proposed, ++this._generation);
+					if (!opened.ok) {
+						this._notificationService.notify({ severity: Severity.Warning, message: localize('onyx.changes.restoreTooLarge', "A stored proposal for {0} was not restored: {1}. Your file was never changed by it.", proposal.path, opened.error) });
+						continue;
+					}
+					restored.push({ proposal: { ...proposal, stale: true }, hunks: opened.review.hunks, conflicts: [], generation: opened.review.generation, baseVersion: { versionId: undefined, contentHash: traceDigest(proposal.base) }, risk: undefined, runId: undefined });
+				}
+				this._filesObs.set(restored, undefined);
 			}
 		} catch {
 			// corrupt storage: start with an empty change set
@@ -137,11 +169,12 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 			return { ok: false, error: `Path "${path}" is not inside the workspace.` };
 		}
 		const existing = this._filesObs.get().find(file => file.proposal.path === path);
-		const current = existing ? undefined : await this._readCurrentContent(uri);
+		const read = await this._readCurrent(uri);
+		const current = existing ? undefined : read?.content;
 		// R-24: SEARCH text copied from a numbered readFile result is decoded
 		// only when it is provably that result (the exact text is tried
 		// first); anything shaped like one that is not the file is refused.
-		const decoded = decodeNumberedBlocks(blocks, existing ? await this._readCurrentContent(uri) : current, existing?.proposal.proposed);
+		const decoded = decodeNumberedBlocks(blocks, existing ? read?.content : current, existing?.proposal.proposed);
 		if (!decoded.ok) {
 			return { ok: false, error: decoded.error };
 		}
@@ -150,12 +183,23 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		if (!result.ok) {
 			return { ok: false, error: result.error };
 		}
-		const hunks = proposalHunks(result.file);
-		if (hunks.length === 0) {
+		// A new generation: the proposed content changed, so every hunk is named afresh and an older review
+		// of this file can no longer be accepted (B7). A proposal too large to diff is refused here, before
+		// the diff, and whatever was staged before stays as it was (R-38).
+		const opened = this._openReview(result.file.base, result.file.proposed, this._generation + 1);
+		if (!opened.ok) {
+			return { ok: false, error: `Edit refused for ${path}: ${opened.error}. Nothing was staged${existing ? '; the edits already staged for the file are unchanged' : ''}. Make a smaller edit.` };
+		}
+		this._generation++;
+		if (opened.review.hunks.length === 0) {
 			this._remove(path);
 			return { ok: true, summary: `No change left for ${path}: the edits cancel out. Nothing is staged.` };
 		}
-		const staged: IOnyxStagedFile = { proposal: result.file, hunks, risk: existing?.risk, runId: runId ?? existing?.runId };
+		const staged: IOnyxStagedFile = {
+			proposal: result.file, hunks: opened.review.hunks, conflicts: [], generation: opened.review.generation,
+			baseVersion: existing?.baseVersion ?? { versionId: read?.versionId, contentHash: traceDigest(result.file.base) },
+			risk: existing?.risk, runId: runId ?? existing?.runId,
+		};
 		this._upsert(staged);
 		this._scoreRisk(staged.proposal).catch(() => { /* risk stays unknown */ });
 		const summary = summarizeChangeSet([result.file]);
@@ -163,6 +207,11 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 			ok: true,
 			summary: `Staged ${result.appliedCount} edit(s) to ${path} (+${summary.addedLines} −${summary.removedLines}). The user reviews them in Onyx Changes before anything is applied — do not re-apply the same edit.`,
 		};
+	}
+
+	/** Opens a generation for a proposal, refusing one that is over the size a proposal is reviewed at (B7, R-38). */
+	protected _openReview(base: string, proposed: string, generation: number): ReturnType<typeof openReview> {
+		return openReview(base, proposed, generation);
 	}
 
 	/** Places a tool call's blocks: exactly, and exactly once, or not at all (B6, DEC-07). */
@@ -175,52 +224,62 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		if (!uri) {
 			return { ok: false, error: `Path "${path}" is not inside the workspace.` };
 		}
-		const current = await this._readCurrentContent(uri);
-		const proposal: IOnyxProposedFile = current === undefined
+		const read = await this._readCurrent(uri);
+		const proposal: IOnyxProposedFile = read === undefined
 			? { path, kind: 'create', base: '', proposed: proposedContent, stale: false }
-			: { path, kind: 'modify', base: current, proposed: proposedContent, stale: false };
-		const hunks = proposalHunks(proposal);
-		if (hunks.length === 0) {
+			: { path, kind: 'modify', base: read.content, proposed: proposedContent, stale: false };
+		const opened = this._openReview(proposal.base, proposal.proposed, this._generation + 1);
+		if (!opened.ok) {
+			return { ok: false, error: `Proposal refused for ${path}: ${opened.error}. Nothing was staged, and anything already staged for the file is unchanged.` };
+		}
+		this._generation++;
+		if (opened.review.hunks.length === 0) {
 			this._remove(path);
 			return { ok: true, summary: `No change for ${path}.` };
 		}
-		const staged: IOnyxStagedFile = { proposal, hunks, risk: undefined, runId };
+		const staged: IOnyxStagedFile = { proposal, hunks: opened.review.hunks, conflicts: [], generation: opened.review.generation, baseVersion: { versionId: read?.versionId, contentHash: traceDigest(proposal.base) }, risk: undefined, runId };
 		this._upsert(staged);
 		this._scoreRisk(proposal).catch(() => { /* risk stays unknown */ });
 		const summary = summarizeChangeSet([proposal]);
 		return { ok: true, summary: `Staged ${path} (+${summary.addedLines} −${summary.removedLines}).` };
 	}
 
-	async acceptFile(path: string): Promise<boolean> {
+	async acceptFile(path: string): Promise<OnyxAcceptOutcome> {
 		const staged = this._filesObs.get().find(file => file.proposal.path === path);
 		if (!staged) {
-			return false;
+			return { applied: false, reason: 'not-staged', message: reviewChangedMessage(path) };
 		}
-		return this._applySafely(staged, () => true, 'all');
+		return this._applySafely(staged, undefined);
 	}
 
-	async acceptHunk(path: string, hunkIndex: number): Promise<boolean> {
+	async acceptHunk(path: string, hunkId: string): Promise<OnyxAcceptOutcome> {
 		const staged = this._filesObs.get().find(file => file.proposal.path === path);
-		if (!staged || hunkIndex < 0 || hunkIndex >= staged.hunks.length) {
-			return false;
+		// The id names a hunk of one generation. One that is not among the hunks now staged was reviewed
+		// before the proposal changed, or has become a conflict: nothing is applied in its place.
+		if (!staged || !staged.hunks.some(hunk => hunk.id === hunkId)) {
+			return this._refuse(path, staged?.conflicts.some(conflict => conflict.id === hunkId) ? 'conflict' : staged ? 'review-changed' : 'not-staged');
 		}
-		return this._applySafely(staged, index => index === hunkIndex, hunkIndex);
+		return this._applySafely(staged, hunkId);
+	}
+
+	private _refuse(path: string, reason: 'review-changed' | 'conflict' | 'not-staged'): OnyxAcceptOutcome {
+		const message = reviewChangedMessage(path);
+		this._notificationService.notify({ severity: Severity.Warning, message });
+		return { applied: false, reason, message };
 	}
 
 	/** An accept that cannot land (file deleted, buffer unavailable) says so and leaves the proposal staged. */
-	private async _applySafely(staged: IOnyxStagedFile, keep: (index: number) => boolean, hunk: number | 'all'): Promise<boolean> {
+	private async _applySafely(staged: IOnyxStagedFile, hunkId: string | undefined): Promise<OnyxAcceptOutcome> {
 		try {
-			const applied = await this._apply(staged, keep);
-			if (applied && staged.runId) {
-				this._controlPlaneService.recordAcceptance(staged.runId, { path: staged.proposal.path, hunk });
+			const outcome = await this._apply(staged, hunkId);
+			if (outcome.applied && staged.runId) {
+				this._controlPlaneService.recordAcceptance(staged.runId, { path: staged.proposal.path, hunk: hunkId ?? 'all' });
 			}
-			return applied;
+			return outcome;
 		} catch (error) {
-			this._notificationService.notify({
-				severity: Severity.Error,
-				message: localize('onyx.changes.applyFailed', "Could not apply the staged edit to {0}: {1}. The proposal stays staged.", staged.proposal.path, error instanceof Error ? error.message : String(error)),
-			});
-			return false;
+			const message = localize('onyx.changes.applyFailed', "Could not apply the staged edit to {0}: {1}. The proposal stays staged.", staged.proposal.path, error instanceof Error ? error.message : String(error));
+			this._notificationService.notify({ severity: Severity.Error, message });
+			return { applied: false, reason: 'failed', message };
 		}
 	}
 
@@ -228,25 +287,44 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		this._remove(path);
 	}
 
-	rejectHunk(path: string, hunkIndex: number): void {
+	rejectHunk(path: string, hunkId: string): void {
 		const staged = this._filesObs.get().find(file => file.proposal.path === path);
 		if (!staged) {
 			return;
 		}
-		const proposed = applyHunkSelection(staged.proposal.base, staged.hunks, index => index !== hunkIndex);
-		const proposal: IOnyxProposedFile = { ...staged.proposal, proposed };
-		const hunks = proposalHunks(proposal);
-		if (hunks.length === 0) {
-			this._remove(path);
+		const review = rejectReviewHunk({ generation: staged.generation, hunks: staged.hunks, conflicts: staged.conflicts }, hunkId);
+		this._keepReview(staged, staged.proposal.base, review);
+	}
+
+	/** Puts a review back as the staged state of its file, or removes the file when nothing of it is left. */
+	private _keepReview(staged: IOnyxStagedFile, base: string, review: IOnyxReview, baseVersionId?: number): void {
+		if (review.hunks.length === 0 && review.conflicts.length === 0) {
+			this._remove(staged.proposal.path);
 			return;
 		}
-		this._upsert({ ...staged, proposal, hunks });
+		this._upsert({
+			...staged,
+			proposal: { ...staged.proposal, base, proposed: reviewProposed(base, review.hunks), stale: false },
+			hunks: review.hunks, conflicts: review.conflicts,
+			baseVersion: base === staged.proposal.base ? staged.baseVersion : { versionId: baseVersionId, contentHash: traceDigest(base) },
+		});
+	}
+
+	/** Says, once for a rebase, which hunks stopped corresponding. They stay on show as conflicts. */
+	private _reportConflicts(path: string, before: number, review: IOnyxReview): void {
+		const added = review.conflicts.length - before;
+		if (added > 0) {
+			this._notificationService.notify({
+				severity: Severity.Warning,
+				message: localize('onyx.changes.rebaseConflicts', "{0} changed underneath {1} staged edit(s). They no longer correspond to the file exactly and at one place, so they are shown as conflicts with both texts and will not be applied. The rest were carried over to your current file.", path, added),
+			});
+		}
 	}
 
 	async acceptAll(): Promise<number> {
 		let applied = 0;
 		for (const staged of [...this._filesObs.get()]) {
-			if (await this._applySafely(staged, () => true, 'all')) {
+			if ((await this._applySafely(staged, undefined)).applied) {
 				applied++;
 			}
 		}
@@ -264,8 +342,8 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 				continue;
 			}
 			const uri = this._resolveUri(staged.proposal.path);
-			const current = uri ? await this._readCurrentContent(uri) : undefined;
-			if (current === undefined) {
+			const read = uri ? await this._readCurrent(uri) : undefined;
+			if (read === undefined) {
 				// The file is gone. Keep the proposal (rejecting it is the user's
 				// call) but say so, rather than leaving a diff against nothing.
 				this._notificationService.notify({
@@ -274,25 +352,14 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 				});
 				continue;
 			}
-			if (current === staged.proposal.base) {
+			if (read.content === staged.proposal.base) {
 				continue;
 			}
-			const rebased = rebaseProposal(staged.proposal, current);
-			const hunks = proposalHunks(rebased.file);
-			// A hunk whose anchor vanished is dropped rather than applied in the
-			// wrong place — but never silently: that is the whole promise of this
-			// surface.
-			if (rebased.droppedHunks > 0) {
-				this._notificationService.notify({
-					severity: Severity.Info,
-					message: localize('onyx.changes.rebaseDropped', "{0} changed underneath {1} staged edit(s), so they no longer apply and were dropped. The rest were re-anchored to your current file.", staged.proposal.path, rebased.droppedHunks),
-				});
-			}
-			if (hunks.length === 0) {
-				this._remove(staged.proposal.path);
-			} else {
-				this._upsert({ ...staged, proposal: rebased.file, hunks });
-			}
+			// A hunk that no longer corresponds becomes a conflict rather than being applied in the wrong
+			// place — and never silently: that is the whole promise of this surface.
+			const review = rebaseReview({ generation: staged.generation, hunks: staged.hunks, conflicts: staged.conflicts }, staged.proposal.base, read.content);
+			this._reportConflicts(staged.proposal.path, staged.conflicts.length, review);
+			this._keepReview(staged, read.content, review, read.versionId);
 		}
 	}
 
@@ -306,65 +373,68 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	}
 
 	/**
-	 * Applies the selected hunks to the real buffer. The buffer may have moved
-	 * since staging — the proposal is rebased onto its live content first, so
-	 * an accept can never blindly overwrite edits the user made meanwhile.
+	 * Applies one hunk, or every hunk, to the real buffer. The buffer may
+	 * have moved since staging — the review is carried onto its live content
+	 * first, so an accept can never blindly overwrite edits the user made
+	 * meanwhile. The proposal generation and the hunk's id are checked again
+	 * immediately before the edit, against the state as it is then (B7).
 	 */
-	private async _apply(staged: IOnyxStagedFile, keep: (index: number) => boolean): Promise<boolean> {
-		const uri = this._resolveUri(staged.proposal.path);
+	private async _apply(shown: IOnyxStagedFile, hunkId: string | undefined): Promise<OnyxAcceptOutcome> {
+		const path = shown.proposal.path;
+		const uri = this._resolveUri(path);
 		if (!uri) {
-			return false;
+			return { applied: false, reason: 'failed', message: localize('onyx.changes.outside', "{0} is not inside the workspace.", path) };
 		}
-		if (staged.proposal.kind === 'create') {
-			const content = keep(0) || staged.hunks.length === 1 ? staged.proposal.proposed : applyHunkSelection('', staged.hunks, keep);
+		if (shown.proposal.kind === 'create') {
+			const content = hunkId === undefined || shown.hunks.length === 1 ? shown.proposal.proposed : applyHunkSelection('', shown.hunks, index => shown.hunks[index].id === hunkId);
 			await this._fileService.createFile(uri, VSBuffer.fromString(content), { overwrite: false });
-			this._remove(staged.proposal.path);
-			this._onDidApply.fire({ path: staged.proposal.path });
+			this._remove(path);
+			this._onDidApply.fire({ path });
 			await this._editorService.openEditor({ resource: uri, options: { preserveFocus: true } });
-			return true;
+			return { applied: true };
 		}
-
 		const reference = await this._textModelService.createModelReference(uri);
 		try {
 			const model = reference.object.textEditorModel;
-			let proposal = staged.proposal;
-			let hunks = staged.hunks;
-			const live = model.getValue(EndOfLinePreference.LF);
-			if (live !== proposal.base) {
-				const rebased = rebaseProposal(proposal, live);
-				proposal = rebased.file;
-				hunks = proposalHunks(proposal);
-				if (hunks.length === 0) {
-					this._remove(staged.proposal.path);
-					return false;
-				}
+			// What is staged now, not what was staged when the user clicked: a newer generation may have
+			// arrived while the model was being resolved.
+			const staged = this._filesObs.get().find(file => file.proposal.path === path);
+			if (!staged || staged.generation !== shown.generation) {
+				return this._refuse(path, staged ? 'review-changed' : 'not-staged');
 			}
-			const edits = hunks
-				.filter((_, index) => keep(index))
-				.map(hunk => this._hunkToEdit(model, hunk));
-			if (edits.length === 0) {
-				return false;
+			let review: IOnyxReview = { generation: staged.generation, hunks: staged.hunks, conflicts: staged.conflicts };
+			let base = staged.proposal.base;
+			const live = model.getValue(EndOfLinePreference.LF);
+			if (live !== base) {
+				review = rebaseReview(review, base, live);
+				base = live;
+				this._reportConflicts(path, staged.conflicts.length, review);
+				// The review on show is the rebased one from here on, whatever happens next.
+				this._keepReview(staged, base, review, model.getVersionId());
+			}
+			const wanted = (id: string) => hunkId === undefined || id === hunkId;
+			const accepted = review.hunks.filter(hunk => wanted(hunk.id));
+			if (accepted.length === 0) {
+				// The hunk the user accepted did not survive the rebase: nothing else is applied in its place.
+				return this._refuse(path, review.conflicts.some(conflict => conflict.id === hunkId) ? 'conflict' : 'review-changed');
+			}
+			if (hunkId === undefined && review.conflicts.length > 0) {
+				// "Accept the file" means what was shown. With a conflict among it, part of that cannot be applied.
+				return this._refuse(path, 'conflict');
 			}
 			model.pushStackElement();
-			model.pushEditOperations(null, edits, () => null);
+			model.pushEditOperations(null, accepted.map(hunk => this._hunkToEdit(model, hunk)), () => null);
 			model.pushStackElement();
 
-			const remaining = applyHunkSelection(proposal.base, hunks, index => !keep(index));
+			const rest = acceptReviewHunks(review, base, wanted);
 			const newBase = model.getValue(EndOfLinePreference.LF);
-			if (remaining === proposal.base) {
-				this._remove(staged.proposal.path);
-			} else {
-				// Rebase what is left onto the buffer as it now stands.
-				const rebasedRest = rebaseProposal({ ...proposal, base: proposal.base, proposed: remaining }, newBase);
-				const restHunks = proposalHunks(rebasedRest.file);
-				if (restHunks.length === 0) {
-					this._remove(staged.proposal.path);
-				} else {
-					this._upsert({ ...staged, proposal: rebasedRest.file, hunks: restHunks });
-				}
-			}
-			this._onDidApply.fire({ path: staged.proposal.path });
-			return true;
+			// The buffer is the old one with the accepted hunks applied, and the hunks that remain have moved by
+			// what those added or removed. Should the buffer be anything else, they are found again by context.
+			const remaining = newBase === rest.base ? rest.review : rebaseReview(rest.review, rest.base, newBase);
+			const current = this._filesObs.get().find(file => file.proposal.path === path) ?? staged;
+			this._keepReview(current, newBase, remaining, model.getVersionId());
+			this._onDidApply.fire({ path });
+			return { applied: true };
 		} finally {
 			reference.dispose();
 		}
@@ -437,19 +507,21 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	}
 
 	/**
-	 * The file as lines joined by `\n`, whatever its own line endings are.
-	 * Proposals are computed and matched in that form, and applied through
-	 * the text model, which keeps the file's line endings: they are never
-	 * rewritten to make a SEARCH text match (B6), and a SEARCH text that
-	 * carries a carriage return matches nothing.
+	 * The file as lines joined by `\n`, whatever its own line endings are,
+	 * and the text model's version at that moment. Proposals are computed
+	 * and matched in that form, and applied through the text model, which
+	 * keeps the file's line endings: they are never rewritten to make a
+	 * SEARCH text match (B6), and a SEARCH text that carries a carriage
+	 * return matches nothing.
 	 */
-	private async _readCurrentContent(uri: URI): Promise<string | undefined> {
+	private async _readCurrent(uri: URI): Promise<{ readonly content: string; readonly versionId: number } | undefined> {
 		if (!await this._fileService.exists(uri)) {
 			return undefined;
 		}
 		const reference = await this._textModelService.createModelReference(uri);
 		try {
-			return reference.object.textEditorModel.getValue(EndOfLinePreference.LF);
+			const model = reference.object.textEditorModel;
+			return { content: model.getValue(EndOfLinePreference.LF), versionId: model.getVersionId() };
 		} finally {
 			reference.dispose();
 		}

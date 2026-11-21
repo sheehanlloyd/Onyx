@@ -149,6 +149,9 @@ export interface IOnyxSimResult {
 	readonly journal: string;
 	readonly violations: readonly { readonly invariant: string; readonly detail: string; readonly boundary: string }[];
 	readonly status: string;
+	/** The target file's buffer when the episode ended, and how many user steps were carried out. */
+	readonly targetBuffer: string | undefined;
+	readonly userStepsTaken: number;
 	readonly turns: number;
 	readonly boundaries: number;
 	/** The text of every tool result, in dispatch order. */
@@ -211,6 +214,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly acceptedHunks: { path: string; hunk: number | 'all'; newLines: readonly string[] }[] = [];
 	readonly stageEvents: { path: string; hunks: number; proposedChars: number; search: string | undefined; baseAtStage: string | undefined; proposedBefore: string | undefined }[] = [];
 	private readonly _lastProposed = new Map<string, string>();
+	/** The generation of each file's staging at the last look: a new one is a new staging, the same one is a review that moved. */
+	private readonly _lastGeneration = new Map<string, number>();
 	readonly profile: IOnyxModelProfile;
 	/** Every journal event the control plane recorded, as the outcome service would write it (one JSON line each). */
 	readonly journalLines: string[] = [];
@@ -372,6 +377,16 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		return this._modelService.getModel(this._uri(path))?.getValue();
 	}
 
+	/** The live text model of a workspace file, when it has one. */
+	textModel(path: string): ITextModel | undefined {
+		return this._modelService.getModel(this._uri(path)) ?? undefined;
+	}
+
+	/** Changes a file on the in-memory disk, as another program would. */
+	async writeDisk(path: string, content: string): Promise<void> {
+		await this._fileService.writeFile(this._uri(path), VSBuffer.fromString(content));
+	}
+
 	async disk(path: string): Promise<string | undefined> {
 		try {
 			return (await this._fileService.readFile(this._uri(path))).value.toString();
@@ -480,16 +495,21 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			}
 			case 'acceptHunk': {
 				const staged = this.changeSet.files.get().find(file => file.proposal.path === action.path);
+				// The user accepts the hunk that is on show at that place, by the id it is shown with (B7).
 				const hunk = staged?.hunks[action.hunk];
-				if (await this.changeSet.acceptHunk(action.path, action.hunk)) {
+				if (hunk && (await this.changeSet.acceptHunk(action.path, hunk.id)).applied) {
 					this.acceptedHunks.push({ path: action.path, hunk: action.hunk, newLines: hunk?.newLines ?? [] });
 					this._sanction(action.path);
 				}
 				break;
 			}
-			case 'rejectHunk':
-				this.changeSet.rejectHunk(action.path, action.hunk);
+			case 'rejectHunk': {
+				const hunk = this.changeSet.files.get().find(file => file.proposal.path === action.path)?.hunks[action.hunk];
+				if (hunk) {
+					this.changeSet.rejectHunk(action.path, hunk.id);
+				}
 				break;
+			}
 			case 'acceptAll': {
 				const staged = this.changeSet.files.get();
 				await this.changeSet.acceptAll();
@@ -611,10 +631,13 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		const search = typeof (lastEdit?.parameters as { search?: unknown } | undefined)?.search === 'string' ? (lastEdit!.parameters as { search: string }).search : undefined;
 		for (const staged of files) {
 			const previous = this._lastProposed.get(staged.proposal.path);
-			if (previous === staged.proposal.proposed) {
-				continue; // unchanged since the last look
-			}
+			const sameGeneration = this._lastGeneration.get(staged.proposal.path) === staged.generation;
 			this._lastProposed.set(staged.proposal.path, staged.proposal.proposed);
+			this._lastGeneration.set(staged.proposal.path, staged.generation);
+			if (sameGeneration) {
+				// The same staging, carried onto a changed buffer or partly accepted: the review moved, nothing new was staged.
+				continue;
+			}
 			if (previous !== undefined && staged.hunks.length <= 0) {
 				continue;
 			}
@@ -624,6 +647,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		for (const path of [...this._lastProposed.keys()]) {
 			if (!files.some(staged => staged.proposal.path === path)) {
 				this._lastProposed.delete(path);
+				this._lastGeneration.delete(path);
 			}
 		}
 	}
@@ -730,7 +754,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 
 	async run(): Promise<IOnyxSimResult> {
 		await this.prepare();
-		await this._observe('afterRun');
+		// The first `afterRun` boundary is the state before anything ran; the ones after the loop has
+		// returned follow below. Until B7 this was an observation only, and no `afterRun` boundary was ever
+		// raised: a user step scheduled there (accept, type, save) never happened, in the random episodes
+		// and in the scripted audit scenarios alike.
+		await this.boundary('afterRun');
 
 		const request: IChatAgentRequest = {
 			sessionResource: URI.parse('onyx-sim://session/1'),
@@ -772,6 +800,15 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		}
 		// Fire-and-forget work after a run (risk badges, verification) settles on virtual time.
 		await timeout(1000);
+		// The user acts on what the run left: every step scheduled after the run, in the order of its occurrence.
+		for (let round = 0; round < 12; round++) {
+			await this.boundary('afterRun');
+			await timeout(50);
+			const reached = this._occurrences.get('afterRun') ?? 0;
+			if (!this.episode.userSteps.some((scheduled, index) => scheduled.at === 'afterRun' && scheduled.occurrence > reached && !this._takenUserSteps.has(index))) {
+				break;
+			}
+		}
 		if (this.episode.followUpPrompt !== undefined && !this.stopped) {
 			// A later request in the same workspace: its prompt is built from whatever persistent state the first run left.
 			this._followUpFirstRequest = this.runtime.requests.length;
@@ -796,6 +833,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			journal: this.journalLines.join('\n') + '\n',
 			violations: this._violations,
 			status,
+			targetBuffer: this.buffer(this.episode.target),
+			userStepsTaken: this._takenUserSteps.size,
 			turns: this.runtime.requests.length,
 			boundaries: this._boundaries,
 			toolResults: [...this.tools.results],
