@@ -8,11 +8,13 @@ Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-
 Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; the gate machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
 
 ## Module 3
-Items done: B15 (codex/b15-context-allocation → #4; B15.md; gate checks R-61, module-3-tables)
-Items remaining: B6, B7, B8, B9, B10, C1, C2, C3, C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`)
-Item in progress: B6 (branch `codex/b6-exact-or-refuse`)
+Items done: B15 (codex/b15-context-allocation → #4; B15.md; gate checks R-61, module-3-tables); B6 (codex/b6-exact-or-refuse → #4; B6.md; gate check R-07-R-08-R-33)
+Items remaining: B7, B8, B9, B10, C1, C2, C3, C8, C9, C10, L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`)
+Item in progress: B7 (branch `codex/b7-versioned-proposals`)
 Context (B15): both pinned models verified at 16,384 tokens through a derived model on Ollama 0.33.0, from a server allocation of 4,096; results in `docs/research/results/2026-11-21-context-allocation/`. The measurement's aliases were removed afterwards. LM Studio was not probed (installed, not running; not started).
-Baseline exceptions still open: the eight listed under Module 2, all owned here
+Baseline exceptions still open (6): I-03/no-time-budget, I-03/status-overwritten, I-05/command-after-stop, I-05/dispatch-after-stop, I-05/stage-after-stop → B10; I-13/oversized-proposal → B7. Removed by B6: I-08/inexact-anchor-staged, I-08/ambiguous-anchor-staged (zero in 2,000 episodes; the 20,000-episode campaign is the gate's)
+Mutants added in this module: B6-fuzzy-applier, B6-first-occurrence (26 in all)
+Integration runs: after B15, on c8f0402e55b: self-checks 34 of 34, packaged release smoke 26 of 26, end-to-end 57 of 57. After B6: unit, lint, layers, hygiene, self-checks, 2,000-episode campaign and mutants locally; end-to-end and packaged smoke by CI on the push (the machine is on a 13 W charger, so the local window runs are kept for milestones)
 Gate: not run
 
 ## Module 2
