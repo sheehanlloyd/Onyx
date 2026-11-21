@@ -315,6 +315,15 @@ has an id that does not change while that generation lasts. Accepting a hunk nam
 A proposal for a file that is not open is computed against its content on disk and treated the same way.
 Staged proposals survive a restart as a new generation and are checked against the files as they are then.
 
+**Inline edits (`⌘I`) are proposals too (B9).** The model's reply is staged in Onyx Changes and shown under
+the lines it would replace, in a read-only zone that is not part of the file. Until a hunk is kept the file,
+whether it is unsaved, and what a save or an autosave writes are yours alone. `⌘⏎` keeps the current hunk
+as one undoable edit; `⌘⌫` rejects it; `esc` discards what is left. If you type, switch files, close the
+file or a formatter changes it while the model is working, nothing is staged and you are asked to try
+again; a save that changes nothing does not count. A proposal you have not decided on is still in Onyx
+Changes after a reload. Three limits: the file has to be in the workspace; a file that already has changes
+waiting is not given a second proposal; and the size bound below applies.
+
 **Size.** A proposal is diffed line by line, at a cost that grows with the product of the two sides. One
 over any of these is refused before the diff, with the numbers, and whatever was already staged for the
 file stays: 1,000 lines on either side; 1,000,000 cells of the diff table; 256 KiB for the file and the

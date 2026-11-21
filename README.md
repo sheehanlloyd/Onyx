@@ -252,8 +252,12 @@ model is verified to be local, because nothing verifies it.
 <img src="docs/images/onyx-inline-edit.png" alt="Inline edit: a local model's change streaming in as four reviewable hunks" width="900" />
 
 - **Inline edit that survives small models (`⌘I`).** Select code, say what to
-  change, and the edit streams back as reviewable hunks: `⌘⏎` keeps one, `⌘⌫`
-  restores the original lines, `F7` walks them.
+  change, and the edit comes back as a proposal: its hunks are shown under the
+  lines they would replace and are not in your file. `⌘⏎` keeps one (one
+  undoable edit), `⌘⌫` rejects it, `F7` walks them. Until you keep a hunk the
+  file, its unsaved state and what a save writes are untouched; if you typed
+  while the model was working, nothing is proposed and you are asked to try
+  again.
 
   <details><summary>Why SEARCH/REPLACE instead of a diff</summary>
 

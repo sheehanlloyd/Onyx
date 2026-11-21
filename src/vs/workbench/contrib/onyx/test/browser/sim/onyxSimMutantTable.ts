@@ -346,4 +346,14 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 			{ kind: 'text', text: 'Staged the removal.' },
 		], { userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }] }),
 	},
+	{
+		id: 'B9-inline-apply-before-review',
+		fixedBy: 'B9',
+		defect: 'An inline edit wrote the model\'s reply into the buffer and reviewed it afterwards, so model-authored text was in the file, and in what an autosave wrote, before any accept (R-34)',
+		detects: 'I-01/buffer',
+		resurrects: 'OnyxMutantApplyBeforeReviewInlineSession',
+		script: script('B9-inline-apply-before-review', 'What does addNumbers do?', [
+			{ kind: 'text', text: 'It adds two numbers.' },
+		], { userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'inlineEdit', startLine: 1, endLine: 3, reply: '<<<<<<< SEARCH\n\treturn a + b;\n=======\n\treturn b + a; // inline\n>>>>>>> REPLACE' } }] }),
+	},
 ];

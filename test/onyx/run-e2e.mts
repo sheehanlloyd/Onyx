@@ -681,19 +681,28 @@ async function main() {
 	const widgetOpened = pwValue(pw('run-code', 'async (page) => { const input = await page.$(".onyx-inline-edit-input"); if (!input) { return "missing"; } await input.fill("mark this function"); return "filled"; }'));
 	check('the inline edit widget opens on the selection', widgetOpened === 'filled', widgetOpened.slice(0, 120));
 	pw('press', 'Enter');
+	// The reply is staged for review (B9, R-34): the proposed lines are on show in a read-only zone, and
+	// nothing of them is in the file until a hunk is kept.
 	const readHunkState = () => pw('run-code', `async (page) => page.evaluate(() => ({
-		edited: Array.from(document.querySelectorAll('.editor-instance .view-line')).some(l => (l.textContent || '').includes('edited-by-mock')),
+		inBuffer: Array.from(document.querySelectorAll('.editor-instance .view-line')).some(l => (l.textContent || '').includes('edited-by-mock')),
+		proposed: Array.from(document.querySelectorAll('.editor-instance .onyx-inline-proposal-line')).some(l => (l.textContent || '').includes('edited-by-mock')),
 		decorated: !!document.querySelector('.onyx-inline-hunk'),
 	}))`);
-	await waitUntil(() => /"edited"\s*:\s*true/.test(readHunkState()));
+	await waitUntil(() => /"proposed"\s*:\s*true/.test(readHunkState()));
 	const hunkState = readHunkState();
-	check('the inline edit applied a reviewable hunk', /"edited"\s*:\s*true/.test(hunkState) && /"decorated"\s*:\s*true/.test(hunkState), hunkState.slice(0, 160));
-	// Undo the hunk: the original line must come back verbatim.
+	check('the inline edit is staged for review and nothing of it is in the file', /"proposed"\s*:\s*true/.test(hunkState) && /"decorated"\s*:\s*true/.test(hunkState) && /"inBuffer"\s*:\s*false/.test(hunkState), hunkState.slice(0, 200));
+	// Keep the hunk: only now does the file change.
 	focusEditor();
-	pw('press', `${mod}+Backspace`);
-	await sleep(1500);
-	const afterReject = pw(`run-code`, `async (page) => page.evaluate(() => Array.from(document.querySelectorAll('.editor-instance .view-line')).some(l => (l.textContent || '').includes('edited-by-mock')))`);
-	check('undoing a hunk restores the original line', /false/.test(afterReject), afterReject.slice(0, 120));
+	pw('press', `${mod}+Enter`);
+	await waitUntil(() => /"inBuffer"\s*:\s*true/.test(readHunkState()));
+	const keptState = readHunkState();
+	check('keeping the hunk applies it to the file', /"inBuffer"\s*:\s*true/.test(keptState) && /"proposed"\s*:\s*false/.test(keptState), keptState.slice(0, 200));
+	// The kept hunk is one undoable edit: undo brings the original line back verbatim.
+	focusEditor();
+	pw('press', `${mod}+z`);
+	await waitUntil(() => /"inBuffer"\s*:\s*false/.test(readHunkState()));
+	const afterUndo = readHunkState();
+	check('undoing the kept hunk restores the original line', /"inBuffer"\s*:\s*false/.test(afterUndo), afterUndo.slice(0, 200));
 	await waitUntil(() => readRunIndex().some(run => run.title.startsWith('Inline edit')));
 	check('the inline edit run was journaled', readRunIndex().some(run => run.title.startsWith('Inline edit')), JSON.stringify(readRunIndex().map(run => run.title).slice(0, 6)));
 

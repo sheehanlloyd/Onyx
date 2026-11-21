@@ -103,6 +103,15 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 	], {
 		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }],
 	}),
+	// B9 (R-34): an inline edit after a run. The reply is staged; the buffer and the disk stay the user's, through a save.
+	scenario('b9-inline-edit-stages-then-save', 'What does addNumbers do?', [
+		{ kind: 'text', text: 'It adds two numbers.' },
+	], {
+		userSteps: [
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'inlineEdit', startLine: 1, endLine: 3, reply: '<<<<<<< SEARCH\n\treturn a + b;\n=======\n\treturn b + a; // inline\n>>>>>>> REPLACE' } },
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'save' } },
+		],
+	}),
 	// Claude H4: a proposal against base V, the buffer edited above the hunk so that duplicates shift; accepting
 	// must re-anchor to the right duplicate or conflict, never the first occurrence by default.
 	scenario('audit-h4-duplicates-shift-then-accept', 'EDITTEST src/math.ts the closing brace', [
