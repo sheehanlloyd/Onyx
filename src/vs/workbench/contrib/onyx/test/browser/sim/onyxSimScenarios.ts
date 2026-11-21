@@ -103,6 +103,17 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 	], {
 		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }],
 	}),
+	// C3: several edits in one editFile call are one proposal, placed in order, or nothing.
+	scenario('c3-two-edits-in-one-call-then-accept-all', 'MULTIEDITTEST src/math.ts swap the operands', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', edits: [{ search: '\treturn a + b;', replace: '\treturn b + a; // first of two' }, { search: '\treturn a * b;', replace: '\treturn b * a; // second of two' }] }, id: 'edit_1' },
+		{ kind: 'text', text: 'Staged both edits.' },
+	], {
+		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }],
+	}),
+	scenario('c3-one-edit-of-two-cannot-be-placed', 'MULTIEDITTEST src/math.ts swap the operands', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', edits: [{ search: '\treturn a + b;', replace: '\treturn b + a; // first of two' }, { search: '\treturn a / b;', replace: '\treturn b / a;' }] }, id: 'edit_1' },
+		{ kind: 'text', text: 'The second edit was refused, so nothing is staged.' },
+	]),
 	// B9 (R-34): an inline edit after a run. The reply is staged; the buffer and the disk stay the user's, through a save.
 	scenario('b9-inline-edit-stages-then-save', 'What does addNumbers do?', [
 		{ kind: 'text', text: 'It adds two numbers.' },

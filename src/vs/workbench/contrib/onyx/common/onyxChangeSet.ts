@@ -59,7 +59,7 @@ export function proposeEdits(existing: IOnyxProposedFile | undefined, path: stri
 	}
 	const applied = applyEditBlocks(currentContent, blocks);
 	if (applied.failed.length > 0) {
-		return { ok: false, error: searchFailureMessage(path, applied.refusals) };
+		return { ok: false, error: searchFailureMessage(path, blocks, applied.refusals) };
 	}
 	return { ok: true, appliedCount: applied.appliedCount, file: { path, kind: 'modify', base: currentContent, proposed: applied.text, stale: false } };
 }
@@ -70,13 +70,67 @@ function applyOnTop(existing: IOnyxProposedFile, blocks: readonly IOnyxEditBlock
 	}
 	const applied = applyEditBlocks(existing.proposed, blocks);
 	if (applied.failed.length > 0) {
-		return { ok: false, error: searchFailureMessage(existing.path, applied.refusals) };
+		return { ok: false, error: searchFailureMessage(existing.path, blocks, applied.refusals) };
 	}
 	return { ok: true, appliedCount: applied.appliedCount, file: { ...existing, proposed: applied.text } };
 }
 
-function searchFailureMessage(path: string, refusals: readonly IOnyxEditRefusal[]): string {
+function searchFailureMessage(path: string, blocks: readonly IOnyxEditBlock[], refusals: readonly IOnyxEditRefusal[]): string {
+	if (blocks.length > 1) {
+		// Several edits in one call are one proposal or none (C3): the model is told which one stopped it.
+		return `Edit refused for ${path}: edit ${blocks.indexOf(refusals[0].block) + 1} of ${blocks.length} could not be placed, so nothing of this call was staged. ${describeEditRefusal(refusals[0])}`;
+	}
 	return `Edit refused for ${path} (staged content included). ${describeEditRefusal(refusals[0])}`;
+}
+
+/** The most edits one `editFile` call may carry. */
+export const ONYX_EDIT_CALL_MAX_EDITS = 50;
+
+export type OnyxEditArguments =
+	| { readonly ok: true; readonly path: string; readonly blocks: readonly IOnyxEditBlock[] }
+	| { readonly ok: false; readonly error: string };
+
+function isEditEntry(value: unknown): value is { readonly search?: string; readonly replace: string } {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return false;
+	}
+	const entry: { search?: unknown; replace?: unknown } = value;
+	return typeof entry.replace === 'string' && (entry.search === undefined || typeof entry.search === 'string');
+}
+
+/**
+ * Reads the arguments of an `editFile` call (C3). Two shapes, and never a
+ * mix of them: one edit as `{path, search, replace}`, or several for the
+ * same file as `{path, edits: [{search, replace}, ...]}`. The edits of one
+ * call are placed in order, each against the text the ones before it left,
+ * and staged together or not at all.
+ */
+export function readEditArguments(parameters: unknown): OnyxEditArguments {
+	const given: { path?: unknown; search?: unknown; replace?: unknown; edits?: unknown } = typeof parameters === 'object' && parameters !== null ? parameters : {};
+	const path = typeof given.path === 'string' ? given.path.trim() : '';
+	if (!path) {
+		return { ok: false, error: '"path" is required: the workspace-relative path of the file to edit.' };
+	}
+	if (given.edits !== undefined) {
+		if (given.search !== undefined || given.replace !== undefined) {
+			return { ok: false, error: 'pass either "search" and "replace" for one edit, or "edits" for several, not both. Nothing was staged.' };
+		}
+		if (!Array.isArray(given.edits) || given.edits.length === 0 || given.edits.length > ONYX_EDIT_CALL_MAX_EDITS) {
+			return { ok: false, error: `"edits" must be a list of 1 to ${ONYX_EDIT_CALL_MAX_EDITS} edits, each {"search": "...", "replace": "..."}. Nothing was staged.` };
+		}
+		const blocks: IOnyxEditBlock[] = [];
+		for (const [index, entry] of given.edits.entries()) {
+			if (!isEditEntry(entry)) {
+				return { ok: false, error: `edit ${index + 1} of ${given.edits.length} is not {"search": "...", "replace": "..."} with text in both. Nothing was staged.` };
+			}
+			blocks.push({ search: entry.search ?? '', replace: entry.replace });
+		}
+		return { ok: true, path, blocks };
+	}
+	if (typeof given.replace !== 'string') {
+		return { ok: false, error: '"path" and "replace" are required. "search" must quote the exact lines to change (empty only when creating a new file). For several edits to one file, pass "edits": [{"search": "...", "replace": "..."}, ...].' };
+	}
+	return { ok: true, path, blocks: [{ search: typeof given.search === 'string' ? given.search : '', replace: given.replace }] };
 }
 
 /** The reviewable units of a proposal, in file order. */

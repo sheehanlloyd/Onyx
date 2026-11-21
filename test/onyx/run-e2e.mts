@@ -819,6 +819,26 @@ async function main() {
 	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
 	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
 
+	// --- C3: one editFile call that carries two edits stages two hunks, as one proposal.
+	const toolCallsBeforeMulti = readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall').length;
+	await send('MULTIEDITTEST src/util.ts two edits in one call');
+	const multiEditCalls = () => readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall').slice(toolCallsBeforeMulti).map(event => String(event.data?.label ?? ''));
+	await waitUntil(() => multiEditCalls().includes('editFile') && readStagedSnapshot().includes('Staged 2 edit(s) to src/util.ts'), 40_000);
+	await runCommand('Open Onyx Control Plane');
+	await waitUntil(() => readChangesState().includes('src/util.ts'));
+	const readMultiState = () => pw('run-code', `async (page) => page.evaluate(() => ({
+		stat: (document.querySelector('.onyx-change-file-stat') || {}).textContent || '',
+		hunks: document.querySelectorAll('.onyx-change-hunk:not(.onyx-change-conflict)').length,
+	}))`);
+	// A file in Onyx Changes is collapsed until its header is clicked; its hunks are rendered when it is open.
+	pw('run-code', 'async (page) => { const header = await page.$(".onyx-change-file-path"); await header.click(); }');
+	await waitUntil(() => /"hunks"\s*:\s*2/.test(readMultiState()));
+	const multiState = readMultiState();
+	const utilOnDisk = fs.readFileSync(path.join(workspace, 'src', 'util.ts'), 'utf8');
+	check('C3: one editFile call with two edits stages two hunks for the file, and writes nothing', multiEditCalls().filter(label => label === 'editFile').length === 1 && readStagedSnapshot().includes('Staged 2 edit(s) to src/util.ts') && /"hunks"\s*:\s*2/.test(multiState) && /"stat"\s*:\s*"\+2 −2"/.test(multiState) && !utilOnDisk.includes('multi-edit-by-mock'), `${multiEditCalls().join(',')} ${multiState.slice(0, 200)}`);
+	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
+	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
+
 	// --- Terminal tool: approval dialog, execution, journaled output.
 	await send('TERMTEST echo onyx-e2e-terminal-ok');
 	await sleep(6000);

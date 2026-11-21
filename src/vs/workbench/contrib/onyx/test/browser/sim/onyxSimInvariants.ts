@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { isTerminalRunStatus } from '../../../common/onyxTypes.js';
+import { readEditArguments } from '../../../common/onyxChangeSet.js';
 import { decodeNumberedSearch } from '../../../common/onyxReadTools.js';
 import { harnessConfigHash, IOnyxHarnessConfig } from '../../../common/onyxHarnessConfig.js';
 import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
@@ -283,9 +284,9 @@ const i06: OnyxSimChecker = state => {
 	// A schema-invalid edit or command must not have produced a stage or a command run.
 	for (const invocation of state.tools.invocations) {
 		const parameters = invocation.parameters as Record<string, unknown>;
-		if (invocation.toolId === 'onyx_editFile' && (typeof parameters.path !== 'string' || typeof parameters.replace !== 'string')) {
+		if (invocation.toolId === 'onyx_editFile' && !readEditArguments(parameters).ok) {
 			if (state.stageEvents.some(stage => stage.search === parameters.search)) {
-				return `I-06/invalid-edit-staged: an edit with a non-string path or replace was staged`;
+				return `I-06/invalid-edit-staged: an edit call whose arguments are not an edit was staged`;
 			}
 		}
 	}
@@ -351,21 +352,30 @@ const i07: OnyxSimChecker = state => {
 /** I-08: an edit that cannot be placed exactly and uniquely changes nothing and produces a visible reason. */
 const i08: OnyxSimChecker = state => {
 	for (const stage of state.stageEvents) {
-		if (stage.search === undefined || stage.search === '' || stage.baseAtStage === undefined) {
+		if (stage.baseAtStage === undefined) {
 			continue;
 		}
-		// A second edit to an already-staged file is matched against the staged text, not the base.
-		const text = stage.proposedBefore ?? stage.baseAtStage;
-		// SEARCH text copied from a numbered `readFile` result ("12| text") is that file's own lines once the
-		// known wrapper is taken off (B1, R-24). The product decodes it against the live file when the text as
-		// sent is not there; the check does the same, and then holds the decoded text to the same rule.
-		const decoding = occurrences(text, stage.search) === 0 ? decodeNumberedSearch(stage.search, stage.baseAtStage) : undefined;
-		const exact = occurrences(text, decoding?.kind === 'decoded' ? decoding.text : stage.search);
-		if (exact === 0) {
-			return `I-08/inexact-anchor-staged: an edit whose SEARCH text is not in ${stage.path} was staged anyway`;
-		}
-		if (exact > 1) {
-			return `I-08/ambiguous-anchor-staged: an edit whose SEARCH text occurs ${exact} times in ${stage.path} was staged anyway`;
+		// A second edit to an already-staged file is matched against the staged text, not the base. The edits
+		// of one call (C3) are placed in order, each against the text the ones before it left.
+		let text = stage.proposedBefore ?? stage.baseAtStage;
+		for (const block of stage.blocks) {
+			if (block.search === '') {
+				break;
+			}
+			// SEARCH text copied from a numbered `readFile` result ("12| text") is that file's own lines once the
+			// known wrapper is taken off (B1, R-24). The product decodes it against the live file when the text as
+			// sent is not there; the check does the same, and then holds the decoded text to the same rule.
+			const decoding = occurrences(text, block.search) === 0 ? decodeNumberedSearch(block.search, stage.baseAtStage) : undefined;
+			const search = decoding?.kind === 'decoded' ? decoding.text : block.search;
+			const exact = occurrences(text, search);
+			if (exact === 0) {
+				return `I-08/inexact-anchor-staged: an edit whose SEARCH text is not in ${stage.path} was staged anyway`;
+			}
+			if (exact > 1) {
+				return `I-08/ambiguous-anchor-staged: an edit whose SEARCH text occurs ${exact} times in ${stage.path} was staged anyway`;
+			}
+			const at = text.indexOf(search);
+			text = text.slice(0, at) + block.replace + text.slice(at + search.length);
 		}
 	}
 	return undefined;
