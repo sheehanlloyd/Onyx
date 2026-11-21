@@ -338,6 +338,16 @@ has an id that does not change while that generation lasts. Accepting a hunk nam
 A proposal for a file that is not open is computed against its content on disk and treated the same way.
 Staged proposals survive a restart as a new generation and are checked against the files as they are then.
 
+**Review in a diff editor (C1).** "Open the file" on a staged file in Onyx Changes opens a diff: your file
+as it is on the left, the proposal on the right. The proposal is a document of its own
+(`onyx-proposal:`), not your file, and no editor can write to it; opening the diff changes nothing. Put the
+caret on a changed line of the proposal and run **Onyx: Accept Hunk at Cursor** or **Onyx: Reject Hunk at
+Cursor**; a caret on an unchanged line accepts nothing. Each hunk also carries Accept and Reject code lenses,
+which appear when `diffEditor.codeLens` is on (the editor's default is off, and Onyx does not change it).
+Both name the hunk by the same id the side bar uses, so the rules in the table above apply unchanged. A
+proposed new file has nothing to compare with and opens as the proposal alone. During an inline review `⌥D`
+opens the same diff.
+
 **Inline edits (`⌘I`) are proposals too (B9).** The model's reply is staged in Onyx Changes and shown under
 the lines it would replace, in a read-only zone that is not part of the file. Until a hunk is kept the file,
 whether it is unsaved, and what a save or an autosave writes are yours alone. `⌘⏎` keeps the current hunk

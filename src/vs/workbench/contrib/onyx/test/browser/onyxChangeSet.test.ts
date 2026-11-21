@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { acceptReviewHunks, ONYX_PROPOSAL_LIMITS, openReview, proposalSizeProblem, rebaseReview, rejectReviewHunk, reviewProposed,
+import { acceptReviewHunks, hunkAtProposedLine, proposedHunkRanges, ONYX_PROPOSAL_LIMITS, openReview, proposalSizeProblem, rebaseReview, rejectReviewHunk, reviewProposed,
 	applyHunkSelection, IOnyxProposedFile, proposalHunks, proposalToUnifiedDiff, proposeEdits, rebaseProposal, summarizeChangeSet
 } from '../../common/onyxChangeSet.js';
 
@@ -210,6 +210,23 @@ suite('OnyxChangeSet', () => {
 				restProposed: FILE.replace('\treturn a + b;', '\tconst sum = a + b;\n\treturn sum;').replace('\treturn a - b;', '\treturn b - a;'),
 				rejected: ['g3.h2'],
 				nextGeneration: ['g4.h1'],
+			});
+		});
+
+		test('C1: a line of the proposed content names the hunk it belongs to, and a line no hunk touches names none', () => {
+			// Hunk 1 replaces one line by two; hunk 2 deletes a line; hunk 3 replaces the last line.
+			const base = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'].join('\n');
+			const next = ['one', 'TWO-A', 'TWO-B', 'three', 'five', 'six', 'SEVEN'].join('\n');
+			const opened = openReview(base, next, 5);
+			assert.ok(opened.ok);
+			const at = (line: number) => hunkAtProposedLine(opened.review.hunks, line)?.id ?? 'none';
+			assert.deepStrictEqual({
+				ranges: proposedHunkRanges(opened.review.hunks),
+				byLine: [1, 2, 3, 4, 5, 6, 7].map(at),
+			}, {
+				ranges: [{ id: 'g5.h1', startLine: 2, lineCount: 2 }, { id: 'g5.h2', startLine: 5, lineCount: 0 }, { id: 'g5.h3', startLine: 7, lineCount: 1 }],
+				// Line 4 (`three`) is next to the deletion and line 5 (`five`) is where it happened; line 6 is untouched.
+				byLine: ['none', 'g5.h1', 'g5.h1', 'g5.h2', 'g5.h2', 'none', 'g5.h3'],
 			});
 		});
 

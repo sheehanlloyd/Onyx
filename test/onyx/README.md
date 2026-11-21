@@ -108,7 +108,7 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (60 checks):
+asserting on the run journal and the live DOM (62 checks):
 
 - the tool list a default run advertises on the 7B profile (the six essential
   tools and the two documented optional ones, R-36), Onyx's own `listDirectory`
@@ -130,6 +130,9 @@ asserting on the run journal and the live DOM (60 checks):
   finding
 - staged agent edits: `editFile` stages instead of writing, the file appears in
   Onyx Changes, and accepting applies and clears the set
+- **the proposal diff** (R-25): opened from Onyx Changes, the file on the left
+  and the proposal on the right; one hunk accepted from the editor lands in the
+  file, the other does not, and the side bar shows one hunk left
 - the terminal tool: the approval dialog (with the exact command, and Run
   Once and Deny as its only choices), execution, the exit landing on the
   timeline, and the same command asking again and not running when denied

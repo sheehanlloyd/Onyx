@@ -113,6 +113,24 @@
 			]
 		},
 		{
+			"id": "R-25-service",
+			"title": "C1 a real diff editor for proposals, the service half: the proposal is a read-only document of its own that follows the change set, its code lenses name hunks by id, a line of it names the hunk it belongs to or none, and accepting from it changes the file and not before (R-25 itself is two end-to-end checks: the diff opens from Onyx Changes and one hunk is accepted from the editor)",
+			"layer": "service, e2e",
+			"regressions": [
+				"R-25"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChangeSetService.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChangeSet.test.ts",
+				"test/onyx/run-e2e.mts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxChangeSetService C1|OnyxChangeSet .* C1"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

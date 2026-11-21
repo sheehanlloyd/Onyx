@@ -293,6 +293,30 @@ export function rejectReviewHunk(review: IOnyxReview, id: string): IOnyxReview {
 	return { generation: review.generation, hunks: review.hunks.filter(hunk => hunk.id !== id), conflicts: review.conflicts.filter(conflict => conflict.id !== id) };
 }
 
+/** The scheme of the read-only document that shows a file as its proposal would leave it (C1). */
+export const ONYX_PROPOSAL_SCHEME = 'onyx-proposal';
+
+/** Where each hunk's lines are in the proposed content: the 1-based first line and how many lines it puts there (none for a deletion). */
+export function proposedHunkRanges(hunks: readonly IOnyxReviewHunk[]): { readonly id: string; readonly startLine: number; readonly lineCount: number }[] {
+	let shift = 0;
+	return hunks.map(hunk => {
+		const range = { id: hunk.id, startLine: hunk.originalStart + shift + 1, lineCount: hunk.newLines.length };
+		shift += hunk.newLines.length - hunk.originalLength;
+		return range;
+	});
+}
+
+/**
+ * The hunk a line of the proposed content belongs to (C1): the one whose
+ * proposed lines include it, or the deletion that happened right there.
+ * A line no hunk touches belongs to none: nothing is accepted by proximity.
+ */
+export function hunkAtProposedLine(hunks: readonly IOnyxReviewHunk[], line: number): IOnyxReviewHunk | undefined {
+	const ranges = proposedHunkRanges(hunks);
+	const index = ranges.findIndex(range => range.lineCount > 0 ? line >= range.startLine && line < range.startLine + range.lineCount : line === range.startLine || line === range.startLine - 1);
+	return index === -1 ? undefined : hunks[index];
+}
+
 export interface IOnyxRebaseResult {
 	readonly file: IOnyxProposedFile;
 	/** Hunks that could not be carried onto the new base: dropped from the proposal, not guessed. */

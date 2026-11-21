@@ -20,7 +20,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../../pla
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import {
-	acceptReviewHunks, applyHunkSelection, IOnyxHunkConflict, IOnyxProposedFile, IOnyxReview, IOnyxReviewHunk, OnyxProposeResult, openReview, proposalToUnifiedDiff, proposeEdits, rebaseReview, rejectReviewHunk, reviewProposed, summarizeChangeSet
+	acceptReviewHunks, applyHunkSelection, ONYX_PROPOSAL_SCHEME, IOnyxHunkConflict, IOnyxProposedFile, IOnyxReview, IOnyxReviewHunk, OnyxProposeResult, openReview, proposalToUnifiedDiff, proposeEdits, rebaseReview, rejectReviewHunk, reviewProposed, summarizeChangeSet
 } from '../../common/onyxChangeSet.js';
 import { traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxChangeRisk } from '../../common/onyxChangeRisk.js';
@@ -96,7 +96,15 @@ export interface IOnyxChangeSetService {
 	rejectAll(): void;
 	/** Re-checks every staged file against its live buffer, rebasing stale proposals. */
 	refresh(): Promise<void>;
+	/**
+	 * Opens the proposal for review in a diff editor (C1): the file as it
+	 * is on the left, the proposal on the right, in a document no editor
+	 * can write to. A proposed new file has nothing to compare with and
+	 * opens as that document alone.
+	 */
 	openDiff(path: string): Promise<void>;
+	/** The file a change-set path names, when it is inside the workspace. */
+	fileUri(path: string): URI | undefined;
 }
 
 /** What the user is told when what they reviewed is no longer what would be applied. */
@@ -373,7 +381,19 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		if (!staged || !uri) {
 			return;
 		}
-		await this._editorService.openEditor({ resource: uri, options: { preserveFocus: true } });
+		const proposal = URI.from({ scheme: ONYX_PROPOSAL_SCHEME, path: `/${path}` });
+		if (staged.proposal.kind === 'create') {
+			await this._editorService.openEditor({ resource: proposal, label: localize('onyx.changes.newFileLabel', "{0} (proposed new file)", path), options: { pinned: true } });
+			return;
+		}
+		// A diff editor (C1): the file as it is on the left, the proposal on the right. The proposal is a
+		// document of its own that no editor can write to; the file is not touched by being looked at.
+		await this._editorService.openEditor({
+			original: { resource: uri },
+			modified: { resource: proposal },
+			label: localize('onyx.changes.diffLabel', "{0} ↔ Onyx proposal", path),
+			options: { pinned: true },
+		});
 	}
 
 	/**
@@ -518,6 +538,10 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 
 	private _folderRefs() {
 		return this._workspaceService.getWorkspace().folders.map(f => ({ name: f.name, index: f.index }));
+	}
+
+	fileUri(path: string): URI | undefined {
+		return this._resolveUri(path);
 	}
 
 	private _resolveUri(path: string): URI | undefined {
