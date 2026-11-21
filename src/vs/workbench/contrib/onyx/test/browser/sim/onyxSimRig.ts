@@ -25,7 +25,7 @@ import { IOnyxLabHarnessRequest, IOnyxRuntimeService } from '../../../../../../p
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService } from '../../../../../../platform/workspace/common/workspaceTrust.js';
 import { testWorkspace } from '../../../../../../platform/workspace/test/common/testWorkspace.js';
-import { TestContextService, TestLifecycleService, TestWorkspaceTrustManagementService } from '../../../../../test/common/workbenchTestServices.js';
+import { TestContextService, TestLifecycleService, TestWorkspaceTrustManagementService, TestStorageService } from '../../../../../test/common/workbenchTestServices.js';
 import { ILifecycleService } from '../../../../../services/lifecycle/common/lifecycle.js';
 import { workbenchInstantiationService } from '../../../../../test/browser/workbenchTestServices.js';
 import { ITextFileService, TextFileEditorModelState } from '../../../../../services/textfile/common/textfiles.js';
@@ -58,6 +58,10 @@ import { IOnyxModelService, OnyxModelService } from '../../../browser/model/onyx
 import { IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
 import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../../../browser/agent/onyxHarnessConfigService.js';
 import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../../../browser/models/onyxContextAllocationService.js';
+import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
+import { IStorageService, WillSaveStateReason } from '../../../../../../platform/storage/common/storage.js';
+import { OnyxInlineEditSession } from '../../../browser/editor/onyxInlineEditSession.js';
+import { Range } from '../../../../../../editor/common/core/range.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
 import { IOnyxRouterService, OnyxRouterService } from '../../../browser/routing/onyxRouterService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../../../browser/terminal/onyxTerminalTool.js';
@@ -134,6 +138,7 @@ export interface IOnyxSimProductClasses {
 	readonly DiagnosticsRedactor: typeof OnyxDiagnosticsRedactor;
 	readonly ModelService: typeof OnyxModelService;
 	readonly ChangeSetService: typeof OnyxChangeSetService;
+	readonly InlineEditSession: typeof OnyxInlineEditSession;
 }
 
 export interface IOnyxSimRigOptions {
@@ -229,6 +234,12 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private readonly _modelService: IModelService;
 	private readonly _textModelService: ITextModelService;
 	private readonly _textFileService: ITextFileService;
+	private readonly _instantiationService: IInstantiationService;
+	private readonly _storageService: TestStorageService;
+	private readonly _changeSetClass: typeof OnyxChangeSetService;
+	private readonly _inlineEditSessionClass: typeof OnyxInlineEditSession;
+	/** The product's own path service, for callers that turn a file's address into the path the tools use. */
+	readonly workspaceAccess: IOnyxWorkspaceAccessService;
 	private readonly _loop: OnyxAgentLoop;
 	private readonly _languageModels: OnyxSimLanguageModelsService;
 	private readonly _references = new Map<string, IReference<IResolvedTextEditorModel>>();
@@ -245,7 +256,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private _prepared = false;
 
 	constructor(readonly episode: OnyxSimEpisode, checkers: readonly OnyxSimChecker[] = [], options: IOnyxSimRigOptions = {}) {
-		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ChangeSetService: OnyxChangeSetService, ...options.classes };
+		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ChangeSetService: OnyxChangeSetService, InlineEditSession: OnyxInlineEditSession, ...options.classes };
 		this._redactorClass = classes.DiagnosticsRedactor;
 		this._checkers.push(...checkers);
 		this.trace = new OnyxSimTrace(() => Date.now());
@@ -303,7 +314,12 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		configuration.setUserConfiguration('onyx', { agent: { networkTools: episode.networkTools === true }, terminal: { passEnvironment: episode.passEnvironment === true } });
 		this._lifecycle = instantiationService.get(ILifecycleService) as TestLifecycleService;
 		instantiationService.stub(ISearchService, this.search);
-		instantiationService.stub(IOnyxWorkspaceAccessService, instantiationService.createInstance(classes.WorkspaceAccess));
+		this.workspaceAccess = instantiationService.createInstance(classes.WorkspaceAccess);
+		instantiationService.stub(IOnyxWorkspaceAccessService, this.workspaceAccess);
+		this._instantiationService = instantiationService;
+		this._storageService = instantiationService.get(IStorageService) as TestStorageService;
+		this._changeSetClass = classes.ChangeSetService;
+		this._inlineEditSessionClass = classes.InlineEditSession;
 
 		this.controlPlane = this._disposables.add(new OnyxControlPlaneService());
 		instantiationService.stub(IOnyxControlPlaneService, this.controlPlane);
@@ -383,6 +399,31 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	/** The live text model of a workspace file, when it has one. */
 	textModel(path: string): ITextModel | undefined {
 		return this._modelService.getModel(this._uri(path)) ?? undefined;
+	}
+
+	/** Closes a file the rig had open: its text model is disposed, as when the last editor on it closes. */
+	closeModel(path: string): void {
+		this._close(path);
+		this._modelService.getModel(this._uri(path))?.dispose();
+	}
+
+	/** Whether the file has unsaved changes, as the editor would show it. */
+	isDirty(path: string): boolean {
+		return this._textFileService.isDirty(this._uri(path));
+	}
+
+	/** Saves the file through the editor's own save, as Save or an autosave would. */
+	async save(path: string): Promise<void> {
+		await this._textFileService.save(this._uri(path));
+	}
+
+	/**
+	 * What a window reload does to the change set: the storage is asked to
+	 * save its state, and a new service is built from what was stored.
+	 */
+	reloadChangeSet(): IOnyxChangeSetService {
+		this._storageService.testEmitWillSaveState(WillSaveStateReason.SHUTDOWN);
+		return this._disposables.add(this._instantiationService.createInstance(this._changeSetClass));
 	}
 
 	/** Changes a file on the in-memory disk, as another program would. */
@@ -577,6 +618,13 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 					}
 				}
 				break;
+			case 'inlineEdit': {
+				// The product's own session, from request to staged reply; the reply is the simulated model's.
+				const model = await this._open(this.episode.target);
+				const session = new this._inlineEditSessionClass(model, new Range(action.startLine, 1, action.endLine, model.getLineMaxColumn(action.endLine)), this.changeSet, this.workspaceAccess);
+				await session.stageReply(action.reply);
+				break;
+			}
 			case 'undo': {
 				const model = this._modelService.getModel(this._uri(this.episode.target));
 				if (model) {

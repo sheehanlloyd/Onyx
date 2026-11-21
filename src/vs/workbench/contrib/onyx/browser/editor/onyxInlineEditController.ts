@@ -7,6 +7,8 @@ import '../media/onyxInlineEdit.css';
 import * as DOM from '../../../../../base/browser/dom.js';
 import * as aria from '../../../../../base/browser/ui/aria/aria.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { autorun } from '../../../../../base/common/observable.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
@@ -24,7 +26,11 @@ import { KeybindingWeight } from '../../../../../platform/keybinding/common/keyb
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
-import { applyEditBlocks, buildInlineEditPrompt, computeLineHunks, IOnyxEditHunk, ONYX_INLINE_EDIT_SYSTEM_PROMPT, parseInlineEdits } from '../../common/onyxInlineEdit.js';
+import { IOnyxReviewHunk } from '../../common/onyxChangeSet.js';
+import { buildInlineEditPrompt, ONYX_INLINE_EDIT_SYSTEM_PROMPT } from '../../common/onyxInlineEdit.js';
+import { IOnyxChangeSetService } from '../changes/onyxChangeSetService.js';
+import { IOnyxWorkspaceAccessService } from '../intelligence/onyxWorkspaceAccess.js';
+import { OnyxInlineEditSession } from './onyxInlineEditSession.js';
 import { runOneShot } from '../agent/onyxOneShot.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
@@ -34,21 +40,17 @@ export const CONTEXT_ONYX_INLINE_EDIT_REVIEW = new RawContextKey<boolean>('onyxI
 
 const enum SessionState { Idle, Prompting, Streaming, Review }
 
-/** One hunk under review: its tracked decoration plus what to restore on reject. */
-interface IReviewHunk {
-	readonly decorationId: string;
-	readonly hunk: IOnyxEditHunk;
-	resolved: boolean;
-}
-
 /**
  * The inline edit surface — Onyx's "select code, say what to change, review
- * the diff in place" moment. The model replies in the SEARCH/REPLACE format
- * (small models cannot be trusted with unified diffs), the parsed result is
- * applied as one undoable edit, and every changed region becomes a reviewable
- * hunk with a keyboard flow: ⌘Enter keeps a hunk, ⌘⌫ restores it, F7 walks,
- * Escape finishes. When the reply cannot be parsed, the buffer is untouched
- * and the widget says so — a wrong edit is worse than no edit.
+ * the result in place" moment. The model replies in the SEARCH/REPLACE format
+ * (small models cannot be trusted with unified diffs). Its reply is never
+ * written into the buffer: it is staged as a proposal in Onyx Changes (B9),
+ * shown here as a read-only preview under the lines it would replace, and
+ * reaches the file only when a hunk is kept: ⌘Enter keeps the current hunk
+ * as one undoable edit, ⌘⌫ rejects it, F7 walks, Escape discards what is
+ * left. Until then the file, its dirty state and what a save writes are the
+ * user's own. When the reply cannot be used, or the file changed while the
+ * model was working, nothing is staged and the widget says so.
  */
 export class OnyxInlineEditController implements IEditorContribution {
 
@@ -64,9 +66,14 @@ export class OnyxInlineEditController implements IEditorContribution {
 	private _state = SessionState.Idle;
 	private _widget: OnyxInlineEditWidget | undefined;
 	private _cancellation: CancellationTokenSource | undefined;
-	private _hunks: IReviewHunk[] = [];
-	private _currentHunk = 0;
-	private _selectionStartLine = 1;
+	private _session: OnyxInlineEditSession | undefined;
+	/** The proposal under review here: the change set's path for the file and the generation this review is of. */
+	private _review: { readonly path: string; readonly generation: number } | undefined;
+	private _currentHunkId: string | undefined;
+	private _decorationIds: string[] = [];
+	private _zoneIds: string[] = [];
+	/** What lasts as long as the widget is open: the watch on the editor's model and on the change set. */
+	private readonly _sessionListeners = new DisposableStore();
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -74,6 +81,8 @@ export class OnyxInlineEditController implements IEditorContribution {
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
 		@ILabelService private readonly _labelService: ILabelService,
 		@IContextKeyService contextKeyService: IContextKeyService,
+		@IOnyxChangeSetService private readonly _changeSetService: IOnyxChangeSetService,
+		@IOnyxWorkspaceAccessService private readonly _workspaceAccessService: IOnyxWorkspaceAccessService,
 	) {
 		this._activeKey = CONTEXT_ONYX_INLINE_EDIT_ACTIVE.bindTo(contextKeyService);
 		this._reviewKey = CONTEXT_ONYX_INLINE_EDIT_REVIEW.bindTo(contextKeyService);
@@ -81,6 +90,7 @@ export class OnyxInlineEditController implements IEditorContribution {
 
 	dispose(): void {
 		this._teardown();
+		this._sessionListeners.dispose();
 	}
 
 	show(): void {
@@ -95,7 +105,6 @@ export class OnyxInlineEditController implements IEditorContribution {
 		const selection = this._editor.getSelection() ?? new Range(1, 1, 1, 1);
 		// Whole lines only: hunk review is a line-level experience.
 		const endLine = selection.endColumn === 1 && selection.endLineNumber > selection.startLineNumber ? selection.endLineNumber - 1 : selection.endLineNumber;
-		this._selectionStartLine = selection.startLineNumber;
 		const lineRange = new Range(selection.startLineNumber, 1, endLine, model.getLineMaxColumn(endLine));
 
 		this._state = SessionState.Prompting;
@@ -106,6 +115,17 @@ export class OnyxInlineEditController implements IEditorContribution {
 		});
 		this._widget.show(new Position(endLine, 1), 3);
 		this._widget.focusInput();
+		// Another file in this editor, or the file closing, ends the request: a reply that still arrives
+		// belongs to a text that is no longer here, and is not staged (R-14).
+		this._sessionListeners.add(this._editor.onDidChangeModel(() => this._abandon()));
+		this._sessionListeners.add(model.onWillDispose(() => this._abandon()));
+	}
+
+	/** The editor no longer shows the file the request was made in. Whatever is already staged stays in Onyx Changes. */
+	private _abandon(): void {
+		this._session?.cancel();
+		this._cancellation?.cancel();
+		this._teardown();
 	}
 
 	private async _submit(lineRange: Range, instruction: string): Promise<void> {
@@ -114,9 +134,12 @@ export class OnyxInlineEditController implements IEditorContribution {
 			return;
 		}
 		this._state = SessionState.Streaming;
-		const original = model.getValueInRange(lineRange);
+		// What the request is made from is fixed here: the file, the lines, its text and its version (B9).
+		const session = new OnyxInlineEditSession(model, lineRange, this._changeSetService, this._workspaceAccessService);
+		this._session = session;
 		const path = this._labelService.getUriLabel(model.uri, { relative: true });
-		this._cancellation = new CancellationTokenSource();
+		const cancellation = new CancellationTokenSource();
+		this._cancellation = cancellation;
 		this._widget?.setStatus(localize('onyx.inlineEdit.thinking', "Editing locally…"), 'polite');
 
 		const run = this._controlPlaneService.beginRun({
@@ -132,8 +155,8 @@ export class OnyxInlineEditController implements IEditorContribution {
 			const reply = await runOneShot(
 				this._modelService,
 				ONYX_INLINE_EDIT_SYSTEM_PROMPT,
-				buildInlineEditPrompt(path, model.getLanguageId(), original, instruction),
-				this._cancellation.token,
+				buildInlineEditPrompt(path, model.getLanguageId(), session.original, instruction),
+				cancellation.token,
 				{
 					run,
 					controlPlane: this._controlPlaneService,
@@ -142,211 +165,211 @@ export class OnyxInlineEditController implements IEditorContribution {
 						this._widget?.setStatus(localize('onyx.inlineEdit.streaming', "Streaming the edit… {0} characters", streamed));
 					},
 				});
-			if (this._cancellation.token.isCancellationRequested) {
+			if (cancellation.token.isCancellationRequested) {
 				run.complete('cancelled');
 				return;
 			}
-			this._applyReply(lineRange, original, reply, run);
+			const outcome = await session.stageReply(reply, run.runId);
+			if (this._session !== session) {
+				// The widget was closed or moved on while the reply was being staged; the proposal, if any, is in Onyx Changes.
+				run.complete(outcome.kind === 'staged' ? 'completed' : 'cancelled');
+				return;
+			}
+			if (outcome.kind === 'staged') {
+				if (outcome.unplacedBlocks > 0) {
+					run.activity({ kind: 'note', label: localize('onyx.inlineEdit.partial', "{0} edit block(s) could not be placed exactly and were left out", outcome.unplacedBlocks), ok: false });
+				}
+				run.activity({ kind: 'note', label: outcome.hunkIds.length === 1 ? localize('onyx.inlineEdit.oneHunk', "Staged 1 hunk for review; the file is unchanged") : localize('onyx.inlineEdit.hunks', "Staged {0} hunks for review; the file is unchanged", outcome.hunkIds.length), ok: true });
+				run.complete('completed');
+				this._beginReview(outcome.path, outcome.generation);
+				return;
+			}
+			// Nothing was staged, and nothing in the buffer changed: say why, and leave the prompt open for another try.
+			run.activity({ kind: 'note', label: outcome.message, ok: false });
+			run.complete(outcome.kind === 'stale' ? 'cancelled' : 'failed');
+			this._state = SessionState.Prompting;
+			this._widget?.setStatus(outcome.message, 'assertive');
 		} catch (error) {
 			run.activity({ kind: 'note', label: localize('onyx.inlineEdit.failed', "Inline edit failed"), reason: error instanceof Error ? error.message : String(error), ok: false });
 			run.complete('failed');
-			this._state = SessionState.Prompting;
-			this._widget?.setStatus(localize('onyx.inlineEdit.error', "The request failed: {0}", error instanceof Error ? error.message : String(error)));
-		}
-	}
-
-	private _applyReply(lineRange: Range, original: string, reply: string, run: ReturnType<IOnyxControlPlaneService['beginRun']>): void {
-		const model = this._editor.getModel();
-		if (!model) {
-			return;
-		}
-		const parsed = parseInlineEdits(reply);
-		let newText: string | undefined;
-		if (parsed.kind === 'blocks') {
-			const applied = applyEditBlocks(original, parsed.blocks);
-			if (applied.appliedCount > 0) {
-				newText = applied.text;
-				if (applied.failed.length > 0) {
-					run.activity({ kind: 'note', label: localize('onyx.inlineEdit.partial', "{0} of {1} edit blocks could not be located", applied.failed.length, parsed.blocks.length), ok: false });
-				}
+			if (this._session === session) {
+				this._state = SessionState.Prompting;
+				this._widget?.setStatus(localize('onyx.inlineEdit.error', "The request failed: {0}", error instanceof Error ? error.message : String(error)));
 			}
-		} else if (parsed.kind === 'rewrite') {
-			newText = parsed.text;
 		}
-
-		if (newText === undefined || newText === original) {
-			// Degrade honestly: nothing in the buffer changed.
-			run.activity({ kind: 'note', label: localize('onyx.inlineEdit.unparseable', "The model's reply was not a usable edit — nothing was changed"), ok: false });
-			run.complete('failed');
-			this._state = SessionState.Prompting;
-			this._widget?.setStatus(localize('onyx.inlineEdit.noEdit', "The model's reply was not a usable edit. Nothing was changed — try rephrasing."), 'assertive');
-			return;
-		}
-
-		const hunks = computeLineHunks(original, newText);
-		this._editor.pushUndoStop();
-		this._editor.executeEdits('onyx.inlineEdit', [{ range: lineRange, text: newText }]);
-		this._editor.pushUndoStop();
-		run.activity({ kind: 'note', label: hunks.length === 1 ? localize('onyx.inlineEdit.oneHunk', "Applied 1 hunk for review") : localize('onyx.inlineEdit.hunks', "Applied {0} hunks for review", hunks.length), ok: true });
-		run.complete('completed');
-
-		this._beginReview(hunks);
 	}
 
-	private _beginReview(hunks: readonly IOnyxEditHunk[]): void {
-		const model = this._editor.getModel();
-		if (!model) {
-			return;
-		}
-		// Where each hunk landed in the buffer: original position shifted by the
-		// line delta of every hunk before it.
-		let shift = 0;
-		const decorations: IModelDeltaDecoration[] = [];
-		for (const hunk of hunks) {
-			const startLine = this._selectionStartLine + hunk.originalStart + shift;
-			const isDeletion = hunk.newLines.length === 0;
-			const endLine = isDeletion ? startLine : startLine + hunk.newLines.length - 1;
-			const boundedStart = Math.min(Math.max(1, startLine), model.getLineCount());
-			const boundedEnd = Math.min(Math.max(boundedStart, endLine), model.getLineCount());
-			decorations.push({
-				range: new Range(boundedStart, 1, boundedEnd, model.getLineMaxColumn(boundedEnd)),
-				options: {
-					description: 'onyx-inline-edit-hunk',
-					isWholeLine: true,
-					className: isDeletion ? 'onyx-inline-hunk-deletion' : 'onyx-inline-hunk',
-					stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-				},
-			});
-			shift += hunk.newLines.length - hunk.originalLength;
-		}
-		const ids = model.deltaDecorations([], decorations);
-		this._hunks = hunks.map((hunk, index) => ({ decorationId: ids[index], hunk, resolved: false }));
-		this._currentHunk = 0;
+	/** The hunks of the proposal this review is of, while it is still that generation; empty once it is not. */
+	private _reviewHunks(): readonly IOnyxReviewHunk[] {
+		const review = this._review;
+		const staged = review ? this._changeSetService.files.get().find(file => file.proposal.path === review.path) : undefined;
+		return staged && review && staged.generation === review.generation ? staged.hunks : [];
+	}
+
+	private _beginReview(path: string, generation: number): void {
+		this._review = { path, generation };
 		this._state = SessionState.Review;
 		this._reviewKey.set(true);
-		this._focusHunk(0);
-		this._updateReviewStatus();
+		this._currentHunkId = this._reviewHunks()[0]?.id;
+		// The change set is the review's state: whenever it changes (a hunk kept or rejected here or in Onyx
+		// Changes, the file edited, the agent staging the file again) the preview is drawn again from it.
+		this._sessionListeners.add(autorun(reader => {
+			this._changeSetService.files.read(reader);
+			this._renderReview();
+		}));
+		this._focusHunk();
 	}
 
-	private _updateReviewStatus(): void {
-		const remaining = this._hunks.filter(hunk => !hunk.resolved).length;
-		if (remaining === 0) {
-			this._finishReview();
-			return;
-		}
-		this._widget?.setStatus(localize('onyx.inlineEdit.review', "Reviewing hunk {0} of {1} — ⌘⏎ keep · ⌘⌫ undo hunk · F7 next · esc keep the rest", this._currentHunk + 1, this._hunks.length), 'polite');
-	}
-
-	private _focusHunk(index: number): void {
+	/**
+	 * Draws the proposal over the file without touching it: a tint on the
+	 * lines each hunk would replace, and under them a read-only zone with
+	 * the lines it proposes. Neither is part of the text model.
+	 */
+	private _renderReview(): void {
 		const model = this._editor.getModel();
-		const entry = this._hunks[index];
-		if (!model || !entry) {
+		if (!model || this._state !== SessionState.Review) {
 			return;
 		}
-		const range = model.getDecorationRange(entry.decorationId);
-		if (range) {
-			this._editor.revealRangeInCenterIfOutsideViewport(range);
-			this._editor.setPosition(range.getStartPosition());
+		const hunks = this._reviewHunks();
+		if (hunks.length === 0) {
+			// Everything was kept or rejected, or the proposal is no longer the one reviewed here.
+			this._teardown();
+			this._editor.focus();
+			return;
 		}
+		if (!hunks.some(hunk => hunk.id === this._currentHunkId)) {
+			this._currentHunkId = hunks[0].id;
+		}
+		const lineCount = model.getLineCount();
+		const decorations: IModelDeltaDecoration[] = [];
+		const zones: { readonly afterLineNumber: number; readonly lines: readonly string[] }[] = [];
+		for (const hunk of hunks) {
+			const first = Math.min(Math.max(1, hunk.originalStart + 1), lineCount);
+			const last = Math.min(Math.max(first, hunk.originalStart + hunk.originalLength), lineCount);
+			if (hunk.originalLength > 0) {
+				decorations.push({
+					range: new Range(first, 1, last, model.getLineMaxColumn(last)),
+					options: { description: 'onyx-inline-edit-hunk', isWholeLine: true, className: hunk.newLines.length === 0 ? 'onyx-inline-hunk-deletion' : 'onyx-inline-hunk', stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges },
+				});
+			}
+			if (hunk.newLines.length > 0) {
+				zones.push({ afterLineNumber: hunk.originalLength > 0 ? last : Math.min(hunk.originalStart, lineCount), lines: hunk.newLines });
+			}
+		}
+		this._decorationIds = model.deltaDecorations(this._decorationIds, decorations);
+		this._editor.changeViewZones(accessor => {
+			for (const id of this._zoneIds) {
+				accessor.removeZone(id);
+			}
+			this._zoneIds = zones.map(zone => {
+				const domNode = DOM.$('.onyx-inline-proposal');
+				domNode.setAttribute('aria-label', localize('onyx.inlineEdit.proposalAria', "Proposed lines, not yet in the file"));
+				for (const line of zone.lines) {
+					DOM.append(domNode, DOM.$('.onyx-inline-proposal-line')).textContent = `+ ${line}`;
+				}
+				return accessor.addZone({ afterLineNumber: zone.afterLineNumber, heightInLines: zone.lines.length, domNode });
+			});
+		});
+		const position = hunks.findIndex(hunk => hunk.id === this._currentHunkId);
+		this._widget?.setStatus(localize('onyx.inlineEdit.review', "Proposed, not yet in the file: hunk {0} of {1} — ⌘⏎ keep · ⌘⌫ reject · F7 next · esc discard the rest", position + 1, hunks.length), 'polite');
+	}
+
+	private _focusHunk(): void {
+		const hunk = this._reviewHunks().find(candidate => candidate.id === this._currentHunkId);
+		const model = this._editor.getModel();
+		if (!hunk || !model) {
+			return;
+		}
+		const line = Math.min(Math.max(1, hunk.originalStart + 1), model.getLineCount());
+		this._editor.revealLineInCenterIfOutsideViewport(line);
+		this._editor.setPosition(new Position(line, 1));
 	}
 
 	nextHunk(direction: 1 | -1): void {
-		if (this._state !== SessionState.Review || this._hunks.length === 0) {
+		const hunks = this._reviewHunks();
+		if (this._state !== SessionState.Review || hunks.length === 0) {
 			return;
 		}
-		for (let step = 1; step <= this._hunks.length; step++) {
-			const index = (this._currentHunk + direction * step + this._hunks.length * step) % this._hunks.length;
-			if (!this._hunks[index].resolved) {
-				this._currentHunk = index;
-				break;
-			}
-		}
-		this._focusHunk(this._currentHunk);
-		this._updateReviewStatus();
+		const index = Math.max(0, hunks.findIndex(hunk => hunk.id === this._currentHunkId));
+		this._currentHunkId = hunks[(index + direction + hunks.length) % hunks.length].id;
+		this._focusHunk();
+		this._renderReview();
 	}
 
-	acceptCurrentHunk(): void {
-		if (this._state !== SessionState.Review) {
+	/** Keeps the current hunk: the change set applies it, by its id, as one undoable edit (B7, B8). */
+	async acceptCurrentHunk(): Promise<void> {
+		const review = this._review;
+		const hunkId = this._currentHunkId;
+		if (this._state !== SessionState.Review || !review || !hunkId) {
 			return;
 		}
-		const entry = this._hunks[this._currentHunk];
-		const model = this._editor.getModel();
-		if (!entry || entry.resolved || !model) {
+		const outcome = await this._changeSetService.acceptHunk(review.path, hunkId);
+		if (!outcome.applied) {
+			this._widget?.setStatus(outcome.message, 'assertive');
 			return;
 		}
-		entry.resolved = true;
-		model.deltaDecorations([entry.decorationId], []);
-		this._advanceOrFinish();
+		this._focusHunk();
 	}
 
+	/** Rejects the current hunk: it leaves the proposal. The buffer was never changed by it, so there is nothing to restore. */
 	rejectCurrentHunk(): void {
-		if (this._state !== SessionState.Review) {
+		const review = this._review;
+		const hunkId = this._currentHunkId;
+		if (this._state !== SessionState.Review || !review || !hunkId) {
 			return;
 		}
-		const entry = this._hunks[this._currentHunk];
-		const model = this._editor.getModel();
-		if (!entry || entry.resolved || !model) {
-			return;
-		}
-		const range = model.getDecorationRange(entry.decorationId);
-		if (range) {
-			const originalText = entry.hunk.originalLines.join('\n');
-			if (entry.hunk.newLines.length === 0) {
-				// The hunk was a deletion: restore the lines above the marker line.
-				this._editor.executeEdits('onyx.inlineEdit.reject', [{ range: new Range(range.startLineNumber, 1, range.startLineNumber, 1), text: `${originalText}\n` }]);
-			} else {
-				this._editor.executeEdits('onyx.inlineEdit.reject', [{ range, text: originalText }]);
-			}
-		}
-		entry.resolved = true;
-		model.deltaDecorations([entry.decorationId], []);
-		this._advanceOrFinish();
+		this._changeSetService.rejectHunk(review.path, hunkId);
+		this._focusHunk();
 	}
 
-	private _advanceOrFinish(): void {
-		const nextUnresolved = this._hunks.findIndex(hunk => !hunk.resolved);
-		if (nextUnresolved < 0) {
-			this._finishReview();
-			return;
-		}
-		this._currentHunk = nextUnresolved;
-		this._focusHunk(this._currentHunk);
-		this._updateReviewStatus();
-	}
-
-	/** Escape: streaming cancels; review keeps every remaining hunk; prompting closes. */
+	/** Escape: streaming cancels; review discards what is left of the proposal; prompting closes. */
 	cancel(): void {
 		if (this._state === SessionState.Streaming) {
+			this._session?.cancel();
 			this._cancellation?.cancel();
+			this._session = undefined;
 			this._state = SessionState.Prompting;
 			this._widget?.setStatus(localize('onyx.inlineEdit.cancelled', "Cancelled."));
 			return;
 		}
 		if (this._state === SessionState.Review) {
-			this._finishReview();
+			const review = this._review;
+			// Only the proposal reviewed here: one the agent staged since is not this review's to discard.
+			if (review && this._reviewHunks().length > 0) {
+				this._changeSetService.rejectFile(review.path);
+			}
+			this._teardown();
+			this._editor.focus();
 			return;
 		}
 		this._teardown();
 	}
 
-	private _finishReview(): void {
-		const model = this._editor.getModel();
-		if (model) {
-			model.deltaDecorations(this._hunks.map(hunk => hunk.decorationId), []);
-		}
-		this._teardown();
-		this._editor.focus();
-	}
-
 	private _teardown(): void {
+		const model = this._editor.getModel();
+		if (model && this._decorationIds.length) {
+			model.deltaDecorations(this._decorationIds, []);
+		}
+		this._decorationIds = [];
+		if (this._zoneIds.length) {
+			this._editor.changeViewZones(accessor => {
+				for (const id of this._zoneIds) {
+					accessor.removeZone(id);
+				}
+			});
+		}
+		this._zoneIds = [];
 		this._state = SessionState.Idle;
-		this._hunks = [];
+		this._session = undefined;
+		this._review = undefined;
+		this._currentHunkId = undefined;
 		this._activeKey.set(false);
 		this._reviewKey.set(false);
 		this._cancellation?.dispose(true);
 		this._cancellation = undefined;
 		this._widget?.dispose();
 		this._widget = undefined;
+		this._sessionListeners.clear();
 	}
 }
 
@@ -441,7 +464,7 @@ registerAction2(class OnyxInlineEditRejectAction extends EditorAction2 {
 	constructor() {
 		super({
 			id: 'onyx.inlineEdit.rejectHunk',
-			title: localize2('onyx.inlineEdit.reject', "Onyx: Undo Current Inline Edit Hunk"),
+			title: localize2('onyx.inlineEdit.reject', "Onyx: Reject Current Inline Edit Hunk"),
 			precondition: CONTEXT_ONYX_INLINE_EDIT_REVIEW,
 			keybinding: { weight: KeybindingWeight.WorkbenchContrib + 10, primary: KeyMod.CtrlCmd | KeyCode.Backspace, when: CONTEXT_ONYX_INLINE_EDIT_REVIEW },
 		});

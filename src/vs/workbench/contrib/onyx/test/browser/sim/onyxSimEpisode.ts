@@ -53,6 +53,8 @@ export type OnyxSimUserAction =
 	| { readonly kind: 'save' }
 	| { readonly kind: 'autosaveTick' }
 	| { readonly kind: 'undo' }
+	/** The user asks for an inline edit of these lines of the target, and the model answers with `reply` (B9). */
+	| { readonly kind: 'inlineEdit'; readonly startLine: number; readonly endLine: number; readonly reply: string }
 	| { readonly kind: 'dialog'; readonly decision: 'allow-once' | 'allow-session' | 'allow-always' | 'deny' | 'dismiss' }
 	/** The user runs "Clear Legacy Terminal Grants" (B2). */
 	| { readonly kind: 'clearLegacyGrants' }

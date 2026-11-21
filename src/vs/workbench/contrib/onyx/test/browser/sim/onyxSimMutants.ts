@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { OnyxAcceptOutcome, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
+import { IOnyxChangeSetService, OnyxAcceptOutcome, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
+import { OnyxInlineEditSession, OnyxInlineStageOutcome } from '../../../browser/editor/onyxInlineEditSession.js';
 import { IOnyxProposedFile, OnyxProposeResult, openReview, proposalSizeProblem, proposeEdits } from '../../../common/onyxChangeSet.js';
 import { IOnyxEditBlock, IOnyxEditHunk } from '../../../common/onyxInlineEdit.js';
 import { EditOperation, ISingleEditOperation } from '../../../../../../editor/common/core/editOperation.js';
@@ -15,7 +16,7 @@ import { IOnyxSelectableTool, OnyxAgentLoop, OnyxSelectedTools } from '../../../
 import { IOnyxToolExclusion } from '../../../common/onyxToolSlots.js';
 import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMemoryTool.js';
 import { IOnyxStreamOutcome, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
-import { OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
+import { IOnyxWorkspaceAccessService, OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
 import { IOnyxBudgetedMessage, IOnyxTurnPlan } from '../../../common/onyxContextBudget.js';
 import { OnyxEnvelopeAnswerStream } from '../../../common/onyxConstrainedToolCalls.js';
@@ -410,6 +411,26 @@ class OnyxMutantDeletionLeavesLineChangeSet extends OnyxChangeSetService {
 	}
 }
 
+/**
+ * B9: the inline edit before staging. The reply is written into the buffer as soon as it arrives, and
+ * reviewed afterwards: the model's text is in the file, and in what an autosave writes, before any accept.
+ */
+class OnyxMutantApplyBeforeReviewInlineSession extends OnyxInlineEditSession {
+	constructor(private readonly _target: ITextModel, lineRange: Range, private readonly _changes: IOnyxChangeSetService, workspaceAccessService: IOnyxWorkspaceAccessService) {
+		super(_target, lineRange, _changes, workspaceAccessService);
+	}
+	override async stageReply(reply: string, runId?: string): Promise<OnyxInlineStageOutcome> {
+		const outcome = await super.stageReply(reply, runId);
+		if (outcome.kind === 'staged') {
+			const proposed = this._changes.files.get().find(file => file.proposal.path === outcome.path)?.proposal.proposed;
+			if (proposed !== undefined) {
+				this._target.pushEditOperations(null, [EditOperation.replace(this._target.getFullModelRange(), proposed)], () => null);
+			}
+		}
+		return outcome;
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -434,6 +455,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B7-index-accept': { ChangeSetService: OnyxMutantIndexAcceptChangeSet },
 	'B7-no-size-guard': { ChangeSetService: OnyxMutantNoSizeGuardChangeSet },
 	'B8-deletion-leaves-line': { ChangeSetService: OnyxMutantDeletionLeavesLineChangeSet },
+	'B9-inline-apply-before-review': { InlineEditSession: OnyxMutantApplyBeforeReviewInlineSession },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },

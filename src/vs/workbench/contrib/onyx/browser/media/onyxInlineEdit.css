@@ -63,3 +63,19 @@
 .monaco-editor .onyx-inline-hunk-deletion {
 	border-top: 1px dashed var(--vscode-onyx-warn);
 }
+
+/* The proposed lines, shown under the lines they would replace. They are a
+   read-only preview in a view zone: not part of the file until a hunk is kept. */
+.monaco-editor .onyx-inline-proposal {
+	background: color-mix(in srgb, var(--vscode-onyx-accent) 8%, transparent);
+	border-left: 2px dashed var(--vscode-onyx-accent);
+	font-family: var(--monaco-monospace-font);
+	color: var(--vscode-editor-foreground);
+	opacity: 0.85;
+	overflow: hidden;
+}
+
+.monaco-editor .onyx-inline-proposal-line {
+	white-space: pre;
+	padding-left: var(--vscode-spacing-size80);
+}

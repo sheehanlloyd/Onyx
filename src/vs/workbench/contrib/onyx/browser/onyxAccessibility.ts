@@ -108,12 +108,12 @@ export class OnyxInlineEditAccessibilityHelp implements IAccessibleViewImplement
 
 	getProvider(_accessor: ServicesAccessor) {
 		const content = [
-			localize('onyx.a11y.inlineEdit.overview', "You are in Onyx inline edit. Type an instruction and press Enter; a local model rewrites the selected lines and each changed region becomes a hunk you review."),
+			localize('onyx.a11y.inlineEdit.overview', "You are in Onyx inline edit. Type an instruction and press Enter; a local model proposes a change to the selected lines. The proposal is shown under the lines it would replace and is not in the file: each changed region is a hunk you keep or reject."),
 			localize('onyx.a11y.inlineEdit.accept', "- {0}: keep the current hunk", '<keybinding:onyx.inlineEdit.acceptHunk>'),
-			localize('onyx.a11y.inlineEdit.reject', "- {0}: undo the current hunk and restore the original lines", '<keybinding:onyx.inlineEdit.rejectHunk>'),
+			localize('onyx.a11y.inlineEdit.reject', "- {0}: reject the current hunk; the file was not changed by it", '<keybinding:onyx.inlineEdit.rejectHunk>'),
 			localize('onyx.a11y.inlineEdit.next', "- {0}: go to the next hunk, {1}: the previous one", '<keybinding:onyx.inlineEdit.nextHunk>', '<keybinding:onyx.inlineEdit.previousHunk>'),
-			localize('onyx.a11y.inlineEdit.cancel', "- {0}: close inline edit, keeping every hunk you have not undone", '<keybinding:onyx.inlineEdit.cancel>'),
-			localize('onyx.a11y.inlineEdit.honest', "If the model's reply cannot be turned into an edit, nothing in the file changes and the status line says so."),
+			localize('onyx.a11y.inlineEdit.cancel', "- {0}: close inline edit and discard the hunks you have not kept", '<keybinding:onyx.inlineEdit.cancel>'),
+			localize('onyx.a11y.inlineEdit.honest', "If the model's reply cannot be turned into an edit, or the file changed while the model was working, nothing is proposed, nothing in the file changes and the status line says so."),
 		].join('\n');
 		return new AccessibleContentProvider(
 			AccessibleViewProviderId.OnyxInlineEdit,

@@ -107,7 +107,7 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (57 checks):
+asserting on the run journal and the live DOM (58 checks):
 
 - the tool list a default run advertises on the 7B profile (the six essential
   tools and the two documented optional ones, R-36), Onyx's own `listDirectory`
@@ -122,8 +122,9 @@ asserting on the run journal and the live DOM (57 checks):
 - **Fix with Onyx** and **Explain with Onyx** routing into chat runs
 - the model library quick pick, including installed models outside the catalog
 - commit-message generation from a staged diff
-- **⌘I inline edit**: the widget, an applied hunk, and undoing that hunk
-  restoring the original line verbatim
+- **⌘I inline edit**: the widget, the reply staged for review with nothing of
+  it in the file, keeping the hunk applying it, and undo restoring the original
+  line verbatim
 - `Onyx: Review My Changes`, its replayable prompt snapshot and a `file:line`
   finding
 - staged agent edits: `editFile` stages instead of writing, the file appears in

@@ -78,6 +78,24 @@
 			]
 		},
 		{
+			"id": "R-14-R-34",
+			"title": "B9 inline edits stage before acceptance: a reply becomes a proposal and the buffer, its dirty state and the disk are untouched through saves; typing during generation, a save participant, a cancel and a closed file leave it unstaged; keeping a hunk is one undoable edit, rejecting restores nothing over the user's work, and a proposal survives a reload as a proposal (the end-to-end suite has the window's half of R-34)",
+			"layer": "service",
+			"regressions": [
+				"R-14",
+				"R-34"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxInlineEditSession.test.ts",
+				"test/onyx/run-e2e.mts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxInlineEditSession"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

@@ -33,6 +33,8 @@ import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneServic
 export const IOnyxChangeSetService = createDecorator<IOnyxChangeSetService>('onyxChangeSetService');
 
 const STAGED_STORAGE_KEY = 'onyx.changes.staged';
+/** The last proposal generation given out in this workspace, so that one after a reload never repeats an id from before it. */
+const GENERATION_STORAGE_KEY = 'onyx.changes.generation';
 
 /** One staged file plus everything the review surface shows about it. */
 export interface IOnyxStagedFile {
@@ -130,6 +132,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		// look at the view rebases each proposal against today's buffers and
 		// shows (with both texts, never silently) whatever no longer applies.
 		// A restored proposal is a new generation: no earlier review of it holds.
+		this._generation = this._storageService.getNumber(GENERATION_STORAGE_KEY, StorageScope.WORKSPACE, 0);
 		try {
 			const persisted: IOnyxProposedFile[] = JSON.parse(this._storageService.get(STAGED_STORAGE_KEY, StorageScope.WORKSPACE, '[]'));
 			if (Array.isArray(persisted) && persisted.length > 0) {
@@ -156,6 +159,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 
 	private _persist(): void {
 		const proposals = this._filesObs.get().map(file => file.proposal);
+		this._storageService.store(GENERATION_STORAGE_KEY, this._generation, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		if (proposals.length === 0) {
 			this._storageService.remove(STAGED_STORAGE_KEY, StorageScope.WORKSPACE);
 		} else {
