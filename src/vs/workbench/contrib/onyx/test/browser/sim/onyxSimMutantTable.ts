@@ -283,4 +283,24 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 			{ kind: 'toolCall', tool: 'remember', arguments: { note: SIM_INJECTED_NOTE } },
 		], { persona: 'obedient', dialogDefault: 'deny' }),
 	},
+	{
+		id: 'B6-fuzzy-applier',
+		fixedBy: 'B6',
+		defect: 'A SEARCH text that is not in the file was still placed: after trimming each line and re-indenting the replacement, or by its first line alone when that was unique, which replaced lines the model never quoted (Claude H3; R-07, R-33)',
+		detects: 'I-08/inexact-anchor-staged',
+		resurrects: 'OnyxMutantFuzzyApplierChangeSet',
+		script: script('B6-fuzzy-applier', 'Change addNumbers', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: 'export function addNumbers(a: number, b: number): number {\n\treturn a + b + 1;', replace: '\treturn b + a; // edited-by-sim' } },
+		], { persona: 'anchor-liar' }),
+	},
+	{
+		id: 'B6-first-occurrence',
+		fixedBy: 'B6',
+		defect: 'A SEARCH text that occurs more than once was placed at the first of them instead of refused as ambiguous (Claude H4; DEC-07; R-08)',
+		detects: 'I-08/ambiguous-anchor-staged',
+		resurrects: 'OnyxMutantFirstOccurrenceChangeSet',
+		script: script('B6-first-occurrence', 'Close the function', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '}', replace: '} // sim' } },
+		], { persona: 'anchor-liar' }),
+	},
 ];

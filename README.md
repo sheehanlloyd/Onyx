@@ -258,9 +258,11 @@ model is verified to be local, because nothing verifies it.
   <details><summary>Why SEARCH/REPLACE instead of a diff</summary>
 
   Local models mangle unified diffs. Onyx asks for SEARCH/REPLACE blocks and
-  repairs what comes back — echoed markers, missing dividers, whitespace drift,
-  truncated output. When nothing usable can be parsed, your file is left exactly
-  as it was and the widget says so.
+  repairs the markers of what comes back — echoed markers, missing dividers,
+  truncated output. It does not repair the quoted text: a SEARCH block is placed
+  only where it is in the file exactly, and exactly once, with no trimming or
+  re-indenting. Otherwise your file is left exactly as it was and the reason is
+  shown.
   </details>
 
 - **Local autocomplete.** Ghost text from your smallest, fastest model via

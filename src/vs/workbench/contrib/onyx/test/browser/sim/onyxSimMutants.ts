@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
+import { IOnyxProposedFile, OnyxProposeResult, proposeEdits } from '../../../common/onyxChangeSet.js';
+import { IOnyxEditBlock } from '../../../common/onyxInlineEdit.js';
 import { IChatResponseToolUsePart, ILanguageModelChatMetadata } from '../../../../chat/common/languageModels.js';
 import { IChatAgentRequest } from '../../../../chat/common/participants/chatAgents.js';
 import { IOnyxSelectableTool, OnyxAgentLoop, OnyxSelectedTools } from '../../../browser/agent/onyxAgentLoop.js';
@@ -308,6 +311,68 @@ class OnyxMutantInlineHarnessRecordLoop extends OnyxAgentLoop {
 	}
 }
 
+/** B6: stages blocks with an applier that is not the product's, the way `proposeEdits` composes them. */
+function proposeWith(apply: (text: string, block: IOnyxEditBlock) => string | undefined, existing: IOnyxProposedFile | undefined, path: string, currentContent: string | undefined, blocks: readonly IOnyxEditBlock[]): OnyxProposeResult {
+	let text = existing ? existing.proposed : currentContent;
+	if (text === undefined || blocks.some(block => block.search.trim() === '')) {
+		return proposeEdits(existing, path, currentContent, blocks);
+	}
+	for (const block of blocks) {
+		const next = apply(text, block);
+		if (next === undefined) {
+			return { ok: false, error: `Could not find the "search" text in ${path}.` };
+		}
+		text = next;
+	}
+	return { ok: true, appliedCount: blocks.length, file: existing ? { ...existing, proposed: text } : { path, kind: 'modify', base: currentContent ?? '', proposed: text, stale: false } };
+}
+
+/**
+ * B6: the applier before DEC-07. An exact match first; then a match after trimming every line, with the
+ * replacement re-indented; then the first line alone, when it is unique, taking as many lines as the
+ * SEARCH text had. The last one replaced lines the model never quoted (Claude H3).
+ */
+function fuzzyApply(text: string, block: IOnyxEditBlock): string | undefined {
+	const exact = text.indexOf(block.search);
+	if (exact >= 0) {
+		return text.slice(0, exact) + block.replace + text.slice(exact + block.search.length);
+	}
+	const textLines = text.split('\n');
+	const searchLines = block.search.split('\n');
+	const trimmed = searchLines.map(line => line.trim());
+	const indentOf = (line: string) => /^[\t ]*/.exec(line)?.[0] ?? '';
+	const reindented = (start: number) => {
+		const actual = indentOf(textLines[start]);
+		const claimed = indentOf(searchLines[0]);
+		const lines = block.replace.split('\n').map(line => claimed !== actual && line.trim().length > 0 && line.startsWith(claimed) ? actual + line.slice(claimed.length) : line);
+		return [...textLines.slice(0, start), ...lines, ...textLines.slice(start + searchLines.length)].join('\n');
+	};
+	for (let start = 0; start + searchLines.length <= textLines.length; start++) {
+		if (trimmed.every((line, offset) => textLines[start + offset].trim() === line)) {
+			return reindented(start);
+		}
+	}
+	const hits = textLines.map((line, index) => line.trim() === trimmed[0] ? index : -1).filter(index => index >= 0);
+	return trimmed[0] && hits.length === 1 && hits[0] + searchLines.length <= textLines.length ? reindented(hits[0]) : undefined;
+}
+
+/** B6: the change set before exact-or-refuse. A SEARCH text that is not in the file is placed by trimming or by its first line. */
+class OnyxMutantFuzzyApplierChangeSet extends OnyxChangeSetService {
+	protected override _propose(existing: IOnyxProposedFile | undefined, path: string, currentContent: string | undefined, blocks: readonly IOnyxEditBlock[]): OnyxProposeResult {
+		return proposeWith(fuzzyApply, existing, path, currentContent, blocks);
+	}
+}
+
+/** B6: the change set before ambiguity was refused. A SEARCH text that occurs several times is placed at the first of them. */
+class OnyxMutantFirstOccurrenceChangeSet extends OnyxChangeSetService {
+	protected override _propose(existing: IOnyxProposedFile | undefined, path: string, currentContent: string | undefined, blocks: readonly IOnyxEditBlock[]): OnyxProposeResult {
+		return proposeWith((text, block) => {
+			const first = text.indexOf(block.search);
+			return first === -1 ? undefined : text.slice(0, first) + block.replace + text.slice(first + block.search.length);
+		}, existing, path, currentContent, blocks);
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -327,6 +392,8 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B12-no-stream-deadline': { ModelService: OnyxMutantNoDeadlineModelService },
 	'B13-no-output-cap': { AgentLoop: OnyxMutantNoOutputCapLoop },
 	'B13-no-eviction': { AgentLoop: OnyxMutantNoEvictionLoop },
+	'B6-fuzzy-applier': { ChangeSetService: OnyxMutantFuzzyApplierChangeSet },
+	'B6-first-occurrence': { ChangeSetService: OnyxMutantFirstOccurrenceChangeSet },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },

@@ -314,30 +314,44 @@ async function benchmarkParsers() {
 		['prose, no edit at all', 'You should swap the operands on the return line.'],
 	];
 
+	// What the right outcome is for each shape (B6, DEC-07). A reply whose markers are malformed and whose
+	// SEARCH text is exactly in the file is recovered. One whose SEARCH text is not exactly in the file is
+	// refused, and so is prose: for those two, leaving the file alone is the correct result, not a failure.
+	const refusalIsCorrect = new Set(['whitespace drift', 'prose, no edit at all']);
 	let recovered = 0;
+	let refused = 0;
+	let wronglyApplied = 0;
 	let corrupted = 0;
 	const markerLine = /^(<{4,}\s*SEARCH\s*|>{4,}\s*(REPLACE\s*)?|={4,}\s*)$/m;
-	for (const [, reply] of malformations) {
+	for (const [name, reply] of malformations) {
 		const parsed = parseInlineEdits(reply);
+		let changed = false;
 		if (parsed.kind === 'blocks') {
 			const applied = applyEditBlocks(original, parsed.blocks);
-			if (applied.appliedCount > 0) {
-				recovered++;
-			}
+			changed = applied.appliedCount > 0;
 			if (markerLine.test(applied.text)) {
 				corrupted++;
 			}
 		} else if (parsed.kind === 'rewrite') {
-			recovered++;
+			changed = true;
 			if (markerLine.test(parsed.text)) {
 				corrupted++;
 			}
 		}
-		// 'unparseable' is the correct outcome for prose: the file is untouched.
+		if (refusalIsCorrect.has(name)) {
+			if (changed) {
+				wronglyApplied++;
+			} else {
+				refused++;
+			}
+		} else if (changed) {
+			recovered++;
+		}
 	}
-	// The prose case is a correct refusal, not a failure, so it is excluded.
-	const recoverable = malformations.length - 1;
-	record('parsers', 'malformed edits recovered', (recovered / recoverable) * 100, '%', `${recovered}/${recoverable} shapes`);
+	const recoverable = malformations.length - refusalIsCorrect.size;
+	record('parsers', 'malformed edits recovered', (recovered / recoverable) * 100, '%', `${recovered}/${recoverable} shapes whose SEARCH text is exactly in the file`);
+	record('parsers', 'inexact or absent edits refused', (refused / refusalIsCorrect.size) * 100, '%', `${refused}/${refusalIsCorrect.size} shapes: SEARCH text with different indentation, and prose`);
+	invariant('parsers', 'edits applied where the SEARCH text is not exactly in the file', wronglyApplied, 'cases', 0);
 	invariant('parsers', 'format markers written into a file', corrupted, 'cases', 0);
 
 	// Fuzzing: the parser must never throw and never leak a marker.

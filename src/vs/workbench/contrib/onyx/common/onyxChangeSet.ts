@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { applyEditBlocks, computeLineHunks, IOnyxEditBlock, IOnyxEditHunk } from './onyxInlineEdit.js';
+import { applyEditBlocks, computeLineHunks, describeEditRefusal, IOnyxEditBlock, IOnyxEditHunk, IOnyxEditRefusal, placeEditBlock } from './onyxInlineEdit.js';
 
 /**
  * The change-set model behind "Onyx Changes": every edit the agent proposes is
@@ -37,7 +37,8 @@ export type OnyxProposeResult =
  * previous call's proposed content, so the agent can keep editing while the
  * user reviews. A block whose SEARCH cannot be found fails the whole call
  * with a message the model can act on — a partially applied tool call would
- * leave the model's picture of the file wrong.
+ * leave the model's picture of the file wrong. "Found" means exactly, at
+ * exactly one place (B6, DEC-07): nothing is trimmed or re-indented.
  */
 export function proposeEdits(existing: IOnyxProposedFile | undefined, path: string, currentContent: string | undefined, blocks: readonly IOnyxEditBlock[]): OnyxProposeResult {
 	if (currentContent === undefined) {
@@ -58,7 +59,7 @@ export function proposeEdits(existing: IOnyxProposedFile | undefined, path: stri
 	}
 	const applied = applyEditBlocks(currentContent, blocks);
 	if (applied.failed.length > 0) {
-		return { ok: false, error: searchFailureMessage(path, applied.failed) };
+		return { ok: false, error: searchFailureMessage(path, applied.refusals) };
 	}
 	return { ok: true, appliedCount: applied.appliedCount, file: { path, kind: 'modify', base: currentContent, proposed: applied.text, stale: false } };
 }
@@ -69,14 +70,13 @@ function applyOnTop(existing: IOnyxProposedFile, blocks: readonly IOnyxEditBlock
 	}
 	const applied = applyEditBlocks(existing.proposed, blocks);
 	if (applied.failed.length > 0) {
-		return { ok: false, error: searchFailureMessage(existing.path, applied.failed) };
+		return { ok: false, error: searchFailureMessage(existing.path, applied.refusals) };
 	}
 	return { ok: true, appliedCount: applied.appliedCount, file: { ...existing, proposed: applied.text } };
 }
 
-function searchFailureMessage(path: string, failed: readonly IOnyxEditBlock[]): string {
-	const first = failed[0].search.split('\n').slice(0, 3).join('\n');
-	return `Could not find the "search" text in ${path} (staged content included). Not found:\n${first}\nRe-read the file and quote the lines exactly.`;
+function searchFailureMessage(path: string, refusals: readonly IOnyxEditRefusal[]): string {
+	return `Edit refused for ${path} (staged content included). ${describeEditRefusal(refusals[0])}`;
 }
 
 /** The reviewable units of a proposal, in file order. */
@@ -112,9 +112,9 @@ export interface IOnyxRebaseResult {
  * Re-anchors a proposal onto a buffer that changed underneath it. Each hunk is
  * replayed as a SEARCH/REPLACE block (with one line of leading context so pure
  * insertions have an anchor); a hunk whose anchor vanished is dropped and
- * counted rather than applied somewhere wrong. Matching here is deliberately
- * stricter than the model-facing applier: the user edited this file, so a
- * fuzzy "probably meant here" application would silently corrupt their work.
+ * counted rather than applied somewhere wrong. Matching is exact and unique,
+ * as everywhere (B6, DEC-07): the user edited this file, and a "probably
+ * meant here" application would silently corrupt their work.
  */
 export function rebaseProposal(file: IOnyxProposedFile, newBase: string): IOnyxRebaseResult {
 	if (newBase === file.base) {
@@ -150,27 +150,10 @@ export function rebaseProposal(file: IOnyxProposedFile, newBase: string): IOnyxR
 	return { file: { ...file, base: newBase, proposed, stale: false }, droppedHunks: dropped };
 }
 
-/** Exact match, or line-trimmed match — never an anchor guess. */
+/** Exactly, and exactly once, or not at all (B6, DEC-07): the same rule as for a model's own SEARCH text. */
 function strictReplace(text: string, block: IOnyxEditBlock): string | undefined {
-	const index = text.indexOf(block.search);
-	if (index >= 0) {
-		return text.slice(0, index) + block.replace + text.slice(index + block.search.length);
-	}
-	const textLines = text.split('\n');
-	const searchLines = block.search.split('\n').map(line => line.trim());
-	for (let start = 0; start + searchLines.length <= textLines.length; start++) {
-		let matches = true;
-		for (let offset = 0; offset < searchLines.length; offset++) {
-			if (textLines[start + offset].trim() !== searchLines[offset]) {
-				matches = false;
-				break;
-			}
-		}
-		if (matches) {
-			return [...textLines.slice(0, start), ...block.replace.split('\n'), ...textLines.slice(start + searchLines.length)].join('\n');
-		}
-	}
-	return undefined;
+	const placed = placeEditBlock(text, block);
+	return placed.ok ? placed.text : undefined;
 }
 
 export interface IOnyxChangeSetSummary {

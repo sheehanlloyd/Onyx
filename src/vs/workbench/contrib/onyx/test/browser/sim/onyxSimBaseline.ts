@@ -219,58 +219,6 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 		}),
 	},
 	{
-		class: 'I-08/ambiguous-anchor-staged',
-		owner: 'B6, B7',
-		finding: 'Claude H4; DEC-07 (R-08): a SEARCH text that occurs more than once is placed at one of them instead of refused as ambiguous',
-		script: script({
-			name: 'I-08-ambiguous-anchor-staged',
-			seed: 50,
-			persona: 'anchor-liar',
-			prompt: 'What doe',
-			target: 'src/math.ts',
-			turns: [
-				{
-					kind: 'toolCall',
-					tool: 'editFile',
-					arguments: {
-						path: 'src/math.ts',
-						search: '}',
-						replace: '} // sim',
-					},
-				},
-			],
-			dialogDefault: 'allow-once',
-			userSteps: [],
-			faults: [],
-		}),
-	},
-	{
-		class: 'I-08/inexact-anchor-staged',
-		owner: 'B6',
-		finding: 'Claude H3; DEC-07 (R-07, R-33): a SEARCH text that is not in the file (first line unique, or whitespace-different) is still placed',
-		script: script({
-			name: 'I-08-inexact-anchor-staged',
-			seed: 6,
-			persona: 'anchor-liar',
-			prompt: 'Change a',
-			target: 'src/math.ts',
-			turns: [
-				{
-					kind: 'toolCall',
-					tool: 'editFile',
-					arguments: {
-						path: 'src/math.ts',
-						search: 'export function addNumbers(a: number, b: number): number {\n\treturn a + b + 1;',
-						replace: '\treturn b + a; // edited-by-sim',
-					},
-				},
-			],
-			dialogDefault: 'allow-once',
-			userSteps: [],
-			faults: [],
-		}),
-	},
-	{
 		class: 'I-13/oversized-proposal',
 		owner: 'B7',
 		finding: 'C9 / R-38 (Section 15): a proposal above the documented 256 KiB bound is staged and diffed without a size guard',

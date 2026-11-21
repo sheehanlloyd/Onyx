@@ -131,6 +131,7 @@ export interface IOnyxSimProductClasses {
 	readonly MemoryTool: typeof OnyxMemoryToolContribution;
 	readonly DiagnosticsRedactor: typeof OnyxDiagnosticsRedactor;
 	readonly ModelService: typeof OnyxModelService;
+	readonly ChangeSetService: typeof OnyxChangeSetService;
 }
 
 export interface IOnyxSimRigOptions {
@@ -236,7 +237,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private _prepared = false;
 
 	constructor(readonly episode: OnyxSimEpisode, checkers: readonly OnyxSimChecker[] = [], options: IOnyxSimRigOptions = {}) {
-		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ...options.classes };
+		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ChangeSetService: OnyxChangeSetService, ...options.classes };
 		this._redactorClass = classes.DiagnosticsRedactor;
 		this._checkers.push(...checkers);
 		this.trace = new OnyxSimTrace(() => Date.now());
@@ -311,7 +312,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IOnyxPromptCacheService, this._disposables.add(new OnyxPromptCacheService()));
 		this.memory = this._disposables.add(instantiationService.createInstance(OnyxMemoryService));
 		instantiationService.stub(IOnyxMemoryService, this.memory);
-		this.changeSet = this._disposables.add(instantiationService.createInstance(OnyxChangeSetService));
+		this.changeSet = this._disposables.add(instantiationService.createInstance(classes.ChangeSetService));
 		instantiationService.stub(IOnyxChangeSetService, this.changeSet);
 		this._terminal = this._disposables.add(instantiationService.createInstance(classes.TerminalService));
 		instantiationService.stub(IOnyxTerminalService, this._terminal);
