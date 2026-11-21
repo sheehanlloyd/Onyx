@@ -15,7 +15,6 @@ import { extractJsonObject, parseReviewFindings } from '../../common/onyxReview.
 import { diffRuns } from '../../common/onyxRunDiff.js';
 import { extractDiffSignals, scoreChangeRisk } from '../../common/onyxChangeRisk.js';
 import { buildToolEnvelopeFormat, parseToolEnvelope } from '../../common/onyxConstrainedToolCalls.js';
-import { redactJournalContent } from '../../common/onyxDiagnostics.js';
 import { buildHubEntries } from '../../common/onyxHub.js';
 import { buildComparisonDocument, decideTournamentConcurrency } from '../../common/onyxTournament.js';
 import { humanizeRuntimeError } from '../../common/onyxRuntimeErrors.js';
@@ -253,22 +252,7 @@ suite('OnyxWorkflows', () => {
 				{ localSig: 0x04034B50, crc: (crc32(data) >>> 0).toString(16), nameLength: 7, eocdSig: 0x06054B50, entryCount: 1, crcMatches: true });
 		});
 
-		test('redaction strips prompt text and steering but keeps structure', () => {
-			const journal = [
-				JSON.stringify({ t: 0, kind: 'promptSnapshot', data: { turn: 1, model: 'm', tools: ['repoSymbols'], messages: [{ role: 0, content: [{ type: 'text', value: 'secret prompt' }] }] } }),
-				JSON.stringify({ t: 1, kind: 'note', data: { kind: 'steer', label: 'User redirected the agent', reason: 'private instruction' } }),
-				JSON.stringify({ t: 2, kind: 'toolCall', data: { kind: 'toolCall', label: 'repoSymbols' } }),
-				'not json',
-			].join('\n');
-			const redacted = redactJournalContent(journal).split('\n').map(line => { try { return JSON.parse(line); } catch { return line; } });
-			assert.deepStrictEqual([
-				(redacted[0] as { data: { messages: { content: { value: string }[] }[] } }).data.messages[0].content[0].value,
-				(redacted[0] as { data: { tools: string[] } }).data.tools,
-				(redacted[1] as { data: { reason: string } }).data.reason,
-				(redacted[2] as { data: { label: string } }).data.label,
-				redacted[3],
-			], ['[redacted 13 chars]', ['repoSymbols'], '[redacted 19 chars]', 'repoSymbols', 'not json']);
-		});
+		// Redaction of the bundle's contents is `OnyxDiagnosticsExport` (R-20) in onyxDiagnosticsExport.test.ts.
 	});
 
 	suite('hub', () => {
@@ -460,7 +444,7 @@ suite('OnyxWorkflows', () => {
 
 		test('only an envelope-shaped opening is withheld from the transcript', () => {
 			assert.deepStrictEqual(
-				['', '{', '``', '```js', '<tool', 'The ', 'x'.repeat(5000)].map(couldBeToolEnvelope),
+				['', '{', '``', '```js', '<tool', 'The ', 'x'.repeat(5000)].map(text => couldBeToolEnvelope(text)),
 				[true, true, true, true, true, false, false],
 			);
 		});

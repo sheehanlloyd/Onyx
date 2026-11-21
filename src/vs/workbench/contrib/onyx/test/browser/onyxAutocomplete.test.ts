@@ -14,6 +14,7 @@ function model(key: string, parameterB: number | undefined): IOnyxKnownModel {
 		key,
 		discovered: { id: key, baseUrl: 'http://localhost:11434/v1', runtime: 'ollama' },
 		profile: { toolCallQuality: 0.8, contextLength: 8192, maxTools: 8, temperature: 0.2, promptStyle: 'compact', family: 'test', parameterB, supportsVision: false },
+		location: { transport: 'loopback', execution: 'local' },
 	};
 }
 

@@ -7,36 +7,41 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../../platform/markers/common/markers.js';
-import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxRuntimeService, OnyxStreamEnding } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { localize } from '../../../../../nls.js';
 import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePart, ILanguageModelChatMetadata, ILanguageModelsService } from '../../../chat/common/languageModels.js';
 import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
-import { elideMiddle, toolResultBudget } from '../../common/onyxContextCompression.js';
-import { buildToolEnvelopeFormat, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
-import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
-import { classifyStreamEnd, digestValue, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
-import { ONYX_EDIT_TOOL_ID } from '../changes/onyxEditTool.js';
-import { ONYX_DOCS_TOOL_ID } from '../intelligence/onyxDocsTool.js';
-import { ONYX_MEMORY_TOOL_ID } from '../intelligence/onyxMemoryTool.js';
-import { ONYX_PLAYBOOK_TOOL_ID } from '../playbooks/onyxPlaybookTool.js';
-import { ONYX_RETRIEVAL_TOOL_ID } from '../intelligence/onyxRetrievalTool.js';
-import { ONYX_TERMINAL_TOOL_ID } from '../terminal/onyxTerminalTool.js';
+import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudgetedKind, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
+import { elideMiddle } from '../../common/onyxContextCompression.js';
+import { runtimeEnforcesSchema } from '../../common/onyxDatasheet.js';
+import { IOnyxResolvedHarness } from '../../common/onyxHarnessConfig.js';
+import { buildToolEnvelopeFormat, OnyxEnvelopeAnswerStream, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
+import { IOnyxAssistantTextStream, OnyxAssistantTextStream, OnyxPlainTextStream } from '../../common/onyxTextToolCalls.js';
+import { classifyStreamEnd, digestValue, IOnyxTraceHeader, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
+import { IOnyxPlaybookService } from '../playbooks/onyxPlaybookService.js';
+import { IOnyxTerminalService } from '../terminal/onyxTerminalTool.js';
+import { validateToolArguments } from '../../common/onyxToolArguments.js';
+import { admitTool, needsApprovalPerCall, ONYX_NETWORK_TOOLS_SETTING } from '../../common/onyxToolContract.js';
+import { IOnyxToolExclusion, ONYX_MIN_EDIT_SLOTS, OnyxToolSlotSelection, requestedOptionalTools, selectToolSlots } from '../../common/onyxToolSlots.js';
 import { OnyxTaskVerification } from '../verification/onyxTaskVerification.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
 import { qualifyWorkspacePath } from '../../common/onyxWorkspacePaths.js';
-import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
+import { OnyxReasoningFilter } from '../../common/onyxReasoning.js';
+import { IOnyxBudgetSlice, IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
-import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
+import { IOnyxModelService, IOnyxStreamOutcome, OnyxContextOverflowError } from '../model/onyxLanguageModelProvider.js';
 import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxRouterService } from '../routing/onyxRouterService.js';
-import { estimateTokens, IRequestTool } from '../model/onyxOpenAITranslator.js';
+import { estimateMessageTokens, estimateTokens, IRequestTool, toWireTools } from '../model/onyxOpenAITranslator.js';
+import { IOnyxHarnessConfigService } from './onyxHarnessConfigService.js';
 import { IOnyxPromptCacheService } from './onyxPromptCache.js';
 import { OnyxPromptBuilder } from './onyxPromptBuilder.js';
 
@@ -73,7 +78,11 @@ export class OnyxAgentLoop {
 		@IOnyxProfileService private readonly _profileService: IOnyxProfileService,
 		@IOnyxPromptCacheService private readonly _promptCacheService: IOnyxPromptCacheService,
 		@IOnyxProjectConfigService private readonly _projectConfigService: IOnyxProjectConfigService,
+		@IOnyxPlaybookService private readonly _playbookService: IOnyxPlaybookService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IOnyxTerminalService private readonly _terminalService: IOnyxTerminalService,
 		@ILogService private readonly _logService: ILogService,
+		@IOnyxHarnessConfigService private readonly _harnessConfigService: IOnyxHarnessConfigService,
 	) { }
 
 	async run(request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: readonly IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatAgentResult> {
@@ -98,6 +107,7 @@ export class OnyxAgentLoop {
 			title: request.message.slice(0, 80),
 			task,
 			modelKey: modelIdentifier,
+			request: request.message,
 		});
 		this._controlPlaneService.updateCompute({ modelKey: modelIdentifier, inFlight: true });
 
@@ -131,35 +141,88 @@ export class OnyxAgentLoop {
 		token: CancellationToken,
 		modelIdentifier: string,
 		metadata: ILanguageModelChatMetadata | undefined,
-		profile: IOnyxModelProfile,
+		modelProfile: IOnyxModelProfile,
 		run: ReturnType<IOnyxControlPlaneService['beginRun']>,
 	): Promise<IChatAgentResult> {
-		const { tools, toolIdsByName } = this._selectTools(request, metadata, profile);
-
-		// Grammar-constrained tool calling: when this model keeps mangling the
-		// tool_calls channel but its runtime can enforce a JSON schema, every
-		// turn is constrained to the tool/answer envelope — a constrained turn
-		// can be wrong, but it cannot be malformed.
+		// The harness configuration (L4): every decision below about how this run talks to the model is read
+		// from it. The profile and the runtime's facts produce it; a lab manifest may change it, in a
+		// development build only.
 		const modelKey = modelIdentifier.startsWith(`${ONYX_VENDOR}:`) ? modelIdentifier.slice(ONYX_VENDOR.length + 1) : modelIdentifier;
-		const constrained = tools.length > 0
-			&& profile.toolCallQuality < 0.75
-			&& this._onyxModelService.getKnownModel(modelKey)?.discovered.supportsJsonSchema === true;
-		run.activity({ kind: 'route', label: modelIdentifier, reason: `${tools.length} tools exposed, ${profile.promptStyle} prompt${constrained ? ', constrained decoding' : ''}` });
+		// Whether the runtime enforces a schema: what the model's datasheet measured when there is one (L5),
+		// and otherwise what a runtime of its kind is assumed to do.
+		const harness = await this._harnessConfigService.resolve(modelProfile, { runtimeEnforcesSchema: runtimeEnforcesSchema(modelProfile, this._onyxModelService.getKnownModel(modelKey)?.discovered.supportsJsonSchema) });
+		const configuration = harness.configuration;
+		if (harness.requested) {
+			run.activity(harness.refused
+				? { kind: 'note', label: 'A lab harness configuration was requested and not applied', reason: `${harness.requested.name} (${harness.requested.manifest}): ${harness.refused}. This run uses the default configuration.`, ok: false }
+				: { kind: 'note', label: 'This run uses a lab harness configuration', reason: `${harness.requested.name} (${harness.requested.manifest}), hash ${harness.hash}` });
+		}
+		// What the prompt builder and the slot policy are given: the model's profile, with the fields the
+		// configuration decides taken from the configuration.
+		const profile: IOnyxModelProfile = { ...modelProfile, promptStyle: configuration.promptStyle, contextLength: configuration.contextTokens, maxTools: configuration.maxTools };
+		const running = this._harnessConfigService.begin(request.requestId, configuration);
+		try {
+			return await this._runConfigured(request, progress, history, token, modelIdentifier, modelKey, metadata, profile, harness, run);
+		} finally {
+			running.dispose();
+		}
+	}
+
+	private async _runConfigured(
+		request: IChatAgentRequest,
+		progress: (parts: IChatProgress[]) => void,
+		history: readonly IChatAgentHistoryEntry[],
+		token: CancellationToken,
+		modelIdentifier: string,
+		modelKey: string,
+		metadata: ILanguageModelChatMetadata | undefined,
+		profile: IOnyxModelProfile,
+		harness: IOnyxResolvedHarness,
+		run: ReturnType<IOnyxControlPlaneService['beginRun']>,
+	): Promise<IChatAgentResult> {
+		const configuration = harness.configuration;
+		const selection = this._selectTools(request, metadata, profile);
+		if (selection.kind === 'refused') {
+			// An editing agent with part of its tool set looks usable and is not
+			// (R-36): say which capability is missing and why, and run nothing.
+			run.activity({ kind: 'note', label: 'Agent run refused: an essential tool is unavailable', reason: selection.message, ok: false });
+			run.complete('failed');
+			return {
+				errorDetails: {
+					message: localize('onyx.agent.missingEssentialTools', "This agent run was not started because it needs {0}. Onyx does not run an editing agent with part of its tool set; enable what is missing and try again.",
+						selection.missing.map(entry => localize('onyx.agent.missingEssentialTool', "{0} ({1})", entry.name, entry.reason)).join(', ')),
+				},
+			};
+		}
+		const tools: IRequestTool[] = selection.tools.map(tool => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema }));
+		const toolIdsByName = new Map(selection.tools.map(tool => [tool.name, tool.id]));
+		if (selection.kind === 'read-only') {
+			run.activity({ kind: 'note', label: 'Read-only run', reason: selection.reason });
+			progress([{ kind: 'markdownContent', content: new MarkdownString(localize('onyx.agent.readOnlyRun', "This model's profile has room for {0} tools and agent editing needs {1}, so this run can read the workspace but cannot propose edits or run commands.\n\n", selection.tools.length, ONYX_MIN_EDIT_SLOTS)) }]);
+		}
+
+		// Grammar-constrained tool calling: when the configuration says so (a model that keeps mangling the
+		// tool_calls channel, on a runtime that can enforce a JSON schema), every turn is constrained to the
+		// tool/answer envelope. A constrained turn can be wrong, but it cannot be malformed. A run with no
+		// tools has no call to constrain.
+		const constrained = tools.length > 0 && configuration.toolCallProtocol === 'constrained-envelope';
+		// Whether a call the model wrote as text is recognised and run. Only the bare native protocol does not.
+		const repairsText = configuration.toolCallProtocol !== 'native';
+		run.activity({ kind: 'route', label: modelIdentifier, reason: `${tools.length} tools exposed, ${configuration.promptStyle} prompt${constrained ? ', constrained decoding' : ''}` });
 
 		// Trace v2 header (L3): what this run was configured with, so a result can be repeated.
 		const known = this._onyxModelService.getKnownModel(modelKey);
-		const maxTurns = profile.promptStyle === 'compact' ? 8 : 16;
-		const harnessConfiguration = { promptStyle: profile.promptStyle, maxTools: profile.maxTools, maxTurns, constrained, toolResultBudget: toolResultBudget(profile.promptStyle), contextLength: profile.contextLength, toolCallQuality: profile.toolCallQuality };
+		const maxTurns = configuration.turnCap;
 		run.record({
 			kind: 'trace',
 			v: ONYX_TRACE_VERSION,
 			runId: run.runId,
 			startedAt: Date.now(),
-			harness: { configurationHash: digestValue(harnessConfiguration), configuration: harnessConfiguration },
+			harness: this._harnessRecord(harness),
 			model: { identifier: modelIdentifier, digest: known?.discovered.digest ?? null },
 			runtime: { name: known?.discovered.runtime ?? 'unknown', version: known?.discovered.runtimeVersion ?? null, baseUrl: known?.discovered.baseUrl ?? '' },
 			// null, not undefined: JSON drops undefined and the validator fails closed on an absent field.
-			sampling: { temperature: profile.temperature ?? null, seed: profile.seed ?? null, maxTokens: null, responseFormat: constrained },
+			sampling: { temperature: profile.temperature ?? null, seed: profile.seed ?? null, maxTokens: outputCapTokens(configuration.contextTokens), responseFormat: constrained },
 			tools: tools.map(tool => ({ name: tool.name, schemaHash: digestValue(tool.inputSchema) })),
 		});
 
@@ -167,11 +230,25 @@ export class OnyxAgentLoop {
 		const built = await promptBuilder.build(request, history, profile, tools.map(t => t.name));
 		run.setContextBudget(built.budget);
 		const messages: IChatMessage[] = built.messages;
+		// What each message is to the context budget (B13). The builder returns the system prompt first and the
+		// request last, with earlier turns and the retrieved workspace context between; whatever the run adds
+		// later is a turn.
+		const kinds = new Map<IChatMessage, OnyxBudgetedKind>();
+		messages.forEach((message, index) => kinds.set(message, index === 0 ? 'system' : index === messages.length - 1 ? 'request' : isWorkspaceContext(message) ? 'workspace' : 'history'));
 		if (constrained) {
 			// After the main system prompt, before any history: the envelope
 			// instruction must match the schema the runtime will enforce.
-			messages.splice(1, 0, { role: ChatMessageRole.System, content: [{ type: 'text', value: toolEnvelopeInstruction() }] });
+			const instruction: IChatMessage = { role: ChatMessageRole.System, content: [{ type: 'text', value: toolEnvelopeInstruction() }] };
+			messages.splice(1, 0, instruction);
+			kinds.set(instruction, 'system');
 		}
+		// What every request carries besides its messages: the tool schemas as they go on the wire, and the
+		// envelope schema when decoding is constrained.
+		const schemaTokens = estimateTokens(JSON.stringify(toWireTools(tools))) + (constrained ? estimateTokens(JSON.stringify(buildToolEnvelopeFormat(tools))) : 0);
+		// The context to fit in. It starts as the smallest number known for the model and only ever gets
+		// smaller during a run: an overflow error teaches what does not fit.
+		let contextTokens = configuration.contextTokens;
+		let overflowRetried = false;
 
 		const errorsBefore = this._countWorkspaceErrors();
 		let anyToolRan = false;
@@ -179,21 +256,50 @@ export class OnyxAgentLoop {
 		for (let turn = 0; turn < maxTurns && !token.isCancellationRequested; turn++) {
 			run.setTurnCount(turn + 1);
 			run.activity({ kind: 'turn', label: `Model turn ${turn + 1}` });
+
+			// Fit the turn before it is sent (B13, I-04): the schemas and the output cap are set aside, and
+			// what is left decides how much of the conversation goes.
+			const plan = this._planTurn(messages.map(message => ({ message, kind: kinds.get(message) ?? 'turn' })), schemaTokens, contextTokens);
+			if (!plan.fits) {
+				run.activity({ kind: 'note', label: 'The request does not fit the model\'s context', reason: `about ${plan.messageTokens + plan.schemaTokens} tokens of prompt and tool schemas against a context of ${contextTokens}, with nothing left to drop`, ok: false });
+				run.complete('failed');
+				return {
+					errorDetails: {
+						message: localize('onyx.agent.doesNotFit', "This request does not fit the model's context window: the instructions, the request and the tool schemas come to about {0} tokens, and {1} are available once room for the reply is set aside. Earlier tool results, history and workspace context were already dropped. Use a model or a runtime setting with a larger context, or shorten the request.", plan.messageTokens + plan.schemaTokens, plan.messageBudgetTokens + plan.schemaTokens),
+						responseIsIncomplete: true,
+					},
+				};
+			}
+			if (plan.messages.length !== messages.length || plan.shrankNewestResults) {
+				messages.splice(0, messages.length, ...plan.messages.map(entry => entry.message));
+			}
+			if (plan.evictedResults > 0) {
+				run.activity({ kind: 'note', label: `Evicted ${plan.evictedResults} earlier tool result${plan.evictedResults === 1 ? '' : 's'} to fit the context window`, reason: `${plan.evictedCalls} call${plan.evictedCalls === 1 ? '' : 's'}, oldest first; about ${plan.messageTokens} of ${plan.messageBudgetTokens} tokens for messages are in use` });
+			}
+			if (plan.evictedHistory > 0 || plan.droppedWorkspaceContext) {
+				run.activity({ kind: 'note', label: `Dropped ${plan.evictedHistory} earlier conversation message${plan.evictedHistory === 1 ? '' : 's'}${plan.droppedWorkspaceContext ? ' and the retrieved workspace context' : ''} to fit the context window` });
+			}
+			if (plan.shrankNewestResults) {
+				run.activity({ kind: 'note', label: 'Cut the newest tool result further to fit the context window' });
+			}
+			run.setContextBudget(budgetSlices(built.budget, plan, kinds, schemaTokens));
+
 			run.snapshot(snapshotForJournal(turn + 1, modelIdentifier, messages, tools));
 			this._promptCacheService.notePrompt(request.sessionResource.toString(), messages);
 
+			const maxTokens = this._outputCap(plan);
 			const requestOptions = constrained
-				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools) } }
-				: { tools };
+				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools), maxTokens } }
+				: { tools, modelOptions: { maxTokens } };
 			const requestDigest = digestValue(messages);
 			const traceToolCalls: IOnyxTraceToolCall[] = [];
-			const recordTurn = (responseText: string, finishReason: string | undefined, error: boolean, seedHonoured: boolean | undefined) => run.record({
+			const recordTurn = (responseText: string, finishReason: string | undefined, error: boolean, seedHonoured: boolean | undefined, ending?: OnyxStreamEnding) => run.record({
 				kind: 'traceTurn',
 				v: ONYX_TRACE_VERSION,
 				turn: turn + 1,
 				requestDigest,
 				responseText: responseText.length > MAX_SNAPSHOT_CHARS ? `${responseText.slice(0, MAX_SNAPSHOT_CHARS)}… [truncated]` : responseText,
-				streamEnd: classifyStreamEnd(finishReason, error),
+				streamEnd: classifyStreamEnd(finishReason, error, ending),
 				toolCalls: traceToolCalls,
 				seed: { requested: profile.seed ?? null, honoured: profile.seed === undefined ? 'unknown' : seedHonoured ?? 'unknown' },
 			});
@@ -203,29 +309,95 @@ export class OnyxAgentLoop {
 			// a tool call the model wrote as prose can be recognized and executed
 			// instead of shown to the user as raw JSON. Constrained turns stream
 			// nothing: the whole turn is one envelope, parsed when complete.
-			const textStream = new OnyxAssistantTextStream(
-				tools.map(tool => tool.name),
-				text => {
-					if (!constrained) {
-						progress([{ kind: 'markdownContent', content: new MarkdownString(text) }]);
-					}
-				},
-			);
-			let streamOutcome: { finishReason?: string; seedHonoured?: boolean } | undefined;
+			const showText = (text: string) => {
+				if (!constrained) {
+					progress([{ kind: 'markdownContent', content: new MarkdownString(text) }]);
+				}
+			};
+			const textStream: IOnyxAssistantTextStream = repairsText ? this._createTextStream(tools.map(tool => tool.name), showText) : new OnyxPlainTextStream(showText);
+			// A reasoning model's thinking is taken out before the text reaches anything that reads it (C4):
+			// from `<think>` tags in the text, or from the part of its own a runtime sends it in.
+			const reasoning = this._createReasoningFilter();
+			// A constrained turn is one JSON object. Its answer is read out and shown as it arrives (C6); a
+			// tool action shows nothing until it runs.
+			const envelopeAnswer = constrained ? this._createEnvelopeAnswerStream() : undefined;
+			const showAnswer = (text: string) => {
+				const shown = envelopeAnswer?.push(text);
+				if (shown) {
+					progress([{ kind: 'markdownContent', content: new MarkdownString(shown) }]);
+				}
+			};
+			let streamOutcome: Partial<IOnyxStreamOutcome> | undefined;
 			try {
 				for await (const part of response.stream) {
 					for (const item of Array.isArray(part) ? part : [part]) {
 						if (item.type === 'text') {
-							textStream.append(item.value);
+							const answer = reasoning.push(item.value);
+							if (answer) {
+								textStream.append(answer);
+								showAnswer(answer);
+							}
+						} else if (item.type === 'thinking') {
+							reasoning.addReasoning(Array.isArray(item.value) ? item.value.join('') : item.value);
 						} else if (item.type === 'tool_use') {
 							toolUses.push(item);
 						}
 					}
 				}
-				streamOutcome = await response.result as { finishReason?: string; seedHonoured?: boolean } | undefined;
+				streamOutcome = await response.result as Partial<IOnyxStreamOutcome> | undefined;
 			} catch (err) {
 				recordTurn(textStream.finish().raw, undefined, true, undefined);
+				if (!overflowRetried && !token.isCancellationRequested && (err instanceof OnyxContextOverflowError || (err instanceof Error && isContextOverflowError(err.message)))) {
+					// The runtime allocated less than the numbers said. What was just sent is now known not to
+					// fit: budget against that, which drops earlier results, and send this turn once more.
+					overflowRetried = true;
+					const rejectedTokens = plan.messageTokens + plan.schemaTokens;
+					contextTokens = Math.max(1, Math.min(contextTokens - 1, rejectedTokens));
+					this._profileService.reportContextOverflow(modelKey, contextTokens);
+					run.activity({ kind: 'note', label: 'The runtime rejected the prompt as too long', reason: `it was about ${rejectedTokens} tokens; budgeting this model at ${contextTokens} tokens from now on and retrying once`, ok: false });
+					turn--;
+					continue;
+				}
 				throw err;
+			}
+
+			// A reply that was cut off or went silent is not a reply (B12, I-11). Whatever arrived of it stays
+			// visible as it streamed; none of it is parsed for a tool call, run, staged or called complete.
+			const thought = reasoning.finish();
+			if (thought.text) {
+				textStream.append(thought.text);
+				showAnswer(thought.text);
+			}
+			if (thought.reasoning) {
+				// Shown, and that is all: it is not parsed, not run and not sent back to the model.
+				run.activity({ kind: 'note', label: 'Model reasoning', reason: elideMiddle(thought.reasoning, MAX_REASONING_NOTE_CHARS) });
+			}
+			// Thinking that was opened and never closed means the reply stopped before its answer, whatever
+			// the stream said about how it ended: the output cap can cut a model off mid-thought.
+			const incomplete = this._incompleteEnding(streamOutcome) ?? (thought.unterminated ? 'thinking' : undefined);
+			if (incomplete) {
+				recordTurn(textStream.finish().raw, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured, incomplete === 'thinking' ? 'truncated' : incomplete);
+				run.activity({
+					kind: 'note',
+					label: incomplete === 'stalled' ? 'The model stopped responding' : incomplete === 'thinking' ? 'The model\'s reply ended while it was still thinking' : 'The model\'s reply was cut off before it finished',
+					reason: incomplete === 'stalled'
+						? 'nothing arrived within the deadline and the request was stopped; nothing from this reply was run or staged'
+						: incomplete === 'thinking'
+							? 'its reasoning was never closed, so there is no answer; nothing from this reply was run or staged'
+							: 'the stream ended without a finish signal; nothing from this reply was run or staged',
+					ok: false,
+				});
+				run.complete('failed');
+				return {
+					errorDetails: {
+						message: incomplete === 'stalled'
+							? localize('onyx.agent.replyStalled', "The model stopped sending anything, so the request was stopped. Nothing from that reply was run or staged. Check that the runtime is still running, then send the request again.")
+							: incomplete === 'thinking'
+								? localize('onyx.agent.replyStillThinking', "The model's reply ended while it was still thinking, before it gave an answer. Nothing from that reply was run or staged. A reasoning model can use its whole output allowance on thinking; send the request again, or use a model with a larger context.")
+								: localize('onyx.agent.replyTruncated', "The model's reply ended before it was finished: the connection closed without a finish signal. Nothing from that reply was run or staged. You can send the request again."),
+						responseIsIncomplete: true,
+					},
+				};
 			}
 
 			let { text: assistantText, toolCall: textToolCall, raw: rawTurnText } = textStream.finish();
@@ -245,13 +417,17 @@ export class OnyxAgentLoop {
 				} else if (envelope.kind === 'answer') {
 					assistantText = envelope.text;
 					textToolCall = undefined;
-					if (assistantText) {
-						progress([{ kind: 'markdownContent', content: new MarkdownString(assistantText) }]);
+					// Most of the answer was shown as it streamed; what is left is whatever was not.
+					const shown = envelopeAnswer?.shown ?? '';
+					const rest = assistantText.startsWith(shown) ? assistantText.slice(shown.length) : shown ? '' : assistantText;
+					if (rest) {
+						progress([{ kind: 'markdownContent', content: new MarkdownString(rest) }]);
 					}
 				} else {
-					// Degrade honestly: show what the model said instead of guessing.
+					// Degrade honestly: show what the model said instead of guessing. If an answer was already
+					// streaming, it has been shown and is not repeated as raw JSON.
 					run.activity({ kind: 'note', label: 'Constrained turn did not match the envelope', ok: false });
-					if (assistantText) {
+					if (assistantText && !envelopeAnswer?.shown) {
 						progress([{ kind: 'markdownContent', content: new MarkdownString(assistantText) }]);
 					}
 				}
@@ -272,7 +448,9 @@ export class OnyxAgentLoop {
 
 			if (toolUses.length === 0) {
 				recordTurn(assistantText, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured);
-				this._reportVerification(run, errorsBefore, anyToolRan);
+				if (configuration.verificationFeedback) {
+					this._reportVerification(run, errorsBefore, anyToolRan);
+				}
 				run.complete('completed');
 				return {};
 			}
@@ -288,13 +466,14 @@ export class OnyxAgentLoop {
 				const toolUse: IChatResponseToolUsePart = unwrapped.name === rawToolUse.name && unwrapped.parameters === rawToolUse.parameters
 					? rawToolUse
 					: { ...rawToolUse, name: unwrapped.name, parameters: unwrapped.parameters };
-				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, run, progress, token);
+				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, tools, run, progress, token);
+				run.noteToolResult(toolUse.name, resultText);
 				traceToolCalls.push({ name: toolUse.name, argumentsDigest: digestValue(toolUse.parameters), resultDigest: traceDigest(resultText), ok });
 				// Small models drown in raw tool output; keep head and tail
 				// (signatures and errors) and mark the elided middle.
 				messages.push({
 					role: ChatMessageRole.User,
-					content: [{ type: 'tool_result', toolCallId: toolUse.toolCallId, value: [{ type: 'text', value: elideMiddle(resultText, toolResultBudget(profile.promptStyle)) }] }],
+					content: [{ type: 'tool_result', toolCallId: toolUse.toolCallId, value: [{ type: 'text', value: elideMiddle(resultText, configuration.toolResultChars) }] }],
 				});
 			}
 			recordTurn(assistantText, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured);
@@ -378,18 +557,86 @@ export class OnyxAgentLoop {
 		}
 	}
 
-	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, run: ReturnType<IOnyxControlPlaneService['beginRun']>, progress: (parts: IChatProgress[]) => void, token: CancellationToken): Promise<{ text: string; ok: boolean }> {
+	/** What the trace says the run was configured with: the configuration itself, its hash, and where it came from (L4). */
+	protected _harnessRecord(harness: IOnyxResolvedHarness): IOnyxTraceHeader['harness'] {
+		return {
+			configurationHash: harness.hash,
+			configuration: { ...harness.configuration },
+			source: harness.source,
+			...(harness.requested ? { requested: `${harness.requested.manifest}/${harness.requested.name}` } : {}),
+			...(harness.refused ? { refused: harness.refused } : {}),
+		};
+	}
+
+	/** What decides, as a reply streams, how much of it is withheld in case it is a tool call written as text. */
+	protected _createTextStream(offeredToolNames: readonly string[], emit: (text: string) => void): OnyxAssistantTextStream {
+		return new OnyxAssistantTextStream(offeredToolNames, emit);
+	}
+
+	/** What reads a constrained turn's answer out of its envelope while the envelope is still arriving. */
+	protected _createEnvelopeAnswerStream(): OnyxEnvelopeAnswerStream {
+		return new OnyxEnvelopeAnswerStream();
+	}
+
+	/** What separates a reasoning model's thinking from its answer as the reply streams. */
+	protected _createReasoningFilter(): OnyxReasoningFilter {
+		return new OnyxReasoningFilter();
+	}
+
+	/** What may be sent this turn, and what had to go to make it fit. */
+	protected _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number): IOnyxTurnPlan {
+		return planTurn({ messages, contextTokens, schemaTokens, estimate: estimateMessageTokens });
+	}
+
+	/** The output cap sent with the request: the room the plan set aside for the reply. */
+	protected _outputCap(plan: IOnyxTurnPlan): number | undefined {
+		return plan.maxTokens;
+	}
+
+	/** `truncated` or `stalled` when the stream's own account says the reply is incomplete; undefined otherwise. */
+	protected _incompleteEnding(outcome: Partial<IOnyxStreamOutcome> | undefined): 'truncated' | 'stalled' | undefined {
+		return outcome?.ending === 'truncated' || outcome?.ending === 'stalled' ? outcome.ending : undefined;
+	}
+
+	/** What is wrong with a call's arguments, against the schema the tool was advertised with. Nothing is coerced. */
+	protected _argumentProblems(toolUse: IChatResponseToolUsePart, schema: object | undefined): string[] {
+		return validateToolArguments(schema, toolUse.parameters);
+	}
+
+	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, tools: readonly IRequestTool[], run: ReturnType<IOnyxControlPlaneService['beginRun']>, progress: (parts: IChatProgress[]) => void, token: CancellationToken): Promise<{ text: string; ok: boolean }> {
 		const toolId = toolIdsByName.get(toolUse.name);
 		if (!toolId) {
 			run.activity({ kind: 'toolCall', label: toolUse.name, reason: 'unknown tool requested by the model', ok: false });
 			return { text: `Error: unknown tool '${toolUse.name}'. Available tools: ${[...toolIdsByName.keys()].join(', ')}`, ok: false };
 		}
+		// The arguments are checked against the schema the model was shown, here, before any tool sees them
+		// (B12, I-06): a call that does not match is answered and never dispatched.
+		const problems = this._argumentProblems(toolUse, tools.find(tool => tool.name === toolUse.name)?.inputSchema);
+		if (problems.length > 0) {
+			run.activity({ kind: 'toolCall', label: toolUse.name, reason: `arguments do not match the tool's schema: ${problems[0]}`, ok: false });
+			return { text: `Error: the arguments for ${toolUse.name} do not match its schema: ${problems.join('; ')}. Nothing was run. Call the tool again with corrected arguments.`, ok: false };
+		}
 		run.activity({ kind: 'toolCall', label: toolUse.name });
+		const parameters = typeof toolUse.parameters === 'object' && toolUse.parameters !== null ? toolUse.parameters : {};
+		if (this._needsApprovalPerCall(toolId)) {
+			// A network tool is not Onyx's to implement, so the gate stands here: one approval for this call,
+			// showing the tool and the arguments it will be called with (DEC-03).
+			const approved = await this._terminalService.confirmExecution({
+				kind: 'network',
+				subject: `Tool: ${toolUse.name} ${JSON.stringify(parameters)}`,
+				configuredBy: localize('onyx.agent.networkToolsSetting', "your setting {0}", ONYX_NETWORK_TOOLS_SETTING),
+				runId: run.runId,
+			});
+			if (!approved) {
+				run.activity({ kind: 'toolResult', label: toolUse.name, ok: false, reason: 'denied by the user' });
+				return { text: `Error: the user denied this ${toolUse.name} call. Do not retry it; continue without it or ask the user.`, ok: false };
+			}
+		}
 		try {
 			const result = await this._toolsService.invokeTool({
 				callId: toolUse.toolCallId || generateUuid(),
 				toolId,
-				parameters: typeof toolUse.parameters === 'object' && toolUse.parameters !== null ? toolUse.parameters : {},
+				parameters,
 				context: { sessionResource: request.sessionResource },
 				chatRequestId: request.requestId,
 				userSelectedTools: request.userSelectedTools,
@@ -426,28 +673,59 @@ export class OnyxAgentLoop {
 		}]);
 	}
 
-	private _selectTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined, profile: IOnyxModelProfile): { tools: IRequestTool[]; toolIdsByName: Map<string, string> } {
+	/**
+	 * The tools this run advertises. Capability gating and the user's and the
+	 * project's exclusions come first (`_candidateTools`); the slot policy
+	 * (`selectToolSlots`) then reserves the six essential tools, fills the
+	 * spare slots in the documented order, and refuses when an essential tool
+	 * is unavailable.
+	 */
+	protected _selectTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined, profile: IOnyxModelProfile): OnyxSelectedTools {
+		return selectToolSlots({
+			...this._candidateTools(request, metadata),
+			maxTools: profile.maxTools,
+			requested: requestedOptionalTools(request.message, this._playbookService.playbooks.get().map(entry => entry.playbook.name)),
+		});
+	}
+
+	/** Every tool the core registry offers this model, before any Onyx rule is applied. */
+	protected _registeredTools(metadata: ILanguageModelChatMetadata | undefined): IToolData[] {
+		return [...this._toolsService.getTools(metadata)];
+	}
+
+	/** Whether one call to this tool needs its own approval, asked here because the tool is not Onyx's. */
+	protected _needsApprovalPerCall(toolId: string): boolean {
+		return needsApprovalPerCall(toolId);
+	}
+
+	/** Every tool the registry offers this model, split into what may be advertised and what was excluded, with the reason. */
+	protected _candidateTools(request: IChatAgentRequest, metadata: ILanguageModelChatMetadata | undefined): { available: IOnyxSelectableTool[]; excluded: IOnyxToolExclusion[] } {
 		const enabled = request.userSelectedTools;
 		const disabledByProject = new Set(this._projectConfigService.resolved.get().config.disabledTools ?? []);
-		const all = [...this._toolsService.getTools(metadata)]
-			.filter(tool => !enabled || enabled[tool.id] !== false)
-			.filter(tool => !disabledByProject.has(tool.id) && !disabledByProject.has(tool.toolReferenceName ?? ''))
-			.filter(tool => tool.id.startsWith('onyx_') || !(REPLACED_CORE_TOOLS.test(tool.id) || REPLACED_CORE_TOOLS.test(tool.toolReferenceName ?? '')))
-			.filter(tool => !!tool.modelDescription);
-		all.sort((a, b) => toolPriority(a) - toolPriority(b));
+		// The capability contract comes first (B3, DEC-03): a tool that is not in the reviewed table, or whose
+		// gate is not met, never becomes a candidate, whatever registered it and whatever the settings say.
+		const contractOptions = { networkTools: this._configurationService.getValue<boolean>(ONYX_NETWORK_TOOLS_SETTING) === true };
+		const candidates = this._registeredTools(metadata)
+			.filter(tool => !!tool.modelDescription)
+			.filter(tool => admitTool({ id: tool.id, name: tool.toolReferenceName ?? tool.id, source: tool.source.type === 'internal' || tool.source.type === 'extension' || tool.source.type === 'mcp' ? tool.source.type : 'other' }, contractOptions).admitted)
+			// Onyx's own tools claim their names first.
+			.sort((a, b) => Number(b.id.startsWith('onyx_')) - Number(a.id.startsWith('onyx_')));
 
-		const tools: IRequestTool[] = [];
-		const toolIdsByName = new Map<string, string>();
-		for (const tool of all.slice(0, profile.maxTools)) {
-			const name = sanitizeToolName(tool.toolReferenceName ?? tool.id, toolIdsByName);
-			toolIdsByName.set(name, tool.id);
-			tools.push({
-				name,
-				description: tool.modelDescription,
-				inputSchema: tool.inputSchema,
-			});
+		const available: IOnyxSelectableTool[] = [];
+		const excluded: IOnyxToolExclusion[] = [];
+		const namesTaken = new Map<string, string>();
+		for (const tool of candidates) {
+			const name = sanitizeToolName(tool.toolReferenceName ?? tool.id, namesTaken);
+			namesTaken.set(name, tool.id);
+			if (enabled && enabled[tool.id] === false) {
+				excluded.push({ name, reason: 'turned off in the chat tool picker' });
+			} else if (disabledByProject.has(tool.id) || disabledByProject.has(tool.toolReferenceName ?? '')) {
+				excluded.push({ name, reason: 'disabled by "disabledTools" in .onyx/config.json' });
+			} else {
+				available.push({ id: tool.id, name, description: tool.modelDescription, inputSchema: tool.inputSchema });
+			}
 		}
-		return { tools, toolIdsByName };
+		return { available, excluded };
 	}
 
 	private _resolveModelIdentifier(request: IChatAgentRequest): string | undefined {
@@ -479,6 +757,29 @@ export class OnyxAgentLoop {
 		return DEFAULT_PROFILE;
 	}
 }
+
+/** The message the prompt builder adds for retrieved workspace context: background, and the first thing to go when room is short. */
+function isWorkspaceContext(message: IChatMessage): boolean {
+	const first = message.content[0];
+	return first?.type === 'text' && first.value.startsWith('[Workspace context');
+}
+
+/** The context budget as the Control Plane shows it: the builder's breakdown, with what this turn actually carries. */
+function budgetSlices(built: readonly IOnyxBudgetSlice[], plan: IOnyxTurnPlan, kinds: ReadonlyMap<IChatMessage, OnyxBudgetedKind>, schemaTokens: number): IOnyxBudgetSlice[] {
+	const tokensOf = (kind: OnyxBudgetedKind) => plan.messages.filter(entry => (kinds.get(entry.message) ?? 'turn') === kind).reduce((sum, entry) => sum + estimateMessageTokens(entry.message), 0);
+	return built.map(slice => {
+		switch (slice.category) {
+			case 'toolSchemas': return { ...slice, tokens: schemaTokens };
+			case 'toolResults': return { ...slice, tokens: tokensOf('turn') };
+			case 'history': return { ...slice, tokens: tokensOf('history') };
+			case 'workspace': return { ...slice, tokens: tokensOf('workspace') };
+			default: return slice;
+		}
+	});
+}
+
+/** How much of a model's thinking one timeline note carries: its start and its end. */
+const MAX_REASONING_NOTE_CHARS = 4000;
 
 const MAX_SNAPSHOT_CHARS = 64 * 1024;
 
@@ -513,38 +814,15 @@ function snapshotForJournal(turn: number, modelIdentifier: string, messages: rea
 	};
 }
 
-/** Lower is more important; the cap keeps the tools a small model needs most. */
-function toolPriority(tool: IToolData): number {
-	if (tool.id === ONYX_RETRIEVAL_TOOL_ID || tool.id === ONYX_MEMORY_TOOL_ID || tool.id === ONYX_EDIT_TOOL_ID || tool.id === ONYX_TERMINAL_TOOL_ID || tool.id === ONYX_DOCS_TOOL_ID) {
-		// Onyx's own tools are pinned: symbol-aware lookup is the highest-value
-		// read, the memory tool is how learned facts survive the session, and
-		// the staged edit + gated terminal tools are the agent's only write
-		// paths — all must survive even the tightest small-model tool cap.
-		return 0;
-	}
-	if ((tool.toolReferenceName ?? tool.id) === 'readFile') {
-		// The read path is how a small model quotes code for its edits; it is
-		// picked explicitly, never left to a regex tie-break.
-		return 1;
-	}
-	if (tool.id === ONYX_PLAYBOOK_TOOL_ID) {
-		return 1;
-	}
-	const id = tool.id.toLowerCase();
-	if (/edit|apply|replace/.test(id)) { return 0; }
-	if (/read|open/.test(id)) { return 1; }
-	if (/search|grep|find|list/.test(id)) { return 2; }
-	if (/terminal|run|execute/.test(id)) { return 3; }
-	if (/todo|task/.test(id)) { return 4; }
-	return 5;
+/** A tool that passed gating and exclusions, under the unique name the model will see. */
+export interface IOnyxSelectableTool {
+	readonly id: string;
+	readonly name: string;
+	readonly description: string;
+	readonly inputSchema: IRequestTool['inputSchema'];
 }
 
-/**
- * Core tools that write into the workspace or a shell without Onyx's review
- * or approval surfaces. Onyx replaces them (staged edits, the gated terminal
- * tool), so exposing both would give the model an ungated back door.
- */
-const REPLACED_CORE_TOOLS = /^(copilot_)?(runInTerminal|sendToTerminal|shell)$|editFile|applyPatch|insert_edit/i;
+export type OnyxSelectedTools = OnyxToolSlotSelection<IOnyxSelectableTool>;
 
 /**
  * A tool's error, trimmed to something a timeline row and one chat line can

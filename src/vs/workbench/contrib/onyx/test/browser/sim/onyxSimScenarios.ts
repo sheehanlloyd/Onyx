@@ -95,10 +95,46 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 	// exceed the budget and every request must carry max_tokens (I-04).
 	scenario('audit-h6-context-budget', 'Run the checks until they pass.', Array.from({ length: 16 }, (): OnyxSimEpisode['turns'][number] => ({ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } })), {
 		dialogDefault: 'allow-once',
-		profile: { promptStyle: 'compact', contextLength: 2048, maxTools: 8 },
+		profile: { promptStyle: 'compact', contextLength: 4096, maxTools: 8 },
 		faults: Array.from({ length: 16 }, (_, index) => ({ at: 'afterToolDispatch' as const, occurrence: index + 1, step: { kind: 'outputFlood' as const, bytes: 20_000 } })),
 	}),
-	scenario('e2e-readedittest-no-read-tool', 'READEDITTEST src/math.ts', [
-		{ kind: 'text', text: 'I have no read tool: readFile was not offered, so I cannot read the file before editing it.' },
+	// R-31: the model reads the file through Onyx's own read tool, then proposes an edit whose SEARCH text is
+	// the line it read back; the staged hunk must equal the content read.
+	scenario('e2e-readedittest', 'READEDITTEST src/math.ts', [
+		{ kind: 'toolCall', tool: 'readFile', arguments: { path: 'src/math.ts' }, id: 'read_1' },
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn a + b; // edited-by-mock' }, id: 'edit_after_read' },
+		{ kind: 'text', text: 'Read the file, then staged one edit for review.' },
 	]),
+	// R-24: the SEARCH text is copied from the numbered read result, prefixes included. They are decoded
+	// because they are provably the tool's own wrapper for the lines as they are in the file.
+	scenario('b1-numbered-search-is-decoded', 'Change addNumbers in src/math.ts', [
+		{ kind: 'toolCall', tool: 'readFile', arguments: { path: 'src/math.ts', startLine: 1, endLine: 3 }, id: 'read_1' },
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '1| export function addNumbers(a: number, b: number): number {\n2| \treturn a + b;', replace: 'export function addNumbers(a: number, b: number): number {\n\treturn b + a;' }, id: 'edit_1' },
+		{ kind: 'text', text: 'Staged.' },
+	]),
+	// R-30, read side: traversal, an absolute path, a symbolic link out of the workspace, and searches aimed
+	// at the file outside it. Every call is refused or finds nothing; the canary never reaches the model.
+	scenario('b1-read-escape-attempts', 'Show me the secret file', [
+		{ kind: 'toolCall', tool: 'readFile', arguments: { path: '../outside/secret.txt' }, id: 'read_1' },
+		{ kind: 'toolCall', tool: 'readFile', arguments: { path: '/outside/secret.txt' }, id: 'read_2' },
+		{ kind: 'toolCall', tool: 'readFile', arguments: { path: 'link-outside.txt' }, id: 'read_3' },
+		{ kind: 'toolCall', tool: 'listDirectory', arguments: { path: '../outside' }, id: 'list_1' },
+		{ kind: 'toolCall', tool: 'grep', arguments: { pattern: 'CANARY' }, id: 'grep_1' },
+		{ kind: 'toolCall', tool: 'findFiles', arguments: { pattern: '**/*.txt' }, id: 'find_1' },
+		{ kind: 'text', text: 'I could not read anything outside the workspace.' },
+	]),
+	// R-36: the project excludes an essential tool. The run refuses and names it; no request is sent.
+	scenario('b1-essential-tool-excluded', 'Change addNumbers in src/math.ts', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' }, id: 'edit_1' },
+	], {
+		projectConfig: { disabledTools: ['onyx_terminal'] },
+	}),
+	// R-36: a profile with fewer than six slots gets the read tools and nothing that writes or executes.
+	scenario('b1-read-only-profile', 'What does addNumbers do?', [
+		{ kind: 'toolCall', tool: 'readFile', arguments: { path: 'src/math.ts' }, id: 'read_1' },
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' }, id: 'edit_1' },
+		{ kind: 'text', text: 'It adds two numbers.' },
+	], {
+		profile: { maxTools: 3 },
+	}),
 ];

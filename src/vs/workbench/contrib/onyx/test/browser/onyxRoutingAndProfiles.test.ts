@@ -14,6 +14,7 @@ import { evictOldestHistory } from '../../browser/agent/onyxPromptBuilder.js';
 import { elideMiddle } from '../../common/onyxContextCompression.js';
 import { commonPrefixTokens } from '../../browser/agent/onyxPromptCache.js';
 import { IOnyxKnownModel } from '../../browser/model/onyxLanguageModelProvider.js';
+import { IOnyxDatasheetService } from '../../browser/models/onyxDatasheetService.js';
 import { IOnyxProfileService, OnyxProfileService } from '../../browser/profiles/onyxProfileService.js';
 import { OnyxRouterService } from '../../browser/routing/onyxRouterService.js';
 import { IObservable, observableValue } from '../../../../../base/common/observable.js';
@@ -32,6 +33,7 @@ function known(key: string, parameterB: number, profile?: Partial<IOnyxModelProf
 		key,
 		discovered: discovered(key, parameterB),
 		profile: { toolCallQuality: 0.85, contextLength: 16384, maxTools: 8, temperature: 0.2, promptStyle: 'full', family: 'test', parameterB, supportsVision: false, ...profile },
+		location: { transport: 'loopback', execution: 'local' },
 	};
 }
 
@@ -53,6 +55,7 @@ class StubProfileService implements IOnyxProfileService {
 	reportOutcome(): void { }
 	reportFimMeasurement(): void { }
 	reportConstrainedOutcome(): void { }
+	reportContextOverflow(): void { }
 	reportBenchScore(): void { }
 	setOverride(): void { }
 	exportAll(): { stats: Record<string, IOnyxObservedStats>; overrides: Record<string, Partial<IOnyxModelProfile>> } { return { stats: {}, overrides: {} }; }
@@ -234,9 +237,15 @@ suite('OnyxRoutingAndProfiles', () => {
 
 	suite('profile service', () => {
 
+		/** A datasheet service with nothing stored: these tests are about what is observed in use, not what was measured. */
+		const NO_DATASHEETS: IOnyxDatasheetService = {
+			_serviceBrand: undefined, onDidChange: Event.None, current: () => undefined, stored: () => undefined,
+			measure: () => Promise.reject(new Error('not used here')), store: () => { }, exportAll: () => ({}),
+		};
+
 		test('measured tool-call failures harden the harness', () => {
 			const storage = store.add(new InMemoryStorageService());
-			const service = store.add(new OnyxProfileService(storage));
+			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS));
 			const model = discovered('m', 32);
 			const before = service.getProfile('k', model);
 			for (let i = 0; i < 6; i++) {
@@ -250,7 +259,7 @@ suite('OnyxRoutingAndProfiles', () => {
 
 		test('cold and warm first tokens keep separate EMAs', () => {
 			const storage = store.add(new InMemoryStorageService());
-			const service = store.add(new OnyxProfileService(storage));
+			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS));
 			const measure = (ttft: number, wasCold: boolean) => service.reportMeasurement({ modelKey: 'k', requestedModelId: 'm', timeToFirstTokenMs: ttft, tokensPerSecond: 50, generationMs: 1000, toolCallCount: 0, toolCallParseFailures: 0, promptTokens: 10, completionTokens: 10, finishReason: 'stop', wasCold });
 			measure(4000, true);
 			measure(150, false);
@@ -263,7 +272,7 @@ suite('OnyxRoutingAndProfiles', () => {
 
 		test('fim latency is an EMA and overrides win over everything', () => {
 			const storage = store.add(new InMemoryStorageService());
-			const service = store.add(new OnyxProfileService(storage));
+			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS));
 			service.reportFimMeasurement('k', 100);
 			service.reportFimMeasurement('k', 200);
 			const stats = service.getStats('k')!;

@@ -17,5 +17,5 @@
 		{ "output": "docs/images/chart-*.svg", "command": "node test/onyx/run-benchmarks.mts --skip-models --json-out bench.json && node test/onyx/make-charts.mts --manifest manifest.json bench.json" }
 	],
 	"hypotheses": [],
-	"notes": "An example only: the task set and configuration hashes are placeholders until L4 and L10 produce real ones."
+	"notes": "An example only. A harness configuration's `configuration` holds the switches to change (docs/SUPPORT.md, \"The harness configuration\"); its `hash` is the one the run's trace header reports for the configuration that ran. The hashes here are placeholders: the configuration hash until a campaign records one, the task-set hash until L10."
 }

@@ -78,6 +78,9 @@ never conflict — and upstream's root copies are left byte-identical. Do not
 | `eslint.config.js` | Two additive edits in the `test/**` block: `'test/**/*.mts'` joins the `files` glob (Onyx's harness scripts are `.mts`, so they were silently unlinted), and a `code-import-patterns` target for `test/onyx/**` restricted to `node:*`, `@playwright/*`, `test/onyx/**` (the harness scripts import each other) and node modules — the harness must never import product code. On conflict: re-add both inside upstream's block. Since 1.147.0 upstream lints with **oxlint**, not ESLint: `oxlint.config.ts` converts this file, so the same rules run under the same names (`pnpm run oxlint <paths>`), the local plugin and the header rule included, and a warning now fails the run. ESLint itself is no longer installed. |
 | `build/lib/extensions.ts` | `'copilot'` in `excludedExtensions` so the packaged product does not ship another vendor's assistant. Upstream lists it there itself as of 1.147.0, so the file is identical to upstream's; if a later merge drops the entry, re-add it. |
 | `build/gulpfile.extensions.ts` | `compileCopilotExtensionBuildTask` is no longer referenced by the vscode build (the export stays for upstream compatibility). |
+| `src/vs/platform/windows/electron-main/windowsMainService.ts` | One constant (`ONYX_EXCLUDES_AGENTS_WINDOW`) above the class and one guard at the top of `openAgentsWindow` (B3): the Agents window is a second workbench built around upstream's Agent Host, which Onyx excludes, and it loads none of Onyx's contributions. Every route to it (the command, `--agents`, a protocol link) ends at the guard: an ordinary empty window when there is none, nothing otherwise. On conflict: take upstream, then re-add the constant and the guard. The packaged smoke fails if the guard is lost (its last check). |
+| `scripts/code.sh` | One block before the launch line (B1): `--disable-extension=GitHub.copilot-chat` is passed unless `ONYX_DEV_COPILOT` is set, so a development launch runs the tools the packaged product ships and nothing depends on the Copilot extension's read tools. On conflict: take upstream, then re-add the block and `$DISABLE_COPILOT_EXTENSION` on the `exec` line. `scripts/code.bat` is untouched: Windows is not a supported platform for the alpha (DEC-02). |
+| `package.json` | Two `scripts` lines (B1): `compile` is `pnpm run compile-client` (upstream: `compile-client` and `compile-copilot` in parallel), and `compile-with-copilot` holds upstream's line. `compile-copilot` itself is unchanged, for a developer who opts in with `ONYX_DEV_COPILOT=1`. No dependency and no lockfile is touched. On conflict: take upstream, then re-apply the two lines. |
 | `src/vs/platform/accessibility/browser/accessibleView.ts` | 2 additive `AccessibleViewProviderId` members: `OnyxControlPlane`, `OnyxInlineEdit`. |
 | `src/vs/workbench/contrib/accessibility/browser/accessibilityConfiguration.ts` | 2 additive `AccessibilityVerbositySettingId` members plus their two `...baseVerbosityProperty` registrations (`accessibility.verbosity.onyxControlPlane`, `…onyxInlineEdit`). |
 | `build/lib/stylelint/vscode-known-variables.json` | 6 additive entries (`--vscode-onyx-*`) so stylelint accepts the Onyx theme colors. Inserted in place, **not** re-sorted — sorting the file produces a large, rebase-hostile diff. |
@@ -117,8 +120,33 @@ one. `src/vs/workbench/contrib/onyx/common/onyxConfiguration.ts` calls
   resolves the new-chat session type from the shipped defaults and fails if
   either override stops applying.
 
+- `chat.titleBar.openInAgentsWindow.enabled: false` and `chat.agentsWindowBanner.enabled: false`
+  (B3): the chrome that invites the user into the Agents window, which this product does not open.
+
 If a merge changes one of those setting ids, the override silently stops
 applying; the symptom is Copilot chrome reappearing on a fresh profile.
+
+## Upstream's Agent Host is excluded (B3)
+
+The Agent Host is upstream's utility process for the Copilot SDK harness. With upstream's defaults the
+window asks for it at startup (`AgentHostPrewarmContribution`), the workbench registers its session types
+(`agent-host-copilotcli`, …), language-model vendors and customization harness (`AgentHostContribution`), and
+the host starts a closed-source runtime binary. Onyx turns it off without touching an upstream file:
+
+- `src/vs/workbench/contrib/onyx/browser/onyxAgentHost.ts` is upstream's own `AgentHostEnablementService`
+  constructed with "no Agent Host runtime available", the way the web workbench runs without one.
+  `onyx.contribution.ts` registers it for `IAgentHostEnablementService`. It replaces upstream's
+  registration because Onyx's contribution is imported after
+  `platform/agentHost/browser/agentHostEnablementService.js` in `workbench.desktop.main.ts`, and the last
+  registration of a service wins. **After a merge, check that import order**: if upstream's file is imported
+  later than Onyx's, upstream's implementation wins again.
+- The Agents window has its own entry point (`sessions.desktop.main.ts`) and does not load Onyx's
+  contribution, so it is stopped in the main process (the `windowsMainService.ts` row above).
+
+What catches a regression: the unit suite `OnyxChatDefaults` (the switch reads off; no agent-host session
+type is usable), and the packaged smoke and the end-to-end suite, which fail if an `agenthost.log` appears in
+the profile or if "Open Agents Window" opens the sessions workbench. The Agent Host's code and the SDK's
+platform package are still built into the application bundle; nothing in an Onyx run starts them.
 
 ## Merge of upstream 1.147.0 — 2026-11-20 (DEC-05)
 

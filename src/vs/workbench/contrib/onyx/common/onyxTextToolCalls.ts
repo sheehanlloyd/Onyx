@@ -3,17 +3,33 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { stripReasoning } from './onyxReasoning.js';
+
 /** A tool invocation a model wrote into its prose instead of the tool-call channel. */
 export interface IOnyxTextToolCall {
 	readonly name: string;
 	readonly parameters: object;
 }
 
-/** How much text may be withheld while deciding whether it is a tool envelope. */
-const MAX_HELD_CHARS = 4000;
+/**
+ * How long a reply is withheld while nothing has yet decided whether it is a
+ * tool call (C5). Past this it is shown: holding text back on a guess is how
+ * a fenced answer came to show nothing until it was finished.
+ */
+const MAX_UNDECIDED_CHARS = 400;
+/**
+ * How long a tool call in progress is withheld. More than one reply can
+ * produce under the output cap, so a call is held to its end and runs,
+ * instead of being cut loose half way and shown as JSON.
+ */
+const MAX_HELD_CHARS = 32_000;
 
-/** Wrappers small models put around tool JSON. */
-const ENVELOPE_PREFIXES = ['```', '<tool_call>', '<|tool_call|>', '[TOOL_CALLS]'];
+/** Wrappers some chat templates put around a tool call written as text. */
+const WRAPPER_PREFIXES = ['<tool_call>', '<|tool_call|>', '[TOOL_CALLS]'];
+/** Keys whose value names the tool. */
+const NAME_KEYS = new Set(['tool', 'name', 'tool_name', 'function_name']);
+/** Other keys a tool call written as JSON can open with. */
+const CALL_KEYS = new Set(['function', 'arguments', 'parameters', 'args', 'input', 'parameter']);
 
 /**
  * Recognizes a tool call a model emitted as *text*. Smaller local models
@@ -25,8 +41,13 @@ const ENVELOPE_PREFIXES = ['```', '<tool_call>', '<|tool_call|>', '[TOOL_CALLS]'
  * must be a tool that was actually offered, so ordinary prose that happens to
  * contain JSON is never hijacked.
  */
-export function parseTextToolCall(text: string, offeredToolNames: readonly string[]): IOnyxTextToolCall | undefined {
-	const body = unwrapEnvelope(text.trim());
+export function parseTextToolCall(modelReply: string, offeredToolNames: readonly string[]): IOnyxTextToolCall | undefined {
+	// A call written inside a reasoning model's thinking is a thought, not a call (C4).
+	const thought = stripReasoning(modelReply);
+	if (thought.unterminated) {
+		return undefined;
+	}
+	const body = unwrapEnvelope(thought.text.trim());
 	if (!body.startsWith('{') || !body.endsWith('}')) {
 		return undefined;
 	}
@@ -45,11 +66,17 @@ export function parseTextToolCall(text: string, offeredToolNames: readonly strin
 }
 
 /**
- * Could this text still turn into a tool envelope if more of it arrived?
- * Used to hold back the first characters of a turn rather than streaming a
- * half-written JSON object into the transcript.
+ * Whether the reply so far can still be a tool call written as text, and so
+ * should not be shown yet (C5, R-27).
+ *
+ * Withheld: a known tool-call wrapper; a JSON object whose first key is one
+ * a call opens with, and, when that key names the tool, whose value is still
+ * the start of a tool on offer; the same inside a fence marked `json` or not
+ * marked. Shown at once: a fence with any other language, JSON that is not a
+ * call, and anything that nothing has decided within
+ * {@link MAX_UNDECIDED_CHARS}.
  */
-export function couldBeToolEnvelope(text: string): boolean {
+export function couldBeToolEnvelope(text: string, offeredToolNames?: readonly string[]): boolean {
 	const trimmed = text.trimStart();
 	if (trimmed.length === 0) {
 		return true; // nothing to judge yet
@@ -57,11 +84,67 @@ export function couldBeToolEnvelope(text: string): boolean {
 	if (trimmed.length > MAX_HELD_CHARS) {
 		return false; // whatever this is, stop withholding it
 	}
-	if (trimmed.startsWith('{')) {
-		return true;
+	const undecided = trimmed.length <= MAX_UNDECIDED_CHARS;
+
+	let body = trimmed;
+	if (trimmed.startsWith('`')) {
+		if (trimmed.length < 3) {
+			return '```'.startsWith(trimmed); // "``" could become a fence
+		}
+		if (!trimmed.startsWith('```')) {
+			return false;
+		}
+		const lineEnd = trimmed.indexOf('\n');
+		const info = (lineEnd === -1 ? trimmed.slice(3) : trimmed.slice(3, lineEnd)).trim().toLowerCase();
+		if (lineEnd === -1) {
+			// The fence's language is still arriving. Only `json`, or none, can open a tool call.
+			return undecided && 'json'.startsWith(info);
+		}
+		if (info !== '' && info !== 'json') {
+			return false; // a fence of code in some language: prose, and it streams
+		}
+		body = trimmed.slice(lineEnd + 1).trimStart();
+		if (body.length === 0) {
+			return undecided;
+		}
+	} else {
+		const wrapper = WRAPPER_PREFIXES.find(prefix => prefix.startsWith(trimmed) || trimmed.startsWith(prefix));
+		if (wrapper) {
+			return true; // a known wrapper, or still the start of one
+		}
 	}
-	// A short prefix of a known wrapper is still undecided ("``" could become "```").
-	return ENVELOPE_PREFIXES.some(prefix => prefix.startsWith(trimmed) || trimmed.startsWith(prefix));
+
+	if (!body.startsWith('{')) {
+		return false;
+	}
+	// A JSON object. What it opens with decides.
+	const opening = /^\{\s*"(?<key>[^"\\]*)"\s*:\s*(?<rest>[\s\S]*)$/.exec(body)?.groups;
+	if (!opening) {
+		// The first key has not arrived whole. `{`, `{ "to` and `{"tool"` can still become a call; `{}` and `{ 1` cannot.
+		return undecided && /^\{\s*("[^"\\]*"?\s*)?$/.test(body);
+	}
+	if (NAME_KEYS.has(opening.key)) {
+		// The value has to be, or still be the start of, the name of a tool on offer.
+		const value = /^"(?<name>[^"\\]*)(?<closed>")?/.exec(opening.rest)?.groups;
+		if (!value) {
+			return opening.rest.length === 0 ? true : false;
+		}
+		if (!offeredToolNames) {
+			return true;
+		}
+		return value.closed ? offeredToolNames.includes(value.name) : offeredToolNames.some(name => name.startsWith(value.name));
+	}
+	if (opening.key === 'action') {
+		// The constrained envelope: {"action":"tool",…} or {"action":"answer",…}.
+		const value = /^"(?<action>[^"\\]*)/.exec(opening.rest)?.groups?.action;
+		return value === undefined ? opening.rest.length === 0 : 'tool'.startsWith(value) || 'answer'.startsWith(value) || value === 'tool' || value === 'answer';
+	}
+	if (opening.key === 'type') {
+		// The API's own shape written out as text: {"type":"function","function":{…}}.
+		const value = /^"(?<type>[^"\\]*)/.exec(opening.rest)?.groups?.type;
+		return value === undefined ? opening.rest.length === 0 : 'function'.startsWith(value);
+	}
+	return CALL_KEYS.has(opening.key);
 }
 
 function unwrapEnvelope(text: string): string {
@@ -117,12 +200,40 @@ function extractParameters(source: Record<string, unknown>): object {
 	return {};
 }
 
+/** What a reply's text goes through on its way to the transcript, and what is known about it when the reply ends. */
+export interface IOnyxAssistantTextStream {
+	append(chunk: string): void;
+	/** The prose of the turn, the tool call it turned out to be when it was one, and everything the model emitted. */
+	finish(): { readonly text: string; readonly toolCall: IOnyxTextToolCall | undefined; readonly raw: string };
+}
+
+/**
+ * The reply as it is, shown as it arrives: nothing is withheld and nothing
+ * in it is read as a tool call. What the bare native tool-call protocol
+ * uses (L4), where a call counts only when it comes on the tool channel.
+ */
+export class OnyxPlainTextStream implements IOnyxAssistantTextStream {
+
+	private _text = '';
+
+	constructor(private readonly _emit: (text: string) => void) { }
+
+	append(chunk: string): void {
+		this._text += chunk;
+		this._emit(chunk);
+	}
+
+	finish(): { readonly text: string; readonly toolCall: undefined; readonly raw: string } {
+		return { text: this._text, toolCall: undefined, raw: this._text };
+	}
+}
+
 /**
  * Streams assistant text to the transcript, holding back a leading tool
  * envelope until it is clear whether the turn is prose or a mis-channelled
  * tool call. Everything that is prose still streams token by token.
  */
-export class OnyxAssistantTextStream {
+export class OnyxAssistantTextStream implements IOnyxAssistantTextStream {
 
 	private _held = '';
 	private _deciding = true;
@@ -140,13 +251,18 @@ export class OnyxAssistantTextStream {
 			return;
 		}
 		this._held += chunk;
-		if (couldBeToolEnvelope(this._held)) {
+		if (this._withhold(this._held)) {
 			return;
 		}
 		this._deciding = false;
 		this._text += this._held;
 		this._emit(this._held);
 		this._held = '';
+	}
+
+	/** Whether the reply so far is still withheld. */
+	protected _withhold(soFar: string): boolean {
+		return couldBeToolEnvelope(soFar, this._offeredToolNames);
 	}
 
 	/**

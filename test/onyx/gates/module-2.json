@@ -1,0 +1,420 @@
+{
+	"module": 2,
+	"title": "Module 2: authority, tools and runtime truth",
+	"checks": [
+		{
+			"id": "B1-read-tools",
+			"title": "B1 read-side tools: numbered reads and their decoder (R-24), limits and refusals, containment on the read side (R-30)",
+			"layer": "service",
+			"regressions": [
+				"R-24",
+				"R-30"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxReadTools.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxReadTools"
+			]
+		},
+		{
+			"id": "R-36",
+			"title": "B1 tool-slot policy: six essentials within eight slots, optional order, lower caps, excluded essentials refuse",
+			"layer": "service",
+			"regressions": [
+				"R-36"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxToolSlots.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxToolSlots"
+			]
+		},
+		{
+			"id": "R-01-R-04",
+			"title": "B2 per-invocation shell approval through the dispatch boundary: repository content grants nothing, trust changes nothing, every invocation asks with its exact bytes, legacy grants never run",
+			"layer": "service",
+			"regressions": [
+				"R-01",
+				"R-02",
+				"R-03",
+				"R-04"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxTerminalApproval.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxTerminalApproval|OnyxTerminalPolicy"
+			]
+		},
+		{
+			"id": "R-06",
+			"title": "B4 warnings that know about egress: the sixteen-command bypass list and the script example earn their categories, every warning reaches the prompt as \"looks like\", and each still asks with Run Once or Deny",
+			"layer": "service",
+			"regressions": [
+				"R-06"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxTerminalPolicy.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxShellWords.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxTerminalPolicy|OnyxShellWords|OnyxTerminalApproval"
+			]
+		},
+		{
+			"id": "R-18",
+			"title": "B5 bounded, killable command execution: fifty megabytes of output stay bounded at the process boundary and in the window; a timeout, a cancel, a dispose and a closing window each kill the command",
+			"layer": "node, service",
+			"regressions": [
+				"R-18"
+			],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxCommandExecution.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxTerminalExecution.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxCommandExecution|OnyxTerminalExecution"
+			]
+		},
+		{
+			"id": "R-40",
+			"title": "B5 runner seam: darwin and linux take the POSIX path and run, win32 refuses and starts nothing",
+			"layer": "node",
+			"regressions": [
+				"R-40"
+			],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxCommandRunner.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxCommandRunner"
+			]
+		},
+		{
+			"id": "R-40-source-scan",
+			"title": "B5 runner seam: no Onyx product file outside the seam names a shell path or a signal, or starts a process itself",
+			"layer": "pure",
+			"regressions": [
+				"R-40"
+			],
+			"files": [
+				"test/onyx/checks/r40-runner-seam.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r40-runner-seam.test.mts"
+			]
+		},
+		{
+			"id": "R-16",
+			"title": "B13 context that fits: fifteen large tool results against an 8k window and a runtime that rejects anything larger; every request fits with max_tokens on the wire, whole calls are evicted oldest first and the timeline says so; an overflow is learned from and retried once",
+			"layer": "service",
+			"regressions": [
+				"R-16"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxContextBudget.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxContextBudget"
+			]
+		},
+		{
+			"id": "R-17",
+			"title": "B14 where inference happens: transport and reported execution are labelled separately; by default a cloud-backed model through loopback, a LAN endpoint, an unidentified server and the internet are refused and nothing is sent to them; LAN needs its own opt-in",
+			"layer": "service",
+			"regressions": [
+				"R-17"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxInferenceLocation.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxInferenceLocation"
+			]
+		},
+		{
+			"id": "R-19",
+			"title": "B12 honest stream termination and index freshness: each ending is reported as what it was, a silent request is stopped at its deadline, a cut-off reply is never applied or called complete, and a persisted index is reconciled with the tree or rebuilt",
+			"layer": "node, service",
+			"regressions": [
+				"R-19"
+			],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxStreamTermination.test.ts",
+				"src/vs/platform/onyxRuntime/test/node/onyxWorkspaceIndexer.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxStreamEndings.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxStreamTermination|OnyxWorkspaceIndexer|OnyxStreamEndings"
+			]
+		},
+		{
+			"id": "R-26",
+			"title": "C4 reasoning models: thinking in tags or in a field of its own is taken out before anything is parsed; the tool call after it is recognised; the thinking is a note; a reply that ended mid-thought is reported and not applied",
+			"layer": "pure, node, service",
+			"regressions": [
+				"R-26"
+			],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxReasoningStream.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxReasoning.test.ts",
+				"src/vs/platform/onyxRuntime/test/common/onyxReasoningTranscripts.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxReasoning"
+			]
+		},
+		{
+			"id": "R-27",
+			"title": "C5 streaming for fenced replies: a reply that opens with a code fence is shown as soon as the fence is seen not to be JSON; a tool call written as text is still withheld to its end and run",
+			"layer": "pure",
+			"regressions": [
+				"R-27"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxFencedStreaming.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxFencedStreaming"
+			]
+		},
+		{
+			"id": "R-28-mandatory",
+			"title": "B12 argument validation: a call whose arguments do not match the tool's schema is answered and never dispatched",
+			"layer": "pure, service",
+			"regressions": [
+				"R-28"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxStreamEndings.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxStreamEndings"
+			]
+		},
+		{
+			"id": "R-28-streaming",
+			"title": "C6 incremental constrained-answer streaming (included): the answer is read out of the envelope and shown as it arrives, once and whole",
+			"layer": "pure, service",
+			"regressions": [
+				"R-28"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxConstrainedStreaming.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxConstrainedStreaming"
+			],
+			"scope": {
+				"item": "C6",
+				"when": "included"
+			}
+		},
+		{
+			"id": "C7-index-coverage",
+			"title": "C7 broader index coverage (included): source folders are indexed first, the exclude settings and the root .gitignore are honoured at build and on update, coverage is counted, and the index is persisted in batches",
+			"layer": "node, pure",
+			"regressions": [],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxWorkspaceIndexer.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxIndexOptions.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxWorkspaceIndexer C7|OnyxIndexOptions"
+			],
+			"scope": {
+				"item": "C7",
+				"when": "included"
+			}
+		},
+		{
+			"id": "R-20",
+			"title": "B11 diagnostics that redact what they say they redact: a journal, settings and logs seeded with a sentinel in every content channel produce a default bundle, and a zip, with none of them; the API key is absent even with content included",
+			"layer": "service",
+			"regressions": [
+				"R-20"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxDiagnosticsExport.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxDiagnosticsExport"
+			]
+		},
+		{
+			"id": "R-05-R-59",
+			"title": "B3 tool capability contract at the service layer: the wire carries only contracted tools by default and with the network opt-in (R-05); a stored note needs a confirmation that shows its origin (R-59)",
+			"layer": "service",
+			"regressions": [
+				"R-05",
+				"R-59",
+				"R-36"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxToolContract.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxToolContract"
+			]
+		},
+		{
+			"id": "B3-agent-host",
+			"title": "B3 upstream's Agent Host is excluded: the switch is off and no agent-host session type can start a chat (the packaged smoke and the end-to-end suite check that it never starts)",
+			"layer": "service",
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChatDefaults.test.ts",
+				"src/vs/workbench/contrib/onyx/browser/onyxAgentHost.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxChatDefaults"
+			]
+		},
+		{
+			"id": "R-44",
+			"title": "L4 harness configuration as data: the default configuration is what the loop decided before, 1,000 seeded episodes and every scripted scenario run identically, a requested configuration is followed in a development build and refused in a packaged one, and every trace carries the hash of the configuration that ran",
+			"layer": "pure, node, service",
+			"regressions": [
+				"R-44"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxHarnessConfig.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxHarnessConfigRun.test.ts",
+				"src/vs/platform/onyxRuntime/test/node/onyxLabManifest.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxHarnessConfig|OnyxLabManifest"
+			]
+		},
+		{
+			"id": "R-44-bundle-scan",
+			"title": "L4, DEC-10: the scan for mutants and the simulation rig finds them where they are, finds none in the compiled product folders, and has a marker for every mutant (the packaged smoke runs the same scan over the built app)",
+			"layer": "node",
+			"regressions": [
+				"R-44"
+			],
+			"files": [
+				"test/onyx/checks/r44-bundle-scan.test.mts",
+				"test/onyx/checks/bundle-scan.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r44-bundle-scan.test.mts"
+			]
+		},
+		{
+			"id": "R-45",
+			"title": "L5 model datasheet: the probe suite against mock runtimes of known behaviour reports each behaviour in counts; the profile uses what was measured and labels the rest as defaults; a changed digest or runtime version stops a datasheet being used; an Ollama server's loaded context is read",
+			"layer": "pure, node, service",
+			"regressions": [
+				"R-45"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxDatasheet.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxDatasheetService.test.ts",
+				"src/vs/workbench/contrib/onyx/test/node/onyxDatasheetProbes.test.ts",
+				"src/vs/platform/onyxRuntime/test/node/onyxLoadedModels.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxDatasheet|OnyxLoadedModels"
+			]
+		},
+		{
+			"id": "sim-campaign-20000",
+			"title": "A 20,000-episode campaign with every checker, seeds 1 to 20,000 in ten processes: no violation class outside the baseline table, so none of the invariants this module owns (I-02, I-04, I-06, I-07 read side, I-10, I-11, I-13 output, I-14), whose entries are gone from it",
+			"layer": "service",
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimBaseline.ts",
+				"test/onyx/sim/run-campaign.mts"
+			],
+			"command": [
+				"node",
+				"test/onyx/sim/run-campaign.mts",
+				"--episodes",
+				"20000",
+				"--seed",
+				"1",
+				"--shard",
+				"2000"
+			],
+			"timeoutMs": 3600000
+		},
+		{
+			"id": "module-2-tables",
+			"title": "docs/SUPPORT.md lists exactly the tools the contract can expose and records C6 and C7 as included; no baseline exception is left for an invariant this module owns, and every one left has a Module 3 owner",
+			"layer": "node",
+			"files": [
+				"test/onyx/checks/module2-gate.test.mts",
+				"docs/SUPPORT.md",
+				"test/onyx/sim/baseline-exceptions.json"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/module2-gate.test.mts"
+			]
+		},
+		{
+			"id": "sim-mutants",
+			"title": "Every defect fixed in this module has a resurrection mutant that its script and the seeded campaign detect",
+			"layer": "service",
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutantTable.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim mutants"
+			],
+			"env": {
+				"ONYX_SIM_MUTANT_EPISODES": "2000",
+				"ONYX_SIM_SEED": "1"
+			},
+			"timeoutMs": 1800000
+		}
+	]
+}

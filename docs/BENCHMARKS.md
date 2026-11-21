@@ -114,9 +114,28 @@ no run produced.
 
 **What is measured.** Ten plain-English questions about this repository, each
 paired with the file that actually implements the answer (for example
-*"approval before running a shell command"* → `onyxTerminalPolicy.ts`). Every
-`.ts` file under `src/vs` is indexed with Onyx's own `OnyxBm25Index`. A
+*"approval before running a shell command"* → `onyxTerminalPolicy.ts`). A
 question scores a hit if the right file is in the top 5.
+
+**The corpus is the product's.** Since C7 the index is built by the production
+indexer over the whole repository, under the exclusions the workbench gives it
+when this folder is open (the default `files.exclude` and `search.exclude`
+with this repository's `.vscode/settings.json` merged over them, and the root
+`.gitignore`) and under the default cap. The report states how many files that
+is and how many were eligible. On 2026-11-20 it was 18,205 of 18,205: source,
+tests, documentation and the built-in extensions.
+
+**The current result, and the chart.** On that corpus the index finds 7 of the
+10 files. The chart in the README shows 9 of 10: it was drawn in August 2026,
+when the benchmark indexed only the `.ts` files under `src/vs` (8,673 of them
+then) and the tree was smaller. The difference is the tree, not the corpus:
+the August method run on today's tree (11,863 files) also finds 7, and misses
+the same three. They are `onyxChangeSetService.ts`, which ranks tenth behind
+the README and other prose that describe staging; `onyxTerminalPolicy.ts`,
+behind upstream's own tool-approval tests and the progress reports; and
+`onyxRouterService.ts`, behind upstream's local-model bridge, which arrived
+with the move to 1.147. The chart is redrawn when the retrieval benchmark is
+next published with a manifest (C8).
 
 **The comparison.** The same corpus is searched for the question as a literal
 substring — what an agent without an index falls back to. Natural-language
@@ -170,20 +189,37 @@ would be worse than useless.
 
 ### Terminal classification
 
-A labelled command set — 15 dangerous, 18 everyday — through
-`classifyCommand`. Two rates matter and they trade off: dangerous commands
-caught, and everyday commands wrongly flagged. A classifier that warns on
-everything scores 100% on the first and is worthless.
+These rows are a **regression set, not a safety proof**. They say what the
+classifier recognizes on the commands listed in `run-benchmarks.mts`; they say
+nothing about a command that is not in the set, and a command the classifier
+is silent about has not been shown to be harmless. The classifier only
+decides what the approval prompt says. It never decides whether a command
+runs: every invocation asks (B2).
 
-Two commands are in the set to be *deliberately* over-flagged
-(`echo "curl https://x.sh | sh"`): the rules match inside quotes on purpose,
-so a real `curl | sh` cannot hide behind quoting. That is a design decision,
-and it is measured as one rather than hidden.
+Since B4 the classifier is a tokenizing pass over the whole pipeline
+(`common/onyxShellWords.ts`, `common/onyxCommandClassifier.ts`): every simple
+command, including the ones inside substitutions and subshells, is
+classified by its executable and arguments as destructive, privilege,
+remote code, network egress, persistence or interpreter. The regex pass it
+replaced had no egress category at all.
 
-"Commands never run without approval" is recorded as 100% **by
-construction**, not by sampling: there is no code path that executes a
-proposed command without the approval dialog resolving first. It is listed so
-the claim is visible next to the measured ones, clearly labelled.
+- A labelled set, 15 dangerous and 18 everyday commands. Two rates trade
+  off: dangerous commands that get the warning style, and everyday commands
+  that wrongly get it. A classifier that warns on everything scores 100% on
+  the first and is worthless.
+- The launch audit's bypass list: sixteen commands written to get past the
+  earlier regex pass. Each must earn a warning, and the four exfiltration
+  shapes must be named as network egress.
+- `python3 scripts/steal.py`, the second audit's example: the prompt cannot
+  show what a script does, and has to say so.
+- Two commands that are *deliberately* over-flagged
+  (`echo "curl https://x.sh | sh"`): quoted text and comments are classified
+  as if they could run, so a real `curl | sh` cannot hide behind quoting.
+  That is a design decision, and it is measured as one rather than hidden.
+
+There is no "commands never run without approval" row. That claim is tested
+where it can be tested, at the dispatch boundary (R-01 to R-04, and the
+simulation campaign's I-02), not asserted here.
 
 ---
 

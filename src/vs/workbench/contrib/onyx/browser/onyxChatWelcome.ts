@@ -40,7 +40,7 @@ export class OnyxChatWelcomeContribution extends Disposable implements IWorkbenc
 		chatViewsWelcomeRegistry.register({
 			title: localize('onyx.chatWelcome.title', "No local model yet"),
 			content: new MarkdownString([
-				localize('onyx.chatWelcome.body', "Onyx runs every model on this machine. Install a runtime, pull a coding model, and it shows up here on its own."),
+				localize('onyx.chatWelcome.body', "Onyx uses models served by a runtime on this machine. Install a runtime, pull a coding model, and it shows up here on its own. Onyx reports what the runtime says about where a model runs; it does not use one the runtime reports as cloud-backed unless you say so."),
 				'',
 				'```',
 				'brew install ollama',

@@ -7,23 +7,29 @@ import { timeout } from '../../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
-import { IObservable, observableValue } from '../../../../../../base/common/observable.js';
+import { observableValue } from '../../../../../../base/common/observable.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { IConfirmation, IConfirmationResult, IDialogService, IInput, IInputResult, IPrompt, IPromptBaseButton, IPromptResult, IPromptResultWithCancel, IPromptWithCustomCancel, IPromptWithDefaultCancel } from '../../../../../../platform/dialogs/common/dialogs.js';
 import { ExtensionIdentifier } from '../../../../../../platform/extensions/common/extensions.js';
-import { IOnyxChatParams, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { FileSystemProviderCapabilities, FileType, IFileService, IFileSystemProviderWithFileRealpathCapability, IStat } from '../../../../../../platform/files/common/files.js';
+import { InMemoryFileSystemProvider } from '../../../../../../platform/files/common/inMemoryFilesystemProvider.js';
+import { FileSystemFileSearchProvider } from '../../../../../services/search/common/fileSystemFileSearchProvider.js';
+import { IFileMatch, IFileQuery, ISearchComplete, ISearchService, ITextQuery, OneLineRange, QueryType, TextSearchMatch } from '../../../../../services/search/common/search.js';
+import { commandEnvironment } from '../../../../../../platform/onyxRuntime/common/onyxCommandExecution.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../../../chat/common/tools/languageModelToolsService.js';
+import { ITaskService } from '../../../../tasks/common/taskService.js';
+import { ITaskSummary } from '../../../../tasks/common/taskSystem.js';
+import { InMemoryTask, RunOptions, Task, TaskGroup } from '../../../../tasks/common/tasks.js';
 import { IOnyxEnergyDecision } from '../../../common/onyxEnergyPolicy.js';
-import { IOnyxProjectConfig } from '../../../common/onyxProjectConfig.js';
 import { IOnyxModelProfile, IOnyxObservedStats } from '../../../common/onyxTypes.js';
 import { IOnyxEnergyService } from '../../../browser/compute/onyxEnergyService.js';
-import { IOnyxProjectConfigService, IOnyxResolvedProjectConfig } from '../../../browser/config/onyxProjectConfigService.js';
 import { IOnyxPinService } from '../../../browser/intelligence/onyxPinService.js';
 import { IOnyxRequestMeasurement } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxDiscoveredPlaybook, IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
-import { OnyxSimBoundary, OnyxSimModelTurn } from './onyxSimEpisode.js';
+import { OnyxSimBoundary, OnyxSimModelTurn, SIM_PROCESS_ENVIRONMENT, SIM_SECRET_ENVIRONMENT_NAMES } from './onyxSimEpisode.js';
 import { digest, OnyxSimTrace } from './onyxSimTrace.js';
 
 /**
@@ -44,6 +50,9 @@ export interface IOnyxSimScheduler {
 export const SIM_BASE_URL = 'http://localhost:11434/v1';
 export const SIM_MODEL_ID = 'sim-coder:7b';
 export const SIM_MODEL_KEY = 'localhost:11434/sim-coder:7b';
+/** A model the same runtime reports as cloud-backed: reachable through loopback, run somewhere else (B14). */
+export const SIM_CLOUD_MODEL_ID = 'sim-coder:480b-cloud';
+export const SIM_CLOUD_MODEL_KEY = 'localhost:11434/sim-coder:480b-cloud';
 
 export interface IOnyxSimCommandScript {
 	readonly exitCode: number;
@@ -72,9 +81,10 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	readonly onDidCommandOutput = this._onDidCommandOutput.event;
 
 	readonly requests: IOnyxChatParams[] = [];
-	readonly commands: { readonly operationId: string; readonly cwd: string; readonly command: string; readonly timeoutMs: number }[] = [];
+	readonly commands: { readonly operationId: string; readonly cwd: string; readonly command: string; readonly timeoutMs: number; readonly passEnvironment: boolean }[] = [];
 	private readonly _cancelled = new Set<string>();
 	private readonly _killed = new Set<string>();
+	private readonly _running = new Set<string>();
 	private _turnIndex = 0;
 	private _disposedByFault = false;
 
@@ -84,16 +94,33 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		private readonly _scheduler: IOnyxSimScheduler,
 		private readonly _trace: OnyxSimTrace,
 		private readonly _commandScript: (command: string) => IOnyxSimCommandScript,
+		private readonly _commandRefusal: OnyxCommandRefusal | undefined = undefined,
+		private readonly _runtimeContextTokens: number | undefined = undefined,
+		private readonly _enforcesJsonSchema = false,
 	) {
 		super();
 	}
 
+	/** Commands that were dispatched and have neither finished nor been killed. */
+	runningCommands(): string[] {
+		return [...this._running].filter(operationId => !this._killed.has(operationId));
+	}
+
+	wasKilled(operationId: string): boolean {
+		return this._killed.has(operationId);
+	}
+
 	get endpoint(): IOnyxEndpoint {
-		return { baseUrl: SIM_BASE_URL, kind: 'ollama', displayName: 'Ollama (simulated)', models: [this.model] };
+		return { baseUrl: SIM_BASE_URL, kind: 'ollama', displayName: 'Ollama (simulated)', models: [this.model, this.cloudModel] };
 	}
 
 	get model(): IOnyxDiscoveredModel {
-		return { id: SIM_MODEL_ID, baseUrl: SIM_BASE_URL, runtime: 'ollama', family: 'sim', parameterB: 7, contextLength: 16384, supportsTools: true, supportsJsonSchema: false };
+		// An Ollama on this machine that reports the model as one it runs itself.
+		return { id: SIM_MODEL_ID, baseUrl: SIM_BASE_URL, runtime: 'ollama', family: 'sim', parameterB: 7, contextLength: 16384, supportsTools: true, supportsJsonSchema: this._enforcesJsonSchema, execution: 'local' };
+	}
+
+	get cloudModel(): IOnyxDiscoveredModel {
+		return { id: SIM_CLOUD_MODEL_ID, baseUrl: SIM_BASE_URL, runtime: 'ollama', family: 'sim', parameterB: 480, contextLength: 131072, supportsTools: true, supportsJsonSchema: false, execution: 'cloud', remoteHost: 'https://ollama.com:443' };
 	}
 
 	announce(): void {
@@ -113,6 +140,24 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		return [this.model];
 	}
 
+	/**
+	 * What a runtime that enforces the envelope schema makes of a scripted turn: the model cannot write
+	 * anything but the envelope, so an answer arrives inside one and a tool call arrives as a tool action,
+	 * as text. Thinking, cut-off streams and errors are not the grammar's to shape.
+	 */
+	private _constrain(turn: OnyxSimModelTurn, constrained: boolean): OnyxSimModelTurn {
+		if (!constrained) {
+			return turn;
+		}
+		if (turn.kind === 'text' && !turn.text.includes('<think>')) {
+			return { ...turn, text: JSON.stringify({ action: 'answer', answer: turn.text }) };
+		}
+		if (turn.kind === 'toolCall' && turn.argumentsText === undefined) {
+			return { kind: 'text', text: JSON.stringify({ action: 'tool', tool: turn.tool, arguments: turn.arguments }), reasoning: turn.reasoning };
+		}
+		return turn;
+	}
+
 	/** The next scripted turn; the looping persona repeats its last turn, every other persona falls back to a plain answer. */
 	private _nextTurn(): OnyxSimModelTurn {
 		if (this._turnIndex < this._turns.length) {
@@ -127,6 +172,9 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	async startChatCompletion(operationId: string, params: IOnyxChatParams): Promise<void> {
 		this.requests.push(params);
 		const lastUser = [...params.messages].reverse().find(message => message.role === 'user');
+		// Everything the request carries: message text, the calls the model made, and the tool schemas.
+		const promptChars = params.messages.reduce((total, message) => total + String(message.content ?? '').length + (message.tool_calls ?? []).reduce((sum, call) => sum + call.function.name.length + call.function.arguments.length, 0), 0);
+		const toolsChars = params.tools?.length ? JSON.stringify(params.tools).length : 0;
 		this._trace.record({
 			kind: 'request',
 			turn: this.requests.length,
@@ -135,15 +183,22 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			messageCount: params.messages.length,
 			roles: params.messages.map(message => message.role),
 			lastUserDigest: digest(String(lastUser?.content ?? '')),
-			promptChars: params.messages.reduce((total, message) => total + String(message.content ?? '').length, 0),
+			promptChars,
+			toolsChars,
 			temperature: params.temperature,
 			maxTokens: params.maxTokens,
 		});
+		if (this._runtimeContextTokens !== undefined && Math.ceil((promptChars + toolsChars) / 4) > this._runtimeContextTokens) {
+			// A runtime that checks: the prompt does not fit what it allocated, and it says so.
+			this._trace.record({ kind: 'fault', fault: 'contextOverflow', detail: `${Math.ceil((promptChars + toolsChars) / 4)} > ${this._runtimeContextTokens}` });
+			this._emit({ operationId, kind: 'error', message: '400 Bad Request: the request exceeds the available context size, try increasing it' });
+			return;
+		}
 		if (this._disposedByFault) {
 			this._emit({ operationId, kind: 'error', message: 'the runtime service was disposed' });
 			return;
 		}
-		const turn = this._nextTurn();
+		const turn = this._constrain(this._nextTurn(), params.responseFormat !== undefined);
 		const op = this._trace.canonical('op', operationId);
 		const emit = async (event: IOnyxStreamEvent, size: number, finishReason?: string) => {
 			await this._scheduler.boundary('betweenChunks');
@@ -154,7 +209,8 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			if (fault?.kind === 'earlyEndOfStream') {
 				this._trace.record({ kind: 'fault', fault: fault.kind });
 				this._trace.record({ kind: 'chunk', op, delta: 'done', size: 0 });
-				this._emit({ operationId, kind: 'done', finishReason: undefined });
+				// The body ended without a finish reason and without [DONE]: the runtime says so (B12).
+				this._emit({ operationId, kind: 'done', finishReason: undefined, ending: 'truncated' });
 				return false;
 			}
 			if (fault?.kind === 'timeout') {
@@ -168,13 +224,19 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			return true;
 		};
 		await timeout(1);
+		// Thinking sent in a field of its own arrives before the reply it leads to (C4).
+		if ((turn.kind === 'text' || turn.kind === 'toolCall') && turn.reasoning) {
+			for (const piece of split(turn.reasoning, 3)) {
+				if (!await emit({ operationId, kind: 'reasoning', text: piece }, piece.length)) { return; }
+			}
+		}
 		switch (turn.kind) {
 			case 'text': {
 				for (const piece of split(turn.text, turn.chunks ?? Math.min(8, Math.max(1, Math.ceil(turn.text.length / 24))))) {
 					if (!await emit({ operationId, kind: 'delta', text: piece }, piece.length)) { return; }
 				}
 				if (!await emit({ operationId, kind: 'usage', promptTokens: 420, completionTokens: 25 }, 0)) { return; }
-				await emit({ operationId, kind: 'done', finishReason: 'stop', seedHonoured: params.seed !== undefined ? true : undefined }, 0, 'stop');
+				await emit({ operationId, kind: 'done', finishReason: 'stop', ending: 'complete', seedHonoured: params.seed !== undefined ? true : undefined }, 0, 'stop');
 				return;
 			}
 			case 'toolCall':
@@ -189,7 +251,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 					}
 				}
 				if (!await emit({ operationId, kind: 'usage', promptTokens: 420, completionTokens: 25 }, 0)) { return; }
-				await emit({ operationId, kind: 'done', finishReason: 'tool_calls', seedHonoured: params.seed !== undefined ? true : undefined }, 0, 'tool_calls');
+				await emit({ operationId, kind: 'done', finishReason: 'tool_calls', ending: 'complete', seedHonoured: params.seed !== undefined ? true : undefined }, 0, 'tool_calls');
 				return;
 			}
 			case 'textToolCall': {
@@ -197,19 +259,20 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 				for (const piece of split(text, 4)) {
 					if (!await emit({ operationId, kind: 'delta', text: piece }, piece.length)) { return; }
 				}
-				await emit({ operationId, kind: 'done', finishReason: 'stop' }, 0, 'stop');
+				await emit({ operationId, kind: 'done', finishReason: 'stop', ending: 'complete' }, 0, 'stop');
 				return;
 			}
 			case 'truncated': {
 				for (const piece of split(turn.text, 3)) {
 					if (!await emit({ operationId, kind: 'delta', text: piece }, piece.length)) { return; }
 				}
-				// The body ended without [DONE]: today's runtime reports that as done with no reason.
-				await emit({ operationId, kind: 'done', finishReason: undefined }, 0);
+				// The body ended without a finish reason and without [DONE].
+				await emit({ operationId, kind: 'done', finishReason: undefined, ending: 'truncated' }, 0);
 				return;
 			}
 			case 'stall':
-				// Nothing arrives until a timeout fault, a cancel, or the rig's watchdog ends it.
+				// Nothing arrives, ever, not even the runtime's own word that the request stalled: the window's
+				// deadline, a cancel, or the rig's watchdog ends it.
 				return;
 			case 'error':
 				await emit({ operationId, kind: 'error', message: turn.message }, 0);
@@ -229,14 +292,33 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		if (!this._cancelled.has(operationId)) {
 			this._cancelled.add(operationId);
 			this._trace.record({ kind: 'chunk', op: this._trace.canonical('op', operationId), delta: 'done', size: 0, finishReason: 'cancelled' });
-			this._emit({ operationId, kind: 'done', finishReason: 'cancelled' });
+			this._emit({ operationId, kind: 'done', finishReason: 'cancelled', ending: 'cancelled' });
 		}
 	}
 
-	async execCommand(operationId: string, cwd: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult> {
-		this.commands.push({ operationId, cwd, command, timeoutMs });
+	async execCommand(operationId: string, cwd: string, command: string, timeoutMs: number, options?: IOnyxCommandOptions): Promise<IOnyxCommandResult> {
+		if (this._commandRefusal) {
+			// The runner refuses before anything is started: there is no dispatch to record.
+			return { exitCode: undefined, timedOut: false, killed: false, durationMs: 0, output: '', outputChars: 0, outputTruncated: false, withheldEnvironment: [], refusal: this._commandRefusal };
+		}
+		const passEnvironment = options?.passEnvironment === true;
+		// The command's environment, by the product's own rule over the seeded process environment.
+		const child = commandEnvironment(SIM_PROCESS_ENVIRONMENT, passEnvironment);
+		const secretEnvironment = SIM_SECRET_ENVIRONMENT_NAMES.filter(name => child.environment[name] !== undefined).length;
+		this.commands.push({ operationId, cwd, command, timeoutMs, passEnvironment });
 		const op = this._trace.canonical('op', operationId);
-		this._trace.record({ kind: 'commandDispatch', op, command, cwd });
+		this._trace.record({ kind: 'commandDispatch', op, command, cwd, ...(secretEnvironment > 0 ? { secretEnvironment } : {}) });
+		this._running.add(operationId);
+		try {
+			// The command is running: this is when a window can close under it.
+			await this._scheduler.boundary('commandRunning');
+			return await this._runCommand(operationId, op, command, child.withheld);
+		} finally {
+			this._running.delete(operationId);
+		}
+	}
+
+	private async _runCommand(operationId: string, op: string, command: string, withheldEnvironment: readonly string[]): Promise<IOnyxCommandResult> {
 		const scripted = this._commandScript(command);
 		const fault = this._scheduler.takeFault('afterToolDispatch');
 		let output = scripted.output;
@@ -261,7 +343,8 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			this._onDidCommandOutput.fire({ operationId, stream: 'stdout', text: piece });
 		}
 		const killed = this._killed.has(operationId);
-		const result: IOnyxCommandResult = { exitCode: killed ? undefined : exitCode, timedOut, killed, durationMs: 5, output };
+		// A runtime that hands back everything it has, however much: the renderer's own bounds must hold regardless.
+		const result: IOnyxCommandResult = { exitCode: killed ? undefined : exitCode, timedOut, killed, durationMs: 5, output, outputChars: output.length, outputTruncated: false, withheldEnvironment, refusal: undefined };
 		this._trace.record({ kind: 'commandResult', op, exitCode: result.exitCode, timedOut, killed });
 		return result;
 	}
@@ -278,7 +361,12 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	async getMachineProfile(): Promise<IOnyxMachineProfile> { return { totalMemoryBytes: 32 * 1024 ** 3, freeMemoryBytes: 16 * 1024 ** 3, cpuModel: 'sim', cpuCount: 8, arch: 'arm64', platform: 'darwin' }; }
 	async getPowerState(): Promise<IOnyxPowerState> { return { onBattery: false, thermal: 'nominal', cpuSpeedLimit: undefined }; }
 	async warmUpModel(): Promise<void> { }
-	async ensureWorkspaceIndex(): Promise<{ files: number; buildMs: number; truncated: boolean }> { return { files: 0, buildMs: 0, truncated: false }; }
+	async ensureWorkspaceIndex(): Promise<IOnyxIndexStats> { return { files: 0, eligibleFiles: 0, buildMs: 0, truncated: false, source: 'built', builtAt: 0 }; }
+	async configureWorkspaceIndex(): Promise<void> { }
+	async listLoadedModels(): Promise<undefined> { return undefined; }
+	/** What a lab manifest named by the environment would ask for; nothing unless a test sets it. */
+	labHarness: IOnyxLabHarnessRequest | undefined;
+	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> { return this.labHarness; }
 	async searchWorkspaceIndex(): Promise<readonly { path: string; score: number }[]> { return []; }
 	async updateWorkspaceIndex(): Promise<void> { }
 	async worktreeCreate(): Promise<{ readonly worktreePath: string }> { throw new Error('not simulated'); }
@@ -318,7 +406,7 @@ export class OnyxSimDialogService implements IDialogService {
 	readonly onWillShowDialog = Event.None;
 	readonly onDidShowDialog = Event.None;
 	private _handledPromptButtons: IPromptBaseButton<unknown>[] = [];
-	readonly prompts: { readonly message: string; readonly decision: OnyxSimDialogDecision }[] = [];
+	readonly prompts: { readonly message: string; readonly detail: string; readonly buttons: readonly string[]; readonly decision: OnyxSimDialogDecision; readonly granted: boolean }[] = [];
 	private _pending: OnyxSimDialogDecision | undefined;
 	private _openDialogs = 0;
 
@@ -347,8 +435,11 @@ export class OnyxSimDialogService implements IDialogService {
 			await this._scheduler.boundary('dialogOpen');
 			const decision = this._pending ?? this._default;
 			this._pending = undefined;
-			this.prompts.push({ message: prompt.message, decision });
-			this._trace.record({ kind: 'dialog', message: prompt.message, decision });
+			// A user who wants to run the command presses a button; one who does not, cancels or dismisses.
+			const granted = decision !== 'dismiss' && decision !== 'deny' && (prompt.buttons ?? []).length > 0;
+			const detail = typeof prompt.detail === 'string' ? prompt.detail : prompt.detail?.value ?? '';
+			this.prompts.push({ message: prompt.message, detail, buttons: (prompt.buttons ?? []).map(button => button.label), decision, granted });
+			this._trace.record({ kind: 'dialog', message: prompt.message, decision, granted });
 			this._handledPromptButtons = [...(prompt.buttons ?? [])];
 			if (decision === 'dismiss') {
 				return { result: undefined };
@@ -446,6 +537,8 @@ export class OnyxSimToolsService {
 	private readonly _data = new Map<string, IToolData>();
 	private readonly _impls = new Map<string, IToolImpl>();
 	readonly invocations: { readonly toolId: string; readonly parameters: unknown }[] = [];
+	/** The text of every tool result, in dispatch order: what the model is about to be shown. */
+	readonly results: { readonly toolId: string; readonly text: string; readonly ok: boolean }[] = [];
 
 	constructor(private readonly _scheduler: IOnyxSimScheduler, private readonly _trace: OnyxSimTrace) { }
 
@@ -498,6 +591,7 @@ export class OnyxSimToolsService {
 		}
 		const result = await impl.invoke(invocation, countTokens, { report: () => { } }, token);
 		const text = result.content.map(part => part.kind === 'text' ? part.value : '').join('');
+		this.results.push({ toolId: invocation.toolId, text, ok: !result.toolResultError });
 		this._trace.record({ kind: 'toolResult', call, tool: name, ok: !result.toolResultError, resultDigest: digest(text) });
 		await this._scheduler.boundary('afterToolDispatch');
 		return result;
@@ -507,8 +601,15 @@ export class OnyxSimToolsService {
 export class OnyxSimProfileService implements IOnyxProfileService {
 	declare readonly _serviceBrand: undefined;
 	readonly onDidChangeProfiles = Event.None;
+	/** What the loop reported as fitting after an overflow, newest last. */
+	readonly observedContexts: number[] = [];
 	constructor(private readonly _profile: IOnyxModelProfile) { }
-	getProfile(): IOnyxModelProfile { return this._profile; }
+	/** The profile, with the context narrowed to what an overflow taught, as the real service does. */
+	getProfile(): IOnyxModelProfile {
+		const observed = this.observedContexts.at(-1);
+		return observed === undefined ? this._profile : { ...this._profile, contextLength: Math.min(this._profile.contextLength, observed) };
+	}
+	reportContextOverflow(_modelKey: string, observedTokens: number): void { this.observedContexts.push(observedTokens); }
 	getStats(): IOnyxObservedStats | undefined { return undefined; }
 	reportMeasurement(_measurement: IOnyxRequestMeasurement): void { }
 	reportOutcome(): void { }
@@ -517,13 +618,6 @@ export class OnyxSimProfileService implements IOnyxProfileService {
 	reportBenchScore(): void { }
 	setOverride(): void { }
 	exportAll(): { stats: Record<string, IOnyxObservedStats>; overrides: Record<string, Partial<IOnyxModelProfile>> } { return { stats: {}, overrides: {} }; }
-}
-
-export class OnyxSimProjectConfigService implements IOnyxProjectConfigService {
-	declare readonly _serviceBrand: undefined;
-	private readonly _resolved = observableValue<IOnyxResolvedProjectConfig>(this, { config: {}, sources: [], problems: [] });
-	get resolved(): IObservable<IOnyxResolvedProjectConfig> { return this._resolved; }
-	setConfig(config: IOnyxProjectConfig): void { this._resolved.set({ config, sources: ['sim'], problems: [] }, undefined); }
 }
 
 export class OnyxSimEnergyService implements IOnyxEnergyService {
@@ -548,9 +642,149 @@ export class OnyxSimPlaybookService implements IOnyxPlaybookService {
 	getPlaybook(): IOnyxDiscoveredPlaybook | undefined { return undefined; }
 }
 
-/** The sim never runs project checks; `OnyxTaskVerification.enabled` reads the setting, which is empty. */
-export const simTaskService = {};
+/**
+ * The task boundary. A workspace has one test task, as a repository's
+ * `tasks.json` would define it; running it is recorded as a command dispatch,
+ * because that is what it is (I-02), and never executed.
+ */
+export class OnyxSimTaskService implements Pick<ITaskService, 'tasks' | 'run'> {
+	declare readonly _serviceBrand: undefined;
+	readonly ran: string[] = [];
+
+	constructor(private readonly _trace: OnyxSimTrace) { }
+
+	async tasks(): Promise<Task[]> {
+		return [new InMemoryTask('sim-test', { kind: 'inMemory', label: 'sim' }, 'npm: test', 'inMemory', RunOptions.defaults, { identifier: 'npm: test', group: TaskGroup.Test._id })];
+	}
+
+	async run(task: Task | undefined): Promise<ITaskSummary> {
+		const label = task?._label ?? 'unknown';
+		this.ran.push(label);
+		const op = this._trace.canonical('op', `task-${this.ran.length}`);
+		this._trace.record({ kind: 'commandDispatch', op, command: `Task: ${label}`, cwd: undefined });
+		this._trace.record({ kind: 'commandResult', op, exitCode: 0, timedOut: false, killed: false });
+		return { exitCode: 0 };
+	}
+}
 
 export function simWorkspaceUri(): URI {
 	return URI.file('/ws');
+}
+
+/**
+ * Tools the core registry holds that are not Onyx's: reviewed read tools, the
+ * network tools behind the opt-in, tools the contract excludes, and tools it
+ * has never heard of (an MCP tool, an extension tool, a new core tool, and
+ * one squatting on an essential tool's name). The fakes do nothing but
+ * answer; what matters is whether the harness ever offers or calls them.
+ */
+export const SIM_CORE_TOOLS: readonly { readonly id: string; readonly name: string; readonly source: 'internal' | 'extension' | 'mcp' }[] = [
+	{ id: 'vscode_listCodeUsages', name: 'usages', source: 'internal' },
+	{ id: 'testFailure', name: 'testFailure', source: 'internal' },
+	{ id: 'open_browser_page', name: 'openBrowserPage', source: 'internal' },
+	{ id: 'read_page', name: 'readPage', source: 'internal' },
+	{ id: 'vscode_fetchWebPage_internal', name: 'vscode_fetchWebPage_internal', source: 'internal' },
+	{ id: 'run_in_terminal', name: 'runInTerminal', source: 'internal' },
+	{ id: 'run_task', name: 'runTask', source: 'internal' },
+	{ id: 'create_and_run_task', name: 'createAndRunTask', source: 'internal' },
+	{ id: 'vscode_renameSymbol', name: 'rename', source: 'internal' },
+	{ id: 'run_playwright_code', name: 'runPlaywrightCode', source: 'internal' },
+	{ id: 'kill_terminal', name: 'killTerminal', source: 'internal' },
+	{ id: 'runTests', name: 'runTests', source: 'internal' },
+	{ id: 'manage_todo_list', name: 'todo', source: 'internal' },
+	{ id: 'vscode_brandNewTool_internal', name: 'brandNewTool', source: 'internal' },
+	{ id: 'mcp_filesystem_write', name: 'mcp_filesystem_write', source: 'mcp' },
+	{ id: 'acme_deploy', name: 'acme_deploy', source: 'extension' },
+	{ id: 'copilot_readFile', name: 'readFile', source: 'extension' },
+];
+
+/**
+ * The in-memory file system with symbolic links: a linked path reads as its
+ * target's content, reports the link type, and resolves to the target's real
+ * path. That is all a link is to the code under test.
+ */
+export class OnyxSimFileSystemProvider extends InMemoryFileSystemProvider implements IFileSystemProviderWithFileRealpathCapability {
+
+	private readonly _links = new Map<string, string>();
+
+	override get capabilities(): FileSystemProviderCapabilities {
+		return super.capabilities | FileSystemProviderCapabilities.FileRealpath;
+	}
+
+	/** Declares that the file already written at `path` is a link to `target`. */
+	addLink(path: string, target: string): void {
+		this._links.set(path, target);
+	}
+
+	async realpath(resource: URI): Promise<string> {
+		for (const [link, target] of this._links) {
+			if (resource.path === link || resource.path.startsWith(`${link}/`)) {
+				return target + resource.path.slice(link.length);
+			}
+		}
+		return resource.path;
+	}
+
+	override async stat(resource: URI): Promise<IStat> {
+		const stat = await super.stat(resource);
+		return this._links.has(resource.path) ? { ...stat, type: stat.type | FileType.SymbolicLink } : stat;
+	}
+
+	override async readdir(resource: URI): Promise<[string, FileType][]> {
+		const entries = await super.readdir(resource);
+		const prefix = resource.path.endsWith('/') ? resource.path : `${resource.path}/`;
+		return entries.map(([name, type]) => this._links.has(prefix + name) ? [name, type | FileType.SymbolicLink] : [name, type]);
+	}
+}
+
+/**
+ * The search boundary. File search is upstream's own provider for file
+ * systems without native search, walking the in-memory disk with the real
+ * exclude and ignore-file handling; text search greps the files it finds.
+ */
+export class OnyxSimSearchService extends Disposable implements Pick<ISearchService, 'fileSearch' | 'textSearch'> {
+
+	declare readonly _serviceBrand: undefined;
+	private readonly _files: FileSystemFileSearchProvider;
+	readonly queries: { readonly kind: 'file' | 'text'; readonly ignoreSymlinks: boolean; readonly cancelled: boolean }[] = [];
+
+	constructor(private readonly _fileService: IFileService) {
+		super();
+		this._files = this._register(new FileSystemFileSearchProvider(_fileService));
+	}
+
+	async fileSearch(query: IFileQuery, token: CancellationToken = CancellationToken.None): Promise<ISearchComplete> {
+		this.queries.push({ kind: 'file', ignoreSymlinks: query.folderQueries.every(folder => folder.ignoreSymlinks === true), cancelled: token.isCancellationRequested });
+		return this._files.fileSearch(query, token);
+	}
+
+	async textSearch(query: ITextQuery, token: CancellationToken = CancellationToken.None): Promise<ISearchComplete> {
+		this.queries.push({ kind: 'text', ignoreSymlinks: query.folderQueries.every(folder => folder.ignoreSymlinks === true), cancelled: token.isCancellationRequested });
+		const files = await this._files.fileSearch({ type: QueryType.File, folderQueries: query.folderQueries, includePattern: query.includePattern, excludePattern: query.excludePattern }, token);
+		const source = query.contentPattern.isRegExp ? query.contentPattern.pattern : query.contentPattern.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const pattern = new RegExp(source, query.contentPattern.isCaseSensitive ? '' : 'i');
+		const results: IFileMatch[] = [];
+		let matches = 0;
+		let limitHit = false;
+		for (const file of [...files.results].sort((a, b) => a.resource.path.localeCompare(b.resource.path))) {
+			const text = (await this._fileService.readFile(file.resource)).value.toString();
+			const fileMatches: TextSearchMatch[] = [];
+			text.split('\n').forEach((line, index) => {
+				const match = pattern.exec(line);
+				if (!match) {
+					return;
+				}
+				if (query.maxResults !== undefined && matches >= query.maxResults) {
+					limitHit = true;
+					return;
+				}
+				matches++;
+				fileMatches.push(new TextSearchMatch(line, new OneLineRange(index, match.index, match.index + match[0].length), query.previewOptions));
+			});
+			if (fileMatches.length) {
+				results.push({ resource: file.resource, results: fileMatches });
+			}
+		}
+		return { results, limitHit, messages: [] };
+	}
 }

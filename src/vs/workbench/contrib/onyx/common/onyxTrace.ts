@@ -21,7 +21,7 @@
 
 export const ONYX_TRACE_VERSION = 2;
 
-export type OnyxStreamEnd = 'stop' | 'tool_calls' | 'length' | 'cancelled' | 'truncated' | 'error' | 'unknown';
+export type OnyxStreamEnd = 'stop' | 'tool_calls' | 'length' | 'cancelled' | 'truncated' | 'stalled' | 'error' | 'unknown';
 
 export interface IOnyxTraceTool {
 	readonly name: string;
@@ -33,7 +33,13 @@ export interface IOnyxTraceHeader {
 	readonly v: typeof ONYX_TRACE_VERSION;
 	readonly runId: string;
 	readonly startedAt: number;
-	readonly harness: { readonly configurationHash: string; readonly configuration: Readonly<Record<string, unknown>> };
+	/**
+	 * The harness configuration the run used and its hash (L4). `source` says
+	 * whether it is the one derived for the model or a lab manifest's;
+	 * `requested` names the manifest entry that was asked for, and `refused`
+	 * says why it was not applied when it was not.
+	 */
+	readonly harness: { readonly configurationHash: string; readonly configuration: Readonly<Record<string, unknown>>; readonly source?: 'default' | 'lab'; readonly requested?: string; readonly refused?: string };
 	readonly model: { readonly identifier: string; readonly digest: string | null };
 	readonly runtime: { readonly name: string; readonly version: string | null; readonly baseUrl: string };
 	readonly sampling: { readonly temperature: number | null; readonly seed: number | null; readonly maxTokens: number | null; readonly responseFormat: boolean };
@@ -60,9 +66,18 @@ export interface IOnyxTraceTurn {
 
 export interface IOnyxTraceApproval {
 	readonly kind: 'approval';
+	/** The exact command text the user was shown, or the subject of a non-terminal execution (`Task: …`). */
 	readonly command: string;
+	/** The working directory and timeout the approval covers; null for an execution that has neither. Absent in journals written before B2. */
+	readonly cwd?: string | null;
+	readonly timeoutMs?: number | null;
 	readonly decision: string;
-	/** Where the authority came from: the dialog, or a grant the alpha removes (B2). */
+	/**
+	 * Where the authority came from. Since B2 it is always the dialog: every
+	 * invocation asks. The other two values appear only in journals written
+	 * before B2, when a repository allowlist or a session grant could run a
+	 * command without one.
+	 */
 	readonly source: 'dialog' | 'workspace-allowlist' | 'session';
 }
 
@@ -86,17 +101,24 @@ export function digestValue(value: unknown): string {
 	return traceDigest(JSON.stringify(value) ?? 'undefined');
 }
 
-/** Classifies how a stream ended from the finish reason the runtime reported (B12 acts on this). */
-export function classifyStreamEnd(finishReason: string | undefined, error: boolean): OnyxStreamEnd {
+/**
+ * How a stream ended, for the trace. The runtime's own account of the ending
+ * comes first (B12): a stream that was cut off or went silent is `truncated`
+ * or `stalled` whatever else is known about it.
+ */
+export function classifyStreamEnd(finishReason: string | undefined, error: boolean, ending?: 'complete' | 'truncated' | 'stalled' | 'cancelled'): OnyxStreamEnd {
 	if (error) {
 		return 'error';
+	}
+	if (ending === 'truncated' || ending === 'stalled' || ending === 'cancelled') {
+		return ending;
 	}
 	switch (finishReason) {
 		case 'stop': return 'stop';
 		case 'tool_calls': return 'tool_calls';
 		case 'length': return 'length';
 		case 'cancelled': return 'cancelled';
-		case undefined: return 'truncated';
+		case undefined: return ending === 'complete' ? 'unknown' : 'truncated';
 		default: return 'unknown';
 	}
 }

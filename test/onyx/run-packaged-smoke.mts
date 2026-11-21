@@ -31,7 +31,8 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { labOnlyMarkers, scanBundle } from './checks/bundle-scan.mts';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -93,6 +94,58 @@ const playwrightCli = createRequire(import.meta.url).resolve('@playwright/cli/pl
 
 function pw(...args: string[]) {
 	return execFileSync(process.execPath, [playwrightCli, `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+/**
+ * The value a `run-code` call returned, without the driver's echo of the code
+ * that produced it. The echo contains every literal the script can return, so
+ * a check on the raw output for a prefix such as "approved:" is true whether
+ * or not the script returned it.
+ */
+function pwValue(output: string): string {
+	const raw = /### Result\n(?<value>[\s\S]*?)\n### Ran Playwright code/.exec(output)?.groups?.value ?? output;
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		return typeof parsed === 'string' ? parsed : raw;
+	} catch {
+		return raw;
+	}
+}
+
+/** True while the first-run dialog covers the window. It is modal: every click lands on it. */
+function onboardingShown(): boolean {
+	try {
+		return pwValue(pw('run-code', 'async (page) => page.evaluate(() => String(!!document.querySelector(".onboarding-a-overlay.visible")))')) === 'true';
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Steps through the first-run dialog ("Connect a Local Runtime", then "Make It
+ * Yours") if it is up, waiting up to `waitMs` for it to appear. It appears some
+ * time after the window does. On a slow machine that was later than the fixed
+ * pause this runner used to allow, and the dialog then took every later click.
+ */
+async function dismissOnboarding(waitMs: number): Promise<void> {
+	const deadline = Date.now() + waitMs;
+	for (; ;) {
+		if (onboardingShown()) {
+			for (let step = 0; step < 6 && onboardingShown(); step++) {
+				try {
+					pw('click', 'button.onboarding-a-btn-primary');
+				} catch {
+					// the dialog moved to its next step under the click
+				}
+				await sleep(1200);
+			}
+			return;
+		}
+		if (Date.now() >= deadline) {
+			return;
+		}
+		await sleep(1000);
+	}
 }
 
 const MATH_TS = [
@@ -229,6 +282,11 @@ async function main() {
 		throw new Error(`the mock runtime never answered on :${mockPort} — stop any real runtime on that port, or set ONYX_MOCK_PORT`);
 	}
 
+	// The packaged app is started with a lab manifest asking for a one-turn run (R-44). A packaged build must
+	// refuse it: were it applied, the multi-turn flows below could not complete.
+	const labManifest = path.join(runDir, 'lab-manifest.json');
+	fs.writeFileSync(labManifest, JSON.stringify({ version: 1, name: '2026-11-21-packaged-smoke', harnessConfigurations: [{ name: 'one-turn', hash: '00000000', configuration: { turnCap: 1 } }] }));
+
 	children.push(spawn(executable, [
 		`--user-data-dir=${userDataDir}`,
 		`--extensions-dir=${extensionsDir}`,
@@ -243,7 +301,7 @@ async function main() {
 		'--disable-updates',
 		workspace,
 		path.join(workspace, 'src', 'math.ts'),
-	], { cwd: runDir, env: { ...process.env }, stdio: 'ignore', detached: true }));
+	], { cwd: runDir, env: { ...process.env, ONYX_LAB_MANIFEST: labManifest }, stdio: 'ignore', detached: true }));
 	const cdpUp = await waitForCdp(120_000);
 	check('infrastructure', 'the packaged app launched and opened a CDP endpoint', cdpUp);
 	if (!cdpUp) {
@@ -259,14 +317,7 @@ async function main() {
 		throw error;
 	}
 	await sleep(6000);
-	for (let i = 0; i < 2; i++) {
-		try {
-			pw('click', 'button.onboarding-a-btn-primary');
-		} catch {
-			break;
-		}
-		await sleep(1500);
-	}
+	await dismissOnboarding(30_000);
 	await sleep(3000);
 	// The DOM title carries no product name; Electron's user agent carries the
 	// app name the bundle was built with, which is the signal that this window
@@ -283,6 +334,7 @@ async function main() {
 
 	// A first agent turn: whatever tools the packaged build advertises arrive
 	// at the mock in the request body. That is the observed inventory.
+	await dismissOnboarding(0);
 	await send('TOOLTEST inventory the tools you were given');
 	await waitUntil(() => readRunIndex().length >= 1, 30_000);
 	await sleep(4000);
@@ -313,39 +365,167 @@ async function main() {
 	const toolCalls = readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall').map(event => String(event.data?.label ?? ''));
 	check('contract', 'the model read the file through the read tool before editing', toolCalls.includes('readFile'), `tool calls: ${toolCalls.join(', ') || 'none'}`);
 	check('contract', 'the edit was staged, not written', fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8') === MATH_TS && stagedSummary().includes('reviews them in Onyx Changes'), 'file changed on disk, or nothing was staged');
-	pw('press', 'F1');
-	await sleep(800);
-	pw('run-code', 'async (page) => { await page.fill(".quick-input-box input", ">Open Onyx Control Plane"); }');
-	await sleep(800);
-	pw('press', 'Enter');
-	const readChanges = () => pw('run-code', 'async (page) => page.evaluate(() => ({ files: Array.from(document.querySelectorAll(".onyx-change-file-path")).map(el => el.textContent), hunks: Array.from(document.querySelectorAll(".onyx-change-hunk .onyx-change-line-removed, .onyx-change-hunk del")).map(el => el.textContent) }))');
+	// Whether the Changes view is on screen: a staged file's header exists and is laid out. The DOM keeps
+	// the view when the chat hides it, so reading its text says nothing about whether it can be clicked.
+	const changesOnScreen = () => pwValue(pw('run-code', 'async (page) => page.evaluate(() => { const header = document.querySelector(".onyx-change-file-header"); return String(!!header && header.getClientRects().length > 0); })')) === 'true';
+	// On a loaded machine the command palette can take longer than a fixed pause to accept input, and the
+	// command is then typed into nothing. Issue it, look for the view, and issue it again if it is not there.
+	const openControlPlane = async () => {
+		for (let attempt = 0; attempt < 4 && !changesOnScreen(); attempt++) {
+			pw('press', 'Escape');
+			pw('press', 'F1');
+			await sleep(800 + attempt * 800);
+			pw('run-code', 'async (page) => { await page.fill(".quick-input-box input", ">Open Onyx Control Plane"); }');
+			await sleep(800 + attempt * 800);
+			pw('press', 'Enter');
+			await waitUntil(changesOnScreen, 8000);
+		}
+	};
+	await dismissOnboarding(0);
+	await openControlPlane();
+	// A staged file is listed collapsed; its hunks render once its header is
+	// expanded. A removed line reads "− <text>" and an added one "+ <text>".
+	const readChanges = () => pw('run-code', 'async (page) => page.evaluate(() => JSON.stringify({ files: Array.from(document.querySelectorAll(".onyx-change-file-path")).map(el => el.textContent), removed: Array.from(document.querySelectorAll(".onyx-change-hunk .onyx-change-line.removed")).map(el => el.textContent), added: Array.from(document.querySelectorAll(".onyx-change-hunk .onyx-change-line.added")).map(el => el.textContent) }))');
+	const editorText = () => pw('run-code', 'async (page) => page.evaluate(() => Array.from(document.querySelectorAll(".editor-instance .view-line")).map(l => l.textContent || "").join(" / ").slice(0, 600))');
+	const editCalls = () => readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall' && event.data?.label === 'editFile').length;
 	await waitUntil(() => readChanges().includes('src/math.ts'), 15_000);
+	// Expand the staged file. A click that cannot land (the view is still laying out) is tried again after
+	// looking for the view once more; what is checked below is the hunk the expanded file shows.
+	for (let attempt = 0; attempt < 3 && !readChanges().includes('return a + b;'); attempt++) {
+		try {
+			pw('run-code', 'async (page) => { const header = page.locator(".onyx-change-file-header[aria-expanded=false]").first(); if (await header.count()) { await header.click({ timeout: 8000 }); } }');
+		} catch {
+			await openControlPlane();
+		}
+		await waitUntil(() => readChanges().includes('return a + b;'), 10_000);
+	}
 	const changes = readChanges();
-	check('contract', 'the staged hunk shows the content the model read (R-31)', changes.includes('src/math.ts') && changes.includes('return a + b;'), changes.slice(0, 200));
+	// The hunk under review is the line the model read (R-31): removed once
+	// as it is in the file, added once with the edit, and nothing else.
+	const hunk = /"removed\\?":\s*\[(?<removed>[^\]]*)\],\s*\\?"added\\?":\s*\[(?<added>[^\]]*)\]/.exec(changes)?.groups;
+	const oneLineEach = !!hunk && hunk.removed.includes('return a + b;') && !hunk.removed.includes('edited-by-mock') && hunk.added.includes('return a + b; // edited-by-mock') && !hunk.removed.includes(',') && !hunk.added.includes(',');
+	check('contract', 'the staged hunk shows the content the model read (R-31)', changes.includes('src/math.ts') && oneLineEach, changes.slice(0, 400));
 	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
 	await sleep(1500);
-	check('contract', 'rejecting leaves the file untouched', fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8') === MATH_TS);
+	check('contract', 'rejecting leaves the file untouched', fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8') === MATH_TS && !editorText().includes('edited-by-mock'));
+	const editCallsBefore = editCalls();
 	await send('READEDITTEST src/math.ts');
-	await waitUntil(() => readChanges().includes('src/math.ts'), 40_000);
+	await waitUntil(() => editCalls() > editCallsBefore, 40_000);
+	// Sending focused the chat, which hides the Control Plane and its Changes view.
+	await openControlPlane();
+	const stagedAgain = await waitUntil(() => editCalls() > editCallsBefore && readChanges().includes('src/math.ts'), 20_000);
 	pw('run-code', 'async (page) => { const button = await page.$(".onyx-changes-summary button"); if (button) { await button.click(); } }'); // Accept All
-	const accepted = await waitUntil(() => pw('run-code', 'async (page) => page.evaluate(() => Array.from(document.querySelectorAll(".editor-instance .view-line")).some(l => (l.textContent || "").includes("edited-by-mock")))').includes('true'), 15_000);
-	check('contract', 'accepting applies the reviewed hunk to the buffer', accepted);
+	const accepted = await waitUntil(() => editorText().includes('edited-by-mock'), 15_000);
+	check('contract', 'accepting applies the reviewed hunk to the buffer', stagedAgain && accepted, `staged again: ${stagedAgain}; changes: ${readChanges().slice(0, 200)}; editor: ${editorText().slice(0, 300)}`);
 
 	// Terminal: an actual approval dialog naming the exact command.
 	await send('TERMTEST echo onyx-packaged-terminal-ok');
 	await sleep(6000);
-	const approval = pw('run-code', `async (page) => {
+	const approval = pwValue(pw('run-code', `async (page) => {
 		const detail = await page.$('.monaco-dialog-box .dialog-message-detail');
 		if (!detail) { return 'no-dialog'; }
 		const text = await detail.textContent();
 		const buttons = await page.$$('.monaco-dialog-box a.monaco-text-button');
+		const labels = [];
+		for (const button of buttons) { labels.push(((await button.textContent()) || '').trim()); }
 		for (const button of buttons) {
-			if ((await button.textContent())?.includes('Run Once')) { await button.click(); return 'approved:' + text; }
+			if ((await button.textContent())?.includes('Run Once')) { await button.click(); return 'approved:' + text + ' buttons=' + labels.sort().join('+'); }
 		}
-		return 'no-run-once:' + text;
-	}`);
-	check('contract', 'the terminal tool asks before running', approval.includes('approved:'), approval.slice(0, 160));
-	check('contract', 'the approval names the exact command', approval.includes('echo onyx-packaged-terminal-ok'), approval.slice(0, 160));
+		return 'no-run-once:' + text + ' buttons=' + labels.sort().join('+');
+	}`));
+	check('contract', 'the terminal tool asks before running', approval.startsWith('approved:'), approval.slice(0, 160));
+	check('contract', 'the approval names the exact command', approval.startsWith('approved:echo onyx-packaged-terminal-ok'), approval.slice(0, 160));
+	check('contract', 'the approval offers Run Once and Deny, and nothing that outlives the invocation (B2)', /buttons=Deny\+Run Once$/.test(approval), approval.slice(0, 400));
+	await sleep(4000);
+
+	// --- R-05: the tool capability contract (B3) --------------------------
+	// The reviewed table is read from freshly transpiled output, the same
+	// module the product was built from.
+	const contractPath = path.join(repoRoot, 'out', 'vs', 'workbench', 'contrib', 'onyx', 'common', 'onyxToolContract.js');
+	const contract = fs.existsSync(contractPath)
+		? await import(pathToFileURL(contractPath).href) as { contractInventory(options: { networkTools: boolean }): string[]; ONYX_TOOL_CONTRACT_VERSION: number }
+		: undefined;
+	const defaultInventory = contract?.contractInventory({ networkTools: false }) ?? [];
+	const networkInventory = contract?.contractInventory({ networkTools: true }) ?? [];
+	observed.contractVersion = contract?.ONYX_TOOL_CONTRACT_VERSION;
+	const supportedProfileDefault = [...ESSENTIAL_TOOLS, 'repoSymbols', 'docs'];
+	check('contract', 'R-05: the default tool list is exactly the documented one for the supported profile', JSON.stringify(advertised) === JSON.stringify(supportedProfileDefault), `advertised: ${advertised.join(', ')}`);
+	check('contract', 'R-05: every advertised tool is in the versioned contract\'s default inventory', !!contract && advertised.every(name => defaultInventory.includes(name)), contract ? `outside the contract: ${advertised.filter(name => !defaultInventory.includes(name)).join(', ') || 'none'}` : 'out/ has no onyxToolContract.js: run pnpm run transpile-client first');
+
+	// The supported opt-in: the reviewed network tools. It must not enlarge
+	// the slot budget, must admit nothing but the reviewed rows, and every
+	// network call must still ask.
+	const settingsPath = path.join(userDataDir, 'User', 'settings.json');
+	fs.writeFileSync(settingsPath, JSON.stringify({ ...JSON.parse(fs.readFileSync(settingsPath, 'utf8')), 'onyx.agent.networkTools': true }, null, '\t'));
+	await sleep(3000);
+	const chatTools = async () => ((await fetchJson<{ tools?: { function: { name: string } }[] }>(`http://127.0.0.1:${mockPort}/debug/last-chat`))?.tools ?? []).map(tool => tool.function.name);
+	const runsBeforeOptIn = readRunIndex().length;
+	await send('TOOLTEST inventory the tools again');
+	await waitUntil(() => readRunIndex().length > runsBeforeOptIn, 30_000);
+	await sleep(4000);
+	const optInDefault = await chatTools();
+	check('contract', 'R-05: the network opt-in does not enlarge the slot budget or displace a tool unasked', JSON.stringify(optInDefault) === JSON.stringify(supportedProfileDefault), `advertised: ${optInDefault.join(', ')}`);
+	const runsBeforeAsk = readRunIndex().length;
+	await send('NETTEST https://example.com/onyx-packaged-smoke in the browser');
+	await waitUntil(() => readRunIndex().length > runsBeforeAsk, 30_000);
+	await sleep(5000);
+	const optInAsked = ((await fetchJson<{ tools?: { function: { name: string } }[] }[]>(`http://127.0.0.1:${mockPort}/debug/recent-chats`)) ?? []).map(chat => (chat.tools ?? []).map(tool => tool.function.name)).find(names => names.includes('openBrowserPage')) ?? await chatTools();
+	observed.networkOptInTools = optInAsked;
+	check('contract', 'R-05: with the opt-in, a network tool asked for by name takes a spare slot, within the same eight', JSON.stringify(optInAsked) === JSON.stringify([...ESSENTIAL_TOOLS, 'openBrowserPage', 'readPage']) && !!contract && optInAsked.every(name => networkInventory.includes(name)), `advertised: ${optInAsked.join(', ')}`);
+	const networkApproval = pwValue(pw('run-code', `async (page) => {
+		const detail = await page.$('.monaco-dialog-box .dialog-message-detail');
+		const message = await page.$('.monaco-dialog-box .dialog-message-text');
+		if (!detail) { return 'no-dialog'; }
+		const text = (message ? await message.textContent() : '') + ' :: ' + await detail.textContent();
+		const buttons = await page.$$('.monaco-dialog-box a.monaco-text-button');
+		for (const button of buttons) {
+			if ((await button.textContent())?.includes('Deny')) { await button.click(); return 'denied:' + text; }
+		}
+		return 'no-deny:' + text;
+	}`));
+	check('contract', 'R-05: the opt-in does not bypass approval: a network call asks first, showing the tool and the URL', networkApproval.startsWith('denied:') && networkApproval.includes('use the network') && networkApproval.includes('Tool: openBrowserPage') && networkApproval.includes('https://example.com/onyx-packaged-smoke'), networkApproval.slice(0, 400));
+	await sleep(3000);
+	const networkNotes = readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolResult' && event.data?.label === 'openBrowserPage').map(event => String(event.data?.reason ?? event.data?.ok));
+	check('contract', 'R-05: the denied network call did not run', networkNotes.length === 1 && networkNotes[0].includes('denied by the user'), networkNotes.join(' | ') || 'no openBrowserPage result on the timeline');
+
+	// --- Lab configurations and lab-only code stay out of the product (R-44, L4) ---
+	const harnessHeaders = readRuns().flatMap(run => run.events).filter(event => event.kind === 'trace').map(event => (event.data?.harness ?? {}) as { source?: string; requested?: string; refused?: string; configuration?: { turnCap?: number } });
+	observed.labHarnessRequest = harnessHeaders[0];
+	check('contract', 'R-44: a lab harness configuration asked for through a manifest is refused by the packaged build, and every run used the default one',
+		harnessHeaders.length > 0 && harnessHeaders.every(header => header.source === 'default' && header.requested === '2026-11-21-packaged-smoke/one-turn' && /packaged build/.test(header.refused ?? '') && header.configuration?.turnCap !== 1),
+		harnessHeaders.length ? JSON.stringify(harnessHeaders[0]).slice(0, 400) : 'no trace header in any run journal');
+	const bundle = scanBundle(path.join(app, 'Contents', 'Resources', 'app'), labOnlyMarkers(repoRoot));
+	observed.bundleScan = { filesScanned: bundle.filesScanned, charsScanned: bundle.charsScanned, markers: bundle.markers };
+	check('contract', 'R-44: no mutant and nothing of the simulation rig is in the product bundle',
+		bundle.filesScanned > 100 && bundle.findings.length === 0,
+		bundle.findings.length ? bundle.findings.slice(0, 5).map(finding => `${finding.marker} in ${finding.file}`).join('; ') : `only ${bundle.filesScanned} files scanned`);
+
+	// --- The Agent Host is excluded (B3) -----------------------------------
+	// When upstream's Agent Host starts it writes agenthost.log into the
+	// window's log directory. Several agent runs later there must be none,
+	// and asking for the Agents window must not start one either.
+	const agentHostLogs = () => fs.existsSync(path.join(userDataDir, 'logs')) ? fs.readdirSync(path.join(userDataDir, 'logs'), { recursive: true, encoding: 'utf8' }).filter(name => /agenthost/i.test(name)) : ['no logs directory'];
+	check('contract', 'the Agent Host did not start: no agenthost log in this profile', agentHostLogs().length === 0, agentHostLogs().join(', '));
+	const pageTargets = async () => ((await fetchJson<{ type: string; url: string }[]>(`http://127.0.0.1:${cdpPort}/json/list`)) ?? []).filter(target => target.type === 'page').map(target => target.url.slice(-60));
+	const targetsBefore = await pageTargets();
+	pw('press', 'F1');
+	await sleep(800);
+	pw('run-code', 'async (page) => { await page.fill(".quick-input-box input", ">Open Agents Window"); }');
+	await sleep(1000);
+	pw('press', 'Enter');
+	await sleep(5000);
+	pw('press', 'Escape');
+	const targetsAfter = await pageTargets();
+	check('contract', 'asking for the Agents window opens no second workbench and starts no Agent Host', targetsAfter.length === targetsBefore.length && !targetsAfter.some(url => /sessions/.test(url)) && agentHostLogs().length === 0, `pages before: ${targetsBefore.join(' | ')}; after: ${targetsAfter.join(' | ')}; logs: ${agentHostLogs().join(', ') || 'none'}`);
+}
+
+/** What a failed driver command printed, when the error carries it. */
+function driverOutput(error: unknown): string {
+	if (typeof error !== 'object' || error === null) {
+		return '';
+	}
+	const carried = error as { readonly stdout?: unknown; readonly stderr?: unknown };
+	return [carried.stdout, carried.stderr].filter((part): part is string => typeof part === 'string' && part.trim().length > 0).join('\n');
 }
 
 let aborted: string | undefined;
@@ -354,6 +534,19 @@ try {
 } catch (error) {
 	aborted = error instanceof Error ? error.message : String(error);
 	console.error(`\npackaged smoke aborted: ${aborted}`);
+	// Why the driver gave up and what the window showed. Without these, an abort that happens only on
+	// another machine cannot be read.
+	const output = driverOutput(error);
+	if (output) {
+		console.error(output.slice(-3000));
+	}
+	if (jsonOut) {
+		try {
+			pw('run-code', `async (page) => { await page.screenshot({ path: ${JSON.stringify(path.resolve(jsonOut).replace(/\.json$/, '') + '-abort.png')} }); }`);
+		} catch {
+			// the window is gone; there is nothing to photograph
+		}
+	}
 } finally {
 	try {
 		pw('close');

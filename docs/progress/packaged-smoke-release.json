@@ -1,42 +1,72 @@
 {
 	"mode": "release",
 	"app": "../VSCode-darwin-arm64/Onyx.app",
-	"ranAt": "2026-11-20T05:48:34.877Z",
+	"ranAt": "2026-11-21T17:22:18.857Z",
 	"observed": {
 		"product": {
 			"nameShort": "Onyx",
 			"version": "1.147.0",
-			"commit": "881936cd52cf284846d397a4354fe0f4cd65d403",
-			"date": "2026-11-20T00:35:00-05:00"
+			"commit": "719cfd5ba4dd5879195478ddc2ae9a6b3cf049e8",
+			"date": "2026-11-21T12:10:04-05:00"
 		},
-		"sourceRevision": "881936cd52cf284846d397a4354fe0f4cd65d403",
+		"sourceRevision": "719cfd5ba4dd5879195478ddc2ae9a6b3cf049e8",
 		"window": {
 			"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.147.0 Chrome/150.0.7871.250 Electron/43.8.9 Safari/537.36",
 			"title": "math.ts — ws"
 		},
 		"advertisedTools": [
-			"repoSymbols",
-			"editFile",
-			"terminal",
-			"docs",
-			"remember",
-			"openBrowserPage",
-			"readPage",
-			"playbook"
-		],
-		"model": "mock-coder:7b",
-		"missingEssentials": [
 			"readFile",
 			"listDirectory",
 			"findFiles",
-			"grep"
-		]
+			"grep",
+			"editFile",
+			"terminal",
+			"repoSymbols",
+			"docs"
+		],
+		"model": "mock-coder:7b",
+		"missingEssentials": [],
+		"contractVersion": 1,
+		"networkOptInTools": [
+			"readFile",
+			"listDirectory",
+			"findFiles",
+			"grep",
+			"editFile",
+			"terminal",
+			"openBrowserPage",
+			"readPage"
+		],
+		"labHarnessRequest": {
+			"configurationHash": "9801945d",
+			"configuration": {
+				"toolCallProtocol": "constrained-envelope",
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"toolResultChars": 4000,
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"readToolLineNumbering": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8
+			},
+			"source": "default",
+			"requested": "2026-11-21-packaged-smoke/one-turn",
+			"refused": "a lab configuration is accepted only by a development build; this is a packaged build"
+		},
+		"bundleScan": {
+			"filesScanned": 1007,
+			"charsScanned": 539181413,
+			"markers": 28
+		}
 	},
 	"checks": [
 		{
 			"name": "the app bundle has a product.json with a commit",
 			"ok": true,
-			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.147.0\",\"commit\":\"881936cd52cf284846d397a4354fe0f4cd65d403\",\"date\":\"2026-11-20T00:35:00-05:00\"}",
+			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.147.0\",\"commit\":\"719cfd5ba4dd5879195478ddc2ae9a6b3cf049e8\",\"date\":\"2026-11-21T12:10:04-05:00\"}",
 			"claim": "infrastructure"
 		},
 		{
@@ -59,7 +89,7 @@
 		{
 			"name": "the run journal lives in the throwaway profile",
 			"ok": true,
-			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-P0bKQq/user-data/User/workspaceStorage/bbf68db2095f200faaa8a305e5969cb4/onyx/journal/runs",
+			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-zVsU62/user-data/User/workspaceStorage/bd64851c04b81b9663a4d40a192d7337/onyx/journal/runs",
 			"claim": "infrastructure"
 		},
 		{
@@ -70,8 +100,8 @@
 		},
 		{
 			"name": "all six essential tools are advertised",
-			"ok": false,
-			"detail": "missing: readFile, listDirectory, findFiles, grep",
+			"ok": true,
+			"detail": "missing: ",
 			"claim": "contract"
 		},
 		{
@@ -82,20 +112,20 @@
 		},
 		{
 			"name": "the model read the file through the read tool before editing",
-			"ok": false,
-			"detail": "tool calls: repoSymbols",
+			"ok": true,
+			"detail": "tool calls: listDirectory, readFile, editFile",
 			"claim": "contract"
 		},
 		{
 			"name": "the edit was staged, not written",
-			"ok": false,
+			"ok": true,
 			"detail": "file changed on disk, or nothing was staged",
 			"claim": "contract"
 		},
 		{
 			"name": "the staged hunk shows the content the model read (R-31)",
-			"ok": false,
-			"detail": "### Result\n{\"files\":[],\"hunks\":[]}\n### Ran Playwright code\n```js\nawait (async (page) => page.evaluate(() => ({ files: Array.from(document.querySelectorAll(\".onyx-change-file-path\")).map(el => el.textC",
+			"ok": true,
+			"detail": "### Result\n\"{\\\"files\\\":[\\\"src/math.ts\\\"],\\\"removed\\\":[\\\"− \\\\treturn a + b;\\\"],\\\"added\\\":[\\\"+ \\\\treturn a + b; // edited-by-mock\\\"]}\"\n### Ran Playwright code\n```js\nawait (async (page) => page.evaluate(() => JSON.stringify({ files: Array.from(document.querySelectorAll(\".onyx-change-file-path\")).map(el => el.textContent), removed: Array.from(document.querySelectorAll(\".onyx-change-hunk .onyx-change-l",
 			"claim": "contract"
 		},
 		{
@@ -105,21 +135,88 @@
 		},
 		{
 			"name": "accepting applies the reviewed hunk to the buffer",
-			"ok": false,
+			"ok": true,
+			"detail": "staged again: true; changes: ### Result\n\"{\\\"files\\\":[],\\\"removed\\\":[],\\\"added\\\":[]}\"\n### Ran Playwright code\n```js\nawait (async (page) => page.evaluate(() => JSON.stringify({ files: Array.from(document.querySelectorAll(\".onyx-cha; editor: ### Result\n\"export function addNumbers(a: number, b: number): number { /     return a + b; // edited-by-mock / } / \"\n### Ran Playwright code\n```js\nawait (async (page) => page.evaluate(() => Array.from(document.querySelectorAll(\".editor-instance .view-line\")).map(l => l.textContent || \"\").join(\" / \")",
 			"claim": "contract"
 		},
 		{
 			"name": "the terminal tool asks before running",
 			"ok": true,
-			"detail": "### Result\n\"approved:echo onyx-packaged-terminal-ok\"\n### Ran Playwright code\n```js\nawait (async (page) => {\n\t\tconst detail = await page.$('.monaco-dialog-box .d",
+			"detail": "approved:echo onyx-packaged-terminal-okWorking directory: /var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-zVsU62/wsStops after: 60 s buttons=Deny",
 			"claim": "contract"
 		},
 		{
 			"name": "the approval names the exact command",
 			"ok": true,
-			"detail": "### Result\n\"approved:echo onyx-packaged-terminal-ok\"\n### Ran Playwright code\n```js\nawait (async (page) => {\n\t\tconst detail = await page.$('.monaco-dialog-box .d",
+			"detail": "approved:echo onyx-packaged-terminal-okWorking directory: /var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-zVsU62/wsStops after: 60 s buttons=Deny",
+			"claim": "contract"
+		},
+		{
+			"name": "the approval offers Run Once and Deny, and nothing that outlives the invocation (B2)",
+			"ok": true,
+			"detail": "approved:echo onyx-packaged-terminal-okWorking directory: /var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-zVsU62/wsStops after: 60 s buttons=Deny+Run Once",
+			"claim": "contract"
+		},
+		{
+			"name": "R-05: the default tool list is exactly the documented one for the supported profile",
+			"ok": true,
+			"detail": "advertised: readFile, listDirectory, findFiles, grep, editFile, terminal, repoSymbols, docs",
+			"claim": "contract"
+		},
+		{
+			"name": "R-05: every advertised tool is in the versioned contract's default inventory",
+			"ok": true,
+			"detail": "outside the contract: none",
+			"claim": "contract"
+		},
+		{
+			"name": "R-05: the network opt-in does not enlarge the slot budget or displace a tool unasked",
+			"ok": true,
+			"detail": "advertised: readFile, listDirectory, findFiles, grep, editFile, terminal, repoSymbols, docs",
+			"claim": "contract"
+		},
+		{
+			"name": "R-05: with the opt-in, a network tool asked for by name takes a spare slot, within the same eight",
+			"ok": true,
+			"detail": "advertised: readFile, listDirectory, findFiles, grep, editFile, terminal, openBrowserPage, readPage",
+			"claim": "contract"
+		},
+		{
+			"name": "R-05: the opt-in does not bypass approval: a network call asks first, showing the tool and the URL",
+			"ok": true,
+			"detail": "denied:The agent wants to use the network :: Tool: openBrowserPage {\"url\":\"https://example.com/onyx-packaged-smoke\"}Enabled by: your setting onyx.agent.networkToolsThis sends a request to another machine. What the request carries is shown above; what the other side does with it is not.",
+			"claim": "contract"
+		},
+		{
+			"name": "R-05: the denied network call did not run",
+			"ok": true,
+			"detail": "denied by the user",
+			"claim": "contract"
+		},
+		{
+			"name": "R-44: a lab harness configuration asked for through a manifest is refused by the packaged build, and every run used the default one",
+			"ok": true,
+			"detail": "{\"configurationHash\":\"9801945d\",\"configuration\":{\"toolCallProtocol\":\"constrained-envelope\",\"editProtocol\":\"search-replace\",\"promptStyle\":\"compact\",\"toolResultChars\":4000,\"evictionPolicy\":\"oldest-results-first\",\"contextTokens\":16384,\"turnCap\":8,\"verificationFeedback\":true,\"readToolLineNumbering\":true,\"toolSlotPolicy\":\"essentials-first\",\"maxTools\":8},\"source\":\"default\",\"requested\":\"2026-11-21-packag",
+			"claim": "contract"
+		},
+		{
+			"name": "R-44: no mutant and nothing of the simulation rig is in the product bundle",
+			"ok": true,
+			"detail": "only 1007 files scanned",
+			"claim": "contract"
+		},
+		{
+			"name": "the Agent Host did not start: no agenthost log in this profile",
+			"ok": true,
+			"detail": "",
+			"claim": "contract"
+		},
+		{
+			"name": "asking for the Agents window opens no second workbench and starts no Agent Host",
+			"ok": true,
+			"detail": "pages before: es/app/out/vs/code/electron-browser/workbench/workbench.html; after: es/app/out/vs/code/electron-browser/workbench/workbench.html; logs: none",
 			"claim": "contract"
 		}
 	],
-	"passed": false
+	"passed": true
 }

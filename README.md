@@ -6,8 +6,8 @@
 
 <p align="center">
   <b>The local-first AI code editor for macOS.</b><br/>
-  Every model runs on your machine. No cloud. No telemetry.<br/>
-  No account — there is nothing to sign in to.
+  Onyx talks to a model runtime on your machine and, by default, uses only models that runtime says it runs itself.<br/>
+  No telemetry. No account — there is nothing to sign in to.
 </p>
 
 <p align="center">
@@ -100,7 +100,9 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
 
 - **One client, every runtime.** A single OpenAI-compatible client covers
   Ollama, LM Studio, llama.cpp and vLLM. Discovery finds your models
-  automatically and nothing you type leaves the machine.
+  automatically. Requests go to the runtime's address on this machine; where
+  the model then runs is what the runtime reports, and
+  [Onyx says which is which](#where-inference-happens).
 - **The harness adapts to the model.** Prompt style, tool count, temperature and
   context budget come from a per-model capability profile, seeded from model
   metadata and sharpened by measurements on your hardware and by which answers
@@ -126,10 +128,46 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
   prompt again. When there is no gain it says so, as
   [it did on this Mac](#speculative-decoding).
 
+#### Where inference happens
+
+Onyx keeps two facts apart, because they are different facts.
+
+- **Where requests are sent** is read off the address: this machine
+  (loopback), your network, or the internet.
+- **Where the model runs** is what the runtime reports about itself. A runtime
+  on this machine can forward a model to a service somewhere else, and an
+  address cannot show that.
+
+What the runtimes report, and what Onyx reads:
+
+| Runtime | How Onyx knows it is that runtime | What it reports about a model |
+|---|---|---|
+| Ollama | it answers `/api/tags` | `remote_model` and `remote_host` on a model it forwards to an upstream host instead of running. Onyx treats such a model, and any whose name ends in `-cloud` or `:cloud`, as cloud-backed. A model without them is one Ollama says it serves itself |
+| LM Studio | it answers `/api/v0/models` | its loaded and downloaded models; LM Studio runs what it lists |
+| llama.cpp, vLLM | `owned_by` in their model list | the model the server was started with |
+| anything else | it does not say | nothing. A well-known port is not an identification |
+
+By default (`onyx.inference.strictLocal`) Onyx uses a model only when the
+runtime identified itself and reports that it runs the model itself, and the
+address is this machine. It does not use a cloud-backed model even through a
+runtime on this machine, a server that does not say what it is, or an endpoint
+on the internet. An endpoint on your network needs its own opt-in
+(`onyx.inference.allowLan`); adding its address to `onyx.endpoints` lists its
+models and sends them nothing. Models that were found and are not used stay
+in the model picker, labelled, with the reason, and `Onyx: Show Where Inference
+Happens` lists every model with both facts.
+
+What cannot be established: whether a runtime, or anything standing between
+Onyx and it (a proxy on the same port, a tunnel), sends requests on somewhere
+without saying so. Onyx reports what it is told. Nothing in the product says a
+model is verified to be local, because nothing verifies it.
+
 ### Nothing touches your code without you
 
 <img src="docs/images/onyx-changes.png" alt="Onyx Changes: agent edits staged for per-hunk review — nothing touches a file until accepted" width="420" />
-<img src="docs/images/onyx-terminal-approval.png" alt="The agent proposing a shell command, with Run Once, Run for This Session, Always Run This Command and Deny" width="900" />
+<img src="docs/images/onyx-terminal-approval.png" alt="The agent proposing a shell command in an approval dialog. Screenshot from August 2026: it still shows the Run for This Session and Always Run buttons, which the alpha removed" width="900" />
+
+*The screenshot predates the alpha's approval contract: the dialog now offers Run Once and Deny only.*
 
 - **Agent edits stage before they land.** Every edit goes to Onyx Changes: diff
   per file, per-hunk accept and reject, accept-all and reject-all, and a risk
@@ -142,17 +180,26 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
   told which. It is never applied somewhere it no longer fits.
   </details>
 
-- **A terminal the agent has to ask for.** Each proposed command is shown
-  verbatim with **Run Once / Run for This Session / Always Run This Command /
-  Deny**.
+- **A terminal the agent has to ask for, every time.** Each proposed command is
+  shown exactly as it will run, with its working directory and timeout, and
+  two choices: **Run Once** or **Deny**. An answer covers that one invocation.
 
-  <details><summary>How dangerous commands are handled</summary>
+  <details><summary>What an approval does and does not cover</summary>
 
-  Commands matching 18 patterns (`rm -rf`, `curl | sh`, `sudo`, force-push, raw
-  disk writes, publishing) are named as dangerous and **never get an "always"
-  option** — they cannot enter any allowlist. "Always" for safe commands
-  persists into `.onyx/config.json`, output streams to the timeline, and a hard
-  timeout plus `Onyx: Kill Running Terminal Command` end anything that hangs.
+  There is no "for this session" and no "always" in this release, and nothing
+  a repository contains can run a command: a `terminalAllowlist` in
+  `.onyx/config.json` is read as a list of suggestions and grants nothing.
+  The same command asks again the next time, because a path such as
+  `npm test` or `python3 script.py` says nothing about what the script behind
+  it does today. A check task named by the repository asks before each run as
+  well. The dialog also says what a command looks like: every command in
+  the pipeline is classified by its executable and arguments as destructive,
+  privilege, remote code, network egress, persistence or unseen code
+  (`curl --data-binary @.env …`, `crontab`, `python3 script.py`). That is a
+  warning to read, not a verdict, and silence is not a finding of safety. Output streams to
+  the timeline, and a hard timeout plus `Onyx: Kill Running Terminal Command`
+  end anything that hangs. `Onyx: Show Terminal Approval History` lists past
+  decisions, which are a record and never a permission.
   </details>
 
 - **Risk badges before you accept.** Each changed file is scored on churn,
@@ -245,7 +292,7 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
 <img src="docs/images/onyx-control-plane.png" alt="The Onyx control plane: an adversarial review run with file:line findings" width="900" />
 
 - **The Onyx Control Plane (`⌘⌃O`)** streams every routing decision, model turn
-  and tool call live — with pause, stop and redirect — plus a token-exact context
+  and tool call live — with pause, stop and redirect — plus an estimated context
   budget and an inspector that replays any past run down to the exact wire
   prompt.
 - **A ledger instead of a bill.** Per model, for this session and all
@@ -375,6 +422,11 @@ These run anywhere, need no model, and are what CI measures on every push.
 
 <img src="docs/images/chart-retrieval.svg" alt="BM25 retrieval versus substring search" width="720" />
 
+The chart is the August 2026 measurement. On today's tree, measured through the
+index the product builds (18,205 files, tests and documentation included), the
+figure is 70%: 7 of the 10 files. [docs/BENCHMARKS.md](./docs/BENCHMARKS.md#retrieval--bm25-versus-substring-search)
+has the three misses and why.
+
 #### Surviving what small local models actually emit
 
 <img src="docs/images/chart-parsers.svg" alt="Parser resilience against malformed edits" width="720" />
@@ -436,7 +488,7 @@ the harness above, on this machine.
 | Account required | Yes | No | No | **No — nothing to sign in to** |
 | Your code leaves the machine | Yes, by design | No | Depends on the model you configure | **No** |
 | Agent edits before they land | Varies by product | n/a — no editor | Varies by product | **Always staged; per-hunk accept/reject; survives a crash; rebased if the file moves** |
-| Shell commands | Varies by product | n/a | Varies by product | **Never runs without an explicit dialog; dangerous patterns named and un-allowlistable** |
+| Shell commands | Varies by product | n/a | Varies by product | **Every invocation asks, with Run Once or Deny; no session or persistent grant, and repository files grant nothing; dangerous-looking patterns are named in the dialog** |
 | Which model handles a request | You select one, or an automatic mode routes per request | You decide, per request | You decide, per config | **Routed automatically from measurements of your hardware and your repository, with the reason shown** |
 | Speed and cost readout | Dollars, or nothing | `--verbose` in a terminal | Varies | **tok/s, TTFT, context usage and a B·s energy proxy, per model, live** |
 | Documentation lookup | The vendor's index, online | n/a | Varies | **A local BM25 mirror of your markdown, dependency READMEs and JSDoc — no network** |

@@ -26,9 +26,18 @@ export interface IOnyxProjectConfig {
 	readonly reviewSeverityThreshold?: 'low' | 'medium' | 'high';
 	/** Tool ids or reference names the agent must not use in this repository. */
 	readonly disabledTools?: readonly string[];
-	/** Exact commands the agent's terminal tool may run without asking ("always allow" decisions land here). */
-	readonly terminalAllowlist?: readonly string[];
+	/**
+	 * Commands the repository suggests, for information only. Repository-authored:
+	 * listing a command here grants nothing, and every invocation asks (B2).
+	 * Read from `recommendedCommands` and from the legacy `terminalAllowlist`
+	 * key, where earlier versions stored "always allow" decisions; those
+	 * entries are inactive and are never migrated to consent.
+	 */
+	readonly recommendedCommands?: readonly string[];
 }
+
+/** The key under which earlier versions persisted "always allow" decisions in `.onyx/config.json`. */
+export const LEGACY_TERMINAL_ALLOWLIST_KEY = 'terminalAllowlist';
 
 export const ONYX_PROJECT_CONFIG_PATH = '.onyx/config.json';
 export const ONYX_PROJECT_CONFIG_SCHEMA_ID = 'vscode://schemas/onyx-config';
@@ -60,7 +69,7 @@ export function parseProjectConfig(json: string): IOnyxProjectConfigParse {
 		contextPins?: string[];
 		reviewSeverityThreshold?: 'low' | 'medium' | 'high';
 		disabledTools?: string[];
-		terminalAllowlist?: string[];
+		recommendedCommands?: string[];
 	} = {};
 
 	if (value.models !== undefined) {
@@ -115,16 +124,26 @@ export function parseProjectConfig(json: string): IOnyxProjectConfigParse {
 		}
 	}
 
-	if (value.terminalAllowlist !== undefined) {
-		if (Array.isArray(value.terminalAllowlist) && value.terminalAllowlist.every(entry => typeof entry === 'string')) {
-			config.terminalAllowlist = value.terminalAllowlist as string[];
-		} else {
-			problems.push('terminalAllowlist: expected an array of exact command strings');
+	// Both keys are read as the same thing: a list the repository wrote, shown for
+	// information. Neither one authorizes a command.
+	const recommended: string[] = [];
+	for (const key of ['recommendedCommands', LEGACY_TERMINAL_ALLOWLIST_KEY]) {
+		const entries = value[key];
+		if (entries === undefined) {
+			continue;
 		}
+		if (Array.isArray(entries) && entries.every(entry => typeof entry === 'string')) {
+			recommended.push(...(entries as string[]).filter(entry => !recommended.includes(entry)));
+		} else {
+			problems.push(`${key}: expected an array of command strings`);
+		}
+	}
+	if (recommended.length > 0) {
+		config.recommendedCommands = recommended;
 	}
 
 	for (const key of Object.keys(value)) {
-		if (!['models', 'verificationTask', 'contextPins', 'reviewSeverityThreshold', 'disabledTools', 'terminalAllowlist', '$schema'].includes(key)) {
+		if (!['models', 'verificationTask', 'contextPins', 'reviewSeverityThreshold', 'disabledTools', 'recommendedCommands', LEGACY_TERMINAL_ALLOWLIST_KEY, '$schema'].includes(key)) {
 			problems.push(`unknown field "${key}"`);
 		}
 	}
@@ -173,10 +192,16 @@ export const ONYX_PROJECT_CONFIG_SCHEMA: IJSONSchema = {
 			items: { type: 'string' },
 			description: 'Tool ids or reference names the agent must not use in this repository.',
 		},
+		recommendedCommands: {
+			type: 'array',
+			items: { type: 'string' },
+			description: 'Commands this repository suggests, shown for information. Listing a command here grants nothing: the agent\'s terminal tool asks before every command, every time.',
+		},
 		terminalAllowlist: {
 			type: 'array',
 			items: { type: 'string' },
-			description: 'Exact commands the agent\'s terminal tool may run in this repository without asking. Commands that match a danger heuristic still ask every time.',
+			description: 'Legacy. Earlier versions ran these commands without asking. They are now read as "recommendedCommands" and grant nothing.',
+			deprecationMessage: 'Inactive: every command asks before it runs. Use "recommendedCommands" for suggestions, or run "Onyx: Clear Legacy Terminal Grants" to remove this key.',
 		},
 	},
 };

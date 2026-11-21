@@ -26,7 +26,10 @@ export type OnyxPromptStyle = 'compact' | 'full';
 export interface IOnyxModelProfile {
 	/** 0..1 — how reliably the model emits well-formed tool calls. */
 	readonly toolCallQuality: number;
+	/** The context to budget against, in tokens: the smallest of the numbers in `context` (B13). */
 	readonly contextLength: number;
+	/** Where `contextLength` came from: what the architecture allows, what the server allocates, what was observed to fit. */
+	readonly context?: { readonly architectural?: number; readonly serverConfigured?: number; readonly observed?: number; readonly measured?: number; readonly source: 'measured' | 'observed' | 'server' | 'architectural' | 'default' };
 	/** Maximum number of tools to expose in a single request. */
 	readonly maxTools: number;
 	readonly temperature: number;
@@ -36,6 +39,17 @@ export interface IOnyxModelProfile {
 	readonly supportsVision: boolean;
 	/** Sent with every request when set (a profile override or a lab manifest); unset means the runtime samples freely (L3). */
 	readonly seed?: number;
+	/** Whether the runtime was measured to enforce a JSON schema (L5). Unset: not measured, and the runtime's kind decides. */
+	readonly runtimeEnforcesSchema?: boolean;
+	/** Which of the numbers a datasheet can supply were measured for this model and which are defaults (L5). */
+	readonly provenance?: IOnyxProfileProvenance;
+}
+
+/** For each thing a datasheet measures: whether the profile's value was measured on this machine or is a default. */
+export interface IOnyxProfileProvenance {
+	readonly toolCallQuality: 'measured' | 'default';
+	readonly contextLength: 'measured' | 'default';
+	readonly schemaEnforcement: 'measured' | 'default';
 }
 
 /** Locally measured, per-model rolling statistics. All local; never leaves the machine. */
@@ -63,6 +77,8 @@ export interface IOnyxObservedStats {
 	/** On-your-repo benchmark: mean score and task count per task kind. */
 	readonly benchScores: Record<string, number>;
 	readonly benchSamples: Record<string, number>;
+	/** The largest request size, in estimated tokens, known to be too much for the runtime: learned from an overflow error (B13). */
+	readonly observedContextTokens?: number;
 }
 
 /** One event in a run's journal. */

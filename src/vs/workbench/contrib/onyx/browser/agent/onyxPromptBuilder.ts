@@ -147,7 +147,7 @@ export class OnyxPromptBuilder {
 		}
 
 		return [
-			'You are Onyx, an AI software engineering agent. All inference runs locally on the user\'s machine; work efficiently and keep responses focused.',
+			'You are Onyx, an AI software engineering agent working in the user\'s editor. Work efficiently and keep responses focused.',
 			environment,
 			toolNames.length
 				? `You can call tools to read, search, edit and run code (${toolNames.join(', ')}). Prefer inspecting the workspace over guessing. Plan multi-step work briefly before acting, act step by step, and verify the result of your edits when a suitable tool is available.`

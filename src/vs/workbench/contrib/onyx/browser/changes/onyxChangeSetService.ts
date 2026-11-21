@@ -24,6 +24,7 @@ import {
 } from '../../common/onyxChangeSet.js';
 import { IOnyxChangeRisk } from '../../common/onyxChangeRisk.js';
 import { IOnyxEditBlock, IOnyxEditHunk } from '../../common/onyxInlineEdit.js';
+import { decodeNumberedSearch, replacementCarriesNumbering } from '../../common/onyxReadTools.js';
 import { resolveWorkspacePath } from '../../common/onyxWorkspacePaths.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
@@ -137,6 +138,14 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		}
 		const existing = this._filesObs.get().find(file => file.proposal.path === path);
 		const current = existing ? undefined : await this._readCurrentContent(uri);
+		// R-24: SEARCH text copied from a numbered readFile result is decoded
+		// only when it is provably that result (the exact text is tried
+		// first); anything shaped like one that is not the file is refused.
+		const decoded = decodeNumberedBlocks(blocks, existing ? await this._readCurrentContent(uri) : current, existing?.proposal.proposed);
+		if (!decoded.ok) {
+			return { ok: false, error: decoded.error };
+		}
+		blocks = decoded.blocks;
 		const result = proposeEdits(existing?.proposal, path, existing ? existing.proposal.base : current, blocks);
 		if (!result.ok) {
 			return { ok: false, error: result.error };
@@ -433,6 +442,37 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 			reference.dispose();
 		}
 	}
+}
+
+/**
+ * Applies R-24 to each block. `liveText` is the file as `readFile` shows it
+ * (what a copied line number refers to); `stagedText` is the proposal the
+ * block will be matched against when the file already has one.
+ */
+function decodeNumberedBlocks(blocks: readonly IOnyxEditBlock[], liveText: string | undefined, stagedText: string | undefined): { ok: true; blocks: readonly IOnyxEditBlock[] } | { ok: false; error: string } {
+	if (liveText === undefined) {
+		return { ok: true, blocks };
+	}
+	const out: IOnyxEditBlock[] = [];
+	for (const block of blocks) {
+		if (stagedText !== undefined && block.search !== '' && stagedText.includes(block.search)) {
+			out.push(block); // exact against the text it will be matched with
+			continue;
+		}
+		const decoding = decodeNumberedSearch(block.search, liveText);
+		if (decoding.kind === 'refused') {
+			return { ok: false, error: `Edit refused: ${decoding.reason}` };
+		}
+		if (decoding.kind === 'decoded') {
+			if (replacementCarriesNumbering(block.replace, decoding.startLine)) {
+				return { ok: false, error: 'Edit refused: the replacement text carries readFile line numbers ("N| "). They are not part of the file; send the replacement lines without them.' };
+			}
+			out.push({ ...block, search: decoding.text });
+			continue;
+		}
+		out.push(block);
+	}
+	return { ok: true, blocks: out };
 }
 
 /** The user-facing name of the review surface, shared by view, tool text and help. */

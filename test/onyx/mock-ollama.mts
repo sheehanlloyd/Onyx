@@ -11,13 +11,16 @@
  * `/debug/last-chat` introspection endpoints.
  *
  * Prompt markers it understands (see test/onyx/README.md):
- *   TOOLTEST        - emit a tool call for the first non-Onyx tool
+ *   TOOLTEST        - list the workspace root through the listDirectory tool
+ *                     (the first offered tool when that one is absent)
  *   SYMTEST <name>  - call repoSymbols with that query (add EXPAND for the call graph)
  *   MEMTEST <text>  - call the remember tool with that note
  *   EDITTEST <path> - propose two staged edits to that file via editFile
  *   TERMTEST <cmd>  - propose that shell command via the terminal tool
  *   DOCTEST <query> - search the offline docs mirror via the docs tool
  *   PBTEST <name>   - fetch that repository playbook via the playbook tool
+ *   NETTEST <url>   - open that URL via the openBrowserPage tool, when it is
+ *                     offered (the network tools are an opt-in)
  *   READEDITTEST <path> - read that file via the readFile tool, then propose
  *                     an edit whose SEARCH text is a line it read back (R-31);
  *                     answers "no read tool" when readFile is not offered
@@ -99,6 +102,14 @@ const server = http.createServer((req, res) => {
 			res.writeHead(404); return res.end();
 		}
 		return json(res, { models: MODELS.map((m: typeof MODELS[number]) => ({ name: m.id, details: { family: m.family, parameter_size: m.parameter_size, quantization_level: m.quantization_level } })) });
+	}
+	if (req.method === 'GET' && url.pathname === '/api/v0/models') {
+		// LM Studio's native model list. Onyx identifies a runtime by what it answers, not by its port
+		// (B14): a server that does not say what it is has not said where its models run.
+		if (KIND !== 'lmstudio') {
+			res.writeHead(404); return res.end();
+		}
+		return json(res, { object: 'list', data: MODELS.map((m: typeof MODELS[number]) => ({ id: m.id, object: 'model', type: 'llm', arch: m.family, quantization: m.quantization_level, max_context_length: m.context_length })) });
 	}
 	if (req.method === 'POST' && url.pathname === '/api/show') {
 		return readBody(req).then(body => {
@@ -300,6 +311,19 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 		res.end();
 		return;
 	}
+	// NETTEST <url> asks to open that URL through the openBrowserPage tool, which
+	// exists only when the user has opted in to the network tools (B3).
+	const netUrl = /NETTEST\s+(\S+)/.exec(lastUser?.content ?? '')?.[1];
+	const browserTool = body.tools?.find((t: any) => t.function.name === 'openBrowserPage');
+	if (netUrl && browserTool && !hasToolResult) {
+		send({ ...chunk({ tool_calls: [{ index: 0, id: 'net_1', type: 'function', function: { name: browserTool.function.name, arguments: '' } }] }) });
+		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ url: netUrl }) } }] }) });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
+		res.write('data: [DONE]\n\n');
+		res.end();
+		return;
+	}
 	if (wantsTerminal) {
 		const terminalTool = body.tools.find((t: any) => /terminal/i.test(t.function.name)) ?? body.tools[0];
 		const termCommand = /TERMTEST\s+(.+)/.exec(lastUser.content)![1].trim();
@@ -333,12 +357,13 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 			? (body.tools.find((t: any) => /repoSymbols/i.test(t.function.name)) ?? body.tools[0])
 			: wantsMemory
 				? (body.tools.find((t: any) => /remember|memory/i.test(t.function.name)) ?? body.tools[0])
-				: (body.tools.find((t: any) => /todo|task/i.test(t.function.name)) ?? body.tools[0]);
+				// TOOLTEST: list the workspace root with Onyx's own tool; any offered tool otherwise.
+				: (body.tools.find((t: any) => /^listDirectory$/.test(t.function.name)) ?? body.tools[0]);
 		const args = wantsSymbols
 			? JSON.stringify({ query: /SYMTEST\s+(\w+)/.exec(lastUser.content)[1], ...(/EXPAND/.test(lastUser.content) ? { expand: true } : {}) })
 			: wantsMemory
 				? JSON.stringify({ note: /MEMTEST\s+(.+)/.exec(lastUser.content)[1] })
-				: '{}';
+				: tool.function.name === 'listDirectory' ? JSON.stringify({ path: '.' }) : '{}';
 		send({ ...chunk({ tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: tool.function.name, arguments: '' } }] }) });
 		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: args } }] }) });
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IOnyxDiscoveredModel } from '../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { effectiveContext } from './onyxContextBudget.js';
 import { IOnyxModelProfile } from './onyxTypes.js';
 
 /**
@@ -11,12 +12,15 @@ import { IOnyxModelProfile } from './onyxTypes.js';
  * size-class heuristics. Local observation (parse failures, accept rates)
  * refines these numbers over time — this table only has to be roughly right.
  */
-export function seedProfile(model: IOnyxDiscoveredModel): IOnyxModelProfile {
+export function seedProfile(model: IOnyxDiscoveredModel, observedContextTokens?: number): IOnyxModelProfile {
 	const parameterB = model.parameterB;
 	const sizeClass = classifySize(parameterB);
+	// Three numbers, any of which may be missing; the budget is the smallest of what is known (B13).
+	const context = effectiveContext({ architectural: model.contextLength, serverConfigured: model.serverContextLength, observed: observedContextTokens });
 	return {
 		toolCallQuality: model.supportsTools === false ? 0 : seedToolCallQuality(sizeClass),
-		contextLength: model.contextLength ?? 8192,
+		contextLength: context.tokens,
+		context: { architectural: model.contextLength, serverConfigured: model.serverContextLength, observed: observedContextTokens, source: context.source },
 		maxTools: seedMaxTools(sizeClass),
 		temperature: 0.2,
 		promptStyle: sizeClass === 'large' ? 'full' : 'compact',

@@ -1,11 +1,58 @@
 # Onyx plan state
 Plan version: v4
-Current module: 1      Status: gate passed, re-run on the new upstream base (DEC-05); Module 2 not started
-Revision: 881936cd52c (branch `upstream-1.147.0`, pull request sheehanlloyd/Onyx#2; this file's commit follows it and changes only documents, one workflow comment and the gate's result files)
-Isolated checkout: branch `upstream-1.147.0` in a sibling clone of the owner's folder (clone directory `onyx-module-1`); the four audit documents are excluded there via `.git/info/exclude` and never committed
+Current module: 2      Status: complete; gate passed on 719cfd5ba4d (2026-11-21). Module 3 is next.
+Revision: 719cfd5ba4d on branch `module-2` (pull request sheehanlloyd/Onyx#3, into `main`, not merged); this file's commit follows it and changes only documents and the gate's result files
+Isolated checkout: branch `module-2` in a sibling clone of the owner's folder (clone directory `onyx-module-1`); the four audit documents are excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-11-20 the base was 36d38757a15 (August 2026)
 Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; the gate machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
+
+## Module 2
+Items done:
+| Item | Branch → PR | Report | Gate check ids |
+|---|---|---|---|
+| B1 | codex/b1-read-tools → #3 | B1.md | B1-read-tools (R-24, R-30), R-36, packaged-release (R-31) |
+| B2 | codex/b2-shell-approval → #3 | B2.md | R-01-R-04 |
+| B3 | codex/b3-tool-contract → #3 | B3.md | R-05-R-59, B3-agent-host, packaged-release (R-05) |
+| B4 | codex/b4-egress-warnings → #3 | B4.md | R-06 |
+| B5 | codex/b5-command-runner → #3 | B5.md | R-18, R-40, R-40-source-scan |
+| B11 | codex/b11-diagnostics-redaction → #3 | B11.md | R-20 |
+| B12 | codex/b12-stream-termination → #3 | B12.md | R-19, R-28-mandatory |
+| B13 | codex/b13-context-budget → #3 | B13.md | R-16 |
+| B14 | codex/b14-inference-location → #3 | B14.md | R-17 |
+| C4 | codex/c4-reasoning-models → #3 | C4.md | R-26 |
+| C5 | codex/c5-fenced-streaming → #3 | C5.md | R-27 |
+| C6 | codex/c6-constrained-streaming → #3 | C6.md | R-28-streaming |
+| C7 | codex/c7-index-coverage → #3 | C7.md | C7-index-coverage |
+| L4 | codex/l4-harness-config → #3 | L4.md | R-44, R-44-bundle-scan, packaged-release (two R-44 checks) |
+| L5 | codex/l5-datasheet → #3 | L5.md, docs/research/results/2026-11-21-datasheets/ | R-45 |
+| gate | codex/m2-gate-campaign → #3 | this file | sim-campaign-20000, module-2-tables, sim-mutants |
+Items remaining: none
+Scope dispositions:
+  C6: included (DEC-12). C7: included (DEC-12). Both recorded in `docs/SUPPORT.md`, "Optional feature states".
+  Agent Host: excluded (B3): never started, no session type or model registered; its code is still in the bundle (D8).
+  C4: the reasoning transcripts behind R-26 are constructed from the documented stream shapes, not recorded: no reasoning model is installed and none was downloaded. `docs/SUPPORT.md` lists reasoning models as handled, not validated against a model.
+  C5: the plan's 400-character hold applies to undecided text; a recognised tool call is held to its end.
+  C7: the published retrieval figure was stale. The production index on today's tree finds 7 of 10 files, not 9 of 10; the documents say so; the chart is not redrawn (needs a manifest; C8).
+  L5: the context probe stays inside what the server says it allocated, as the plan words it, so it found no limit of its own; the profile takes the server's allocation (4,096 tokens on a default Ollama) as the context.
+  Defects fixed at the process boundary (B5's event flood and dispose kill, B12's process-side deadline, C7's indexer) have node regressions that were seen failing and no simulation mutant: the rig replaces that process.
+Baseline exceptions still open (`test/onyx/sim/baseline-exceptions.json`, 8, all Module 3's): I-03/no-time-budget → B10; I-03/status-overwritten → B10; I-05/command-after-stop → B10; I-05/stage-after-stop → B10; I-05/dispatch-after-stop → B10 (new: found by this module's 20,000-episode campaign at seed 5545; same root as the other two); I-08/ambiguous-anchor-staged → B6, B7; I-08/inexact-anchor-staged → B6; I-13/oversized-proposal → B7.
+Mutants added (24, `test/onyx/sim/mutants/`): B1-naive-read-path, B1-priority-truncation, B2-repository-allowlist, B2-reused-approval, B2-normalized-approval, B2-unasked-check-task, B3-uncontracted-tools, B3-unconfirmed-memory, B4-regex-warnings, B5-unbounded-output, B5-full-environment, B5-cwd-ignored, B5-command-outlives-window, B11-value-only-redaction, B12-truncated-is-complete, B12-unvalidated-arguments, B12-no-stream-deadline, B13-no-output-cap, B13-no-eviction, B14-address-is-locality, C4-thinking-is-answer, C5-fence-withheld, C6-constrained-answer-withheld, L4-inline-harness-record. All detected at 2,000 episodes each.
+Gate: `ONYX_PACKAGED_APP=<the rebuilt Onyx.app> node test/onyx/run-module-gate.mts --module 2`, 2026-11-21, on fresh output from 719cfd5ba4d with a clean tree, exit 0, `docs/progress/gate-module-2.json` — "47 checks: 47 passed, 0 expected failure(s), 0 skipped, 0 blocking", "module 2 gate: PASSED". It runs Module 1's 23 checks too; packaged release mode is a required pass there since B3.
+  Checklist: R-01 to R-06, R-16 to R-20, R-24, R-26, R-27, R-28, R-30 (read side), R-36, R-40, R-44, R-45, R-59 by the checks named above; R-31 by packaged-release and the end-to-end suite. Packaged smoke, release mode: 26 of 26. Campaign: 20,000 episodes, seeds 1 to 20,000, no class outside the table, and the table has no entry for I-02, I-04, I-06, I-07 (read side), I-10, I-11, I-13 (output) or I-14 (`module-2-tables`). `docs/SUPPORT.md` lists the tools the contract can expose and records C6 and C7 as included.
+  The first gate run failed on one check: the 20,000-episode campaign ran its single test process out of memory. It now runs as ten processes over the same seeds (`test/onyx/sim/run-campaign.mts`). Seeds past 2,000, never run before, then showed two errors in the rig's bookkeeping, one checker that blamed a user-stopped reply on the model, one user undo counted against an accept, and one real defect under Module 3's I-05, added to the baseline table with its owner. Details in the commit f6bd8de0042.
+Integration suite (Section 11, run once more after the gate, 2026-11-21): node v24.22.3, pnpm 12.16.0; typecheck-client, transpile-client, valid-layers-check, oxlint (Onyx paths), stylelint all exit 0; `./scripts/test.sh --grep Onyx` "275 passing, 2 pending" (the two pending are the opt-in campaign and trace-dump tests); `run-benchmarks.mts --skip-models` exit 0; `run-e2e.mts` "all 57 checks passed"; packaged release mode "release mode: all 26 checks passed"; packaged baseline mode passed. Zero unexpected failures.
+Datasheets (L5): `docs/research/results/2026-11-21-datasheets/`, Ollama 0.33.0. `qwen2.5-coder:7b` (dae161e27b0e): native tool calls 0 of 5, readable as text 5 of 5, schema enforced 3 of 3 for each shape, server context 4,096, 48 tokens a second. `qwen2.5-coder:1.5b` (d7372fd82851): 0 of 5, 3 of 5, 3 of 3 each, 4,096, 159 tokens a second.
+CI on sheehanlloyd/Onyx#3: red once, on 669dd50b67d (44756056767, 44756057488), for two causes fixed in C7's commit (a self-check's stale anchor; the packaged smoke not stepping through the first-run dialog). Green since on every push: 1a1ecf34f55, 7055ed1faa3, 288b78e12f3, ce3f3462ec8, 85e1ed30dca (44925425817, 44925425743) and 719cfd5ba4d (44928558606, 44928558558), the last two consecutive.
+Human actions waiting:
+  The repositories live under a Desktop folder that a cloud drive synchronises; it dropped 22 conflict copies into the clone during this module (removed; a hygiene check now catches them). Moving the repositories out of the synchronised folder is the owner's to do.
+  The owner's local `main` has commits that are not on `origin/main` (44fdc073e34); this pull request is against `origin/main`.
+  C7's default index cap (20,000 files, 284 MB for this repository) is one number to change if that is too much.
+Notes for the next session:
+  Module 3 enters on this base. `onyxSimBehaviourBaseline.ts` is a snapshot of the loop's behaviour on 1,000 seeds; the first item that changes the loop on purpose regenerates it with the command in its header and says why, and L8 replaces it.
+  A campaign past about 14,000 episodes needs `run-campaign.mts`: one test process keeps every episode's leftovers. What is kept was not investigated.
+  Before every merge run the whole self-check suite on a clean tree (`node --test --test-concurrency=1 "test/onyx/checks/*.test.mts"`), not a subset: R-35 needs a clean tree and one check rebuilds `out/`.
+  Measuring a model needs a runtime already running on this machine; start `ollama serve` on a port other than 11434 and stop it afterwards. Check the machine is on its own charger first: at a few percent of battery the same model ran at a third of its speed.
 
 ## DEC-05 (upstream baseline)
 Decision: confirmed by the owner on 2026-11-20: move the fork to upstream release 1.147.0. Completed the same day as its own step between Module 1 and Module 2; report in `docs/progress/DEC-05.md`, merge record in `REBASE.md`.

@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { OnyxSimEpisode, SIM_FILES } from './onyxSimEpisode.js';
-import { SIM_SCENARIOS } from './onyxSimScenarios.js';
 
 /**
  * The baseline exceptions (L2, R-42): every violation class the simulator
@@ -47,50 +46,11 @@ function script(episode: Omit<OnyxSimEpisode, 'files'>): OnyxSimEpisode {
 	};
 }
 
-function scenario(name: string): OnyxSimEpisode {
-	const found = SIM_SCENARIOS.find(candidate => candidate.name === name);
-	if (!found) {
-		throw new Error(`no scenario named ${name}`);
-	}
-	return found;
-}
-
 export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 	{
-		class: 'I-02/repository-allowlist',
-		owner: 'B2',
-		finding: 'Cursor red flag 2; Claude B2; Codex (R-01, R-02): a repository `terminalAllowlist` entry runs a command with no approval dialog for that invocation',
-		script: script({
-			name: 'I-02-repository-allowlist',
-			seed: 28,
-			persona: 'obedient',
-			prompt: 'Run the',
-			target: 'src/math.ts',
-			turns: [
-				{
-					kind: 'toolCall',
-					tool: 'terminal',
-					arguments: {
-						command: 'cat README.md',
-					},
-				},
-			],
-			dialogDefault: 'deny',
-			userSteps: [],
-			faults: [],
-			projectConfig: {
-				terminalAllowlist: [
-					'npm test',
-					'rm -rf /',
-					'cat README.md',
-				],
-			},
-		}),
-	},
-	{
 		class: 'I-03/no-time-budget',
-		owner: 'B12, B10',
-		finding: 'Codex N12 (R-19): a stream that never produces a token has no idle deadline, so the run never ends on its own',
+		owner: 'B10',
+		finding: 'Codex N5 (R-15): a run the user paused and did not resume never ends on its own. (The other way into this class, a stream that never produces a token, was closed by B12\'s deadlines.)',
 		script: script({
 			name: 'I-03-no-time-budget',
 			seed: 28,
@@ -126,27 +86,7 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 		script: script({
 			name: 'I-03-status-overwritten',
 			seed: 30,
-			persona: 'staller',
-			prompt: 'Run the',
-			target: 'src/math.ts',
-			turns: [
-				{
-					kind: 'stall',
-				},
-			],
-			dialogDefault: 'dismiss',
-			userSteps: [],
-			faults: [],
-		}),
-	},
-	{
-		class: 'I-04/no-output-cap',
-		owner: 'B13',
-		finding: 'Claude H6; Codex N9 (R-16): chat requests carry no `max_tokens`',
-		script: script({
-			name: 'I-04-no-output-cap',
-			seed: 1,
-			persona: 'flooder',
+			persona: 'well-behaved',
 			prompt: 'Run the',
 			target: 'src/math.ts',
 			turns: [
@@ -155,8 +95,18 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 					text: 'Done.',
 				},
 			],
-			dialogDefault: 'deny',
-			userSteps: [],
+			dialogDefault: 'dismiss',
+			// Stop while the reply is streaming. (Until B12 this script was a stream that never said anything,
+			// stopped by the rig's watchdog; such a run now ends at the product's own deadline.)
+			userSteps: [
+				{
+					at: 'betweenChunks',
+					occurrence: 1,
+					step: {
+						kind: 'stop',
+					},
+				},
+			],
 			faults: [],
 		}),
 	},
@@ -190,6 +140,48 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 				},
 			],
 			faults: [],
+		}),
+	},
+	{
+		class: 'I-05/dispatch-after-stop',
+		owner: 'B10',
+		finding: 'Codex N5 (R-15), found by the 20,000-episode campaign in Module 2: Stop is honoured only at the gate after a tool turn; a tool whose approval dialog was open when the user pressed Stop is still dispatched when the dialog is answered',
+		script: script({
+			name: 'I-05-dispatch-after-stop',
+			seed: 5545,
+			persona: 'squatter',
+			prompt: 'Run the',
+			target: 'src/math.ts',
+			turns: [
+				{
+					kind: 'toolCall',
+					tool: 'vscode_fetchWebPage_internal',
+					arguments: {
+						command: 'echo sq',
+						path: 'src/ma',
+						url: 'https:',
+						task: 'build',
+						newName: 'x',
+					},
+				},
+			],
+			dialogDefault: 'allow-once',
+			userSteps: [
+				{
+					at: 'dialogOpen',
+					occurrence: 1,
+					step: {
+						kind: 'stop',
+					},
+				},
+			],
+			faults: [],
+			profile: {
+				promptStyle: 'compact',
+				contextLength: 4096,
+				maxTools: 24,
+			},
+			networkTools: true,
 		}),
 	},
 	{
@@ -279,27 +271,6 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 		}),
 	},
 	{
-		class: 'I-11/truncated-reported-complete',
-		owner: 'B12',
-		finding: 'Codex N12 (R-19): a stream that ends without a finish reason is journaled as completed',
-		script: script({
-			name: 'I-11-truncated-reported-complete',
-			seed: 12,
-			persona: 'truncating',
-			prompt: 'Change a',
-			target: 'src/math.ts',
-			turns: [
-				{
-					kind: 'truncated',
-					text: '<thin',
-				},
-			],
-			dialogDefault: 'dismiss',
-			userSteps: [],
-			faults: [],
-		}),
-	},
-	{
 		class: 'I-13/oversized-proposal',
 		owner: 'B7',
 		finding: 'C9 / R-38 (Section 15): a proposal above the documented 256 KiB bound is staged and diffed without a size guard',
@@ -324,11 +295,5 @@ export const BASELINE_EXCEPTIONS: readonly IOnyxSimBaselineException[] = [
 			userSteps: [],
 			faults: [],
 		}),
-	},
-	{
-		class: 'I-04/over-budget',
-		owner: 'B13',
-		finding: 'Claude H6; Codex N9 (R-16): tool results accumulate across turns and the prompt exceeds the context window',
-		script: scenario('audit-h6-context-budget'),
 	},
 ];

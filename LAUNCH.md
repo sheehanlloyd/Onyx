@@ -70,7 +70,7 @@ hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
 - [ ] `pnpm run typecheck-client`, `pnpm run valid-layers-check`,
       `pnpm run oxlint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx`,
       `pnpm run stylelint`, and `./scripts/test.sh --grep Onyx` all green
-- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtimes (47 checks;
+- [ ] `node test/onyx/run-e2e.mts` passes against the mock runtimes (57 checks;
       stop a real Ollama/LM Studio on :11434/:1234 first — it refuses otherwise)
 - [ ] The full unit suite (`./scripts/test.sh`) is at zero failures
 - [ ] Fresh-profile launch: onboarding opens on **Connect a Local Runtime**
@@ -108,8 +108,9 @@ hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
       then shows the exact `lms load --speculative-draft-model …` command
 - [ ] `Onyx: Run in Parallel` races models in worktrees and leaves none behind
       (`git worktree list` shows only the repository itself afterwards)
-- [ ] `Onyx: Export Diagnostics` writes a readable zip and the redaction
-      checkbox is unchecked by default
+- [ ] `Onyx: Export Diagnostics` writes a readable zip, the content
+      checkbox is unchecked by default, and the bundle's `README.txt` says
+      which kind of bundle it is
 - [ ] With no runtime: the designed "No local model yet" state in chat and the
       control plane, no errors in the console; killing the runtime mid-answer
       shows a plain-language message, never `terminated`

@@ -131,7 +131,12 @@ suite('OnyxParserFuzz', () => {
 			const first = classifyCommand(command);
 			const second = classifyCommand(command);
 			assert.deepStrictEqual(first, second, `iteration ${i}`);
-			assert.strictEqual(first.dangerous, first.reasons.length > 0, `iteration ${i}: dangerous iff reasons`);
+			// Since B4 a warning may be a plain note (everyday egress, a script run): the warning style is
+			// used exactly when some warning is elevated, and every warning has its reason line.
+			assert.deepStrictEqual(
+				{ dangerous: first.dangerous, reasons: first.reasons.length, categories: [...first.categories].sort() },
+				{ dangerous: first.warnings.some(warning => warning.elevated), reasons: first.warnings.length, categories: [...new Set(first.warnings.map(warning => warning.category))].sort() },
+				`iteration ${i}: ${JSON.stringify(command)}`);
 		}
 	});
 });

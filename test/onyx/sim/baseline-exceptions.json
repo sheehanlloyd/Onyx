@@ -3,15 +3,9 @@
 	"campaign": "1,000 seeded episodes from seed 1 plus the scripted scenarios, unmodified harness",
 	"exceptions": [
 		{
-			"class": "I-02/repository-allowlist",
-			"owner": "B2",
-			"finding": "Cursor red flag 2; Claude B2; Codex (R-01, R-02): a repository `terminalAllowlist` entry runs a command with no approval dialog for that invocation",
-			"script": "test/onyx/sim/baseline/I-02-repository-allowlist.json"
-		},
-		{
 			"class": "I-03/no-time-budget",
-			"owner": "B12, B10",
-			"finding": "Codex N12 (R-19): a stream that never produces a token has no idle deadline, so the run never ends on its own",
+			"owner": "B10",
+			"finding": "Codex N5 (R-15): a run the user paused and did not resume never ends on its own. (The other way into this class, a stream that never produces a token, was closed by B12's deadlines.)",
 			"script": "test/onyx/sim/baseline/I-03-no-time-budget.json"
 		},
 		{
@@ -21,16 +15,16 @@
 			"script": "test/onyx/sim/baseline/I-03-status-overwritten.json"
 		},
 		{
-			"class": "I-04/no-output-cap",
-			"owner": "B13",
-			"finding": "Claude H6; Codex N9 (R-16): chat requests carry no `max_tokens`",
-			"script": "test/onyx/sim/baseline/I-04-no-output-cap.json"
-		},
-		{
 			"class": "I-05/command-after-stop",
 			"owner": "B10",
 			"finding": "Codex N5 (R-15): Stop is honoured only at the gate after a tool turn; a command dispatched in the current turn still runs",
 			"script": "test/onyx/sim/baseline/I-05-command-after-stop.json"
+		},
+		{
+			"class": "I-05/dispatch-after-stop",
+			"owner": "B10",
+			"finding": "Codex N5 (R-15), found by the 20,000-episode campaign in Module 2: Stop is honoured only at the gate after a tool turn; a tool whose approval dialog was open when the user pressed Stop is still dispatched when the dialog is answered",
+			"script": "test/onyx/sim/baseline/I-05-dispatch-after-stop.json"
 		},
 		{
 			"class": "I-05/stage-after-stop",
@@ -51,22 +45,10 @@
 			"script": "test/onyx/sim/baseline/I-08-inexact-anchor-staged.json"
 		},
 		{
-			"class": "I-11/truncated-reported-complete",
-			"owner": "B12",
-			"finding": "Codex N12 (R-19): a stream that ends without a finish reason is journaled as completed",
-			"script": "test/onyx/sim/baseline/I-11-truncated-reported-complete.json"
-		},
-		{
 			"class": "I-13/oversized-proposal",
 			"owner": "B7",
 			"finding": "C9 / R-38 (Section 15): a proposal above the documented 256 KiB bound is staged and diffed without a size guard",
 			"script": "test/onyx/sim/baseline/I-13-oversized-proposal.json"
-		},
-		{
-			"class": "I-04/over-budget",
-			"owner": "B13",
-			"finding": "Claude H6; Codex N9 (R-16): tool results accumulate across turns and the prompt exceeds the context window",
-			"script": "test/onyx/sim/baseline/I-04-over-budget.json"
 		}
 	]
 }

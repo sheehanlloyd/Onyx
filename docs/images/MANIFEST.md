@@ -17,8 +17,8 @@ missing from this table or a row names a file that does not exist.
 | `badges.svg` | dev (generated) | n/a | 2026-08-30 | README badge strip; the test counts it carries are re-derived by `run-benchmarks.mts` |
 | `chart-parsers.svg` | dev (`make-charts.mts` from `run-benchmarks.mts` JSON) | n/a (pure-logic section) | 2026-08-30 | Parser resilience chart |
 | `chart-repobench.svg` | dev (`make-charts.mts` from `run-benchmarks.mts` JSON) | several local models, listed in docs/BENCHMARKS.md | 2026-08-30 | Per-model scores on this repository's commits |
-| `chart-retrieval.svg` | dev (`make-charts.mts` from `run-benchmarks.mts` JSON) | n/a (pure-logic section) | 2026-08-30 | BM25 versus substring search |
-| `chart-scale.svg` | dev (`make-charts.mts` from `run-benchmarks.mts` JSON) | n/a (pure-logic section) | 2026-08-30 | Scale of the analysis |
+| `chart-retrieval.svg` | dev (`make-charts.mts` from `run-benchmarks.mts` JSON) | n/a (pure-logic section) | 2026-08-30 | BM25 versus substring search. Out of date since C7: drawn from a `.ts`-only corpus of the August tree (90%); the production index on today's tree measures 70%. The README says so beside it; C8 redraws it |
+| `chart-scale.svg` | dev (`make-charts.mts` from `run-benchmarks.mts` JSON) | n/a (pure-logic section) | 2026-08-30 | Scale of the analysis. Its "files indexed for retrieval" (8,673) is the August `.ts`-only corpus; the production index holds 18,205 files of this repository since C7 |
 | `chart-speculative.svg` | dev (`make-charts.mts` from `run-benchmarks.mts --speculative` JSON) | several local models, listed in docs/BENCHMARKS.md | 2026-08-30 | With and without a draft model |
 | `chart-speed.svg` | dev (`make-charts.mts` from `run-benchmarks.mts` JSON) | several local models, listed in docs/BENCHMARKS.md | 2026-08-30 | Generation speed per model |
 | `chart-terminal.svg` | dev (`make-charts.mts` from `run-benchmarks.mts` JSON) | n/a (pure-logic section) | 2026-08-30 | Dangerous-command classification |

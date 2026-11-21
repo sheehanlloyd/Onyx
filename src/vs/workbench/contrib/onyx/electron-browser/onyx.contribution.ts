@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import '../common/onyxConfiguration.js';
+import { getOnyxEndpointSettings } from '../common/onyxConfiguration.js';
 import '../browser/controlPlane/onyxControlPlane.contribution.js';
 import '../browser/architecture/onyxArchitecture.contribution.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -42,6 +42,11 @@ import { OnyxDocsToolContribution } from '../browser/intelligence/onyxDocsTool.j
 import { IOnyxPlaybookService, OnyxPlaybookService } from '../browser/playbooks/onyxPlaybookService.js';
 import { OnyxPlaybookToolContribution } from '../browser/playbooks/onyxPlaybookTool.js';
 import { OnyxRetrievalToolContribution } from '../browser/intelligence/onyxRetrievalTool.js';
+import { OnyxReadFileToolContribution } from '../browser/intelligence/onyxReadFileTool.js';
+import { OnyxListDirectoryToolContribution } from '../browser/intelligence/onyxListDirectoryTool.js';
+import { OnyxFindFilesToolContribution } from '../browser/intelligence/onyxFindFilesTool.js';
+import { OnyxGrepToolContribution } from '../browser/intelligence/onyxGrepTool.js';
+import { IOnyxWorkspaceAccessService, OnyxWorkspaceAccessService } from '../browser/intelligence/onyxWorkspaceAccess.js';
 import { OnyxWorkspaceIndexContribution } from '../browser/intelligence/onyxWorkspaceIndex.js';
 import { OnyxBenchmark } from '../browser/benchmark/onyxBenchmark.js';
 import { OnyxRepoBenchmark } from '../browser/benchmark/onyxRepoBenchmark.js';
@@ -60,9 +65,15 @@ import { IOnyxLedgerService, OnyxLedgerService } from '../browser/compute/onyxLe
 import { IOnyxPinService, OnyxPinService } from '../browser/intelligence/onyxPinService.js';
 import { IOnyxEnergyService, OnyxEnergyService } from '../browser/compute/onyxEnergyService.js';
 import { IOnyxSpeculativeService, OnyxSpeculativeService } from '../browser/compute/onyxSpeculativeService.js';
+import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../browser/agent/onyxHarnessConfigService.js';
 import { IOnyxPromptCacheService, OnyxPromptCacheService } from '../browser/agent/onyxPromptCache.js';
 import { IOnyxProjectConfigService, OnyxProjectConfigService } from '../browser/config/onyxProjectConfigService.js';
 import { OnyxDiagnosticsExport } from '../browser/diagnostics/onyxDiagnosticsExport.js';
+import { IOnyxEndpointSecretService, OnyxEndpointSecretService } from '../browser/model/onyxEndpointSecrets.js';
+import { OnyxDiagnosticsRedactor } from '../common/onyxDiagnostics.js';
+import { describeExecution, describeRefusal, describeTransport } from '../common/onyxInferenceLocation.js';
+import { IOnyxDatasheetService, OnyxDatasheetService } from '../browser/models/onyxDatasheetService.js';
+import { OnyxMeasureModel } from '../browser/models/onyxMeasureModel.js';
 import { OnyxModelLibrary } from '../browser/models/onyxModelLibrary.js';
 import { OnyxIdleReviewContribution } from '../browser/review/onyxIdleReview.js';
 import { OnyxTournament } from '../browser/tournament/onyxTournament.js';
@@ -70,6 +81,10 @@ import { OnyxReviewChanges } from '../browser/review/onyxReviewChanges.js';
 import { OnyxCommitMessageGenerator } from '../browser/scm/onyxCommitMessage.js';
 import { OnyxStatusBarContribution } from '../browser/onyxStatusBar.js';
 import { IOnyxProfileService, OnyxProfileService } from '../browser/profiles/onyxProfileService.js';
+import { IAgentHostEnablementService } from '../../../../platform/agentHost/common/agentHostEnablementService.js';
+import { OnyxAgentHostEnablementService } from '../browser/onyxAgentHost.js';
+import { ILanguageModelToolsService } from '../../chat/common/tools/languageModelToolsService.js';
+import { describeToolInventory, ONYX_NETWORK_TOOLS_SETTING, ONYX_TOOL_CONTRACT_VERSION } from '../common/onyxToolContract.js';
 import { IOnyxRouterService, OnyxRouterService } from '../browser/routing/onyxRouterService.js';
 
 registerSharedProcessRemoteService(IOnyxRuntimeService, 'onyxRuntime');
@@ -80,6 +95,7 @@ AccessibleViewRegistry.register(new OnyxInlineEditAccessibilityHelp());
 
 registerSingleton(IOnyxProfileService, OnyxProfileService, InstantiationType.Delayed);
 registerSingleton(IOnyxRouterService, OnyxRouterService, InstantiationType.Delayed);
+registerSingleton(IOnyxEndpointSecretService, OnyxEndpointSecretService, InstantiationType.Delayed);
 registerSingleton(IOnyxModelService, OnyxModelService, InstantiationType.Delayed);
 registerSingleton(IOnyxControlPlaneService, OnyxControlPlaneService, InstantiationType.Delayed);
 registerSingleton(IOnyxOutcomeService, OnyxOutcomeService, InstantiationType.Delayed);
@@ -88,11 +104,16 @@ registerSingleton(IOnyxLedgerService, OnyxLedgerService, InstantiationType.Delay
 registerSingleton(IOnyxPinService, OnyxPinService, InstantiationType.Delayed);
 registerSingleton(IOnyxEnergyService, OnyxEnergyService, InstantiationType.Delayed);
 registerSingleton(IOnyxPromptCacheService, OnyxPromptCacheService, InstantiationType.Delayed);
+registerSingleton(IOnyxHarnessConfigService, OnyxHarnessConfigService, InstantiationType.Delayed);
+registerSingleton(IOnyxDatasheetService, OnyxDatasheetService, InstantiationType.Delayed);
 registerSingleton(IOnyxProjectConfigService, OnyxProjectConfigService, InstantiationType.Delayed);
 registerSingleton(IOnyxChangeSetService, OnyxChangeSetService, InstantiationType.Delayed);
 registerSingleton(IOnyxTerminalService, OnyxTerminalService, InstantiationType.Delayed);
 registerSingleton(IOnyxSpeculativeService, OnyxSpeculativeService, InstantiationType.Delayed);
 registerSingleton(IOnyxPlaybookService, OnyxPlaybookService, InstantiationType.Delayed);
+registerSingleton(IOnyxWorkspaceAccessService, OnyxWorkspaceAccessService, InstantiationType.Delayed);
+// Replaces upstream's implementation (the last registration wins): the Agent Host is not part of Onyx.
+registerSingleton(IAgentHostEnablementService, OnyxAgentHostEnablementService, InstantiationType.Eager);
 
 /**
  * Registers the `onyx` language model vendor and provider with the chat stack
@@ -185,6 +206,10 @@ registerWorkbenchContribution2(OnyxModelsContribution.ID, OnyxModelsContribution
 registerWorkbenchContribution2(OnyxChatAgentContribution.ID, OnyxChatAgentContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxStatusBarContribution.ID, OnyxStatusBarContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxInlineCompletionsContribution.ID, OnyxInlineCompletionsContribution, WorkbenchPhase.Eventually);
+registerWorkbenchContribution2(OnyxReadFileToolContribution.ID, OnyxReadFileToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxListDirectoryToolContribution.ID, OnyxListDirectoryToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxFindFilesToolContribution.ID, OnyxFindFilesToolContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(OnyxGrepToolContribution.ID, OnyxGrepToolContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxRetrievalToolContribution.ID, OnyxRetrievalToolContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxEditToolContribution.ID, OnyxEditToolContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OnyxTerminalToolContribution.ID, OnyxTerminalToolContribution, WorkbenchPhase.AfterRestored);
@@ -251,6 +276,20 @@ registerAction2(class ManageOnyxModelsAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		await accessor.get(IInstantiationService).createInstance(OnyxModelLibrary).show();
+	}
+});
+
+registerAction2(class MeasureOnyxModelAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.measureModel',
+			title: localize2('onyx.measureModel', "Onyx: Measure This Model"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IInstantiationService).createInstance(OnyxMeasureModel).run();
 	}
 });
 
@@ -323,12 +362,129 @@ registerAction2(class ShowOnyxProjectConfigAction extends Action2 {
 				? `// From .onyx/config.json in: ${resolved.sources.join(', ')} — per-user settings always win`
 				: '// No .onyx/config.json found in this workspace',
 			...resolved.problems.map(problem => `// PROBLEM: ${problem}`),
+			...(resolved.config.recommendedCommands?.length
+				? ['// NOTE: recommendedCommands are repository-authored and informational. They grant nothing: the terminal tool asks before every command, every time. Legacy "terminalAllowlist" entries are read as recommendations and are inactive.']
+				: []),
+			...(resolved.config.verificationTask
+				? ['// NOTE: verificationTask names a check to run after an agent run that used tools. It still asks before each run.']
+				: []),
 			...(userVerification && resolved.config.verificationTask
 				? [`// NOTE: verificationTask "${resolved.config.verificationTask}" is overridden by the user setting onyx.verification.task = "${userVerification}"`]
 				: []),
 			JSON.stringify(resolved.config, undefined, '\t'),
 		];
 		await editorService.openEditor({ resource: undefined, contents: lines.join('\n'), languageId: 'jsonc', options: { pinned: true } });
+	}
+});
+
+registerAction2(class ShowOnyxAgentToolsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.showAgentTools',
+			title: localize2('onyx.showAgentTools', "Onyx: Show Agent Tools"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const toolsService = accessor.get(ILanguageModelToolsService);
+		const configurationService = accessor.get(IConfigurationService);
+		const editorService = accessor.get(IEditorService);
+		const networkTools = configurationService.getValue<boolean>(ONYX_NETWORK_TOOLS_SETTING) === true;
+		const registered = [...toolsService.getTools(undefined)].map(tool => ({
+			id: tool.id,
+			name: tool.toolReferenceName ?? tool.id,
+			source: tool.source.type === 'internal' || tool.source.type === 'extension' || tool.source.type === 'mcp' ? tool.source.type : 'other' as const,
+		}));
+		const inventory = describeToolInventory(registered, { networkTools });
+		const lines = [
+			`// Onyx agent tools (read-only view). Capability contract version ${ONYX_TOOL_CONTRACT_VERSION}; ${ONYX_NETWORK_TOOLS_SETTING} is ${networkTools ? 'on' : 'off'}.`,
+			'// A tool reaches a model only if the reviewed contract admits it. Which of the admitted tools a request',
+			'// carries then depends on the model profile\'s slot cap: the six essential tools first, then the optional ones.',
+			'',
+			`// Admitted (${inventory.exposed.length}): name, what it can do and the gate in front of it, why`,
+			...inventory.exposed.map(tool => `${tool.name}  [${tool.gates || 'no effect outside the conversation'}]  ${tool.reason}`),
+			'',
+			`// Refused (${inventory.excluded.length}): name, why`,
+			...inventory.excluded.map(tool => `${tool.name}  ${tool.reason}`),
+		];
+		await editorService.openEditor({ resource: undefined, contents: lines.join('\n'), languageId: 'plaintext', options: { pinned: true } });
+	}
+});
+
+registerAction2(class ShowOnyxInferenceLocationsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.showInferenceLocations',
+			title: localize2('onyx.showInferenceLocations', "Onyx: Show Where Inference Happens"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const modelService = accessor.get(IOnyxModelService);
+		const editorService = accessor.get(IEditorService);
+		await modelService.refresh();
+		const shown = new OnyxDiagnosticsRedactor({ includeContent: false, secrets: [] });
+		const used = modelService.getKnownModels();
+		const refused = modelService.getRefusedModels();
+		const lines = [
+			localize('onyx.locations.title', "Where inference happens"),
+			'',
+			localize('onyx.locations.limits', "Two things are listed for each model, and they are different things. Where requests are sent is read off the address. Where the model runs is what the runtime reports about itself; Onyx cannot establish what a runtime does beyond that, and a runtime on this machine can forward a model elsewhere. Nothing below is verified."),
+			'',
+			localize('onyx.locations.used', "Used ({0})", used.length),
+			...used.flatMap(model => [`  ${model.discovered.id}  —  ${String(shown.url(model.discovered.baseUrl))}`, `    ${describeTransport(model.location.transport)}`, `    ${describeExecution(model.location, model.discovered.runtime)}`]),
+			'',
+			localize('onyx.locations.refused', "Found and not used ({0})", refused.length),
+			...refused.flatMap(({ model, refusal }) => [`  ${model.discovered.id}  —  ${String(shown.url(model.discovered.baseUrl))}`, `    ${describeRefusal(refusal)}`, `    ${describeTransport(model.location.transport)}`, `    ${describeExecution(model.location, model.discovered.runtime)}`]),
+			'',
+			localize('onyx.locations.settings', "Settings: onyx.inference.strictLocal (on by default) and onyx.inference.allowLan (off by default). Both are user settings; a workspace cannot change them."),
+		];
+		await editorService.openEditor({ resource: undefined, contents: lines.join('\n'), languageId: 'plaintext', options: { pinned: true } });
+	}
+});
+
+registerAction2(class SetOnyxEndpointApiKeyAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.setEndpointApiKey',
+			title: localize2('onyx.setEndpointApiKey', "Onyx: Set Endpoint API Key"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+		const secretService = accessor.get(IOnyxEndpointSecretService);
+		const endpoints = getOnyxEndpointSettings(accessor.get(IConfigurationService));
+		if (endpoints.length === 0) {
+			notificationService.notify({ severity: Severity.Info, message: localize('onyx.setEndpointApiKey.none', "No endpoint is configured. Add one to the onyx.endpoints setting first; auto-discovered local runtimes take no key.") });
+			return;
+		}
+		// The URL as it may be shown: without the credentials someone may have written into it.
+		const shown = new OnyxDiagnosticsRedactor({ includeContent: false, secrets: [] });
+		const picked = endpoints.length === 1
+			? endpoints[0]
+			: (await quickInputService.pick(endpoints.map(endpoint => ({ label: String(shown.url(endpoint.baseUrl)), endpoint })), { placeHolder: localize('onyx.setEndpointApiKey.pick', "Which endpoint is the key for?") }))?.endpoint;
+		if (!picked) {
+			return;
+		}
+		const apiKey = await quickInputService.input({
+			password: true,
+			prompt: localize('onyx.setEndpointApiKey.prompt', "API key for {0}. Leave empty to remove the stored key. It is kept in the system's secret storage, not in settings.", String(shown.url(picked.baseUrl))),
+		});
+		if (apiKey === undefined) {
+			return;
+		}
+		await secretService.setApiKey(picked.baseUrl, apiKey.length > 0 ? apiKey : undefined);
+		notificationService.notify({
+			severity: Severity.Info,
+			message: apiKey.length > 0
+				? localize('onyx.setEndpointApiKey.stored', "The API key for {0} is stored in the system's secret storage.", String(shown.url(picked.baseUrl)))
+				: localize('onyx.setEndpointApiKey.removed', "The stored API key for {0} was removed.", String(shown.url(picked.baseUrl))),
+		});
 	}
 });
 

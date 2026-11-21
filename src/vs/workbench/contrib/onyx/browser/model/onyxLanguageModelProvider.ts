@@ -6,21 +6,24 @@
 import { AsyncIterableSource } from '../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { localize } from '../../../../../nls.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { createDecorator, IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
-import { IOnyxDiscoveredModel, IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxDiscoveredModel, IOnyxRuntimeService, ONYX_STREAM_DEADLINES, OnyxStreamEnding } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { nullExtensionDescription } from '../../../../services/extensions/common/extensions.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IChatMessage, IChatResponsePart, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse } from '../../../chat/common/languageModels.js';
-import { getOnyxEndpointSettings, OnyxSettingId } from '../../common/onyxConfiguration.js';
+import { getOnyxEndpointSettings, normalizeEndpointBaseUrl, OnyxSettingId } from '../../common/onyxConfiguration.js';
+import { isContextOverflowError } from '../../common/onyxContextBudget.js';
+import { classifyTransport, decideInferenceUse, describeExecution, describeRefusal, describeTransport, IOnyxInferenceLocation, IOnyxInferencePolicy, locationBadge, OnyxLocationRefusal } from '../../common/onyxInferenceLocation.js';
 import { humanizeRuntimeError } from '../../common/onyxRuntimeErrors.js';
 import { IOnyxModelProfile, ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 import { IOnyxRouterService } from '../routing/onyxRouterService.js';
+import { IOnyxEndpointSecretService } from './onyxEndpointSecrets.js';
 import { estimateMessageTokens, estimateTokens, IRequestTool, ToolCallAccumulator, toWireMessages, toWireTools } from './onyxOpenAITranslator.js';
 
 export const IOnyxModelService = createDecorator<IOnyxModelService>('onyxModelService');
@@ -40,8 +43,35 @@ export interface IOnyxKnownModel {
 	readonly key: string;
 	readonly discovered: IOnyxDiscoveredModel;
 	readonly profile: IOnyxModelProfile;
+	/** From the system's secret storage (B11). Held in memory for requests; never written to a file by Onyx. */
 	readonly apiKey?: string;
+	/** Where requests go and where the runtime says the model runs (B14). */
+	readonly location: IOnyxInferenceLocation;
 }
+
+/** A discovered model that is not used under the user's inference settings, and why. */
+export interface IOnyxRefusedModel {
+	readonly model: IOnyxKnownModel;
+	readonly refusal: OnyxLocationRefusal;
+}
+
+/** The runtime rejected the request because the prompt did not fit its context (B13). */
+export class OnyxContextOverflowError extends Error { }
+
+/** How one chat request ended: what `ILanguageModelChatResponse.result` resolves with for an Onyx model. */
+export interface IOnyxStreamOutcome {
+	readonly finishReason: string | undefined;
+	readonly seedHonoured: boolean | undefined;
+	/** `truncated` and `stalled` mean the reply is incomplete: nothing from it may be run, staged or called complete (B12). */
+	readonly ending: OnyxStreamEnding;
+}
+
+/**
+ * The window's own allowance on top of the runtime's deadlines. The runtime
+ * ends a silent request itself; this clock is for a runtime service that
+ * cannot, so a run never waits on one for ever.
+ */
+const WINDOW_DEADLINE_GRACE_MS = 15_000;
 
 /** Telemetry-free, local-only measurements for one completed request. */
 export interface IOnyxRequestMeasurement {
@@ -66,8 +96,11 @@ export interface IOnyxModelService extends ILanguageModelChatProvider {
 	readonly onDidChangeModels: Event<void>;
 	/** Fires after every request completes (successfully or not) with its local measurements. */
 	readonly onDidMeasureRequest: Event<IOnyxRequestMeasurement>;
+	/** The models Onyx uses: every chooser draws from this list, so a refused model cannot be picked by any of them. */
 	getKnownModels(): readonly IOnyxKnownModel[];
 	getKnownModel(key: string): IOnyxKnownModel | undefined;
+	/** Models that were discovered and are not used, with the reason (B14). For display; nothing is sent to them. */
+	getRefusedModels(): readonly IOnyxRefusedModel[];
 	refresh(): Promise<void>;
 	/** Whether the model was used recently enough that its weights should still be resident. */
 	isWarm(modelKey: string): boolean;
@@ -89,6 +122,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	readonly onDidMeasureRequest = this._onDidMeasureRequest.event;
 
 	private _models = new Map<string, IOnyxKnownModel>();
+	private _refused = new Map<string, IOnyxRefusedModel>();
 	private _refreshing: Promise<void> | undefined;
 
 	private readonly _onDidChangeLoading = this._register(new Emitter<{ modelKey: string; loading: boolean }>());
@@ -97,6 +131,8 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	/** Last time a request against each model finished — the residency clock. */
 	private readonly _lastUsedAt = new Map<string, number>();
 	private _totalMemoryGb: number | undefined;
+	/** Endpoint API keys by normalized base URL, as last read from the secret storage. */
+	private _apiKeys: ReadonlyMap<string, string> = new Map();
 
 	constructor(
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
@@ -104,13 +140,15 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
+		@IOnyxEndpointSecretService private readonly _endpointSecretService: IOnyxEndpointSecretService,
 	) {
 		super();
+		this._register(this._endpointSecretService.onDidChange(() => this.refresh()));
 		this._register(this._runtimeService.onDidChangeRuntimes(endpoints => {
 			this._rebuildFromDiscovery(endpoints.flatMap(e => e.models));
 		}));
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(OnyxSettingId.Endpoints) || e.affectsConfiguration(OnyxSettingId.DiscoveryEnabled)) {
+			if (e.affectsConfiguration(OnyxSettingId.Endpoints) || e.affectsConfiguration(OnyxSettingId.DiscoveryEnabled) || e.affectsConfiguration(OnyxSettingId.InferenceStrictLocal) || e.affectsConfiguration(OnyxSettingId.InferenceAllowLan)) {
 				this.refresh();
 			}
 		}));
@@ -125,6 +163,11 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	private async _doRefresh(): Promise<void> {
 		const settings = getOnyxEndpointSettings(this._configurationService);
 		const discoveryEnabled = this._configurationService.getValue<boolean>(OnyxSettingId.DiscoveryEnabled) !== false;
+		try {
+			this._apiKeys = await this._endpointSecretService.configuredApiKeys();
+		} catch (err) {
+			this._logService.warn('[onyx] endpoint keys could not be read', err);
+		}
 
 		const discovered: IOnyxDiscoveredModel[] = [];
 		if (discoveryEnabled) {
@@ -140,7 +183,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		// not be probed (e.g. a server that only implements /chat/completions).
 		for (const setting of settings) {
 			for (const modelId of setting.models ?? []) {
-				const baseUrl = normalizeConfiguredBaseUrl(setting.baseUrl);
+				const baseUrl = normalizeEndpointBaseUrl(setting.baseUrl);
 				if (!discovered.some(m => m.baseUrl === baseUrl && m.id === modelId)) {
 					discovered.push({ id: modelId, baseUrl, runtime: 'generic', contextLength: setting.contextWindow });
 				}
@@ -152,20 +195,33 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 
 	private _rebuildFromDiscovery(discovered: readonly IOnyxDiscoveredModel[]): void {
 		const settings = getOnyxEndpointSettings(this._configurationService);
+		const policy = this._inferencePolicy();
 		const next = new Map<string, IOnyxKnownModel>();
+		const refused = new Map<string, IOnyxRefusedModel>();
 		for (const model of discovered) {
 			const key = modelKey(model);
-			const setting = settings.find(s => normalizeConfiguredBaseUrl(s.baseUrl) === model.baseUrl);
+			const setting = settings.find(s => normalizeEndpointBaseUrl(s.baseUrl) === model.baseUrl);
 			const withOverrides = setting?.contextWindow ? { ...model, contextLength: setting.contextWindow } : model;
-			next.set(key, {
+			// Transport from the address; execution from what the runtime reported, and `unknown` when it
+			// reported nothing. A loopback address settles the first and says nothing about the second.
+			const location: IOnyxInferenceLocation = { transport: classifyTransport(model.baseUrl), execution: model.execution ?? 'unknown', remoteHost: model.remoteHost };
+			const known: IOnyxKnownModel = {
 				key,
 				discovered: withOverrides,
 				profile: this._profileService.getProfile(key, withOverrides),
-				apiKey: setting?.apiKey,
-			});
+				apiKey: this._apiKeys.get(model.baseUrl),
+				location,
+			};
+			const decision = this._decideUse(location, policy);
+			if (decision.allowed) {
+				next.set(key, known);
+			} else {
+				refused.set(key, { model: known, refusal: decision.refusal });
+			}
 		}
-		const changed = next.size !== this._models.size || [...next.keys()].some(k => !this._models.has(k));
+		const changed = next.size !== this._models.size || [...next.keys()].some(k => !this._models.has(k)) || refused.size !== this._refused.size || [...refused.keys()].some(k => !this._refused.has(k));
 		this._models = next;
+		this._refused = refused;
 		if (changed) {
 			this._onDidChange.fire();
 		}
@@ -184,6 +240,23 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 
 	getKnownModel(key: string): IOnyxKnownModel | undefined {
 		return this._models.get(key);
+	}
+
+	getRefusedModels(): readonly IOnyxRefusedModel[] {
+		return [...this._refused.values()];
+	}
+
+	/** The user's inference settings. User-scoped: a workspace cannot loosen them. */
+	private _inferencePolicy(): IOnyxInferencePolicy {
+		return {
+			strictLocal: this._configurationService.getValue<boolean>(OnyxSettingId.InferenceStrictLocal) !== false,
+			allowLan: this._configurationService.getValue<boolean>(OnyxSettingId.InferenceAllowLan) === true,
+		};
+	}
+
+	/** Whether a model at this location is used under the user's settings. */
+	protected _decideUse(location: IOnyxInferenceLocation, policy: IOnyxInferencePolicy): ReturnType<typeof decideInferenceUse> {
+		return decideInferenceUse(location, policy);
 	}
 
 	async provideLanguageModelChatInfo(): Promise<ILanguageModelChatMetadataAndIdentifier[]> {
@@ -205,6 +278,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 					version: '1.0',
 					family: model.profile.family,
 					detail: modelDetail(model),
+					tooltip: locationTooltip(model),
 					maxInputTokens: model.profile.contextLength,
 					maxOutputTokens: 4096,
 					isDefaultForLocation: {},
@@ -214,6 +288,28 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						agentMode: model.profile.toolCallQuality > 0,
 						vision: model.profile.supportsVision,
 					},
+				},
+			});
+		}
+		// Models that were found and are not used stay visible, labelled, with the reason: choosing one
+		// explains itself instead of failing silently or vanishing (B14).
+		for (const { model, refusal } of this._refused.values()) {
+			infos.push({
+				identifier: `${ONYX_VENDOR}:${model.key}`,
+				metadata: {
+					extension: nullExtensionDescription.identifier,
+					name: model.discovered.id,
+					id: model.key,
+					vendor: ONYX_VENDOR,
+					version: '1.0',
+					family: model.profile.family,
+					detail: `${modelDetail(model)} · ${localize('onyx.location.notUsed', "not used")}`,
+					tooltip: `${describeRefusal(refusal)} ${locationTooltip(model)}`,
+					maxInputTokens: model.profile.contextLength,
+					maxOutputTokens: 4096,
+					isDefaultForLocation: {},
+					isUserSelectable: true,
+					capabilities: {},
 				},
 			});
 		}
@@ -230,7 +326,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				vendor: ONYX_VENDOR,
 				version: '1.0',
 				family: 'onyx-auto',
-				tooltip: localize('onyx.autoModel.tooltip', "Onyx routes each request to the best local model, using performance measured on this machine."),
+				tooltip: localize('onyx.autoModel.tooltip', "Onyx routes each request to the best of the models it uses, by performance measured on this machine. Models it found and does not use are listed below with the reason."),
 				maxInputTokens: Math.max(8192, ...[...this._models.values()].map(m => m.profile.contextLength)),
 				maxOutputTokens: 4096,
 				isDefaultForLocation: {},
@@ -268,6 +364,7 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	}
 
 	async warmUp(modelKey: string): Promise<void> {
+		// Only a model that is used: nothing, not even a warm-up, is sent to a refused one.
 		const model = this._models.get(modelKey);
 		if (!model || model.discovered.runtime !== 'ollama' || this.isWarm(modelKey)) {
 			return;
@@ -278,6 +375,11 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 	}
 
 	async sendChatRequest(modelId: string, messages: IChatMessage[], _from: ExtensionIdentifier | undefined, options: ILanguageModelChatRequestOptions, token: CancellationToken): Promise<ILanguageModelChatResponse> {
+		const refused = this._refused.get(modelId.startsWith(`${ONYX_VENDOR}:`) ? modelId.slice(ONYX_VENDOR.length + 1) : modelId);
+		if (refused) {
+			// Said in full, because this is where a user who picked the model finds out why nothing happens.
+			throw new Error(`${refused.model.discovered.id}: ${describeRefusal(refused.refusal)} ${locationTooltip(refused.model)}`);
+		}
 		const model = this._resolveModel(modelId, messages);
 		if (!model) {
 			throw new Error(`Onyx model not found: ${modelId}`);
@@ -302,10 +404,37 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		let streamedChars = 0;
 		let toolCallCount = 0;
 
-		const result = new Promise<{ finishReason: string | undefined; seedHonoured: boolean | undefined }>((resolve, reject) => {
-			store.add(this._runtimeService.onDidStream(event => {
-				if (event.operationId !== operationId) {
+		const result = new Promise<IOnyxStreamOutcome>((resolve, reject) => {
+			let settled = false;
+			let watchdog: ReturnType<typeof setTimeout> | undefined;
+			store.add(toDisposable(() => clearTimeout(watchdog)));
+			const deadlines = this._streamDeadlines();
+			const expect = (withinMs: number) => {
+				clearTimeout(watchdog);
+				if (!Number.isFinite(withinMs)) {
 					return;
+				}
+				watchdog = setTimeout(() => {
+					if (settled) {
+						return;
+					}
+					// Nothing arrived, not even the runtime's own word that the request stalled.
+					settled = true;
+					this._logService.warn(`[onyx] ${model.key}: nothing arrived within ${withinMs} ms; the request is stopped as stalled`);
+					this._runtimeService.cancel(operationId);
+					this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
+					source.resolve();
+					this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: 'stalled', wasCold });
+					resolve({ finishReason: undefined, seedHonoured: undefined, ending: 'stalled' });
+				}, withinMs);
+			};
+			expect(deadlines.firstByteMs);
+			store.add(this._runtimeService.onDidStream(event => {
+				if (event.operationId !== operationId || settled) {
+					return;
+				}
+				if (event.kind !== 'done' && event.kind !== 'error') {
+					expect(deadlines.idleMs);
 				}
 				switch (event.kind) {
 					case 'delta':
@@ -315,6 +444,14 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						}
 						streamedChars += event.text.length;
 						source.emitOne({ type: 'text', value: event.text });
+						break;
+					case 'reasoning':
+						if (firstTokenAt === undefined) {
+							firstTokenAt = Date.now();
+							this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
+						}
+						// The model's thinking, as its own kind of part: the reader shows it and never parses it (C4).
+						source.emitOne({ type: 'thinking', value: event.text });
 						break;
 					case 'toolCallDelta':
 						if (firstTokenAt === undefined) {
@@ -328,7 +465,11 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						completionTokens = event.completionTokens;
 						break;
 					case 'done': {
-						const toolParts = accumulator.complete();
+						settled = true;
+						// A reply that was cut off or went silent carries no tool call worth running: what arrived
+						// of one is incomplete by definition, even when it happens to parse.
+						const incomplete = event.ending === 'truncated' || event.ending === 'stalled';
+						const toolParts = incomplete ? [] : accumulator.complete();
 						toolCallCount = toolParts.length;
 						if (toolParts.length) {
 							source.emitOne(toolParts);
@@ -336,13 +477,18 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 						source.resolve();
 						this._lastUsedAt.set(model.key, Date.now());
 						this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: event.finishReason, wasCold });
-						resolve({ finishReason: event.finishReason, seedHonoured: event.seedHonoured });
+						if (incomplete) {
+							this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
+						}
+						resolve({ finishReason: event.finishReason, seedHonoured: event.seedHonoured, ending: event.ending });
 						break;
 					}
 					case 'error': {
+						settled = true;
 						// Transport failures reach the user as sentences, not as
 						// undici's `terminated` / `ECONNREFUSED`.
-						const error = new Error(humanizeRuntimeError(event.message, model.discovered.id));
+						const message = humanizeRuntimeError(event.message, model.discovered.id);
+						const error = isContextOverflowError(event.message) ? new OnyxContextOverflowError(message) : new Error(message);
 						source.reject(error);
 						this._onDidChangeLoading.fire({ modelKey: model.key, loading: false });
 						this._measure(model, modelId, { startedAt, firstTokenAt, promptTokens, completionTokens, streamedChars, toolCallCount, parseFailures: accumulator.parseFailures, finishReason: 'error', errorMessage: event.message, wasCold });
@@ -364,6 +510,8 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				tools: tools.length ? toWireTools(tools.slice(0, model.profile.maxTools)) : undefined,
 				temperature: model.profile.temperature,
 				seed: model.profile.seed,
+				// The output cap the loop set aside room for (B13). A caller that sets none sends none.
+				maxTokens: typeof options.modelOptions?.maxTokens === 'number' && options.modelOptions.maxTokens > 0 ? options.modelOptions.maxTokens : undefined,
 				// Residency: ask Ollama to hold the weights between requests, so
 				// the next request pays prompt-processing, not model loading.
 				keepAlive: model.discovered.runtime === 'ollama' ? this._keepAliveFor(model) : undefined,
@@ -372,6 +520,11 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		}).finally(() => store.dispose());
 
 		return { stream: source.asyncIterable, result };
+	}
+
+	/** How long this window waits for a request to say something before it stops it as stalled. */
+	protected _streamDeadlines(): { readonly firstByteMs: number; readonly idleMs: number } {
+		return { firstByteMs: ONYX_STREAM_DEADLINES.firstByteMs + WINDOW_DEADLINE_GRACE_MS, idleMs: ONYX_STREAM_DEADLINES.idleMs + WINDOW_DEADLINE_GRACE_MS };
 	}
 
 	private _resolveModel(modelId: string, messages: readonly IChatMessage[]): IOnyxKnownModel | undefined {
@@ -430,7 +583,17 @@ function modelDetail(model: IOnyxKnownModel): string {
 	if (model.discovered.quantization) {
 		parts.push(model.discovered.quantization);
 	}
+	// Anything other than "this machine, run by the runtime itself" is said on the row.
+	const badge = locationBadge(model.location);
+	if (badge) {
+		parts.push(badge);
+	}
 	return parts.join(' · ');
+}
+
+/** Where requests go and where the runtime says the model runs: two sentences, kept apart (DEC-04). */
+function locationTooltip(model: IOnyxKnownModel): string {
+	return `${describeTransport(model.location.transport)} ${describeExecution(model.location, runtimeLabel(model.discovered.runtime))}`;
 }
 
 function runtimeLabel(runtime: IOnyxDiscoveredModel['runtime']): string {
@@ -439,17 +602,8 @@ function runtimeLabel(runtime: IOnyxDiscoveredModel['runtime']): string {
 		case 'lmstudio': return 'LM Studio';
 		case 'llamacpp': return 'llama.cpp';
 		case 'vllm': return 'vLLM';
-		default: return 'Local';
+		// A server that speaks the API and did not say what it is. Not "local": nothing establishes that.
+		default: return 'OpenAI-compatible';
 	}
 }
 
-function normalizeConfiguredBaseUrl(url: string): string {
-	let normalized = url.trim().replace(/\/+$/, '');
-	if (!/^https?:\/\//.test(normalized)) {
-		normalized = `http://${normalized}`;
-	}
-	if (!normalized.endsWith('/v1')) {
-		normalized = `${normalized}/v1`;
-	}
-	return normalized;
-}

@@ -8,6 +8,7 @@ import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurati
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
+import { ONYX_INDEX_MAX_FILES } from './onyxIndexOptions.js';
 
 export const enum OnyxSettingId {
 	Endpoints = 'onyx.endpoints',
@@ -21,10 +22,19 @@ export const enum OnyxSettingId {
 	VerificationTask = 'onyx.verification.task',
 	EnergyPolicy = 'onyx.energy.policy',
 	BackgroundReview = 'onyx.review.background',
+	NetworkTools = 'onyx.agent.networkTools',
+	TerminalPassEnvironment = 'onyx.terminal.passEnvironment',
+	InferenceStrictLocal = 'onyx.inference.strictLocal',
+	InferenceAllowLan = 'onyx.inference.allowLan',
+	IndexMaxFiles = 'onyx.index.maxFiles',
 }
 
 export interface IOnyxEndpointSetting {
 	readonly baseUrl: string;
+	/**
+	 * Legacy. API keys live in the system's secret storage since B11
+	 * (`IOnyxEndpointSecretService`); a key found here is moved there.
+	 */
 	readonly apiKey?: string;
 	/** Explicit model ids to expose; when omitted, models are listed from the endpoint. */
 	readonly models?: readonly string[];
@@ -33,6 +43,18 @@ export interface IOnyxEndpointSetting {
 }
 
 export type OnyxRoutingMode = 'auto' | 'manual';
+
+/** `localhost:8000` → `http://localhost:8000/v1`: the form an endpoint's base URL is stored and compared in. */
+export function normalizeEndpointBaseUrl(url: string): string {
+	let normalized = url.trim().replace(/\/+$/, '');
+	if (!/^https?:\/\//.test(normalized)) {
+		normalized = `http://${normalized}`;
+	}
+	if (!normalized.endsWith('/v1')) {
+		normalized = `${normalized}/v1`;
+	}
+	return normalized;
+}
 
 export function getOnyxEndpointSettings(configurationService: IConfigurationService): readonly IOnyxEndpointSetting[] {
 	const raw = configurationService.getValue<readonly IOnyxEndpointSetting[]>(OnyxSettingId.Endpoints);
@@ -54,6 +76,11 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		// first message opens a GitHub sign-in dialog and never reaches Onyx.
 		'chat.defaultToCopilotHarness': false,
 		'chat.editor.preferCopilotHarness': false,
+		// The Agents window is a second workbench built around upstream's Agent
+		// Host, which Onyx excludes (B3); the product does not open it, so the
+		// chrome that invites the user into it stays off.
+		'chat.titleBar.openInAgentsWindow.enabled': false,
+		'chat.agentsWindowBanner.enabled': false,
 	},
 }]);
 
@@ -64,13 +91,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'array',
 			scope: ConfigurationScope.MACHINE,
 			default: [],
-			markdownDescription: localize('onyx.endpoints', "Additional OpenAI-compatible inference endpoints to use besides the auto-discovered local runtimes. Each entry needs a `baseUrl` (for example `http://localhost:11434/v1`) and may set an `apiKey`, an explicit `models` list, and a `contextWindow` override."),
+			markdownDescription: localize('onyx.endpoints', "Additional OpenAI-compatible inference endpoints to use besides the auto-discovered local runtimes. Each entry needs a `baseUrl` (for example `http://localhost:11434/v1`) and may set an explicit `models` list and a `contextWindow` override. An API key is not written here: run **Onyx: Set Endpoint API Key**, which keeps it in the system's secret storage."),
 			items: {
 				type: 'object',
 				required: ['baseUrl'],
 				properties: {
 					baseUrl: { type: 'string', description: localize('onyx.endpoints.baseUrl', "Base URL of the endpoint, e.g. `http://localhost:11434/v1`.") },
-					apiKey: { type: 'string', description: localize('onyx.endpoints.apiKey', "Optional API key sent as a Bearer token.") },
+					apiKey: { type: 'string', description: localize('onyx.endpoints.apiKey', "Optional API key sent as a Bearer token."), deprecationMessage: localize('onyx.endpoints.apiKey.deprecated', "API keys are kept in the system's secret storage, not in settings. Run \"Onyx: Set Endpoint API Key\". A key written here is moved there the next time Onyx reads its endpoints, and removed from this file.") },
 					models: { type: 'array', items: { type: 'string' }, description: localize('onyx.endpoints.models', "Model ids to expose. When omitted, the endpoint's model list is used.") },
 					contextWindow: { type: 'number', description: localize('onyx.endpoints.contextWindow', "Context window size in tokens for models of this endpoint.") },
 				},
@@ -129,6 +156,42 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.RESOURCE,
 			default: '',
 			markdownDescription: localize('onyx.verification.task', "Project check to run after an Onyx agent run that used tools, with the pass/fail verdict posted to the run's timeline. Use `build` or `test` for the workspace's default build or test task, any other value for a task with that name, or leave empty to disable."),
+		},
+		[OnyxSettingId.NetworkTools]: {
+			type: 'boolean',
+			// Application scope: a repository's settings file cannot opt in on the user's behalf.
+			scope: ConfigurationScope.APPLICATION,
+			default: false,
+			markdownDescription: localize('onyx.agent.networkTools', "Let the Onyx agent use the reviewed network tools: opening a page in the integrated browser, reading a page it opened, and fetching a URL. Off by default, because nothing else in Onyx leaves this machine. When on, every network call still asks first, showing the tool and its arguments, and the tools compete for the same tool slots as everything else. Run **Onyx: Show Agent Tools** to see what is exposed and why."),
+		},
+		[OnyxSettingId.InferenceStrictLocal]: {
+			type: 'boolean',
+			// User settings: a workspace cannot loosen where prompts may go.
+			scope: ConfigurationScope.APPLICATION,
+			default: true,
+			markdownDescription: localize('onyx.inference.strictLocal', "Use a model only when its runtime identifies itself and reports that it runs the model itself, on this machine. With this on, Onyx does not use a model the runtime reports as cloud-backed (even through a runtime on this machine), a server that does not say what it is, or an endpoint on the internet. This rests on what the runtime reports: Onyx cannot establish what a runtime does beyond that. Run **Onyx: Show Where Inference Happens** to see each model and why it is or is not used."),
+		},
+		[OnyxSettingId.InferenceAllowLan]: {
+			type: 'boolean',
+			scope: ConfigurationScope.APPLICATION,
+			default: false,
+			markdownDescription: localize('onyx.inference.allowLan', "Use inference endpoints on your local network. Off by default: adding a network address to `onyx.endpoints` lists its models and does not send them anything. With this on, prompts and code are sent to that machine, and whatever else can reach it can use it too."),
+		},
+		[OnyxSettingId.IndexMaxFiles]: {
+			type: 'integer',
+			// A user setting: a workspace cannot raise the memory Onyx uses for it.
+			scope: ConfigurationScope.APPLICATION,
+			default: ONYX_INDEX_MAX_FILES.default,
+			minimum: ONYX_INDEX_MAX_FILES.minimum,
+			maximum: ONYX_INDEX_MAX_FILES.maximum,
+			markdownDescription: localize('onyx.index.maxFiles', "The most files of one workspace folder that Onyx's content index holds. Files that `files.exclude`, `search.exclude` or the folder's `.gitignore` leave out are not indexed. When a folder has more files than this, source folders are indexed first and tests, documentation and examples last, and search results from the index say how much of the folder it holds. The index keeps roughly one and a half times the size of the indexed text in memory, and stops at 256 MB of text whatever this number is."),
+		},
+		[OnyxSettingId.TerminalPassEnvironment]: {
+			type: 'boolean',
+			// A user setting: a workspace cannot turn it on for itself.
+			scope: ConfigurationScope.APPLICATION,
+			default: false,
+			markdownDescription: localize('onyx.terminal.passEnvironment', "Pass every environment variable to commands the Onyx agent runs. Off by default: variables whose names contain `TOKEN`, `SECRET`, `KEY`, `PASSWORD` or `CREDENTIAL` are withheld, so a command the agent proposed does not start with your credentials in its environment. This is defense in depth only. It does not touch a secret stored under another name, in a file or in a credential helper, and an approved command can still read anything your account can."),
 		},
 		[OnyxSettingId.BackgroundReview]: {
 			type: 'boolean',

@@ -239,7 +239,9 @@ Integration points consumed (imports only, never patched):
 - [x] Embedding-free semantic retrieval: an incremental BM25 index over the
       workspace in the shared process (persisted per root, capped, build output
       excluded), blended with symbol matches and co-change into one ranking —
-      9/10 hit@5 on a fixed query set where substring search scores 0/10
+      7/10 hit@5 on a fixed query set over the production index of this
+      repository (2026-11-20; 9/10 when first measured, on a smaller tree and
+      a `.ts`-only corpus), where substring search scores 0/10
 - [x] Change-risk analysis: churn, coupling, call-graph fan-in, hunk size, test
       proximity and error-handling edits scored into a calm risk badge with a
       one-line reason, on both review and agent runs
@@ -277,9 +279,11 @@ Integration points consumed (imports only, never patched):
       view lists each file with per-hunk accept/reject, accept/reject-all, a
       change-risk badge, crash-surviving persistence and rebase-on-drift; the
       `editFile` tool (SEARCH/REPLACE) is the agent's only write path
-- [x] Approval-gated terminal tool: the agent proposes shell commands; a
-      designed dialog offers once / session / always / deny, "always" persists
-      to `.onyx/config.json`'s `terminalAllowlist`, dangerous-command
+- [x] Approval-gated terminal tool: the agent proposes shell commands; every
+      invocation asks with Run Once or Deny and an answer covers that
+      invocation's exact bytes, working directory and timeout (B2). There is
+      no session or persistent grant, and `.onyx/config.json`'s legacy
+      `terminalAllowlist` is read as suggestions only. Dangerous-command
       heuristics are named in the prompt, output streams to the timeline, and
       a hard timeout plus `Onyx: Kill Running Terminal Command` end it
 - [x] Offline documentation mirror: workspace markdown, dependency READMEs and

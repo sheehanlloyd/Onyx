@@ -3,19 +3,21 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { execFile, spawn } from 'child_process';
+import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import { join } from '../../../base/common/path.js';
 import { Emitter } from '../../../base/common/event.js';
-import { Disposable } from '../../../base/common/lifecycle.js';
+import { Disposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { ILogService } from '../../log/common/log.js';
 import { OnyxArchitectureScanner } from './onyxArchitectureScanner.js';
+import { IOnyxCommandProcess, OnyxCommandRunner } from './onyxCommandRunner.js';
 import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
+import { readLabHarnessRequest } from './onyxLabManifest.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
 import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
-import { IOnyxChatParams, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxLoadedModel, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -31,13 +33,17 @@ const COMPLETION_TIMEOUT_MS = 15_000;
 const GIT_RECENT_CACHE_MS = 60_000;
 
 interface IOpenAIModelList {
-	readonly data?: readonly { readonly id: string }[];
+	/** `owned_by` is how llama.cpp's server (`llamacpp`) and vLLM (`vllm`) name themselves in their model list. */
+	readonly data?: readonly { readonly id: string; readonly owned_by?: string }[];
 }
 
 interface IOllamaTagsResponse {
 	readonly models?: readonly {
 		readonly name: string;
 		readonly digest?: string;
+		/** Set for a model Ollama forwards to a remote service instead of running: the remote name and where it is served. */
+		readonly remote_model?: string;
+		readonly remote_host?: string;
 		readonly details?: {
 			readonly family?: string;
 			readonly parameter_size?: string; // e.g. "14.8B"
@@ -59,12 +65,21 @@ interface ILmStudioModelList {
 		readonly arch?: string;
 		readonly quantization?: string;
 		readonly max_context_length?: number;
+		/** Present for a model that is loaded: the context it was loaded with. */
+		readonly loaded_context_length?: number;
 	}[];
 }
 
 interface IOllamaShowResponse {
 	readonly capabilities?: readonly string[]; // e.g. ["completion", "tools", "vision"]
 	readonly model_info?: Record<string, unknown>; // contains "<arch>.context_length"
+	/** The Modelfile's parameters as text, one `name value` per line; holds `num_ctx` when the model sets one. */
+	readonly parameters?: string;
+}
+
+/** Ollama's `/api/ps`: the models it has in memory, each with the context it was loaded with. */
+interface IOllamaLoadedResponse {
+	readonly models?: readonly { readonly name?: string; readonly model?: string; readonly context_length?: number }[];
 }
 
 /** One parsed chat-completions SSE payload (the fields we consume). */
@@ -75,8 +90,13 @@ interface ISseChunk {
 	readonly system_fingerprint?: string;
 	readonly choices?: readonly {
 		readonly finish_reason?: string;
+		/** Token log-probabilities, when they were asked for and the runtime returns them. */
+		readonly logprobs?: { readonly content?: readonly object[] | null } | null;
 		readonly delta?: {
 			readonly content?: string;
+			/** A reasoning model's thinking: `reasoning` on Ollama's OpenAI-compatible endpoint, `reasoning_content` on LM Studio, llama.cpp and vLLM. */
+			readonly reasoning?: string;
+			readonly reasoning_content?: string;
 			readonly tool_calls?: readonly { readonly index?: number; readonly id?: string; readonly function?: { readonly name?: string; readonly arguments?: string } }[];
 		};
 	}[];
@@ -99,7 +119,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	readonly onDidCommandOutput = this._onDidCommandOutput.event;
 
 	private readonly _operations = new Map<string, AbortController>();
-	private readonly _runningCommands = new Map<string, { kill: () => void }>();
+	private readonly _runningCommands = new Map<string, IOnyxCommandProcess>();
 	private readonly _modelDetailCache = new Map<string, Partial<IOnyxDiscoveredModel>>();
 	private readonly _gitRecentCache = new Map<string, { at: number; files: readonly string[] }>();
 	private readonly _gitGroupsCache = new Map<string, { at: number; groups: readonly (readonly string[])[] }>();
@@ -109,8 +129,14 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 
 	constructor(
 		@ILogService private readonly _logService: ILogService,
+		private readonly _commandRunner: OnyxCommandRunner = new OnyxCommandRunner(),
 	) {
 		super();
+		// This process can exit without disposing its services. The kill is
+		// synchronous, so it still happens from an exit handler.
+		const onExit = () => this._killAllCommands();
+		process.once('exit', onExit);
+		this._register(toDisposable(() => process.removeListener('exit', onExit)));
 	}
 
 	override dispose(): void {
@@ -120,6 +146,7 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		for (const controller of this._operations.values()) {
 			controller.abort();
 		}
+		this._killAllCommands();
 		for (const indexer of this._indexers.values()) {
 			indexer.dispose();
 		}
@@ -164,6 +191,19 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	async startChatCompletion(operationId: string, params: IOnyxChatParams): Promise<void> {
 		const controller = new AbortController();
 		this._operations.set(operationId, controller);
+		// A request that says nothing for too long is ended as stalled, not left to hang (B12). The clock is
+		// restarted by every read; the first byte gets the longer deadline.
+		let stalled = false;
+		let watchdog: ReturnType<typeof setTimeout> | undefined;
+		const expect = (withinMs: number) => {
+			clearTimeout(watchdog);
+			watchdog = setTimeout(() => {
+				stalled = true;
+				controller.abort();
+			}, withinMs);
+		};
+		const idleMs = params.idleTimeoutMs ?? ONYX_STREAM_DEADLINES.idleMs;
+		expect(params.firstByteTimeoutMs ?? ONYX_STREAM_DEADLINES.firstByteMs);
 		try {
 			const response = await fetch(`${normalizeBaseUrl(params.baseUrl)}/chat/completions`, {
 				method: 'POST',
@@ -183,6 +223,8 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					...(params.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
 					...(params.keepAlive ? { keep_alive: params.keepAlive } : {}),
 					...(params.responseFormat ? { response_format: params.responseFormat } : {}),
+					...(params.stop?.length ? { stop: params.stop } : {}),
+					...(params.logprobs ? { logprobs: true } : {}),
 				}),
 			});
 
@@ -192,14 +234,18 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				return;
 			}
 
-			await this._pumpSse(operationId, response.body, params.seed);
+			await this._pumpSse(operationId, response.body, params.seed, () => expect(idleMs));
 		} catch (err) {
 			if (!controller.signal.aborted) {
 				this._emitError(operationId, err instanceof Error ? err.message : String(err));
+			} else if (stalled) {
+				this._logService.warn('[onyxRuntime] chat completion stalled: nothing arrived within the deadline');
+				this._onDidStream.fire({ operationId, kind: 'done', finishReason: undefined, ending: 'stalled' });
 			} else {
-				this._onDidStream.fire({ operationId, kind: 'done', finishReason: 'cancelled' });
+				this._onDidStream.fire({ operationId, kind: 'done', finishReason: 'cancelled', ending: 'cancelled' });
 			}
 		} finally {
+			clearTimeout(watchdog);
 			this._operations.delete(operationId);
 		}
 	}
@@ -334,17 +380,43 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	}
 
 	private readonly _indexers = new Map<string, OnyxWorkspaceIndexer>();
+	private readonly _indexOptions = new Map<string, IOnyxIndexOptions>();
 
 	private _indexer(rootPath: string, persistPath: string): OnyxWorkspaceIndexer {
 		let indexer = this._indexers.get(rootPath);
 		if (!indexer) {
-			indexer = new OnyxWorkspaceIndexer(rootPath, persistPath);
+			indexer = new OnyxWorkspaceIndexer(rootPath, persistPath, this._indexOptions.get(rootPath));
 			this._indexers.set(rootPath, indexer);
 		}
 		return indexer;
 	}
 
-	async ensureWorkspaceIndex(rootPath: string, persistPath: string): Promise<{ files: number; buildMs: number; truncated: boolean }> {
+	async listLoadedModels(baseUrl: string): Promise<readonly IOnyxLoadedModel[] | undefined> {
+		const loaded = await this._fetchJson<IOllamaLoadedResponse>(`${ollamaRootUrl(normalizeBaseUrl(baseUrl))}/api/ps`);
+		if (!Array.isArray(loaded?.models)) {
+			// No such endpoint, or not this shape: the runtime has not said, which is not "nothing is loaded".
+			return undefined;
+		}
+		return loaded.models
+			.map(model => ({ id: model.name ?? model.model ?? '', ...(typeof model.context_length === 'number' && model.context_length > 0 ? { contextLength: model.context_length } : {}) }))
+			.filter(model => model.id.length > 0);
+	}
+
+	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> {
+		return readLabHarnessRequest(process.env, path => fs.promises.readFile(path, 'utf8'));
+	}
+
+	async configureWorkspaceIndex(rootPath: string, options: IOnyxIndexOptions): Promise<void> {
+		const before = JSON.stringify(this._indexOptions.get(rootPath) ?? {});
+		this._indexOptions.set(rootPath, options);
+		if (before !== JSON.stringify(options)) {
+			// An index made under other rules is not this index. The next use loads or builds one under these.
+			this._indexers.get(rootPath)?.dispose();
+			this._indexers.delete(rootPath);
+		}
+	}
+
+	async ensureWorkspaceIndex(rootPath: string, persistPath: string): Promise<IOnyxIndexStats> {
 		return this._indexer(rootPath, persistPath).ensure();
 	}
 
@@ -580,13 +652,14 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		});
 	}
 
-	private async _pumpSse(operationId: string, body: ReadableStream<Uint8Array>, requestedSeed?: number): Promise<void> {
+	private async _pumpSse(operationId: string, body: ReadableStream<Uint8Array>, requestedSeed: number | undefined, onBytes: () => void): Promise<void> {
 		const decoder = new TextDecoder();
 		let buffered = '';
 		let sawDone = false;
 		let finishReason: string | undefined;
 		let echoedSeed: number | undefined;
 		let fingerprint: string | undefined;
+		let sawLogprobs = false;
 
 		const reader = body.getReader();
 		try {
@@ -595,11 +668,13 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				if (done) {
 					break;
 				}
+				onBytes();
 				buffered += decoder.decode(value, { stream: true });
 
 				// One network read usually carries several SSE events; coalescing
 				// their text deltas into a single event keeps IPC traffic low.
 				let textDelta = '';
+				let reasoningDelta = '';
 				let newlineIndex;
 				while ((newlineIndex = buffered.indexOf('\n')) >= 0) {
 					const line = buffered.slice(0, newlineIndex).trimEnd();
@@ -639,8 +714,15 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					if (choice.finish_reason) {
 						finishReason = choice.finish_reason;
 					}
+					if (choice.logprobs?.content?.length) {
+						sawLogprobs = true;
+					}
 					if (typeof choice.delta?.content === 'string' && choice.delta.content.length > 0) {
 						textDelta += choice.delta.content;
+					}
+					const reasoning = choice.delta?.reasoning ?? choice.delta?.reasoning_content;
+					if (typeof reasoning === 'string' && reasoning.length > 0) {
+						reasoningDelta += reasoning;
 					}
 					for (const toolCall of choice.delta?.tool_calls ?? []) {
 						this._onDidStream.fire({
@@ -652,6 +734,10 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 						});
 					}
 				}
+				// Thinking first: within one read it precedes the text it led to.
+				if (reasoningDelta) {
+					this._onDidStream.fire({ operationId, kind: 'reasoning', text: reasoningDelta });
+				}
 				if (textDelta) {
 					this._onDidStream.fire({ operationId, kind: 'delta', text: textDelta });
 				}
@@ -659,8 +745,13 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 					break;
 				}
 			}
+			// A body that ends without a finish reason and without [DONE] was cut off, whatever it carried (B12).
+			const ending = finishReason !== undefined || sawDone ? 'complete' : 'truncated';
+			if (ending === 'truncated') {
+				this._logService.warn('[onyxRuntime] chat completion truncated: the body ended without a finish reason or [DONE]');
+			}
 			// Honoured only when the runtime echoed the seed it was sent; a silent runtime leaves it unknown.
-			this._onDidStream.fire({ operationId, kind: 'done', finishReason, fingerprint, seedHonoured: requestedSeed !== undefined && echoedSeed === requestedSeed ? true : undefined });
+			this._onDidStream.fire({ operationId, kind: 'done', finishReason, ending, fingerprint, seedHonoured: requestedSeed !== undefined && echoedSeed === requestedSeed ? true : undefined, ...(sawLogprobs ? { logprobs: true } : {}) });
 		} finally {
 			reader.releaseLock();
 		}
@@ -683,9 +774,15 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		const lmStudioList = ollamaTags?.models
 			? undefined
 			: await this._fetchJson<ILmStudioModelList>(`${ollamaRootUrl(baseUrl)}/api/v0/models`);
-		const runtime: OnyxRuntimeKind = ollamaTags?.models ? 'ollama' : lmStudioList?.data ? 'lmstudio' : kindHint;
+		// What the server says it is. A well-known port is a hint for a name to show, never an identification.
+		const ownedBy = list.data.map(entry => entry.owned_by).find(owner => owner === 'llamacpp' || owner === 'vllm');
+		const identified: OnyxRuntimeKind | undefined = ollamaTags?.models ? 'ollama' : lmStudioList?.data ? 'lmstudio' : ownedBy === 'llamacpp' ? 'llamacpp' : ownedBy === 'vllm' ? 'vllm' : undefined;
+		const runtime: OnyxRuntimeKind = identified ?? kindHint;
 		// The runtime's own version, for trace provenance (L3); only Ollama reports one today.
 		const ollamaVersion = runtime === 'ollama' ? (await this._fetchJson<{ readonly version?: string }>(`${ollamaRootUrl(baseUrl)}/api/version`))?.version : undefined;
+		// What an Ollama server allocated for the models it has in memory. For a loaded model this is the
+		// number a prompt has to fit, whatever the model's own parameters name (B13).
+		const loaded = runtime === 'ollama' ? await this.listLoadedModels(baseUrl) : undefined;
 
 		const models: IOnyxDiscoveredModel[] = [];
 		for (const entry of list.data) {
@@ -705,11 +802,16 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				parameterB: parseParameterB(tag?.details?.parameter_size) ?? parseParameterBFromId(entry.id),
 				quantization: tag?.details?.quantization_level ?? native?.quantization,
 				contextLength: detail?.contextLength ?? native?.max_context_length,
+				serverContextLength: loaded?.find(model => model.id === entry.id)?.contextLength ?? detail?.serverContextLength ?? native?.loaded_context_length,
 				supportsTools: detail?.supportsTools,
 				supportsVision: detail?.supportsVision ?? (native?.type === 'vlm' ? true : undefined),
 				// The four known runtimes all accept OpenAI `response_format:
 				// json_schema`; an unidentified server cannot be assumed to.
 				supportsJsonSchema: runtime !== 'generic',
+				// Where the model runs, in the runtime's own account (B14). Ollama marks a model it forwards
+				// with a remote host, and names cloud models with a `cloud` tag; a server that did not
+				// identify itself has said nothing, and nothing is assumed for it.
+				...executionOf(identified, entry.id, tag),
 				digest: tag?.digest,
 				runtimeVersion: ollamaVersion,
 			});
@@ -734,8 +836,11 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 				break;
 			}
 		}
+		// What the server will allocate, when the model says: `num_ctx` in its parameters.
+		const numCtx = /^\s*num_ctx\s+(?<tokens>\d+)\s*$/m.exec(show.parameters ?? '')?.groups?.tokens;
 		const detail: Partial<IOnyxDiscoveredModel> = {
 			contextLength,
+			serverContextLength: numCtx !== undefined ? Number(numCtx) : undefined,
 			supportsTools: show.capabilities?.includes('tools'),
 			supportsVision: show.capabilities?.includes('vision'),
 		};
@@ -799,66 +904,43 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		return scanner.analyze(force);
 	}
 
-	async execCommand(operationId: string, cwd: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult> {
-		const startedAt = Date.now();
-		return new Promise<IOnyxCommandResult>(resolve => {
-			// Its own process group (detached) so a kill reaches the whole tree,
-			// not just the shell that spawned it.
-			const child = spawn('/bin/sh', ['-c', command], { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
-			let output = '';
-			let done = false;
-			let timedOut = false;
-			let killed = false;
-
-			const killTree = () => {
-				try {
-					if (child.pid) {
-						process.kill(-child.pid, 'SIGKILL');
-					}
-				} catch {
-					child.kill('SIGKILL');
-				}
-			};
-			this._runningCommands.set(operationId, { kill: () => { killed = true; killTree(); } });
-
-			const timer = setTimeout(() => {
-				timedOut = true;
-				killTree();
-			}, Math.max(1000, timeoutMs));
-
-			const onData = (stream: 'stdout' | 'stderr') => (data: Buffer) => {
-				const text = data.toString();
-				if (output.length < MAX_COMMAND_OUTPUT_CHARS) {
-					output += text;
-				}
-				this._onDidCommandOutput.fire({ operationId, stream, text });
-			};
-			child.stdout?.on('data', onData('stdout'));
-			child.stderr?.on('data', onData('stderr'));
-
-			const finish = (exitCode: number | undefined) => {
-				if (done) {
-					return;
-				}
-				done = true;
-				clearTimeout(timer);
-				this._runningCommands.delete(operationId);
-				resolve({ exitCode, timedOut, killed, durationMs: Date.now() - startedAt, output: output.slice(0, MAX_COMMAND_OUTPUT_CHARS) });
-			};
-			child.on('error', err => {
-				output += `\n${err.message}`;
-				finish(undefined);
-			});
-			child.on('close', code => finish(code ?? undefined));
-		});
+	/**
+	 * Starts nothing itself: which shell, which spawn options and how the
+	 * process tree ends are the runner's (`onyxCommandRunner.ts`, DEC-02).
+	 */
+	async execCommand(operationId: string, cwd: string, command: string, timeoutMs: number, options?: IOnyxCommandOptions): Promise<IOnyxCommandResult> {
+		const running = this._commandRunner.start(
+			{ cwd, command, timeoutMs, passEnvironment: options?.passEnvironment === true },
+			(stream, text) => this._onDidCommandOutput.fire({ operationId, stream, text }));
+		this._runningCommands.set(operationId, running);
+		try {
+			return await running.result;
+		} finally {
+			this._runningCommands.delete(operationId);
+		}
 	}
 
 	async killCommand(operationId: string): Promise<void> {
 		this._runningCommands.get(operationId)?.kill();
 	}
+
+	private _killAllCommands(): void {
+		for (const running of this._runningCommands.values()) {
+			running.kill();
+		}
+	}
 }
 
-const MAX_COMMAND_OUTPUT_CHARS = 200_000;
+/** What an identified runtime reports about where one of its models runs. */
+function executionOf(identified: OnyxRuntimeKind | undefined, modelId: string, tag: { readonly remote_model?: string; readonly remote_host?: string } | undefined): { readonly execution?: 'local' | 'cloud'; readonly remoteHost?: string } {
+	if (!identified) {
+		return {};
+	}
+	if (identified === 'ollama' && (tag?.remote_host || tag?.remote_model || /(^|[:-])cloud$/.test(modelId))) {
+		return { execution: 'cloud', remoteHost: tag?.remote_host };
+	}
+	return { execution: 'local' };
+}
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.max(min, Math.min(value, max));

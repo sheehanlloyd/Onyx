@@ -12,13 +12,14 @@
  */
 
 export type OnyxSimTraceEvent =
-	| { readonly kind: 'request'; readonly turn: number; readonly model: string; readonly tools: readonly string[]; readonly messageCount: number; readonly roles: readonly string[]; readonly lastUserDigest: string; readonly promptChars: number; readonly temperature: number | undefined; readonly maxTokens: number | undefined }
-	| { readonly kind: 'chunk'; readonly op: string; readonly delta: 'text' | 'toolCall' | 'usage' | 'done' | 'error'; readonly size: number; readonly finishReason?: string }
+	| { readonly kind: 'request'; readonly turn: number; readonly model: string; readonly tools: readonly string[]; readonly messageCount: number; readonly roles: readonly string[]; readonly lastUserDigest: string; readonly promptChars: number; readonly toolsChars: number; readonly temperature: number | undefined; readonly maxTokens: number | undefined }
+	| { readonly kind: 'chunk'; readonly op: string; readonly delta: 'text' | 'toolCall' | 'reasoning' | 'usage' | 'done' | 'error'; readonly size: number; readonly finishReason?: string }
 	| { readonly kind: 'toolDispatch'; readonly call: string; readonly tool: string; readonly argumentsDigest: string }
 	| { readonly kind: 'toolResult'; readonly call: string; readonly tool: string; readonly ok: boolean; readonly resultDigest: string }
-	| { readonly kind: 'commandDispatch'; readonly op: string; readonly command: string; readonly cwd: string }
+	/** `secretEnvironment`: how many of the seeded secret variables the command was started with; absent when none. */
+	| { readonly kind: 'commandDispatch'; readonly op: string; readonly command: string; readonly cwd: string | undefined; readonly secretEnvironment?: number }
 	| { readonly kind: 'commandResult'; readonly op: string; readonly exitCode: number | undefined; readonly timedOut: boolean; readonly killed: boolean }
-	| { readonly kind: 'dialog'; readonly message: string; readonly decision: string }
+	| { readonly kind: 'dialog'; readonly message: string; readonly decision: string; readonly granted: boolean }
 	| { readonly kind: 'userAction'; readonly action: string; readonly detail?: string }
 	| { readonly kind: 'fault'; readonly fault: string; readonly detail?: string }
 	| { readonly kind: 'stage'; readonly path: string; readonly hunks: number; readonly ok: boolean; readonly reason?: string }
@@ -26,6 +27,8 @@ export type OnyxSimTraceEvent =
 	| { readonly kind: 'disk'; readonly path: string; readonly digest: string; readonly cause: string }
 	| { readonly kind: 'status'; readonly run: string; readonly status: string }
 	| { readonly kind: 'activity'; readonly run: string; readonly activity: string; readonly label: string; readonly ok?: boolean }
+	/** Reply text reached the transcript (C5): how many characters. */
+	| { readonly kind: 'shown'; readonly size: number }
 	| { readonly kind: 'complete'; readonly status: string; readonly turns: number }
 	| { readonly kind: 'violation'; readonly invariant: string; readonly detail: string };
 

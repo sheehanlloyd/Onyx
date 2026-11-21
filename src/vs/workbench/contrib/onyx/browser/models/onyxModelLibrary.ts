@@ -14,6 +14,9 @@ import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../.
 import { formatSize, fitModel, IOnyxCatalogModel, ONYX_MODEL_CATALOG, recommendForMachine, toGigabytes } from '../../common/onyxModelCatalog.js';
 import { IOnyxSpeculativeService } from '../compute/onyxSpeculativeService.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
+import { formatTally, IOnyxDatasheet } from '../../common/onyxDatasheet.js';
+import { IOnyxModelProfile } from '../../common/onyxTypes.js';
+import { IOnyxDatasheetService } from './onyxDatasheetService.js';
 
 interface IModelPickItem extends IQuickPickItem {
 	readonly catalogModel?: IOnyxCatalogModel;
@@ -34,6 +37,7 @@ export class OnyxModelLibrary {
 		@IProgressService private readonly _progressService: IProgressService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOnyxSpeculativeService private readonly _speculativeService: IOnyxSpeculativeService,
+		@IOnyxDatasheetService private readonly _datasheetService: IOnyxDatasheetService,
 	) { }
 
 	async show(): Promise<void> {
@@ -43,9 +47,12 @@ export class OnyxModelLibrary {
 		]);
 		const memoryGb = toGigabytes(machine.totalMemoryBytes);
 		const tier = recommendForMachine(memoryGb);
-		const discovered = this._modelService.getKnownModels().map(model => model.discovered);
+		const known = this._modelService.getKnownModels();
+		const discovered = known.map(model => model.discovered);
+		// For each installed model: whether its profile comes from a measurement on this machine or from defaults (L5).
+		const measurement = new Map(known.map(model => [model.discovered.id, measurementLabel(this._datasheetService.stored(model.key, model.discovered), model.profile)]));
 
-		const picks = buildPicks(discovered, memoryGb, tier.recommended);
+		const picks = buildPicks(discovered, memoryGb, tier.recommended, id => measurement.get(id));
 		picks.push({ type: 'separator', label: localize('onyx.models.speculative', "Speculative Decoding") });
 		picks.push({
 			id: 'onyx.pairDraft',
@@ -123,13 +130,36 @@ export class OnyxModelLibrary {
 }
 
 /**
+ * One phrase on where an installed model's profile comes from (L5): measured
+ * on this machine, with what was measured; measured once and no longer used,
+ * with why; or never measured, so the profile is defaults.
+ */
+export function measurementLabel(stored: { readonly datasheet: IOnyxDatasheet; readonly stale: string | undefined } | undefined, profile: IOnyxModelProfile): string {
+	if (!stored) {
+		return localize('onyx.models.notMeasured', "Not measured: profile uses defaults");
+	}
+	const date = stored.datasheet.measuredAt.slice(0, 10);
+	if (stored.stale) {
+		return localize('onyx.models.measurementStale', "Measured {0}, not used: {1}. Profile uses defaults", date, stored.stale);
+	}
+	const measured = [
+		profile.provenance?.toolCallQuality === 'measured' ? localize('onyx.models.measured.toolCalls', "tool calls {0}", formatTally(stored.datasheet.nativeToolCalls)) : undefined,
+		profile.provenance?.schemaEnforcement === 'measured' ? (profile.runtimeEnforcesSchema ? localize('onyx.models.measured.schema', "schema enforced") : localize('onyx.models.measured.noSchema', "schema not enforced")) : undefined,
+		profile.provenance?.contextLength === 'measured' ? localize('onyx.models.measured.context', "context {0} tokens", profile.contextLength) : undefined,
+	].filter(Boolean);
+	return measured.length
+		? localize('onyx.models.measured', "Measured {0}: {1}; the rest of the profile is defaults", date, measured.join(', '))
+		: localize('onyx.models.measuredNothingUsed', "Measured {0}: nothing with enough trials to use; profile uses defaults", date);
+}
+
+/**
  * Groups the catalog into what is already here, what this machine should run
  * next, and what it cannot run — so the list answers "what should I do?"
  * rather than listing every model with equal weight. Installed models that are
  * not in the curated catalog still appear: what is actually on the machine is
  * the one section that must never be incomplete.
  */
-export function buildPicks(discovered: readonly IOnyxDiscoveredModel[], memoryGb: number, recommended: readonly string[]): (IModelPickItem | IQuickPickSeparator)[] {
+export function buildPicks(discovered: readonly IOnyxDiscoveredModel[], memoryGb: number, recommended: readonly string[], measurement: (modelId: string) => string | undefined = () => undefined): (IModelPickItem | IQuickPickSeparator)[] {
 	const picks: (IModelPickItem | IQuickPickSeparator)[] = [];
 	const installed = new Set(discovered.map(model => model.id));
 	const installedModels = ONYX_MODEL_CATALOG.filter(model => installed.has(model.id));
@@ -139,11 +169,16 @@ export function buildPicks(discovered: readonly IOnyxDiscoveredModel[], memoryGb
 
 	if (installedModels.length || uncatalogued.length) {
 		picks.push({ type: 'separator', label: localize('onyx.models.installedGroup', "Installed") });
+		// What is known about how an installed model behaves, measured or not, follows its own description.
+		const withMeasurement = (pick: IModelPickItem, modelId: string): IModelPickItem => {
+			const label = measurement(modelId);
+			return label ? { ...pick, detail: pick.detail ? `${pick.detail} · ${label}` : label } : pick;
+		};
 		for (const model of installedModels) {
-			picks.push(toPick(model, memoryGb, true, isRecommended(model)));
+			picks.push(withMeasurement(toPick(model, memoryGb, true, isRecommended(model)), model.id));
 		}
 		for (const model of uncatalogued) {
-			picks.push(toDiscoveredPick(model));
+			picks.push(withMeasurement(toDiscoveredPick(model), model.id));
 		}
 	}
 

@@ -257,7 +257,7 @@
 	],
 	"profile": {
 		"promptStyle": "compact",
-		"contextLength": 2048,
+		"contextLength": 4096,
 		"maxTools": 8
 	}
 }
