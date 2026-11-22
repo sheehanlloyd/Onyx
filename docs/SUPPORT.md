@@ -895,7 +895,7 @@ tested. The module gate runner reads this table (`| item | state |`).
 | L10 executable oracle | included | 4 | Not needed: included. The sandbox probe passes on the reference machine ("The private benchmark", below, has its output) and R-50's sandbox cases pass (`OnyxOracle`, `OnyxLabTasks`). Where the probe fails, or without the user's consent, scoring is tier 1 only and the result says so |
 | L16 confidence badge | planned | 4 | No badge, no claim; result published |
 | L17 eviction policy | planned | 4 | Oldest-first eviction stays; result published |
-| L18 energy | planned | 4 | "Unavailable on this hardware" with the probe output |
+| L18 energy | included | 4 | The study is done. Power telemetry is readable on the reference laptop without elevated privileges (the battery controller, through `ioreg`; `docs/research/results/2026-11-22-energy/power-probe.json`), so energy was measured, at a resolution of about a minute. H-10 is inconclusive: no model solved a task, so energy per solved task has no value to rank. Energy per attempt is reported and decides nothing. On a machine without this telemetry the probe says so and the outcome there is "unavailable on this hardware"; nothing is derived from the parameter-seconds proxy |
 
 ## Decisions recorded here
 
