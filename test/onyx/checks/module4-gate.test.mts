@@ -171,7 +171,8 @@ test('Module 4 gate: the pre-registration is an ancestor of every results commit
 	const firstCommitOf = (directory: string) => gitText('log', '--diff-filter=A', '--format=%H', '--', `docs/research/results/${directory}`).split('\n').at(-1)!;
 	const outcomes = outcomeFiles();
 	// Which amendment fixed the design each hypothesis's campaign ran under.
-	const designedBy: Record<string, number> = { 'H-2': 1, 'H-3': 2, 'H-4': 2, 'H-5': 2, 'H-6': 3, 'H-7': 3, 'H-8': 3, 'H-9': 3, 'H-10': 3 };
+	// H-4's and H-6's deciding campaigns are the second ones, which Amendment 4 fixed.
+	const designedBy: Record<string, number> = { 'H-2': 1, 'H-3': 2, 'H-4': 4, 'H-5': 2, 'H-6': 4, 'H-7': 3, 'H-8': 3, 'H-9': 3, 'H-10': 3 };
 	const late: string[] = [];
 	for (const outcome of outcomes) {
 		const commit = firstCommitOf(outcome.directory);
@@ -186,12 +187,12 @@ test('Module 4 gate: the pre-registration is an ancestor of every results commit
 	const text = fs.readFileSync(path.join(repoRoot, 'docs', 'research', 'PREREGISTRATION.md'), 'utf8');
 	assert.deepStrictEqual({
 		registrationFound: /^[0-9a-f]{40}$/.test(registration),
-		amendmentsFound: [1, 2, 3].map(number => /^[0-9a-f]{40}$/.test(amendment(number))),
+		amendmentsFound: [1, 2, 3, 4].map(number => /^[0-9a-f]{40}$/.test(amendment(number))),
 		resultsNotAfterTheirDesign: late,
 		noWordingTheProjectDoesNotUse: /\b(novel|first-ever|the first to)\b/i.exec(text)?.[0] ?? null,
 	}, {
 		registrationFound: true,
-		amendmentsFound: [true, true, true],
+		amendmentsFound: [true, true, true, true],
 		resultsNotAfterTheirDesign: [],
 		noWordingTheProjectDoesNotUse: null,
 	});
