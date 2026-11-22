@@ -65,7 +65,7 @@ interface ILabTask { readonly id: string; readonly commit: string; readonly file
 interface ILabUnit { readonly id: string; readonly model: string; readonly configuration: string; readonly task: ILabTask; readonly seed: number; readonly repetition: number }
 interface ILabRecord { readonly unit: string; readonly model: string; readonly configuration: string; readonly task: string; readonly seed: number; readonly repetition: number; readonly tier: 'S' | 'A'; readonly outcome: string; readonly reply: string | null; readonly edits: readonly unknown[]; readonly events: readonly unknown[]; readonly requests: readonly unknown[]; readonly harnessHash: string | null; readonly deniedCommands: number; readonly durationMs: number; readonly finishReason?: string | null; readonly error?: string }
 interface ILabResult { readonly unit: string; readonly outcome: string; readonly score: number | null; readonly success: boolean | null }
-interface ICampaign { readonly tier: 'S' | 'A'; readonly baseUrl: string; readonly tasks?: string; readonly unitTimeoutMs?: number; readonly maxBeforeChars?: number; readonly datasheets?: string; readonly measure?: { readonly revision: string; readonly taskCount?: number; readonly datasheets?: boolean } }
+interface ICampaign { readonly tier: 'S' | 'A'; readonly baseUrl: string; readonly datasheetsFirst?: boolean; readonly tasks?: string; readonly unitTimeoutMs?: number; readonly maxBeforeChars?: number; readonly datasheets?: string; readonly measure?: { readonly revision: string; readonly taskCount?: number; readonly datasheets?: boolean } }
 interface ILabModule {
 	planLabCampaign(spec: { tier: 'S' | 'A'; models: readonly string[]; configurations: readonly string[]; tasks: readonly ILabTask[]; seeds: readonly number[]; repetitions: number }): ILabUnit[];
 	remainingLabUnits(plan: readonly ILabUnit[], finished: ReadonlySet<string>): ILabUnit[];
@@ -288,20 +288,21 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 
 // --- tier S -------------------------------------------------------------------------------------------------------
 
-interface IReply { readonly text: string; readonly finishReason: string | null; readonly promptTokens: number | null; readonly completionTokens: number | null; readonly firstTokenMs: number | null; readonly totalMs: number }
+interface IReply { /** Each token with its log-probability, when the manifest asks for them and the runtime sends them. */ readonly tokens: readonly (readonly [string, number])[] | null; readonly text: string; readonly finishReason: string | null; readonly promptTokens: number | null; readonly completionTokens: number | null; readonly firstTokenMs: number | null; readonly totalMs: number }
 
 async function chatOnce(model: string, messages: readonly { role: string; content: string }[], seed: number, timeoutMs: number): Promise<IReply> {
 	const started = performance.now();
 	const response = await fetch(`${campaign!.baseUrl}/chat/completions`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ model, messages, temperature: manifest.sampling.temperature, max_tokens: manifest.sampling.maxTokens ?? 4096, seed, stream: true, stream_options: { include_usage: true } }),
+		body: JSON.stringify({ model, messages, temperature: manifest.sampling.temperature, max_tokens: manifest.sampling.maxTokens ?? 4096, seed, stream: true, stream_options: { include_usage: true }, ...(manifest.sampling.logprobs ? { logprobs: true } : {}) }),
 		signal: AbortSignal.any([abort.signal, AbortSignal.timeout(timeoutMs)]),
 	});
 	if (!response.ok || !response.body) {
 		throw new Error(`HTTP ${response.status} ${(await response.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200)}`);
 	}
 	let text = '';
+	const tokens: [string, number][] = [];
 	let finishReason: string | null = null;
 	let promptTokens: number | null = null;
 	let completionTokens: number | null = null;
@@ -316,7 +317,7 @@ async function chatOnce(model: string, messages: readonly { role: string; conten
 			if (!line.startsWith('data:') || line.slice(5).trim() === '[DONE]') {
 				continue;
 			}
-			let event: { usage?: { prompt_tokens?: number; completion_tokens?: number }; choices?: { finish_reason?: string | null; delta?: { content?: string } }[] };
+			let event: { usage?: { prompt_tokens?: number; completion_tokens?: number }; choices?: { finish_reason?: string | null; delta?: { content?: string }; logprobs?: { content?: { token: string; logprob: number }[] | null } | null }[] };
 			try {
 				event = JSON.parse(line.slice(5));
 			} catch {
@@ -327,12 +328,15 @@ async function chatOnce(model: string, messages: readonly { role: string; conten
 				firstTokenMs ??= performance.now() - started;
 				text += choice.delta.content;
 			}
+			for (const entry of choice?.logprobs?.content ?? []) {
+				tokens.push([entry.token, entry.logprob]);
+			}
 			finishReason = choice?.finish_reason ?? finishReason;
 			promptTokens = event.usage?.prompt_tokens ?? promptTokens;
 			completionTokens = event.usage?.completion_tokens ?? completionTokens;
 		}
 	}
-	return { text, finishReason, promptTokens, completionTokens, firstTokenMs: firstTokenMs === null ? null : Math.round(firstTokenMs), totalMs: Math.round(performance.now() - started) };
+	return { tokens: manifest.sampling.logprobs ? tokens : null, text, finishReason, promptTokens, completionTokens, firstTokenMs: firstTokenMs === null ? null : Math.round(firstTokenMs), totalMs: Math.round(performance.now() - started) };
 }
 
 async function runTierS(units: readonly ILabUnit[], evictions: object[]): Promise<void> {
@@ -366,7 +370,7 @@ async function runTierS(units: readonly ILabUnit[], evictions: object[]): Promis
 				await sleep(5000);
 				reply = await chatOnce(unit.model, messages, unit.seed, campaign!.unitTimeoutMs ?? 300_000);
 			}
-			appendRecord({ ...base, outcome: 'attempted', reply: reply.text, requests: [{ promptTokens: reply.promptTokens, completionTokens: reply.completionTokens, firstTokenMs: reply.firstTokenMs, tokensPerSecond: reply.completionTokens && reply.firstTokenMs !== null && reply.totalMs > reply.firstTokenMs ? Math.round(reply.completionTokens / ((reply.totalMs - reply.firstTokenMs) / 1000) * 10) / 10 : null }], finishReason: reply.finishReason, durationMs: Date.now() - started });
+			appendRecord({ ...base, outcome: 'attempted', reply: reply.text, ...(reply.tokens ? { tokens: reply.tokens } : {}), requests: [{ promptTokens: reply.promptTokens, completionTokens: reply.completionTokens, firstTokenMs: reply.firstTokenMs, tokensPerSecond: reply.completionTokens && reply.firstTokenMs !== null && reply.totalMs > reply.firstTokenMs ? Math.round(reply.completionTokens / ((reply.totalMs - reply.firstTokenMs) / 1000) * 10) / 10 : null }], finishReason: reply.finishReason, durationMs: Date.now() - started });
 		} catch (error) {
 			if (cancelled) {
 				return; // the unit in flight leaves no record
@@ -418,7 +422,7 @@ function applicationLogTail(userDataDir: string): string | undefined {
  * Starts the application on a worktree with a work order, waits until the engine inside says it is done, has
  * failed, or has stopped answering, and ends the application. One instance, one profile of its own.
  */
-async function runApplication(workDir: string, worktree: string, heartbeatPath: string, index: number, order: { readonly unitTimeoutMs: number; readonly units: readonly object[]; readonly measure?: object }): Promise<{ readonly state: string; readonly reason: string | undefined; readonly exited: boolean; readonly userDataDir: string }> {
+async function runApplication(workDir: string, worktree: string, heartbeatPath: string, index: number, order: { readonly unitTimeoutMs: number; readonly units: readonly object[]; readonly measure?: object; readonly datasheetsFirst?: boolean }): Promise<{ readonly state: string; readonly reason: string | undefined; readonly exited: boolean; readonly userDataDir: string }> {
 	const statusPath = path.join(workDir, 'status.json');
 	const cancelPath = path.join(workDir, 'cancel');
 	const orderPath = path.join(workDir, 'order.json');
@@ -559,6 +563,7 @@ async function runTierA(units: readonly ILabUnit[], evictions: object[], notes: 
 						id: unit.id, manifest: manifest.name, model: unit.model, configuration: { name: unit.configuration, configuration: configurations.get(unit.configuration) ?? {} }, task: unit.task,
 						seed: unit.seed, repetition: unit.repetition, temperature: manifest.sampling.temperature, instruction: lab.labAgentInstruction(unit.task.file, instructionOf(unit.task)),
 					})),
+					...(campaign!.datasheetsFirst ? { datasheetsFirst: true } : {}),
 				});
 				if (cancelled) {
 					notes.push(`cancelled; the application's last word was "${state}"`);

@@ -1,0 +1,1388 @@
+{
+	"campaign": "2026-11-22-attribution",
+	"resamples": 1000,
+	"seed": 1,
+	"components": [
+		"protocol handling",
+		"tool-result elision",
+		"read-tool line numbering"
+	],
+	"smallerModel": "qwen2.5-coder:1.5b",
+	"largerModel": "qwen2.5-coder:7b",
+	"configurations": [
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "native-elide-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 1.409
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "native-elide-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 0.642
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "native-whole-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 0.639
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "native-whole-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 0.658
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "repaired-elide-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 4,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0.02,
+			"medianSeconds": 18.249
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "repaired-elide-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 2,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0.014,
+			"medianSeconds": 20.929
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "repaired-whole-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 3,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0.022,
+			"medianSeconds": 16.883
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "repaired-whole-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 3,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0.018,
+			"medianSeconds": 21.234
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "constrained-elide-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 5.435
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "constrained-elide-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 3.798
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "constrained-whole-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 7.089
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "constrained-whole-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 5.527
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "native-elide-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 0.423
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "native-elide-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 0.332
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "native-whole-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 0.332
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "native-whole-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 0.341
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "repaired-elide-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 1,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0.01,
+			"medianSeconds": 1.844
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "repaired-elide-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 1.768
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "repaired-whole-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 2.614
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "repaired-whole-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 1.974
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "constrained-elide-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 1.24
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "constrained-elide-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 1.009
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "constrained-whole-numbered",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 1.476
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "constrained-whole-plain",
+			"units": 40,
+			"attempted": 40,
+			"scoredAboveZero": 0,
+			"succeeded": 0,
+			"successRate": {
+				"value": 0,
+				"low": 0,
+				"high": 0.08762160119728664
+			},
+			"meanScore": 0,
+			"medianSeconds": 1.301
+		}
+	],
+	"games": {
+		"primary/success": {
+			"game": "primary",
+			"protocolOn": "constrained-envelope",
+			"measure": "success",
+			"perModel": {
+				"qwen2.5-coder:7b": {
+					"tasks": 40,
+					"droppedTasks": [],
+					"attribution": {
+						"components": [
+							"protocol handling",
+							"tool-result elision",
+							"read-tool line numbering"
+						],
+						"tasks": 40,
+						"resamples": 1000,
+						"seed": 1,
+						"coalitions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"shapley": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"mainEffects": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"interactions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "tool-result elision"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "read-tool line numbering"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "tool-result elision",
+								"second": "read-tool line numbering"
+							}
+						],
+						"margin": {
+							"value": 0,
+							"low": 0,
+							"high": 0,
+							"of": "protocol handling"
+						}
+					}
+				},
+				"qwen2.5-coder:1.5b": {
+					"tasks": 40,
+					"droppedTasks": [],
+					"attribution": {
+						"components": [
+							"protocol handling",
+							"tool-result elision",
+							"read-tool line numbering"
+						],
+						"tasks": 40,
+						"resamples": 1000,
+						"seed": 1,
+						"coalitions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"shapley": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"mainEffects": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"interactions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "tool-result elision"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "read-tool line numbering"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "tool-result elision",
+								"second": "read-tool line numbering"
+							}
+						],
+						"margin": {
+							"value": 0,
+							"low": 0,
+							"high": 0,
+							"of": "protocol handling"
+						}
+					}
+				}
+			},
+			"marginOfTheLargerLessTheSmaller": {
+				"tasks": 40,
+				"value": 0,
+				"low": 0,
+				"high": 0
+			},
+			"byTheRegisteredThresholds": {
+				"outcome": "inconclusive",
+				"reason": "no configuration succeeded on any task for either model: every value is zero, which is a floor and not evidence of equal worth"
+			}
+		},
+		"primary/score": {
+			"game": "primary",
+			"protocolOn": "constrained-envelope",
+			"measure": "score",
+			"perModel": {
+				"qwen2.5-coder:7b": {
+					"tasks": 40,
+					"droppedTasks": [],
+					"attribution": {
+						"components": [
+							"protocol handling",
+							"tool-result elision",
+							"read-tool line numbering"
+						],
+						"tasks": 40,
+						"resamples": 1000,
+						"seed": 1,
+						"coalitions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"shapley": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"mainEffects": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"interactions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "tool-result elision"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "read-tool line numbering"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "tool-result elision",
+								"second": "read-tool line numbering"
+							}
+						],
+						"margin": {
+							"value": 0,
+							"low": 0,
+							"high": 0,
+							"of": "protocol handling"
+						}
+					}
+				},
+				"qwen2.5-coder:1.5b": {
+					"tasks": 40,
+					"droppedTasks": [],
+					"attribution": {
+						"components": [
+							"protocol handling",
+							"tool-result elision",
+							"read-tool line numbering"
+						],
+						"tasks": 40,
+						"resamples": 1000,
+						"seed": 1,
+						"coalitions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"shapley": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"mainEffects": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"interactions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "tool-result elision"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "read-tool line numbering"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "tool-result elision",
+								"second": "read-tool line numbering"
+							}
+						],
+						"margin": {
+							"value": 0,
+							"low": 0,
+							"high": 0,
+							"of": "protocol handling"
+						}
+					}
+				}
+			},
+			"marginOfTheLargerLessTheSmaller": {
+				"tasks": 40,
+				"value": 0,
+				"low": 0,
+				"high": 0
+			}
+		},
+		"secondary/success": {
+			"game": "secondary",
+			"protocolOn": "repaired-text",
+			"measure": "success",
+			"perModel": {
+				"qwen2.5-coder:7b": {
+					"tasks": 40,
+					"droppedTasks": [],
+					"attribution": {
+						"components": [
+							"protocol handling",
+							"tool-result elision",
+							"read-tool line numbering"
+						],
+						"tasks": 40,
+						"resamples": 1000,
+						"seed": 1,
+						"coalitions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"shapley": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"mainEffects": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"interactions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "tool-result elision"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "read-tool line numbering"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "tool-result elision",
+								"second": "read-tool line numbering"
+							}
+						],
+						"margin": {
+							"value": 0,
+							"low": 0,
+							"high": 0,
+							"of": "protocol handling"
+						}
+					}
+				},
+				"qwen2.5-coder:1.5b": {
+					"tasks": 40,
+					"droppedTasks": [],
+					"attribution": {
+						"components": [
+							"protocol handling",
+							"tool-result elision",
+							"read-tool line numbering"
+						],
+						"tasks": 40,
+						"resamples": 1000,
+						"seed": 1,
+						"coalitions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"shapley": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"mainEffects": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							}
+						],
+						"interactions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "tool-result elision"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "protocol handling",
+								"second": "read-tool line numbering"
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0,
+								"first": "tool-result elision",
+								"second": "read-tool line numbering"
+							}
+						],
+						"margin": {
+							"value": 0,
+							"low": 0,
+							"high": 0,
+							"of": "protocol handling"
+						}
+					}
+				}
+			},
+			"marginOfTheLargerLessTheSmaller": {
+				"tasks": 40,
+				"value": 0,
+				"low": 0,
+				"high": 0
+			},
+			"byTheRegisteredThresholds": {
+				"outcome": "inconclusive",
+				"reason": "no configuration succeeded on any task for either model: every value is zero, which is a floor and not evidence of equal worth"
+			}
+		},
+		"secondary/score": {
+			"game": "secondary",
+			"protocolOn": "repaired-text",
+			"measure": "score",
+			"perModel": {
+				"qwen2.5-coder:7b": {
+					"tasks": 40,
+					"droppedTasks": [],
+					"attribution": {
+						"components": [
+							"protocol handling",
+							"tool-result elision",
+							"read-tool line numbering"
+						],
+						"tasks": 40,
+						"resamples": 1000,
+						"seed": 1,
+						"coalitions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0.01825,
+								"low": 0,
+								"high": 0.042749999999999996
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0.013750000000000002,
+								"low": 0,
+								"high": 0.0375
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0.022,
+								"low": 0,
+								"high": 0.050249999999999996
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0.02025,
+								"low": 0.00075,
+								"high": 0.04525
+							}
+						],
+						"shapley": [
+							{
+								"value": 0.018791666666666665,
+								"low": 0.0031218750000000005,
+								"high": 0.041266666666666646
+							},
+							{
+								"value": -0.0013333333333333322,
+								"low": -0.008920833333333333,
+								"high": 0.004666666666666666
+							},
+							{
+								"value": 0.0027916666666666663,
+								"low": -0.0012499999999999998,
+								"high": 0.008626041666666666
+							}
+						],
+						"mainEffects": [
+							{
+								"value": 0.0185625,
+								"low": 0.002875,
+								"high": 0.0408140625
+							},
+							{
+								"value": -0.001562499999999998,
+								"low": -0.007437500000000001,
+								"high": 0.0033750000000000004
+							},
+							{
+								"value": 0.002562499999999999,
+								"low": -0.0021265625,
+								"high": 0.008812500000000001
+							}
+						],
+						"interactions": [
+							{
+								"value": -0.0031249999999999976,
+								"low": -0.014875,
+								"high": 0.006750000000000001,
+								"first": "protocol handling",
+								"second": "tool-result elision"
+							},
+							{
+								"value": 0.005124999999999999,
+								"low": -0.004253125,
+								"high": 0.017625000000000002,
+								"first": "protocol handling",
+								"second": "read-tool line numbering"
+							},
+							{
+								"value": 0.0013749999999999995,
+								"low": -0.010374999999999995,
+								"high": 0.011253125,
+								"first": "tool-result elision",
+								"second": "read-tool line numbering"
+							}
+						],
+						"margin": {
+							"value": 0.016,
+							"low": 0,
+							"high": 0.039749999999999994,
+							"of": "protocol handling"
+						}
+					}
+				},
+				"qwen2.5-coder:1.5b": {
+					"tasks": 40,
+					"droppedTasks": [],
+					"attribution": {
+						"components": [
+							"protocol handling",
+							"tool-result elision",
+							"read-tool line numbering"
+						],
+						"tasks": 40,
+						"resamples": 1000,
+						"seed": 1,
+						"coalitions": [
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0,
+								"low": 0,
+								"high": 0
+							},
+							{
+								"value": 0.01,
+								"low": 0,
+								"high": 0.030000000000000006
+							}
+						],
+						"shapley": [
+							{
+								"value": 0.003333333333333333,
+								"low": 0,
+								"high": 0.010000000000000002
+							},
+							{
+								"value": 0.003333333333333333,
+								"low": 0,
+								"high": 0.010000000000000002
+							},
+							{
+								"value": 0.003333333333333333,
+								"low": 0,
+								"high": 0.010000000000000002
+							}
+						],
+						"mainEffects": [
+							{
+								"value": 0.0025,
+								"low": 0,
+								"high": 0.0075000000000000015
+							},
+							{
+								"value": 0.0025,
+								"low": 0,
+								"high": 0.0075000000000000015
+							},
+							{
+								"value": 0.0025,
+								"low": 0,
+								"high": 0.0075000000000000015
+							}
+						],
+						"interactions": [
+							{
+								"value": 0.005,
+								"low": 0,
+								"high": 0.015000000000000003,
+								"first": "protocol handling",
+								"second": "tool-result elision"
+							},
+							{
+								"value": 0.005,
+								"low": 0,
+								"high": 0.015000000000000003,
+								"first": "protocol handling",
+								"second": "read-tool line numbering"
+							},
+							{
+								"value": 0.005,
+								"low": 0,
+								"high": 0.015000000000000003,
+								"first": "tool-result elision",
+								"second": "read-tool line numbering"
+							}
+						],
+						"margin": {
+							"value": 0,
+							"low": 0,
+							"high": 0,
+							"of": "protocol handling"
+						}
+					}
+				}
+			},
+			"marginOfTheLargerLessTheSmaller": {
+				"tasks": 40,
+				"value": 0.016,
+				"low": 0,
+				"high": 0.039749999999999994
+			}
+		}
+	}
+}

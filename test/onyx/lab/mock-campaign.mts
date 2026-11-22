@@ -77,16 +77,16 @@ export async function startMock(environment: Record<string, string> = {}): Promi
 }
 
 /** Writes a campaign's manifest and task set into `<parent>/<name>/` and returns the manifest's path. */
-export function writeCampaign(parent: string, name: string, options: { readonly tier: 'S' | 'A'; readonly baseUrl: string; readonly models: readonly string[]; readonly tasks: readonly object[]; readonly seeds?: readonly number[]; readonly configurations?: readonly { name: string; hash: string; configuration?: object }[]; readonly unitTimeoutMs?: number }): string {
+export function writeCampaign(parent: string, name: string, options: { readonly tier: 'S' | 'A'; readonly baseUrl: string; readonly models: readonly string[]; readonly tasks: readonly object[]; readonly seeds?: readonly number[]; readonly repetitions?: number; readonly logprobs?: boolean; readonly configurations?: readonly { name: string; hash: string; configuration?: object }[]; readonly unitTimeoutMs?: number }): string {
 	const dir = path.join(parent, name);
 	fs.mkdirSync(dir, { recursive: true });
 	fs.writeFileSync(path.join(dir, 'tasks.json'), JSON.stringify({ name: 'mock tasks', tasks: options.tasks }, undefined, '\t'));
 	fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({
 		version: 1, name, createdAt: new Date().toISOString(),
 		models: options.models.map(id => ({ identifier: `mock:${id}`, digest: 'mock', runtime: { name: 'mock', version: 'test' }, context: { requestedTokens: null, reportedTokens: 16384, verifiedTokens: null, mechanism: null } })),
-		seeds: options.seeds ?? [1], sampling: { temperature: 0, maxTokens: 512 },
+		seeds: options.seeds ?? [1], sampling: { temperature: 0, maxTokens: 512, ...(options.logprobs ? { logprobs: true } : {}) },
 		harnessConfigurations: options.configurations ?? [{ name: 'default', hash: '00000000' }],
-		taskSet: { name: 'mock tasks', hash: '00000000', count: options.tasks.length }, repetitions: 1,
+		taskSet: { name: 'mock tasks', hash: '00000000', count: options.tasks.length }, repetitions: options.repetitions ?? 1,
 		machine: { platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model ?? 'unknown', memoryGiB: Math.round(os.totalmem() / 1024 ** 3) },
 		regenerate: [{ output: 'results.jsonl, summary.json', command: `node test/onyx/lab/run-lab.mts <this manifest> --rescore` }],
 		campaign: { tier: options.tier, baseUrl: options.baseUrl, tasks: 'tasks.json', ...(options.unitTimeoutMs ? { unitTimeoutMs: options.unitTimeoutMs } : {}) },
