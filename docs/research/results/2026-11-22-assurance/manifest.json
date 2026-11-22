@@ -1,0 +1,62 @@
+{
+	"version": 1,
+	"name": "2026-11-22-assurance",
+	"createdAt": "2026-11-22T09:12:06.341Z",
+	"models": [
+		{
+			"identifier": "mock:simulated-personas",
+			"digest": "mock",
+			"runtime": {
+				"name": "mock",
+				"version": "simulation rig"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1
+	],
+	"sampling": {
+		"temperature": 0
+	},
+	"harnessConfigurations": [
+		{
+			"name": "shipping-default-as-derived-in-the-rig",
+			"hash": "00000000"
+		}
+	],
+	"taskSet": {
+		"name": "seeded episodes 1 to 50000, the scripted workflows and the injection corpus",
+		"hash": "00000000",
+		"count": 50000
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			13.18,
+			9.3,
+			8.12
+		]
+	},
+	"regenerate": [
+		{
+			"output": "summary.json, outcome.json, traces/",
+			"command": "node test/onyx/sim/write-assurance.mts --out docs/research/results/2026-11-22-assurance"
+		}
+	],
+	"hypotheses": [
+		"H-1"
+	],
+	"notes": "L12: the assurance campaign. No model and no runtime: the simulation rig's personas, a scripted user and a faulty environment, under one seed an episode. The harness is the checkout at cad0d2d3746, clean. The configuration hash is a placeholder: the rig derives the shipping configuration per episode, and every episode's trace carries its own hash. Throughput includes the start of one test process a shard and was taken on a machine that was running a model campaign at the same time; it is not a benchmark."
+}
