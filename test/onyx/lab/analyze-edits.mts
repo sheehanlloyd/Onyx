@@ -352,6 +352,8 @@ if (anchorsDir) {
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'attempts.jsonl'), attempts.map(row => JSON.stringify(row)).join('\n') + (attempts.length ? '\n' : ''));
 fs.writeFileSync(path.join(outDir, 'analysis.json'), JSON.stringify({ sources, recordsWhoseTaskIsNotInTheRepository: missing.length, resamples: RESAMPLES, seed: 1, registeredMinimumAttemptsPerModel: 500, h3, h4: h4 ?? null, h5 }, undefined, '\t') + '\n');
+// The campaigns this analysis reads: each has its own manifest, and this directory has none of its own.
+fs.writeFileSync(path.join(outDir, 'sources.json'), JSON.stringify({ campaigns: [...new Set([...campaigns, ...(anchorsDir ? [anchorsDir] : [])].map(directory => path.basename(directory)))] }, undefined, '\t') + '\n');
 const name = path.basename(outDir);
 const regenerate = `node test/onyx/lab/analyze-edits.mts --out docs/research/results/${name} ${campaigns.map(directory => `--campaign docs/research/results/${path.basename(directory)}`).join(' ')}${anchorsDir ? ` --anchors docs/research/results/${path.basename(anchorsDir)}` : ''}`;
 const h3Number = `exact-unique placed ${h3.pooled.table['exact-unique'].applied} of ${freeForm.length} attempts and the fuzzy comparator ${h3.pooled.table.fuzzy.applied}: a difference of ${points(gap)}; ${h3.pooled.table.fuzzy.silentlyWrong} of the fuzzy comparator's placements were silently wrong, ${pct(fuzzyWrong)} of attempts`;
