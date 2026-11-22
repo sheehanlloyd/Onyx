@@ -1,0 +1,291 @@
+{
+	"version": 1,
+	"name": "2026-11-22-attribution",
+	"createdAt": "2026-11-22T08:14:01.834Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 4096,
+		"responseFormat": true
+	},
+	"harnessConfigurations": [
+		{
+			"name": "native-elide-numbered",
+			"hash": "77352d79",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "native",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "native-elide-plain",
+			"hash": "fe2267b2",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "native",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": false
+			}
+		},
+		{
+			"name": "native-whole-numbered",
+			"hash": "d51135d8",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "native",
+				"toolResultChars": 16000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "native-whole-plain",
+			"hash": "824ac989",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "native",
+				"toolResultChars": 16000,
+				"readToolLineNumbering": false
+			}
+		},
+		{
+			"name": "repaired-elide-numbered",
+			"hash": "12d979d4",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "repaired-text",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "repaired-elide-plain",
+			"hash": "198304ed",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "repaired-text",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": false
+			}
+		},
+		{
+			"name": "repaired-whole-numbered",
+			"hash": "70873efb",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "repaired-text",
+				"toolResultChars": 16000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "repaired-whole-plain",
+			"hash": "d4701f04",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "repaired-text",
+				"toolResultChars": 16000,
+				"readToolLineNumbering": false
+			}
+		},
+		{
+			"name": "constrained-elide-numbered",
+			"hash": "9801945d",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "constrained-elide-plain",
+			"hash": "330ff956",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": false
+			}
+		},
+		{
+			"name": "constrained-whole-numbered",
+			"hash": "2af92e74",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 16000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "constrained-whole-plain",
+			"hash": "f58785a5",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 16000,
+				"readToolLineNumbering": false
+			}
+		}
+	],
+	"taskSet": {
+		"name": "every third task of this repository's task set (2026-11-22-task-set, hash fefa777b2d60e7fa): 40 of 120",
+		"hash": "b62b7b60d3bf7a38",
+		"count": 40
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			5.28,
+			4.28,
+			4.63
+		],
+		"power": "AC Power, 100%, adapter 94 W"
+	},
+	"regenerate": [
+		{
+			"output": "traces/records.jsonl, campaign.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-attribution/manifest.json"
+		},
+		{
+			"output": "results.jsonl, summary.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-attribution/manifest.json --rescore"
+		}
+	],
+	"campaign": {
+		"tier": "A",
+		"baseUrl": "http://127.0.0.1:11500/v1",
+		"tasks": "tasks.json",
+		"datasheets": "docs/research/results/2026-11-22-datasheets/summary.json",
+		"estimatedSeconds": 70656,
+		"unitTimeoutMs": 420000
+	},
+	"hypotheses": [
+		"H-2"
+	],
+	"notes": "L13: what each harness component is worth. A full factorial over three components (tool-call protocol handling with three values, tool-result elision, read-tool line numbering): 12 configurations, both pinned models, 40 tasks, one seed at temperature 0, through the agent loop (tier A). The design, the reasons two components are left out, and the analysis are PREREGISTRATION.md, Amendment 1, committed before this campaign started. Two estimates were made before it started. From the datasheets and the engine's assumed unit shape: campaign.estimatedSeconds in this file. From the seconds a unit took in the pilots on eight excluded commits (7B: 4 s native, 18 s constrained, 52 s repaired; 1.5B: 1 to 6 s), with a third added for the unelided reads: about 5 hours. This is the campaign's third start, and the only one whose records are kept. The first recorded 17 units before a defect was found (the seed and temperature were recorded and not sent; docs/progress/L9.md, Erratum). The second recorded 11 and was stopped so that the application could run from a frozen copy of the build at a recorded revision, with the checkout free to be rebuilt. Both sets of records were deleted. The machine is not idle: other applications are open and several gigabytes of swap are in use; campaign.json has the load at the start and the end. The campaign reads tasks from a bare local clone of this repository (--repo)."
+}
