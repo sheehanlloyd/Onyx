@@ -191,7 +191,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	private readonly _promptEvidence = new Map<string, IOnyxPromptEvidence>();
 
 	constructor(
-		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
+		@IWorkspaceContextService protected readonly _workspaceService: IWorkspaceContextService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
 		@IFileService private readonly _fileService: IFileService,
 		@IEditorService private readonly _editorService: IEditorService,
@@ -746,7 +746,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	 * parent-directory segment and backslashes are refused before anything
 	 * is resolved; a name that merely contains two dots is a name (C10).
 	 */
-	private _resolveUri(path: string): URI | undefined {
+	protected _resolveUri(path: string): URI | undefined {
 		if (!path || workspacePathProblem(path)) {
 			return undefined;
 		}

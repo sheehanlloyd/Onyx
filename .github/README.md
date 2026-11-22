@@ -8,8 +8,9 @@ instruction trees and skills**, kept so contributors can use them and so merges 
 
 | File | Trigger | Purpose |
 |---|---|---|
-| `workflows/onyx-ci.yml` | push to `main`, pull requests into `main`, manual | Hygiene; a frozen pnpm install, typecheck, layers, lint (oxlint), stylelint, compile, Onyx unit tests, the end-to-end suite under Xvfb, the asserting benchmarks, the harness self-checks |
+| `workflows/onyx-ci.yml` | push to `main`, pull requests into `main`, manual | Hygiene; a frozen pnpm install, typecheck, layers, lint (oxlint), stylelint, compile, Onyx unit tests, the 2,000-episode simulation smoke, the end-to-end suite under Xvfb, the asserting benchmarks, the harness self-checks |
 | `workflows/onyx-packaged.yml` | manual, `release/**` pushes, PRs that change the harness | Builds the macOS app and runs the packaged smoke (A8); release mode is the named baseline exception until B1/B3 |
+| `workflows/onyx-nightly.yml` | nightly, manual | The full simulation campaign (L12, R-52): 50,000 seeded episodes, the scripted workflows and the injection corpus against every invariant checker, then every mutant against the first 2,000 seeds; the results are uploaded as an artifact. No model, no runtime |
 | `workflows/onyx-upstream-drill.yml` | weekly, manual, PRs that change the drill | Merge-tree against the latest upstream release: conflicts, consumed API symbols, build-infrastructure drift (A9) |
 | `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` | — | Onyx's community files; they shadow upstream's root copies (see `REBASE.md`) |
 | `ISSUE_TEMPLATE/`, `pull_request_template.md` | — | Onyx's issue forms and PR checklist |

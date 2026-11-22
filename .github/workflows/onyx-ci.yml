@@ -170,6 +170,17 @@ jobs:
         env:
           DISPLAY: ':10'
 
+      # L12, R-52: the simulation smoke campaign on every push and pull request.
+      # 2,000 seeded episodes, the scripted workflows and the injection corpus,
+      # against every invariant checker. The full campaign (50,000 episodes and
+      # every mutant) is onyx-nightly.yml.
+      - name: Simulation smoke campaign (2,000 episodes)
+        run: ./scripts/test.sh --grep "OnyxSim R-42"
+        env:
+          DISPLAY: ':10'
+          ONYX_SIM_EPISODES: '2000'
+          ONYX_SIM_SEED: '1'
+
       # L8, R-48: every recorded run under test/onyx/traces is replayed
       # through the harness as it is on this commit and has to produce the
       # events it recorded. A failure prints the first divergence. Fix the

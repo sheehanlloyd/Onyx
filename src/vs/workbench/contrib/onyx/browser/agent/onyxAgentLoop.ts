@@ -640,6 +640,11 @@ export class OnyxAgentLoop {
 		return plan.maxTokens;
 	}
 
+	/** Writes a tool dispatch into the run's journal, before the tool is invoked (I-12): every dispatch is on record, whatever becomes of the call. */
+	protected _noteDispatch(run: ReturnType<IOnyxControlPlaneService['beginRun']>, tool: string): void {
+		run.activity({ kind: 'toolCall', label: tool });
+	}
+
 	/** `truncated` or `stalled` when the stream's own account says the reply is incomplete; undefined otherwise. */
 	protected _incompleteEnding(outcome: Partial<IOnyxStreamOutcome> | undefined): 'truncated' | 'stalled' | undefined {
 		return outcome?.ending === 'truncated' || outcome?.ending === 'stalled' ? outcome.ending : undefined;
@@ -674,7 +679,7 @@ export class OnyxAgentLoop {
 			// Stopped (B10, I-05): the call is answered, never dispatched.
 			return { text: 'The run was stopped by the user before this was done. Nothing was run or changed.', ok: false };
 		}
-		run.activity({ kind: 'toolCall', label: toolUse.name });
+		this._noteDispatch(run, toolUse.name);
 		const parameters = typeof toolUse.parameters === 'object' && toolUse.parameters !== null ? toolUse.parameters : {};
 		if (this._needsApprovalPerCall(toolId)) {
 			// A network tool is not Onyx's to implement, so the gate stands here: one approval for this call,
