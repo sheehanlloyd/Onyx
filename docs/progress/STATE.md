@@ -1,7 +1,7 @@
 # Onyx plan state
 Plan version: v4.1
-Current module: 3      Status: in progress (resumed on the machine's 96 W charger). Twelve of fifteen items are done and merged; the gate has not been run. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
-Revision: branch `module-3` at 28a6c6725ea (the merge of C10) plus this file's commit; draft pull request sheehanlloyd/Onyx#4 into `main`, not merged, not marked ready
+Current module: 3      Status: in progress (resumed on the machine's 96 W charger). Thirteen of fifteen items are done and merged; the gate has not been run. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
+Revision: branch `module-3` at 9342bfbd950 (the merge of L6) plus this file's commit; draft pull request sheehanlloyd/Onyx#4 into `main`, not merged, not marked ready
 Isolated checkout: branch `module-3` in a work clone that was moved out of the cloud-synchronised Desktop folder on 2026-11-21 into a plain developer folder under the same account (clone directory `onyx-work`; packaged builds land beside it); the four audit documents are excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-11-20 the base was 36d38757a15 (August 2026)
@@ -23,7 +23,8 @@ Items done:
 | C8 | codex/c8-benchmark-preservation → #4 | C8.md | R-22, C8-chart-provenance |
 | C9 | codex/c9-myers-diff → #4 | C9.md | R-29, R-29-correctness |
 | C10 | codex/c10-benign-dots → #4 | C10.md | R-30 |
-Items remaining, in order: L6, L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`). None of them is started: there is no branch and no uncommitted work for any of them.
+| L6 | codex/l6-edit-certificates → #4 | L6.md | R-46, one end-to-end check |
+Items remaining, in order: L7, L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`). None of them is started: there is no branch and no uncommitted work for any of them.
 Power: the first six items were done on a 13 W adapter (100% to 55%) and the session stopped there; the owner connected the 96 W charger and work resumed at C1.
 Scope dispositions:
   C9, C10: included (docs/SUPPORT.md). L7: still `planned` there; included by default (DEC-12).
@@ -36,7 +37,7 @@ Scope dispositions:
   R-29 is active with C9. The size guard stays, at 20,000 lines a side and 1 MiB, with its test.
 Context (B15): both pinned models verified at 16,384 tokens through a derived model (an alias over the same weights) on Ollama 0.33.0, from a server allocation of 4,096. Recall confirmed at 14,466 tokens by the runtime's count, loss seen past the allocation. `qwen2.5-coder:7b`: 4,521 → 5,346 MiB loaded, 50 → 49 tokens a second. `qwen2.5-coder:1.5b`: 1,109 → 1,532 MiB, 167 → 167. Whole tool results that fit in one turn of the eight-tool agent: 1 → 9. Results in `docs/research/results/2026-11-21-context-allocation/`. The measurement's aliases were removed afterwards; nothing of them is left on the runtime. In the product the alias is created only after the user agrees in a dialog.
 Baseline exceptions still open: none. `test/onyx/sim/baseline-exceptions.json` is empty since B10. Removed in this module: I-08/inexact-anchor-staged, I-08/ambiguous-anchor-staged (B6); I-13/oversized-proposal (B7); I-03/no-time-budget, I-03/status-overwritten, I-05/command-after-stop, I-05/dispatch-after-stop, I-05/stage-after-stop (B10). Evidence so far is 2,000 episodes from seed 1 with zero violations and no class seen; the 20,000-episode campaign the gate requires has NOT been run.
-Mutants added in this module (11; 35 in all, each detected by its script and by the seeded campaign at 2,000 episodes): B6-fuzzy-applier, B6-first-occurrence, B7-index-accept, B7-no-size-guard, B8-deletion-leaves-line, B9-inline-apply-before-review, B10-stop-does-not-cancel, B10-status-overwritten, B10-pause-without-budget, C2-verdict-before-acceptance, C10-write-through-link.
+Mutants added in this module (12; 36 in all, each detected by its script and by the seeded campaign at 2,000 episodes): B6-fuzzy-applier, B6-first-occurrence, B7-index-accept, B7-no-size-guard, B8-deletion-leaves-line, B9-inline-apply-before-review, B10-stop-does-not-cancel, B10-status-overwritten, B10-pause-without-budget, C2-verdict-before-acceptance, C10-write-through-link, L6-always-grounded.
 Rig corrections found in this module, each one a check that had been passing without checking:
   C10: the I-07 check looked at a staged path's spelling only. It now knows where the file really is, links followed.
   B6: the I-08 check compared SEARCH text as sent, not as the product decodes a numbered read (B1); the baseline entry had hidden 14 false reports in 2,000 episodes.
@@ -44,8 +45,9 @@ Rig corrections found in this module, each one a check that had been passing wit
   B7: a review that moved (after an accept or a rebase) was recorded as a new staging.
   B8: accept-all counted every staged file as accepted whether or not the accept was applied.
   B10: the stop step cancelled the chat request as well as pressing Stop, which hid the path the audit reported.
-Gate: NOT RUN. `test/onyx/gates/module-3.json` holds the checks for the six items done (R-61, R-07 to R-15, R-33, R-34, R-38, the evidence tables, the 20,000-episode campaign against the empty table, the mutants). R-21, R-22 and the service half of R-25 are in. R-29 and R-30 are in too. Still to add as their items land: R-46, R-47, R-48, the end-to-end and packaged release checks, and the `docs/SUPPORT.md` state of L7.
+Gate: NOT RUN. `test/onyx/gates/module-3.json` holds the checks for the six items done (R-61, R-07 to R-15, R-33, R-34, R-38, the evidence tables, the 20,000-episode campaign against the empty table, the mutants). R-21, R-22 and the service half of R-25 are in. R-29, R-30 and R-46 are in too. Still to add as their items land: R-47, R-48, the end-to-end and packaged release checks, and the `docs/SUPPORT.md` state of L7.
 Integration runs (local, node v24.22.3, pnpm 12.16.0, clean tree each time):
+  after L6, 9342bfbd950: self-checks 37 of 37; end-to-end "all 66 checks passed" on the third run (the first failed on the new R-46 check, rightly; the second aborted at startup behind the first-run dialog, and the runner was hardened); unit "338 passing, 2 pending"; 2,000 episodes "exceptions":0, no class seen; 36 mutants detected
   after C10, 28a6c6725ea: self-checks 37 of 37; end-to-end "all 65 checks passed"; unit "333 passing, 2 pending"; 2,000 episodes "exceptions":0, no class seen; 35 mutants detected
   after C9, 8d66076213d: self-checks 37 of 37; end-to-end "all 65 checks passed"; unit "330 passing, 2 pending"; 2,000 episodes "exceptions":0, no class seen; 34 mutants detected; R-29 "scattered 1.5 ms, 5.1 MiB; dissimilar 9.5 ms, 25.2 MiB"
   after C8, ebeb770b7f7: self-checks 36 of 36; end-to-end "all 65 checks passed" on the second run (the first aborted when the test driver lost its window after 38 passing checks; unexplained, see C8.md); unit "328 passing, 2 pending"
@@ -60,11 +62,12 @@ Integration runs (local, node v24.22.3, pnpm 12.16.0, clean tree each time):
   The Section 11 suite in full and the packaged release smoke on the final tree have NOT been run since B15.
 CI on sheehanlloyd/Onyx#4 (both workflows on every push): green on 1ab21f4b273, 62afbc6d0df (first attempt of run 44945694282 failed at `Install dependencies` on a 403 from a release download, re-run green), 36b162427b9, 9127ad8bc9b, 1e314de5d6c and a5b653c71b7. The runs for the B10 merge and for this file are recorded in the session's report.
 Human actions waiting:
+  The end-to-end runner aborted twice on 2026-11-21 on a loaded machine (C8.md, L6.md). One cause was found and fixed (the first-run dialog appearing late). If it aborts again, keep the screenshot (`--keep`) before re-running.
   C8: the published throughput numbers were measured on a busy machine (load average 39 falling to 14) and are about half of the idle figures; a quiet re-run of `run-benchmarks.mts` is worth doing. The LM Studio rows and the speculative-decoding result have no raw report and no chart until LM Studio is measured again.
   None for power: the 96 W charger is connected. On the 13 W adapter the machine does not last a module.
   LM Studio: say whether a session may start it to finish B15's step 1 there, or whether "not probed, best effort" is the disposition.
 Notes for the next session:
-  Resume Module 3 at L6 on `module-3`. The journal holds each turn's prompt (clipped at a fixed size) and the next turn's prompt holds the tool call's arguments: that is what a certificate can be recomputed from offline.
+  Resume Module 3 at L7 on `module-3`. Both pinned models' datasheets show enum, object and nested schemas enforced 3 of 3 on Ollama 0.33.0, which is what L7 requires. L7 needs a private runtime for the grammar-latency measurement; wait for a quiet machine and record the load.
   The work clone moved. Two links the build makes inside `node_modules` point at absolute paths; after any move, remove dangling ones (`find . -type l -lname '*<old location>*'`) before a packaged build.
   The rig's users now act after a run and its Stop is the button alone. A new check that "holds" should come with a test that its user steps ran (`OnyxSim the scripted user steps are carried out`).
 
