@@ -1,0 +1,13 @@
+{
+	"hypothesis": "H-3",
+	"statement": "Exact-or-refuse loses a measurable share of edits relative to fuzzy appliers and prevents a non-zero share of silently wrong edits",
+	"outcome": "supported",
+	"number": "exact-unique placed 424 of 1301 attempts and the fuzzy comparator 798: a difference of 28.7 points [26.1, 31.3]; 700 of the fuzzy comparator's placements were silently wrong, 53.8% [51.1, 56.5] of attempts",
+	"reason": "decided on the pooled sample of 1301 attempts; the registered minimum is 500 for each model and the models have qwen2.5-coder:1.5b: 446, qwen2.5-coder:7b: 855",
+	"thresholds": "PREREGISTRATION.md, H-3, with the sample of Amendment 2",
+	"decidedFrom": [
+		"attempts.jsonl",
+		"analysis.json"
+	],
+	"regenerate": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2"
+}
