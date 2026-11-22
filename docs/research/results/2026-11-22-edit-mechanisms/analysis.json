@@ -1,0 +1,332 @@
+{
+	"sources": {
+		"2026-11-22-single-turn": {
+			"records": 240,
+			"replies": 240,
+			"attempts": 303
+		},
+		"2026-11-22-confidence": {
+			"records": 600,
+			"replies": 600,
+			"attempts": 726
+		},
+		"2026-11-22-attribution": {
+			"records": 960,
+			"replies": 280,
+			"attempts": 272
+		},
+		"2026-11-22-anchors-2": {
+			"records": 160,
+			"replies": 55,
+			"attempts": 0
+		}
+	},
+	"recordsWhoseTaskIsNotInTheRepository": 0,
+	"resamples": 1000,
+	"seed": 1,
+	"registeredMinimumAttemptsPerModel": 500,
+	"h3": {
+		"pooled": {
+			"table": {
+				"exact-unique": {
+					"attempts": 1301,
+					"applied": 424,
+					"applyRate": {
+						"value": 0.3259031514219831,
+						"low": 0.30097887268893636,
+						"high": 0.35185251388471067
+					},
+					"silentlyWrong": 350,
+					"silentlyWrongRate": {
+						"value": 0.2690238278247502,
+						"low": 0.24563307578782975,
+						"high": 0.2937745695339404
+					},
+					"appliedThoughNotInTheFile": 0,
+					"meanScore": 0.03
+				},
+				"whitespace-insensitive": {
+					"attempts": 1301,
+					"applied": 649,
+					"applyRate": {
+						"value": 0.49884704073789393,
+						"low": 0.47172116738302594,
+						"high": 0.5259797027267332
+					},
+					"silentlyWrong": 551,
+					"silentlyWrongRate": {
+						"value": 0.4235203689469639,
+						"low": 0.3969344849236319,
+						"high": 0.45055656569039837
+					},
+					"appliedThoughNotInTheFile": 178,
+					"meanScore": 0.057
+				},
+				"unique-first-line": {
+					"attempts": 1301,
+					"applied": 594,
+					"applyRate": {
+						"value": 0.4565718677940046,
+						"low": 0.42967260415045505,
+						"high": 0.48372683665047667
+					},
+					"silentlyWrong": 512,
+					"silentlyWrongRate": {
+						"value": 0.393543428132206,
+						"low": 0.3673476895197287,
+						"high": 0.4203659839480422
+					},
+					"appliedThoughNotInTheFile": 195,
+					"meanScore": 0.061
+				},
+				"fuzzy": {
+					"attempts": 1301,
+					"applied": 798,
+					"applyRate": {
+						"value": 0.6133743274404304,
+						"low": 0.5866157348304343,
+						"high": 0.6394653710432393
+					},
+					"silentlyWrong": 700,
+					"silentlyWrongRate": {
+						"value": 0.5380476556495004,
+						"low": 0.5108847318981564,
+						"high": 0.5649865544797883
+					},
+					"appliedThoughNotInTheFile": 319,
+					"meanScore": 0.067
+				}
+			},
+			"fuzzyLessExact": {
+				"value": 0.28747117601844735,
+				"low": 0.26133743274404303,
+				"high": 0.31283627978478096
+			}
+		},
+		"perModel": {
+			"qwen2.5-coder:1.5b": {
+				"table": {
+					"exact-unique": {
+						"attempts": 446,
+						"applied": 83,
+						"applyRate": {
+							"value": 0.1860986547085202,
+							"low": 0.15271483145424436,
+							"high": 0.22484365162988723
+						},
+						"silentlyWrong": 54,
+						"silentlyWrongRate": {
+							"value": 0.1210762331838565,
+							"low": 0.09399334878012292,
+							"high": 0.15463082008572163
+						},
+						"appliedThoughNotInTheFile": 0,
+						"meanScore": 0.015
+					},
+					"whitespace-insensitive": {
+						"attempts": 446,
+						"applied": 76,
+						"applyRate": {
+							"value": 0.17040358744394618,
+							"low": 0.13835947999696668,
+							"high": 0.2080769272413715
+						},
+						"silentlyWrong": 46,
+						"silentlyWrongRate": {
+							"value": 0.1031390134529148,
+							"low": 0.07821888006103145,
+							"high": 0.13483720212390635
+						},
+						"appliedThoughNotInTheFile": 3,
+						"meanScore": 0.013
+					},
+					"unique-first-line": {
+						"attempts": 446,
+						"applied": 88,
+						"applyRate": {
+							"value": 0.19730941704035873,
+							"low": 0.1630273842254998,
+							"high": 0.2367611530341985
+						},
+						"silentlyWrong": 60,
+						"silentlyWrongRate": {
+							"value": 0.13452914798206278,
+							"low": 0.10596394951282637,
+							"high": 0.16933628436369827
+						},
+						"appliedThoughNotInTheFile": 22,
+						"meanScore": 0.016
+					},
+					"fuzzy": {
+						"attempts": 446,
+						"applied": 136,
+						"applyRate": {
+							"value": 0.30493273542600896,
+							"low": 0.2640223724625629,
+							"high": 0.34917468488257597
+						},
+						"silentlyWrong": 106,
+						"silentlyWrongRate": {
+							"value": 0.23766816143497757,
+							"low": 0.20050992151911484,
+							"high": 0.2793068107726237
+						},
+						"appliedThoughNotInTheFile": 62,
+						"meanScore": 0.023
+					}
+				},
+				"fuzzyLessExact": {
+					"value": 0.11883408071748879,
+					"low": 0.08520179372197309,
+					"high": 0.1547085201793722
+				}
+			},
+			"qwen2.5-coder:7b": {
+				"table": {
+					"exact-unique": {
+						"attempts": 855,
+						"applied": 341,
+						"applyRate": {
+							"value": 0.39883040935672515,
+							"low": 0.3665318402471013,
+							"high": 0.43203400887067145
+						},
+						"silentlyWrong": 296,
+						"silentlyWrongRate": {
+							"value": 0.34619883040935673,
+							"low": 0.3150610030760635,
+							"high": 0.3787125132128048
+						},
+						"appliedThoughNotInTheFile": 0,
+						"meanScore": 0.038
+					},
+					"whitespace-insensitive": {
+						"attempts": 855,
+						"applied": 573,
+						"applyRate": {
+							"value": 0.6701754385964912,
+							"low": 0.6379618160736444,
+							"high": 0.7008667267398132
+						},
+						"silentlyWrong": 505,
+						"silentlyWrongRate": {
+							"value": 0.5906432748538012,
+							"low": 0.5573497871874192,
+							"high": 0.6231258971290273
+						},
+						"appliedThoughNotInTheFile": 175,
+						"meanScore": 0.081
+					},
+					"unique-first-line": {
+						"attempts": 855,
+						"applied": 506,
+						"applyRate": {
+							"value": 0.591812865497076,
+							"low": 0.5585285960433749,
+							"high": 0.6242758067803805
+						},
+						"silentlyWrong": 452,
+						"silentlyWrongRate": {
+							"value": 0.5286549707602339,
+							"low": 0.49514187579879615,
+							"high": 0.5619117276302741
+						},
+						"appliedThoughNotInTheFile": 173,
+						"meanScore": 0.084
+					},
+					"fuzzy": {
+						"attempts": 855,
+						"applied": 662,
+						"applyRate": {
+							"value": 0.7742690058479532,
+							"low": 0.7450556054829202,
+							"high": 0.8010288844810375
+						},
+						"silentlyWrong": 594,
+						"silentlyWrongRate": {
+							"value": 0.6947368421052632,
+							"low": 0.6630543358394542,
+							"high": 0.7246772956274924
+						},
+						"appliedThoughNotInTheFile": 257,
+						"meanScore": 0.09
+					}
+				},
+				"fuzzyLessExact": {
+					"value": 0.37543859649122807,
+					"low": 0.34269005847953216,
+					"high": 0.408187134502924
+				}
+			}
+		}
+	},
+	"h4": {
+		"arms": {
+			"qwen2.5-coder:7b": {
+				"search-replace": {
+					"runs": 40,
+					"editCalls": 0,
+					"refused": 0,
+					"collateral": 0,
+					"meanScore": 0,
+					"medianSeconds": 4.814,
+					"p90Seconds": 6.215
+				},
+				"constrained-anchors": {
+					"runs": 40,
+					"editCalls": 31,
+					"refused": 0,
+					"collateral": 30,
+					"meanScore": 0.006,
+					"medianSeconds": 8.101,
+					"p90Seconds": 44.649
+				}
+			},
+			"qwen2.5-coder:1.5b": {
+				"search-replace": {
+					"runs": 40,
+					"editCalls": 0,
+					"refused": 0,
+					"collateral": 0,
+					"meanScore": 0,
+					"medianSeconds": 1.378,
+					"p90Seconds": 2.721
+				},
+				"constrained-anchors": {
+					"runs": 40,
+					"editCalls": 24,
+					"refused": 1,
+					"collateral": 21,
+					"meanScore": 0.003,
+					"medianSeconds": 1.935,
+					"p90Seconds": 16.951
+				}
+			}
+		},
+		"pairedTasks": 0,
+		"refusalDifference": null,
+		"collateralDifference": null,
+		"editCalls": 55
+	},
+	"h5": {
+		"grounded": {
+			"edits": 163,
+			"meanScore": 0.021
+		},
+		"ungrounded": {
+			"edits": 36,
+			"meanScore": 0
+		},
+		"leftOut": {
+			"unknown": 0,
+			"notApplicable": 73
+		},
+		"difference": {
+			"value": 0.02074846625766871,
+			"low": 0.009,
+			"high": 0.034355828220858906
+		},
+		"cliffsDelta": 0.08,
+		"registeredMinimumPerClass": 300
+	}
+}

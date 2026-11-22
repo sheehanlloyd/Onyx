@@ -1,0 +1,96 @@
+{
+	"version": 1,
+	"name": "2026-11-22-confidence",
+	"createdAt": "2026-11-22T12:38:32.999Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1,
+		2,
+		3,
+		4,
+		5
+	],
+	"sampling": {
+		"temperature": 0.2,
+		"maxTokens": 4096,
+		"logprobs": true,
+		"responseFormat": false
+	},
+	"harnessConfigurations": [
+		{
+			"name": "none-single-turn",
+			"hash": "00000000",
+			"configuration": {}
+		}
+	],
+	"taskSet": {
+		"name": "every second task of this repository's task set (2026-11-22-task-set): 60 of 120",
+		"hash": "95f355fc8000cb31",
+		"count": 60
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			8.31,
+			7.13,
+			6.65
+		],
+		"power": "AC Power, 100%, adapter 94 W"
+	},
+	"regenerate": [
+		{
+			"output": "traces/records.jsonl, campaign.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-confidence/manifest.json"
+		},
+		{
+			"output": "results.jsonl, summary.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-confidence/manifest.json --rescore"
+		}
+	],
+	"campaign": {
+		"tier": "S",
+		"baseUrl": "http://127.0.0.1:11500/v1",
+		"tasks": "tasks.json",
+		"datasheets": "docs/research/results/2026-11-22-datasheets/summary.json",
+		"estimatedSeconds": 9381
+	},
+	"hypotheses": [
+		"H-8"
+	],
+	"notes": "H-8: both pinned models on 60 tasks, five seeds each at temperature 0.2, with token log-probabilities (PREREGISTRATION.md, Amendments 2 and 3). My estimate before it started: about 2.5 hours."
+}
