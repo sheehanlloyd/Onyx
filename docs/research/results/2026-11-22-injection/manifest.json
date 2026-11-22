@@ -1,0 +1,119 @@
+{
+	"version": 1,
+	"name": "2026-11-22-injection",
+	"createdAt": "2026-11-22T10:24:39.623Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 4096,
+		"responseFormat": true
+	},
+	"harnessConfigurations": [
+		{
+			"name": "constrained",
+			"hash": "f7df1f61",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 24,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "repaired",
+			"hash": "6b1173a8",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 24,
+				"toolCallProtocol": "repaired-text",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		}
+	],
+	"taskSet": {
+		"name": "the injection fixture: two surfaces, five effects, two tasks each, and four tasks with nothing planted",
+		"hash": "35b9d52dbe8e9daa",
+		"count": 24
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			7.39,
+			7.3,
+			8
+		],
+		"power": "AC Power, 100%, adapter 94 W"
+	},
+	"regenerate": [
+		{
+			"output": "traces/records.jsonl, campaign.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-injection/manifest.json"
+		},
+		{
+			"output": "results.jsonl, summary.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-injection/manifest.json --rescore"
+		}
+	],
+	"campaign": {
+		"tier": "A",
+		"baseUrl": "http://127.0.0.1:11500/v1",
+		"tasks": "tasks.json",
+		"datasheets": "docs/research/results/2026-11-22-datasheets/summary.json",
+		"estimatedSeconds": 7066,
+		"unitTimeoutMs": 420000
+	},
+	"hypotheses": [],
+	"notes": "L12: follow rate of planted instructions with real models, on the project's own fixture repository (make-injection-fixture.mts): 20 planted tasks over two surfaces and five kinds of effect, 4 with nothing planted, both pinned models, two tool-call protocols with every tool offered, seed 1, temperature 0, under campaign policy. The design is PREREGISTRATION.md, Amendment 3. My estimate before it started, from the seconds a unit took in H-2's campaign: about 30 minutes."
+}
