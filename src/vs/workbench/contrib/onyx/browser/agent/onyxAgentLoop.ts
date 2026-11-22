@@ -21,7 +21,7 @@ import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudget
 import { elideMiddle } from '../../common/onyxContextCompression.js';
 import { runtimeEnforcesSchema } from '../../common/onyxDatasheet.js';
 import { IOnyxResolvedHarness } from '../../common/onyxHarnessConfig.js';
-import { buildToolEnvelopeFormat, OnyxEnvelopeAnswerStream, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters } from '../../common/onyxConstrainedToolCalls.js';
+import { buildToolEnvelopeFormat, OnyxEnvelopeAnswerStream, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters, ONYX_ANCHORED_EDIT_TOOL } from '../../common/onyxConstrainedToolCalls.js';
 import { IOnyxAssistantTextStream, OnyxAssistantTextStream, OnyxPlainTextStream } from '../../common/onyxTextToolCalls.js';
 import { classifyStreamEnd, digestValue, IOnyxTraceHeader, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxPlaybookService } from '../playbooks/onyxPlaybookService.js';
@@ -31,6 +31,7 @@ import { admitTool, needsApprovalPerCall, ONYX_NETWORK_TOOLS_SETTING } from '../
 import { IOnyxToolExclusion, ONYX_MIN_EDIT_SLOTS, OnyxToolSlotSelection, requestedOptionalTools, selectToolSlots } from '../../common/onyxToolSlots.js';
 import { IOnyxVerificationService } from '../verification/onyxVerificationService.js';
 import { IOnyxChangeSetService } from '../changes/onyxChangeSetService.js';
+import { anchorEditInstruction, anchorEditSchema, buildAnchorOffer, isAnchoredCall, ONYX_ANCHOR_LIMITS, shownFiles } from '../../common/onyxAnchorEdit.js';
 import { readPromptMessages } from '../../common/onyxEditCertificate.js';
 import { describeVerification } from '../../common/onyxVerification.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
@@ -219,6 +220,19 @@ export class OnyxAgentLoop {
 		const constrained = tools.length > 0 && configuration.toolCallProtocol === 'constrained-envelope';
 		// Whether a call the model wrote as text is recognised and run. Only the bare native protocol does not.
 		const repairsText = configuration.toolCallProtocol !== 'native';
+		// Constrained anchors (L7, experimental, a lab arm): the anchors of an edit are chosen from an
+		// enumeration, which means something only where a schema is decoded against and the runtime was
+		// measured to enforce it. Without either the protocol is unavailable, and the run says so.
+		const anchorsUnavailable = configuration.editProtocol !== 'constrained-anchors' ? undefined
+			: !constrained ? 'this run does not decode against a schema (its tool-call protocol is not constrained-envelope)'
+				: !(profile.runtimeEnforcesSchema === true && profile.provenance?.schemaEnforcement === 'measured') ? 'the model\'s datasheet does not show that the runtime enforces an enumeration; measure the model first'
+					: !tools.some(tool => tool.name === ONYX_ANCHORED_EDIT_TOOL) ? 'the edit tool is not part of this run' : undefined;
+		const anchors = configuration.editProtocol === 'constrained-anchors' && anchorsUnavailable === undefined;
+		if (configuration.editProtocol === 'constrained-anchors') {
+			run.activity(anchors
+				? { kind: 'note', label: 'Constrained anchors are on (experimental)', reason: `an edit may name its first and last line from the lines read this turn, up to ${ONYX_ANCHOR_LIMITS.maxAnchors} of them` }
+				: { kind: 'note', label: 'Constrained anchors are unavailable; edits use search and replace', reason: anchorsUnavailable, ok: false });
+		}
 		run.activity({ kind: 'route', label: modelIdentifier, reason: `${tools.length} tools exposed, ${configuration.promptStyle} prompt${constrained ? ', constrained decoding' : ''}` });
 
 		// Trace v2 header (L3): what this run was configured with, so a result can be repeated.
@@ -255,7 +269,7 @@ export class OnyxAgentLoop {
 		if (constrained) {
 			// After the main system prompt, before any history: the envelope
 			// instruction must match the schema the runtime will enforce.
-			const instruction: IChatMessage = { role: ChatMessageRole.System, content: [{ type: 'text', value: toolEnvelopeInstruction() }] };
+			const instruction: IChatMessage = { role: ChatMessageRole.System, content: [{ type: 'text', value: anchors ? `${toolEnvelopeInstruction()} ${anchorEditInstruction()}` : toolEnvelopeInstruction() }] };
 			messages.splice(1, 0, instruction);
 			kinds.set(instruction, 'system');
 		}
@@ -302,12 +316,24 @@ export class OnyxAgentLoop {
 
 			run.snapshot(snapshotForJournal(turn + 1, modelIdentifier, messages, tools));
 			// What the model is sent this turn, uncut: the edits it stages now are certified against it (L6).
-			this._changeSetService.setPromptEvidence(run.runId, readPromptMessages(turn + 1, messagesForJournal(messages, value => value)).evidence);
+			const evidence = readPromptMessages(turn + 1, messagesForJournal(messages, value => value)).evidence;
+			this._changeSetService.setPromptEvidence(run.runId, evidence);
+			// The anchors on offer this turn (L7): the lines of the files the model is being shown, when they
+			// fit the enumeration. When they do not, this turn's edits are free-form.
+			let anchorSchema: object | undefined;
+			if (anchors) {
+				const offered = buildAnchorOffer(shownFiles(evidence));
+				if (offered.kind === 'offer') {
+					anchorSchema = anchorEditSchema(offered.offer);
+				} else if (offered.kind === 'too-large') {
+					run.activity({ kind: 'note', label: 'Anchored edits are not on offer this turn; search and replace is used', reason: `${offered.anchors} lines (${offered.chars} characters) were read, and the enumeration holds ${ONYX_ANCHOR_LIMITS.maxAnchors} lines and ${ONYX_ANCHOR_LIMITS.maxChars} characters` });
+				}
+			}
 			this._promptCacheService.notePrompt(request.sessionResource.toString(), messages);
 
 			const maxTokens = this._outputCap(plan);
 			const requestOptions = constrained
-				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools), maxTokens } }
+				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema), maxTokens } }
 				: { tools, modelOptions: { maxTokens } };
 			const requestDigest = digestValue(messages);
 			const traceToolCalls: IOnyxTraceToolCall[] = [];
@@ -491,7 +517,7 @@ export class OnyxAgentLoop {
 				const toolUse: IChatResponseToolUsePart = unwrapped.name === rawToolUse.name && unwrapped.parameters === rawToolUse.parameters
 					? rawToolUse
 					: { ...rawToolUse, name: unwrapped.name, parameters: unwrapped.parameters };
-				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, tools, run, progress, token);
+				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, tools, run, progress, token, anchors ? { schema: anchorSchema } : undefined);
 				run.noteToolResult(toolUse.name, resultText);
 				traceToolCalls.push({ name: toolUse.name, argumentsDigest: digestValue(toolUse.parameters), resultDigest: traceDigest(resultText), ok });
 				// Small models drown in raw tool output; keep head and tail
@@ -621,7 +647,7 @@ export class OnyxAgentLoop {
 		return validateToolArguments(schema, toolUse.parameters);
 	}
 
-	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, tools: readonly IRequestTool[], run: ReturnType<IOnyxControlPlaneService['beginRun']>, progress: (parts: IChatProgress[]) => void, token: CancellationToken): Promise<{ text: string; ok: boolean }> {
+	private async _invokeTool(request: IChatAgentRequest, toolUse: IChatResponseToolUsePart, toolIdsByName: ReadonlyMap<string, string>, tools: readonly IRequestTool[], run: ReturnType<IOnyxControlPlaneService['beginRun']>, progress: (parts: IChatProgress[]) => void, token: CancellationToken, anchorOffer?: { readonly schema: object | undefined }): Promise<{ text: string; ok: boolean }> {
 		const toolId = toolIdsByName.get(toolUse.name);
 		if (!toolId) {
 			run.activity({ kind: 'toolCall', label: toolUse.name, reason: 'unknown tool requested by the model', ok: false });
@@ -629,7 +655,14 @@ export class OnyxAgentLoop {
 		}
 		// The arguments are checked against the schema the model was shown, here, before any tool sees them
 		// (B12, I-06): a call that does not match is answered and never dispatched.
-		const problems = this._argumentProblems(toolUse, tools.find(tool => tool.name === toolUse.name)?.inputSchema);
+		// An anchored edit (L7) is checked against this turn's enumeration: an anchor that is not on it never
+		// reaches the tool, whatever the runtime let through.
+		const anchored = toolUse.name === ONYX_ANCHORED_EDIT_TOOL && isAnchoredCall(toolUse.parameters);
+		if (anchored && !anchorOffer?.schema) {
+			run.activity({ kind: 'toolCall', label: toolUse.name, reason: 'an anchored edit was sent and none is on offer this turn', ok: false });
+			return { text: `Error: an anchored edit is not available ${anchorOffer ? 'this turn: no file read this turn can be anchored on, or too much was read' : 'in this run'}. Nothing was staged. Use ${toolUse.name} with "path", "search" and "replace".`, ok: false };
+		}
+		const problems = this._argumentProblems(toolUse, anchored ? anchorOffer?.schema : tools.find(tool => tool.name === toolUse.name)?.inputSchema);
 		if (problems.length > 0) {
 			run.activity({ kind: 'toolCall', label: toolUse.name, reason: `arguments do not match the tool's schema: ${problems[0]}`, ok: false });
 			return { text: `Error: the arguments for ${toolUse.name} do not match its schema: ${problems.join('; ')}. Nothing was run. Call the tool again with corrected arguments.`, ok: false };

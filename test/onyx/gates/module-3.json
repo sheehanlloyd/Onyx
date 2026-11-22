@@ -273,6 +273,27 @@
 			]
 		},
 		{
+			"id": "R-47",
+			"title": "L7 constrained anchors (experimental): the enumeration is the lines read this turn; an anchor that is not on it never reaches the edit tool; a duplicated anchor and reversed anchors are refused with the reason; without measured enforcement or without constrained decoding the protocol is unavailable and the run says so; above the bound the turn falls back to search and replace; by default nothing of it exists",
+			"layer": "pure, service",
+			"regressions": [
+				"R-47"
+			],
+			"scope": {
+				"item": "L7",
+				"when": "included"
+			},
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxAnchorEdit.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxHarnessConfig.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxAnchorEdit|OnyxHarnessConfig"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

@@ -98,7 +98,7 @@ export interface OnyxSimEpisode {
 	readonly faults: readonly OnyxSimScheduledStep<OnyxSimFault>[];
 	/** Repository configuration, so the allowlist scenarios (R-01 to R-04) are expressible. */
 	readonly projectConfig?: { readonly terminalAllowlist?: readonly string[]; readonly disabledTools?: readonly string[]; readonly verificationTask?: string };
-	readonly profile?: { readonly promptStyle?: 'compact' | 'full'; readonly contextLength?: number; readonly maxTools?: number; readonly toolCallQuality?: number; readonly seed?: number };
+	readonly profile?: { readonly promptStyle?: 'compact' | 'full'; readonly contextLength?: number; readonly maxTools?: number; readonly toolCallQuality?: number; readonly seed?: number; /** What a datasheet measured of the runtime (L5), for what depends on it having been measured (L7). */ readonly runtimeEnforcesSchema?: boolean; readonly provenance?: { readonly toolCallQuality: 'measured' | 'default'; readonly contextLength: 'measured' | 'default'; readonly schemaEnforcement: 'measured' | 'default' } };
 	/** The user's opt-in to the reviewed network tools (`onyx.agent.networkTools`). Off unless set. */
 	readonly networkTools?: boolean;
 	/** A second request in the same session after the first run ends: what a later prompt carries is what I-14 is about. */

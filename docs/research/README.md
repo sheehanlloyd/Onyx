@@ -66,6 +66,7 @@ node test/onyx/lab/manifest.mts test/onyx/lab/manifest.example.json # validate a
 ./scripts/test.sh --grep "OnyxHarnessConfig|OnyxLabManifest"        # the harness configuration and lab requests (L4)
 ./scripts/test.sh --grep "OnyxDatasheet|OnyxLoadedModels"           # the datasheet's probes against mock runtimes (L5)
 node test/onyx/lab/manifest.mts --results docs/research/results/2026-11-21-datasheets   # check a results directory
+node test/onyx/lab/measure-anchor-enum.mts --base-url <loopback /v1> --model <name> --out <dir>   # what an anchor enumeration costs (L7)
 ```
 
 Measuring installed models (L5) needs a runtime that is already running on this machine and has them; it

@@ -1,0 +1,70 @@
+{
+	"version": 1,
+	"name": "2026-11-21-anchor-enum",
+	"createdAt": "2026-11-22T03:12:30.621Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		0
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 200,
+		"responseFormat": true
+	},
+	"harnessConfigurations": [
+		{
+			"name": "none-the-measurement-talks-to-the-runtime-directly",
+			"hash": "00000000"
+		}
+	],
+	"taskSet": {
+		"name": "one edit of one line of a twenty-line synthetic file, at each enumeration size",
+		"hash": "00000000",
+		"count": 7
+	},
+	"repetitions": 3,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"nodeVersion": "24.22.3"
+	},
+	"regenerate": [
+		{
+			"output": "summary.json",
+			"command": "node test/onyx/lab/measure-anchor-enum.mts --base-url <the runtime's base URL> --model <each of the two models> --out <a directory each>; summary.json here holds both, one after the other under `models`"
+		}
+	],
+	"hypotheses": [],
+	"notes": "Constrained anchors (L7). No seed is sent; the seed listed is a placeholder the manifest requires. Temperature 0. The context is the runtime's own allocation: the prompt is about 300 tokens at every size. The enumeration at each size is the twenty lines shown and distinct lines of the same shape after them. The first trial of a size is the one that has to build the grammar. summary.json carries the load average at the start and the end."
+}

@@ -90,6 +90,11 @@ export interface IOnyxEditCertificate {
 	readonly provenance: { readonly segment: number; readonly source: IOnyxPromptSegment['source']; readonly tool?: string; readonly holdsEveryLine: boolean } | null;
 }
 
+/** What an anchored edit (L7) quotes, as one text: its first line and its last. */
+export function anchorPairText(startAnchor: string, endAnchor: string): string {
+	return `${startAnchor}\n${endAnchor}`;
+}
+
 /** The lines of an anchor that can be looked for: trimmed, the blank ones left out. */
 function anchorLines(search: string): string[] {
 	return search.split('\n').map(line => line.trim()).filter(line => line.length > 0);
@@ -286,7 +291,9 @@ export function readPromptMessages(turn: number, messages: readonly unknown[]): 
 					const parameters = part.parameters;
 					editsByCall.set(part.toolCallId, Array.isArray(parameters.edits)
 						? parameters.edits.map(edit => isRecord(edit) && typeof edit.search === 'string' ? edit.search : '')
-						: [typeof parameters.search === 'string' ? parameters.search : '']);
+						// An anchored edit (L7) quotes two lines: its first and its last.
+						: typeof parameters.startAnchor === 'string' && typeof parameters.endAnchor === 'string' ? [anchorPairText(parameters.startAnchor, parameters.endAnchor)]
+							: [typeof parameters.search === 'string' ? parameters.search : '']);
 				}
 			} else if (typeof part.value === 'string') {
 				truncated ||= part.value.endsWith('… [truncated]');

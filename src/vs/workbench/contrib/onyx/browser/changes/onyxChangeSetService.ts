@@ -24,7 +24,8 @@ import {
 } from '../../common/onyxChangeSet.js';
 import { traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxChangeRisk } from '../../common/onyxChangeRisk.js';
-import { certificateForHunk, certifiedEdit, certifyEdit, IOnyxCertifiedEdit, IOnyxCertifyInput, IOnyxEditCertificate, IOnyxPromptEvidence } from '../../common/onyxEditCertificate.js';
+import { resolveAnchorEdit } from '../../common/onyxAnchorEdit.js';
+import { anchorPairText, certificateForHunk, certifiedEdit, certifyEdit, IOnyxCertifiedEdit, IOnyxCertifyInput, IOnyxEditCertificate, IOnyxPromptEvidence } from '../../common/onyxEditCertificate.js';
 import { countOccurrences, IOnyxEditBlock, IOnyxEditHunk, placeEditBlock } from '../../common/onyxInlineEdit.js';
 import { decodeNumberedSearch, replacementCarriesNumbering } from '../../common/onyxReadTools.js';
 import { resolveWorkspacePath, workspacePathProblem } from '../../common/onyxWorkspacePaths.js';
@@ -109,6 +110,13 @@ export interface IOnyxChangeSetService {
 	 * proposal for the file. Never edits the buffer.
 	 */
 	stageProposal(path: string, proposedContent: string, runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome>;
+	/**
+	 * Stages an anchored edit (L7): the lines from `startAnchor` to
+	 * `endAnchor` are replaced. Each anchor has to be exactly one line of
+	 * the file as it is, and in that order, or nothing is staged and the
+	 * reason is given. Never edits the buffer.
+	 */
+	stageAnchored(path: string, startAnchor: string, endAnchor: string, replace: string, runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome>;
 	acceptFile(path: string): Promise<OnyxAcceptOutcome>;
 	rejectFile(path: string): void;
 	/**
@@ -324,6 +332,44 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	/** Places a tool call's blocks: exactly, and exactly once, or not at all (B6, DEC-07). */
 	protected _propose(existing: IOnyxProposedFile | undefined, path: string, currentContent: string | undefined, blocks: readonly IOnyxEditBlock[]): OnyxProposeResult {
 		return proposeEdits(existing, path, currentContent, blocks);
+	}
+
+	async stageAnchored(path: string, startAnchor: string, endAnchor: string, replace: string, runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome> {
+		const uri = this._resolveUri(path);
+		if (!uri) {
+			return { ok: false, error: `Path "${path}" is not inside the workspace.` };
+		}
+		if (await this._leavesWorkspace(uri)) {
+			return { ok: false, error: `Edit refused for ${path}: it resolves to a location outside the workspace through a symbolic link. Nothing was staged.` };
+		}
+		if (this._filesObs.get().some(file => file.proposal.path === path)) {
+			// The anchors are lines of the file as it was read, and what is staged for it is not in the file.
+			return { ok: false, error: `Edit refused for ${path}: the file already has staged changes, and an anchored edit is placed against the file as it was read. Nothing was staged. Use "search" and "replace", which are matched against the staged content.` };
+		}
+		const read = await this._readCurrent(uri);
+		if (!read) {
+			return { ok: false, error: `Edit refused for ${path}: the file does not exist, so it has no lines to anchor on. Nothing was staged.` };
+		}
+		const resolved = resolveAnchorEdit(read.content, startAnchor, endAnchor, replace);
+		if (!resolved.ok) {
+			return { ok: false, error: `Edit refused for ${path}: ${resolved.reason} Nothing was staged.` };
+		}
+		const proposal: IOnyxProposedFile = { path, kind: 'modify', base: read.content, proposed: resolved.proposed, stale: false };
+		const opened = this._openReview(proposal.base, proposal.proposed, this._generation + 1);
+		if (!opened.ok) {
+			return { ok: false, error: `Edit refused for ${path}: ${opened.error}. Nothing was staged. Make a smaller edit.` };
+		}
+		this._generation++;
+		if (opened.review.hunks.length === 0) {
+			return { ok: true, summary: `No change for ${path}: the replacement is what the lines already are. Nothing is staged.` };
+		}
+		const staged: IOnyxStagedFile = { proposal, hunks: opened.review.hunks, conflicts: [], generation: opened.review.generation, baseVersion: { versionId: read.versionId, contentHash: traceDigest(proposal.base) }, risk: undefined, runId, edits: [] };
+		// The certificate (L6): what was quoted is the pair of anchors, and each was found to be exactly one line.
+		const certificate = this._certifyEdit({ path, protocol: 'constrained-anchors', call: origin?.call ?? null, block: 0, base: proposal.base, baseVersionId: read.versionId, search: anchorPairText(startAnchor, endAnchor), matchCount: 1, evidence: runId ? this._promptEvidence.get(runId) : undefined });
+		this._upsert(this._certify(staged, [certifiedEdit(certificate, resolved.replaced, replace)]));
+		this._scoreRisk(proposal).catch(() => { /* risk stays unknown */ });
+		const summary = summarizeChangeSet([proposal]);
+		return { ok: true, summary: `Staged an edit of lines ${resolved.startLine} to ${resolved.endLine} of ${path} (+${summary.addedLines} −${summary.removedLines}). The user reviews it in Onyx Changes before anything is applied — do not re-apply the same edit.` };
 	}
 
 	async stageProposal(path: string, proposedContent: string, runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome> {
