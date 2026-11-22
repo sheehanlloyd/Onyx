@@ -13,7 +13,7 @@
  *   node test/onyx/lab/new-manifest.mts --name <date>-<name> --tier S|A --base-url http://127.0.0.1:<port>/v1 \
  *        --model <id> [--model <id>…] --tasks <tasks.json> --configurations <file.json> --datasheets <summary.json> \
  *        [--seed <n>…] [--repetitions <n>] [--temperature <t>] [--max-tokens <n>] [--unit-timeout-ms <n>] \
- *        [--max-before-chars <n>] [--logprobs] [--hypothesis H-<n>…] [--notes <text>] [--out-root <dir>]
+ *        [--max-before-chars <n>] [--datasheets-first] [--logprobs] [--hypothesis H-<n>…] [--notes <text>] [--out-root <dir>]
  *
  * `--configurations` is a JSON file: an array of `{ "name": …, "configuration": { … } }`. A tier A
  * configuration has to set every field of the harness configuration, so that its hash is known before the
@@ -114,6 +114,7 @@ const manifest = {
 	],
 	campaign: {
 		tier, baseUrl, tasks: 'tasks.json', datasheets: relative(datasheetsPath), estimatedSeconds: estimate.seconds,
+		...(process.argv.includes('--datasheets-first') ? { datasheetsFirst: true } : {}),
 		...(flag('--unit-timeout-ms') ? { unitTimeoutMs: Number(flag('--unit-timeout-ms')) } : {}), ...(flag('--max-before-chars') ? { maxBeforeChars: Number(flag('--max-before-chars')) } : {}),
 	},
 	hypotheses: flags('--hypothesis'),

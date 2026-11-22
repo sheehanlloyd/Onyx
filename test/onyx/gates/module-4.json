@@ -235,6 +235,72 @@
 				"test/onyx/checks/r55-confidence.test.mts"
 			],
 			"timeoutMs": 600000
+		},
+		{
+			"id": "L14-appliers",
+			"title": "L14 the three lab-only comparator appliers place what they are described to place, refuse what they should, are wrong where the study says they can be, and are named by no file under src/",
+			"layer": "node",
+			"regressions": [],
+			"files": [
+				"test/onyx/lab/appliers.mts",
+				"test/onyx/checks/l14-appliers.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/l14-appliers.test.mts"
+			]
+		},
+		{
+			"id": "R-53",
+			"title": "L13 attribution estimators on outcomes whose true values are known: main effects, pairwise interactions and Shapley values are recovered, the bootstrap interval covers the true value about as often as it says, and H-2 is decided by its registered thresholds",
+			"layer": "pure",
+			"regressions": [
+				"R-53"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxAttribution.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxAttribution.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxAttribution"
+			]
+		},
+		{
+			"id": "H-7-decision",
+			"title": "L13 the rankings decision on campaigns whose answer is known: supported only when the top model differs with a significant difference in each repository; a repository nobody solves has no ranking",
+			"layer": "node",
+			"regressions": [],
+			"files": [
+				"test/onyx/lab/analyze-rankings.mts",
+				"test/onyx/checks/h7-rankings.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/h7-rankings.test.mts"
+			]
+		},
+		{
+			"id": "R-51",
+			"title": "L11 the scorecard, the pure half: provenance, a datasheet for every model, every attempt and skip, a partial measurement labelled partial and not ranked, a sample below the minimum not ranked, the router's hit rate with its denominators, and the replay of accepted requests with counts (R-51 itself is six end-to-end checks: the measure command against the mock with two models, a cancel midway, and a router log with known picks, in the suite gate 1 runs)",
+			"layer": "pure, e2e",
+			"regressions": [
+				"R-51"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxScorecard.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxScorecard.test.ts",
+				"src/vs/workbench/contrib/onyx/browser/lab/onyxMeasureRepository.ts",
+				"test/onyx/run-e2e.mts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxScorecard"
+			]
 		}
 	]
 }
