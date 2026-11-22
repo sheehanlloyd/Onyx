@@ -370,7 +370,7 @@ async function runTierS(units: readonly ILabUnit[], evictions: object[]): Promis
 				await sleep(5000);
 				reply = await chatOnce(unit.model, messages, unit.seed, campaign!.unitTimeoutMs ?? 300_000);
 			}
-			appendRecord({ ...base, outcome: 'attempted', reply: reply.text, ...(reply.tokens ? { tokens: reply.tokens } : {}), requests: [{ promptTokens: reply.promptTokens, completionTokens: reply.completionTokens, firstTokenMs: reply.firstTokenMs, tokensPerSecond: reply.completionTokens && reply.firstTokenMs !== null && reply.totalMs > reply.firstTokenMs ? Math.round(reply.completionTokens / ((reply.totalMs - reply.firstTokenMs) / 1000) * 10) / 10 : null }], finishReason: reply.finishReason, durationMs: Date.now() - started });
+			appendRecord({ ...base, finishedAt: Date.now(), outcome: 'attempted', reply: reply.text, ...(reply.tokens ? { tokens: reply.tokens } : {}), requests: [{ promptTokens: reply.promptTokens, completionTokens: reply.completionTokens, firstTokenMs: reply.firstTokenMs, tokensPerSecond: reply.completionTokens && reply.firstTokenMs !== null && reply.totalMs > reply.firstTokenMs ? Math.round(reply.completionTokens / ((reply.totalMs - reply.firstTokenMs) / 1000) * 10) / 10 : null }], finishReason: reply.finishReason, durationMs: Date.now() - started });
 		} catch (error) {
 			if (cancelled) {
 				return; // the unit in flight leaves no record
