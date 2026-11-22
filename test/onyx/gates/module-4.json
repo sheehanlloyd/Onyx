@@ -165,6 +165,38 @@
 				".build/gate-assurance"
 			],
 			"timeoutMs": 3600000
+		},
+		{
+			"id": "R-53",
+			"title": "L13 attribution estimators on outcomes whose true values are known: main effects, pairwise interactions and Shapley values are recovered, the bootstrap interval covers the true value about as often as it says, and H-2 is decided by its registered thresholds",
+			"layer": "pure",
+			"regressions": [
+				"R-53"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxAttribution.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxAttribution.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxAttribution"
+			]
+		},
+		{
+			"id": "H-7-decision",
+			"title": "L13 the rankings decision on campaigns whose answer is known: supported only when the top model differs with a significant difference in each repository; a repository nobody solves has no ranking",
+			"layer": "node",
+			"regressions": [],
+			"files": [
+				"test/onyx/lab/analyze-rankings.mts",
+				"test/onyx/checks/h7-rankings.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/h7-rankings.test.mts"
+			]
 		}
 	]
 }
