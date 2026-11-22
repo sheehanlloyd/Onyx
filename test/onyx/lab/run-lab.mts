@@ -288,20 +288,21 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 
 // --- tier S -------------------------------------------------------------------------------------------------------
 
-interface IReply { readonly text: string; readonly finishReason: string | null; readonly promptTokens: number | null; readonly completionTokens: number | null; readonly firstTokenMs: number | null; readonly totalMs: number }
+interface IReply { /** Each token with its log-probability, when the manifest asks for them and the runtime sends them. */ readonly tokens: readonly (readonly [string, number])[] | null; readonly text: string; readonly finishReason: string | null; readonly promptTokens: number | null; readonly completionTokens: number | null; readonly firstTokenMs: number | null; readonly totalMs: number }
 
 async function chatOnce(model: string, messages: readonly { role: string; content: string }[], seed: number, timeoutMs: number): Promise<IReply> {
 	const started = performance.now();
 	const response = await fetch(`${campaign!.baseUrl}/chat/completions`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ model, messages, temperature: manifest.sampling.temperature, max_tokens: manifest.sampling.maxTokens ?? 4096, seed, stream: true, stream_options: { include_usage: true } }),
+		body: JSON.stringify({ model, messages, temperature: manifest.sampling.temperature, max_tokens: manifest.sampling.maxTokens ?? 4096, seed, stream: true, stream_options: { include_usage: true }, ...(manifest.sampling.logprobs ? { logprobs: true } : {}) }),
 		signal: AbortSignal.any([abort.signal, AbortSignal.timeout(timeoutMs)]),
 	});
 	if (!response.ok || !response.body) {
 		throw new Error(`HTTP ${response.status} ${(await response.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200)}`);
 	}
 	let text = '';
+	const tokens: [string, number][] = [];
 	let finishReason: string | null = null;
 	let promptTokens: number | null = null;
 	let completionTokens: number | null = null;
@@ -316,7 +317,7 @@ async function chatOnce(model: string, messages: readonly { role: string; conten
 			if (!line.startsWith('data:') || line.slice(5).trim() === '[DONE]') {
 				continue;
 			}
-			let event: { usage?: { prompt_tokens?: number; completion_tokens?: number }; choices?: { finish_reason?: string | null; delta?: { content?: string } }[] };
+			let event: { usage?: { prompt_tokens?: number; completion_tokens?: number }; choices?: { finish_reason?: string | null; delta?: { content?: string }; logprobs?: { content?: { token: string; logprob: number }[] | null } | null }[] };
 			try {
 				event = JSON.parse(line.slice(5));
 			} catch {
@@ -327,12 +328,15 @@ async function chatOnce(model: string, messages: readonly { role: string; conten
 				firstTokenMs ??= performance.now() - started;
 				text += choice.delta.content;
 			}
+			for (const entry of choice?.logprobs?.content ?? []) {
+				tokens.push([entry.token, entry.logprob]);
+			}
 			finishReason = choice?.finish_reason ?? finishReason;
 			promptTokens = event.usage?.prompt_tokens ?? promptTokens;
 			completionTokens = event.usage?.completion_tokens ?? completionTokens;
 		}
 	}
-	return { text, finishReason, promptTokens, completionTokens, firstTokenMs: firstTokenMs === null ? null : Math.round(firstTokenMs), totalMs: Math.round(performance.now() - started) };
+	return { tokens: manifest.sampling.logprobs ? tokens : null, text, finishReason, promptTokens, completionTokens, firstTokenMs: firstTokenMs === null ? null : Math.round(firstTokenMs), totalMs: Math.round(performance.now() - started) };
 }
 
 async function runTierS(units: readonly ILabUnit[], evictions: object[]): Promise<void> {
@@ -366,7 +370,7 @@ async function runTierS(units: readonly ILabUnit[], evictions: object[]): Promis
 				await sleep(5000);
 				reply = await chatOnce(unit.model, messages, unit.seed, campaign!.unitTimeoutMs ?? 300_000);
 			}
-			appendRecord({ ...base, outcome: 'attempted', reply: reply.text, requests: [{ promptTokens: reply.promptTokens, completionTokens: reply.completionTokens, firstTokenMs: reply.firstTokenMs, tokensPerSecond: reply.completionTokens && reply.firstTokenMs !== null && reply.totalMs > reply.firstTokenMs ? Math.round(reply.completionTokens / ((reply.totalMs - reply.firstTokenMs) / 1000) * 10) / 10 : null }], finishReason: reply.finishReason, durationMs: Date.now() - started });
+			appendRecord({ ...base, outcome: 'attempted', reply: reply.text, ...(reply.tokens ? { tokens: reply.tokens } : {}), requests: [{ promptTokens: reply.promptTokens, completionTokens: reply.completionTokens, firstTokenMs: reply.firstTokenMs, tokensPerSecond: reply.completionTokens && reply.firstTokenMs !== null && reply.totalMs > reply.firstTokenMs ? Math.round(reply.completionTokens / ((reply.totalMs - reply.firstTokenMs) / 1000) * 10) / 10 : null }], finishReason: reply.finishReason, durationMs: Date.now() - started });
 		} catch (error) {
 			if (cancelled) {
 				return; // the unit in flight leaves no record

@@ -431,7 +431,10 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 		// real mid-stream window to interrupt.
 		const wordDelay = slow ? 200 : Number(process.env.ONYX_MOCK_WORD_DELAY_MS ?? 5);
 		for (const word of text.split(' ')) {
-			send(chunk({ content: word + ' ' }));
+			// With `logprobs` in the request, every piece comes with a log-probability (L16): the same one for the
+			// same piece, so that a test knows what the least of them is.
+			const piece = chunk({ content: word + ' ' });
+			send(body.logprobs ? { ...piece, choices: [{ ...piece.choices[0], logprobs: { content: [{ token: word + ' ', logprob: -((word.length % 5) + 1) / 10 }] } }] } : piece);
 			await sleep(wordDelay);
 		}
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });

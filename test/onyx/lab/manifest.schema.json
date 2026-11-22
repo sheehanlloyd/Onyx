@@ -53,7 +53,8 @@
 			"properties": {
 				"temperature": { "type": "number", "minimum": 0 },
 				"maxTokens": { "type": "integer", "minimum": 1 },
-				"responseFormat": { "type": "boolean" }
+				"responseFormat": { "type": "boolean" },
+				"logprobs": { "type": "boolean", "description": "tier S: ask the runtime for each token's log-probability and keep them in the record" }
 			}
 		},
 		"harnessConfigurations": {

@@ -50,7 +50,7 @@ export interface IManifest {
 	readonly createdAt: string;
 	readonly models: readonly IManifestModel[];
 	readonly seeds: readonly number[];
-	readonly sampling: { readonly temperature: number; readonly maxTokens?: number; readonly responseFormat?: boolean };
+	readonly sampling: { readonly temperature: number; readonly maxTokens?: number; readonly responseFormat?: boolean; readonly logprobs?: boolean };
 	readonly harnessConfigurations: readonly { readonly name: string; readonly hash: string; readonly configuration?: Record<string, unknown> }[];
 	readonly taskSet: { readonly name: string; readonly hash: string; readonly count?: number };
 	readonly repetitions: number;

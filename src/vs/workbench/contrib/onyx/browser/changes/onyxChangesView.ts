@@ -23,6 +23,7 @@ import { IViewletViewOptions } from '../../../../browser/parts/views/viewsViewle
 import { IViewDescriptorService } from '../../../../common/views.js';
 import { IOnyxStagedFile, IOnyxChangeSetService } from './onyxChangeSetService.js';
 import { IOnyxVerificationService } from '../verification/onyxVerificationService.js';
+import { hunkConfidencePercent, IOnyxHunkConfidenceDecision } from '../../common/onyxCalibration.js';
 import { IOnyxEditCertificate, summarizeCertificate } from '../../common/onyxEditCertificate.js';
 import { describeVerification } from '../../common/onyxVerification.js';
 import { summarizeChangeSet } from '../../common/onyxChangeSet.js';
@@ -288,6 +289,17 @@ registerAction2(class RejectAllOnyxChangesAction extends Action2 {
 		accessor.get(IOnyxChangeSetService).rejectAll();
 	}
 });
+
+/**
+ * The confidence line under a hunk (L16). There is one only when the
+ * calibration study supported an estimator and found it calibrated
+ * (`ONYX_HUNK_CONFIDENCE`); otherwise this returns nothing, whatever the
+ * estimate, and nothing is rendered.
+ */
+export function describeHunkConfidence(decision: IOnyxHunkConfidenceDecision, estimate: number | undefined): string | undefined {
+	const percent = hunkConfidencePercent(decision, estimate);
+	return percent === undefined ? undefined : localize('onyx.changes.confidence', "Estimated {0}% likely to match what was asked · an estimate, not a check", percent);
+}
 
 /**
  * The line a reviewer reads under a hunk (L6): what the harness checked
