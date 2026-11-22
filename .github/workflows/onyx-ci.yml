@@ -54,6 +54,11 @@ jobs:
         with:
           # Only the bundled Copilot test fixtures are in LFS and nothing here reads them.
           lfs: false
+          # The evidence checks of Module 4 read the history: a task's file at its commit and the commit before
+          # it, and whether a results directory was committed after the pre-registration and its amendments.
+          # Commits and trees in full, file contents when one is asked for.
+          fetch-depth: 0
+          filter: blob:none
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -261,6 +266,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: false
+          # The module gate's evidence checks read the history (see the job above).
+          fetch-depth: 0
+          filter: blob:none
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
