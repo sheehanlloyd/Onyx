@@ -1,0 +1,54 @@
+{
+	"campaign": "2026-11-22-anchors-2",
+	"tier": "A",
+	"plannedUnits": 160,
+	"finishedUnits": 160,
+	"complete": true,
+	"recordsWhoseTaskIsNotInTheRepository": 0,
+	"rows": [
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "constrained-anchors",
+			"units": 40,
+			"attempted": 40,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0.003,
+			"deniedCommands": 0
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "search-replace",
+			"units": 40,
+			"attempted": 40,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0,
+			"deniedCommands": 0
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "constrained-anchors",
+			"units": 40,
+			"attempted": 40,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0.006,
+			"deniedCommands": 0
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "search-replace",
+			"units": 40,
+			"attempted": 40,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0,
+			"deniedCommands": 0
+		}
+	]
+}
