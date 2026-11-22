@@ -45,6 +45,20 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadManifest, type IManifest } from './manifest.mts';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+/**
+ * Where the application of a tier A campaign is started from: this checkout, or a frozen copy of its compiled
+ * output (`freeze-app.mts`, `ONYX_LAB_APP_ROOT`), so that a checkout that is edited and rebuilt while a campaign
+ * runs does not change the harness between two of its units.
+ */
+const appRoot = process.env.ONYX_LAB_APP_ROOT ? path.resolve(process.env.ONYX_LAB_APP_ROOT) : repoRoot;
+function applicationProvenance(): { readonly root: string; readonly revision: string | null; readonly dirtyEntries: number | null; readonly frozenAt: string | null } {
+	try {
+		const frozen: { revision: string; dirtyEntries: number; frozenAt: string } = JSON.parse(fs.readFileSync(path.join(appRoot, 'FROZEN.json'), 'utf8'));
+		return { root: 'a frozen copy of the compiled output', revision: frozen.revision, dirtyEntries: frozen.dirtyEntries, frozenAt: frozen.frozenAt };
+	} catch {
+		return { root: 'the checkout itself', revision: null, dirtyEntries: null, frozenAt: null };
+	}
+}
 const out = (relative: string) => pathToFileURL(path.join(repoRoot, 'out', relative)).href;
 
 interface ILabTask { readonly id: string; readonly commit: string; readonly file: string }
@@ -437,10 +451,10 @@ async function runTierA(units: readonly ILabUnit[], evictions: object[], notes: 
 					'extensions.autoUpdate': false, 'extensions.autoCheckUpdates': false, 'update.mode': 'none', 'workbench.enableExperiments': false, 'files.watcherExclude': { '**': true },
 				}, undefined, '\t'));
 				const before = finished.size;
-				child = spawn(path.join(repoRoot, 'scripts', 'code.sh'), [
+				child = spawn(path.join(appRoot, 'scripts', 'code.sh'), [
 					`--user-data-dir=${userDataDir}`, `--extensions-dir=${path.join(workDir, 'extensions')}`, '--disable-extensions',
 					...(process.platform === 'darwin' ? ['--use-mock-keychain'] : []), '--disable-workspace-trust', '--skip-release-notes', worktree,
-				], { cwd: repoRoot, env: { ...process.env, VSCODE_SKIP_PRELAUNCH: '1', ONYX_LAB_CAMPAIGN: orderPath, GIT_LFS_SKIP_SMUDGE: '1' }, stdio: 'ignore', detached: true });
+				], { cwd: appRoot, env: { ...process.env, VSCODE_SKIP_PRELAUNCH: '1', ONYX_LAB_CAMPAIGN: orderPath, GIT_LFS_SKIP_SMUDGE: '1' }, stdio: 'ignore', detached: true });
 				fs.writeFileSync(path.join(workDir, 'app.pid'), String(child.pid ?? 0));
 				let exited = false;
 				child.on('exit', () => { exited = true; });
@@ -574,7 +588,7 @@ const unchanged = JSON.stringify(stateBefore) === JSON.stringify(stateAfter);
 const { results, unscorable } = writeResults();
 const seconds = Math.round((Date.now() - started) / 1000);
 const complete = results.length + unscorable === plan.length;
-const session = { startedAt: startConditions.at, seconds, unitsLeftAtStart: remaining.length, estimate, conditionsAtStart: startConditions, conditionsAtEnd: conditions(), ended: failure ? `failed: ${failure}` : cancelled ? 'cancelled' : complete ? 'complete' : 'stopped before the end', evictions, notes };
+const session = { startedAt: startConditions.at, seconds, unitsLeftAtStart: remaining.length, ...(campaign.tier === 'A' ? { application: applicationProvenance() } : {}), estimate, conditionsAtStart: startConditions, conditionsAtEnd: conditions(), ended: failure ? `failed: ${failure}` : cancelled ? 'cancelled' : complete ? 'complete' : 'stopped before the end', evictions, notes };
 fs.writeFileSync(campaignPath, JSON.stringify({
 	campaign: manifest.name, tier: campaign.tier, plannedUnits: plan.length, finishedUnits: results.length, complete,
 	machineSeconds: (previous.machineSeconds ?? 0) + seconds,
