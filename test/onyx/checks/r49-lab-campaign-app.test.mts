@@ -54,7 +54,7 @@ test('R-49: a tier A campaign runs the agent loop on a worktree, denies and coun
 		const run = spawnSync(process.execPath, [launcher, manifest, '--repo', repository.dir], { encoding: 'utf8', timeout: 15 * 60_000 });
 		const records = read<IRecord>(path.join(out, 'traces', 'records.jsonl'));
 		const results = read<{ unit: string; outcome: string; score: number | null; success: boolean | null }>(path.join(out, 'results.jsonl'));
-		const campaign: { complete: boolean; repository: { unchanged: boolean }; sessions: { notes: string[] }[] } = JSON.parse(fs.readFileSync(path.join(out, 'campaign.json'), 'utf8'));
+		const campaign: { complete: boolean; repository: { unchanged: boolean }; sessions: { notes: string[]; application?: { root: string } }[] } = JSON.parse(fs.readFileSync(path.join(out, 'campaign.json'), 'utf8'));
 		const served = records.filter(record => record.model === 'mock-coder:7b');
 		const edit = served.find(record => record.task === 't0' && record.configuration === 'default');
 		const command = served.find(record => record.task === 't1' && record.configuration === 'default');
@@ -75,6 +75,8 @@ test('R-49: a tier A campaign runs the agent loop on a worktree, denies and coun
 			theTraceSaysTheSeedWasHonoured: edit?.events.filter(event => event.kind === 'traceTurn').map(event => [event.data.seed?.requested, event.data.seed?.honoured]),
 			twoConfigurationsTwoHashes: new Set(served.map(record => record.harnessHash)).size,
 			complete: campaign.complete,
+			// Which build the application ran from is on record: the checkout, or a frozen copy when one was asked for.
+			applicationOnRecord: campaign.sessions.at(-1)?.application?.root === (process.env.ONYX_LAB_APP_ROOT ? 'a frozen copy of the compiled output' : 'the checkout itself'),
 			oneModelResident: resident.maxResident,
 			worktreeRemoved: campaign.sessions.at(-1)?.notes.includes('worktree removed: true'),
 			noWorktreeLeftInTheRepository: git(repository.dir, 'worktree', 'list', '--porcelain').split('\n').filter(line => line.startsWith('worktree ')).length,
@@ -104,6 +106,7 @@ test('R-49: a tier A campaign runs the agent loop on a worktree, denies and coun
 			theTraceSaysTheSeedWasHonoured: [[7, true], [7, true], [7, true]],
 			twoConfigurationsTwoHashes: 2,
 			complete: true,
+			applicationOnRecord: true,
 			oneModelResident: 1,
 			worktreeRemoved: true,
 			noWorktreeLeftInTheRepository: 1,
