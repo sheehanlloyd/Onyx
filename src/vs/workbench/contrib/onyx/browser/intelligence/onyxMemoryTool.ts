@@ -9,6 +9,7 @@ import { localize } from '../../../../../nls.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { ILanguageModelToolsService, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource } from '../../../chat/common/tools/languageModelToolsService.js';
 import { OnyxNoteOrigin } from '../../common/onyxMemoryOrigin.js';
+import { IOnyxHarnessConfigService } from '../agent/onyxHarnessConfigService.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxMemoryService } from './onyxMemoryService.js';
 
@@ -32,6 +33,7 @@ export class OnyxMemoryToolContribution extends Disposable {
 		@IOnyxMemoryService private readonly _memoryService: IOnyxMemoryService,
 		@IDialogService private readonly _dialogService: IDialogService,
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
+		@IOnyxHarnessConfigService private readonly _harnessConfigService: IOnyxHarnessConfigService,
 	) {
 		super();
 
@@ -72,7 +74,8 @@ export class OnyxMemoryToolContribution extends Disposable {
 		const text = note.trim();
 		const runId = this._controlPlaneService.runs.get().find(run => run.requestId === invocation.chatRequestId)?.runId;
 		const origin: OnyxNoteOrigin = runId ? this._controlPlaneService.originOf(runId, text) : { kind: 'model' };
-		if (!await this._confirm(text, origin)) {
+		// In a campaign nobody is there to be asked (L9): the note is declined without a dialog, as a person saying no would.
+		if (this._harnessConfigService.campaignPolicy || !await this._confirm(text, origin)) {
 			return { content: [{ kind: 'text', value: 'Error: the user declined to store this note. Nothing was remembered; do not ask again.' }], toolResultError: true };
 		}
 		this._memoryService.addNote(text);

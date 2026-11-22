@@ -102,6 +102,7 @@ export class OnyxLabCampaignContribution extends Disposable implements IWorkbenc
 			return;
 		}
 		this._terminalService.setCampaignPolicy(true);
+		this._harnessConfigService.campaignPolicy = true;
 		await status('running', { units: order.order.units.length });
 		if (order.order.measure) {
 			await this._measure(order.order.measure, order.order.baseUrl, status);

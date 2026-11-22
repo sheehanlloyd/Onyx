@@ -41,13 +41,13 @@ const configurations = [
 	{ name: 'no-line-numbers', hash: '00000000', configuration: { toolCallProtocol: 'repaired-text', readToolLineNumbering: false } },
 ];
 
-interface IRecord { unit: string; model: string; configuration: string; task: string; outcome: string; reply: string | null; deniedCommands: number; harnessHash: string | null; edits: { ok: boolean; blocks: { search: string }[] }[]; events: { kind: string; data: { source?: string; decision?: string; seed?: { requested: number | null; honoured: boolean | string } } }[] }
+interface IRecord { unit: string; model: string; configuration: string; task: string; outcome: string; reply: string | null; durationMs: number; deniedCommands: number; harnessHash: string | null; edits: { ok: boolean; blocks: { search: string }[] }[]; events: { kind: string; data: { source?: string; decision?: string; seed?: { requested: number | null; honoured: boolean | string } } }[] }
 
 test('R-49: a tier A campaign runs the agent loop on a worktree, denies and counts commands, tells an unservable model apart, and leaves the repository as it was', async () => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onyx-r49-app-'));
 	const mock = await startMock({ ONYX_MOCK_UNSERVABLE: '1' });
 	try {
-		const repository = seedRepository(dir, ['READEDITTEST src/f0.ts', 'TERMTEST echo campaign']);
+		const repository = seedRepository(dir, ['READEDITTEST src/f0.ts', 'TERMTEST echo campaign', 'MEMTEST remember that this project indents with tabs']);
 		const before = treeHash(repository.dir);
 		const manifest = writeCampaign(path.join(dir, 'results'), '2026-11-22-r49-tier-a', { tier: 'A', baseUrl: mock.baseUrl, models: ['mock-coder:7b', 'mock-unservable:1b'], tasks: repository.tasks, seeds: [7], configurations, unitTimeoutMs: 120_000 });
 		const out = path.dirname(manifest);
@@ -58,6 +58,7 @@ test('R-49: a tier A campaign runs the agent loop on a worktree, denies and coun
 		const served = records.filter(record => record.model === 'mock-coder:7b');
 		const edit = served.find(record => record.task === 't0' && record.configuration === 'default');
 		const command = served.find(record => record.task === 't1' && record.configuration === 'default');
+		const note = served.find(record => record.task === 't2' && record.configuration === 'default');
 		const resident: { maxResident: number } = await mock.debug('/debug/resident') as never;
 		// What the runtime was sent, not what the trace says was sent: the last requests the mock received.
 		const wire: { seed?: number; temperature?: number }[] = await mock.debug('/debug/recent-chats') as never;
@@ -70,6 +71,8 @@ test('R-49: a tier A campaign runs the agent loop on a worktree, denies and coun
 			scores: Object.fromEntries(results.map(result => [result.unit, [result.score, result.success]])),
 			commandDeniedByPolicy: command?.events.filter(event => event.kind === 'approval').map(event => [event.data.decision, event.data.source]),
 			commandsCounted: command?.deniedCommands,
+			// A note the model asks to store is declined without a dialog: nobody is there, and a dialog would hold the run until it timed out.
+			noteDeclinedWithoutADialog: [note?.events.filter(event => event.kind === 'toolResult' && (event.data as { label?: string }).label === 'remember').map(event => (event.data as { ok?: boolean }).ok), (note?.durationMs ?? Infinity) < 30_000],
 			// The campaign's seed and temperature reached the runtime on every request, and the runtime's echo of the seed is in the trace.
 			samplingOnTheWire: [wire.length > 0, [...new Set(wire.map(body => `${body.seed}/${body.temperature}`))]],
 			theTraceSaysTheSeedWasHonoured: edit?.events.filter(event => event.kind === 'traceTurn').map(event => [event.data.seed?.requested, event.data.seed?.honoured]),
@@ -84,23 +87,28 @@ test('R-49: a tier A campaign runs the agent loop on a worktree, denies and coun
 			repositoryUnchangedByThisTest: treeHash(repository.dir) === before,
 		}, {
 			exit: 0,
-			units: 8,
+			units: 12,
 			outcomes: {
 				'mock-coder:7b|default|t0|s7|r1': 'attempted', 'mock-coder:7b|no-line-numbers|t0|s7|r1': 'attempted',
 				'mock-coder:7b|default|t1|s7|r1': 'blocked-by-policy', 'mock-coder:7b|no-line-numbers|t1|s7|r1': 'blocked-by-policy',
+				'mock-coder:7b|default|t2|s7|r1': 'attempted', 'mock-coder:7b|no-line-numbers|t2|s7|r1': 'attempted',
 				'mock-unservable:1b|default|t0|s7|r1': 'could-not-serve', 'mock-unservable:1b|no-line-numbers|t0|s7|r1': 'could-not-serve',
 				'mock-unservable:1b|default|t1|s7|r1': 'could-not-serve', 'mock-unservable:1b|no-line-numbers|t1|s7|r1': 'could-not-serve',
+				'mock-unservable:1b|default|t2|s7|r1': 'could-not-serve', 'mock-unservable:1b|no-line-numbers|t2|s7|r1': 'could-not-serve',
 			},
 			theStagedFileIsTheRecord: true,
 			theEditAsItWasSent: [[true, '\treturn a + b + 0;']],
 			scores: {
 				'mock-coder:7b|default|t0|s7|r1': [1, true], 'mock-coder:7b|no-line-numbers|t0|s7|r1': [1, true],
 				'mock-coder:7b|default|t1|s7|r1': [null, null], 'mock-coder:7b|no-line-numbers|t1|s7|r1': [null, null],
+				'mock-coder:7b|default|t2|s7|r1': [0, false], 'mock-coder:7b|no-line-numbers|t2|s7|r1': [0, false],
 				'mock-unservable:1b|default|t0|s7|r1': [null, null], 'mock-unservable:1b|no-line-numbers|t0|s7|r1': [null, null],
 				'mock-unservable:1b|default|t1|s7|r1': [null, null], 'mock-unservable:1b|no-line-numbers|t1|s7|r1': [null, null],
+				'mock-unservable:1b|default|t2|s7|r1': [null, null], 'mock-unservable:1b|no-line-numbers|t2|s7|r1': [null, null],
 			},
 			commandDeniedByPolicy: [['deny', 'campaign-policy']],
 			commandsCounted: 1,
+			noteDeclinedWithoutADialog: [[false], true],
 			samplingOnTheWire: [true, ['7/0']],
 			// Three turns: the read, the edit, and the answer that ends the run.
 			theTraceSaysTheSeedWasHonoured: [[7, true], [7, true], [7, true]],
