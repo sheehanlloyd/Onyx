@@ -333,9 +333,11 @@ export class OnyxAgentLoop {
 			this._promptCacheService.notePrompt(request.sessionResource.toString(), messages);
 
 			const maxTokens = this._outputCap(plan);
+			// A campaign's seed and temperature go with the request (L9): the trace header records them as sent.
+			const sampling = { ...(harness.sampling?.seed !== undefined ? { seed: harness.sampling.seed } : {}), ...(harness.sampling?.temperature !== undefined ? { temperature: harness.sampling.temperature } : {}) };
 			const requestOptions = constrained
-				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema), maxTokens } }
-				: { tools, modelOptions: { maxTokens } };
+				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema), maxTokens, ...sampling } }
+				: { tools, modelOptions: { maxTokens, ...sampling } };
 			const requestDigest = digestValue(messages);
 			const traceToolCalls: IOnyxTraceToolCall[] = [];
 			const recordTurn = (responseText: string, finishReason: string | undefined, error: boolean, seedHonoured: boolean | undefined, ending?: OnyxStreamEnding) => run.record({
