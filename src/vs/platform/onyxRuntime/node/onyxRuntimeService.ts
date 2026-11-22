@@ -374,6 +374,51 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		return content || undefined; // '' means git failed (file absent at that revision)
 	}
 
+	async gitCommitMessage(repoPath: string, commit: string): Promise<string | undefined> {
+		if (!/^[0-9a-f]{7,40}$/i.test(commit)) {
+			return undefined;
+		}
+		return (await this._git(repoPath, ['log', '-1', '--format=%B', commit], 256 * 1024)) || undefined;
+	}
+
+	async gitCommitsTouching(repoPath: string, path: string, sinceCommit: string, maxCommits: number): Promise<readonly { readonly hash: string; readonly authoredAt: string }[] | undefined> {
+		if (!/^[0-9a-f]{7,40}$/i.test(sinceCommit) || path.startsWith('-')) {
+			return undefined;
+		}
+		// An ancestor of HEAD is its own merge base with HEAD. (`merge-base --is-ancestor` prints nothing either way.)
+		const full = (await this._git(repoPath, ['rev-parse', '--verify', '--quiet', `${sinceCommit}^{commit}`])).trim();
+		const base = (await this._git(repoPath, ['merge-base', sinceCommit, 'HEAD'])).trim();
+		if (!full || base !== full) {
+			return undefined;
+		}
+		const raw = await this._git(repoPath, ['log', '--reverse', '--format=%H|%aI', '-n', String(clamp(maxCommits, 1, 500)), `${sinceCommit}..HEAD`, '--', path], 1024 * 1024);
+		return raw.split('\n').filter(Boolean).map(line => {
+			const separator = line.indexOf('|');
+			return { hash: line.slice(0, separator), authoredAt: line.slice(separator + 1) };
+		});
+	}
+
+	async evictLoadedModels(baseUrl: string): Promise<{ readonly evicted: readonly string[]; readonly left: readonly string[] } | undefined> {
+		const held = await this.listLoadedModels(baseUrl);
+		if (held === undefined) {
+			return undefined;
+		}
+		const root = ollamaRootUrl(normalizeBaseUrl(baseUrl));
+		for (const model of held) {
+			try {
+				await fetch(`${root}/api/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: model.id, keep_alive: 0 }), signal: AbortSignal.timeout(60_000) });
+			} catch {
+				// what is still held is read back below
+			}
+		}
+		let left = await this.listLoadedModels(baseUrl) ?? [];
+		for (let waited = 0; left.length > 0 && waited < 20; waited++) {
+			await new Promise(resolve => setTimeout(resolve, 500));
+			left = await this.listLoadedModels(baseUrl) ?? [];
+		}
+		return { evicted: held.map(model => model.id), left: left.map(model => model.id) };
+	}
+
 	async gitDiff(repoPath: string, mode: OnyxDiffMode, maxChars: number): Promise<IOnyxDiff> {
 		const selector = mode === 'staged' ? ['--cached'] : mode === 'head' ? ['HEAD'] : [];
 		const base = ['diff', '--no-color', '--no-ext-diff', ...selector];

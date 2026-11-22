@@ -114,7 +114,7 @@
 		"campaign": {
 			"type": "object",
 			"additionalProperties": false,
-			"required": ["tier", "baseUrl", "tasks"],
+			"required": ["tier", "baseUrl"],
 			"description": "What run-lab.mts needs to run this manifest as a campaign (L9)",
 			"properties": {
 				"tier": { "type": "string", "enum": ["S", "A"], "description": "S: one request a task, from plain Node. A: the agent loop inside the application" },
@@ -123,6 +123,17 @@
 				"unitTimeoutMs": { "type": "integer", "minimum": 1000 },
 				"maxBeforeChars": { "type": "integer", "minimum": 1, "description": "A task whose file is longer than this before the change is not given to a model (the context-fit rule)" },
 				"datasheets": { "type": "string", "description": "A datasheet summary.json, relative to the repository, whose measured speeds the estimate uses" },
+				"measure": {
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["revision"],
+					"description": "Run the product's own command, Onyx: Measure Models for This Repository, in the application, in place of a task set (L11). It selects its tasks by the product's rule when it runs",
+					"properties": {
+						"revision": { "type": "string", "pattern": "^[0-9a-f]{7,40}$", "description": "The commit the worktree is checked out at: the repository as the command sees it" },
+						"taskCount": { "type": "integer", "minimum": 1 },
+						"datasheets": { "type": "boolean", "description": "Measure each model's datasheet in the same instance first, so that the scorecard carries it. Default true" }
+					}
+				},
 				"estimatedSeconds": { "type": ["number", "null"], "minimum": 0, "description": "The duration estimated from the datasheets when the manifest was written; null when no model had a measured speed" }
 			}
 		},

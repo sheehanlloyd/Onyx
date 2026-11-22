@@ -753,6 +753,22 @@ sandbox: established
 
 What the sandbox is not: it denies the network and writes outside the worktree. It does not hide your files from the command, and it does not limit processor time or memory beyond the command's timeout.
 
+## Measuring models on your repository (L11)
+
+**`Onyx: Measure Models for This Repository`** gives each model you pick this repository's own tasks (above), one request a task, and opens a scorecard. Before anything runs it says how many models and tasks there are and how long it expects to take, from each model's measured speed; a model that was never measured is named, not guessed. One model is loaded at a time: whatever the runtime holds is dropped before a model's first task and after the last. It can be stopped from its progress notification or with Stop in the run list; what finished is then shown as a **partial** scorecard, which lists what did not run and is not ranked.
+
+**The scorecard** is Markdown, with an SVG and a JSON form written beside it when you choose to save it (`.onyx/scorecards/<time>/` in the workspace). It is not uploaded. It carries: the ranking, or why there is none; for each model the scored tasks, the tasks reproduced exactly, the mean score, the tasks it could not be served, and the lines it removed that the author kept; the task counts by source and by holdout; the repository's commit, the machine, the parameters, the estimate and the time taken; for each model the weights digest, the runtime and its version, the context, the publication day, and its datasheet as measured on this machine; every attempt with its reason; and everything that was planned and not run.
+
+**Ranking.** Models are ordered only when the measurement ran whole, at least two models were measured, and every model was scored on at least 10 tasks. Otherwise the scorecard says which of these failed and gives no order.
+
+**The router's picks.** The scorecard reports how often the router's pick was the model you picked in a tournament, and how often you kept what a routed run staged, each as a count out of a count. A routed run counts once it staged an edit, as "not kept" until you accept part of it. These are logged choices in this workspace on this machine. They are not a randomized comparison and say nothing about a model the router did not pick; the word "learns" is not used for them anywhere in the product's documents on the strength of these counts alone.
+
+**`Onyx: Should I Switch Models?`** replays your own accepted requests in this workspace (the setting `onyx.lab.requestTasks` has to be on) against one model and reports how often it reproduced what you accepted, as counts. Below 10 replayable requests it says there are not enough to say. It says how often the model writes what you kept; it does not say that its other answers were wrong.
+
+**Sharing.** `docs/scorecards/` in the repository collects scorecards people chose to submit by pull request. Onyx never sends one.
+
+**What these commands do not do.** They do not run the agent loop: a task is one request with the file and the instruction, answered with edit blocks, so they measure a model's editing on your code, not its use of tools. They do not execute anything: scores are tier 1. They do not use a model you did not pick.
+
 ## Command execution and its limits (B5)
 
 An approved command is started by one module, `src/vs/platform/onyxRuntime/node/onyxCommandRunner.ts`, and by

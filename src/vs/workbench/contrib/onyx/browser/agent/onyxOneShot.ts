@@ -21,6 +21,8 @@ export interface IOnyxOneShotOptions {
 	readonly controlPlane?: IOnyxControlPlaneService;
 	/** Full model identifier (`onyx:<key>`) to bypass routing — tournament runs race specific models. */
 	readonly modelIdentifier?: string;
+	/** A seed and a temperature for this request, in place of the model profile's (L11: a measurement fixes both). */
+	readonly sampling?: { readonly temperature?: number; readonly seed?: number };
 }
 
 /**
@@ -60,7 +62,7 @@ export async function runOneShot(
 	try {
 		// The run's own token when the request belongs to a run (B10): Stop in the control plane and the caller's
 		// own cancel both end the request, because the run was begun with the caller's token.
-		const response = await modelService.sendChatRequest(requestedModel, messages, undefined, {}, options?.run?.token ?? token);
+		const response = await modelService.sendChatRequest(requestedModel, messages, undefined, options?.sampling ? { modelOptions: { ...options.sampling } } : {}, options?.run?.token ?? token);
 		let text = '';
 		for await (const part of response.stream) {
 			for (const one of Array.isArray(part) ? part : [part]) {

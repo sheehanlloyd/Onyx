@@ -108,7 +108,7 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (66 checks):
+asserting on the run journal and the live DOM (72 checks):
 
 - the tool list a default run advertises on the 7B profile (the six essential
   tools and the two documented optional ones, R-36), Onyx's own `listDirectory`
@@ -146,6 +146,10 @@ asserting on the run journal and the live DOM (66 checks):
 - stopping a streaming run and resuming it as a new briefing-run
 - the refactor engine: model-suggested names, the rename staged for review
 - the repo benchmark journaling a run and opening its evidence document
+- **Measure Models for This Repository** (R-51): the estimate shown before it starts, every planned unit run
+  against each model, the saved scorecard with its provenance, datasheet sections and task counts, no ranking
+  below the minimum sample, the router's hit rate with its denominators, and a measurement stopped midway
+  labelled partial
 - speculative decoding measuring a baseline and explaining the runtime's own
   load-time flag — and never putting a draft on the wire
 - the architecture map rendering modules, timing and a model summary

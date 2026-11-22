@@ -389,6 +389,9 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	labHarness: IOnyxLabHarnessRequest | undefined;
 	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> { return this.labHarness; }
 	async labCampaignRequest(): Promise<undefined> { return undefined; }
+	async gitCommitMessage(): Promise<undefined> { return undefined; }
+	async gitCommitsTouching(): Promise<undefined> { return undefined; }
+	async evictLoadedModels(): Promise<undefined> { return undefined; }
 	async oracleProbe(): Promise<{ readonly available: false; readonly reason: string; readonly steps: readonly [] }> { return { available: false, reason: 'not simulated', steps: [] }; }
 	async oracleRun(): Promise<IOnyxCommandResult> { throw new Error('not simulated'); }
 	async labCheckout(): Promise<{ readonly ok: false; readonly error: string }> { return { ok: false, error: 'not simulated' }; }

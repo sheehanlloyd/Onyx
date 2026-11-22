@@ -1029,6 +1029,86 @@ async function main() {
 	const benchDoc = pw('run-code', `async (page) => page.evaluate(() => Array.from(document.querySelectorAll('.editor-instance .view-line')).map(l => l.textContent).join('\\n').slice(0, 400))`);
 	check('the benchmark opened its evidence document', benchDoc.includes('Onyx repo benchmark'), benchDoc.slice(0, 160));
 
+	// --- R-51 (L11): Measure Models for This Repository, against the mock. The estimate is shown before it starts;
+	// the scorecard carries provenance, each model's datasheet where there is one, and counts; below the minimum
+	// sample it does not rank; the router's hit rate is printed with its denominator; a measurement stopped
+	// midway is labelled partial.
+	const scorecardDirs = () => {
+		const root = path.join(workspace, '.onyx', 'scorecards');
+		return fs.existsSync(root) ? fs.readdirSync(root).sort().map(name => path.join(root, name)) : [];
+	};
+	const dialogText = () => pwValue(pw('run-code', `async (page) => { const box = await page.$('.monaco-dialog-box'); return box ? ((await box.textContent()) || '') : 'no-dialog'; }`));
+	const clickDialogButton = (label: string) => pwValue(pw('run-code', `async (page) => {
+		const buttons = await page.$$('.monaco-dialog-box a.monaco-text-button');
+		for (const button of buttons) {
+			if (((await button.textContent()) || '').trim() === ${JSON.stringify(label)}) { await button.click(); return 'clicked'; }
+		}
+		return 'no-button';
+	}`));
+	const quickPickShows = (text: string) => pwValue(pw('run-code', `async (page) => { const widget = await page.$('.quick-input-widget'); const shown = widget && await widget.isVisible(); return shown && ((await widget.textContent()) || '').includes(${JSON.stringify(text)}) ? 'yes' : 'no'; }`)) === 'yes';
+	await runCommand('Onyx: Measure Models for This Repository');
+	await waitUntil(() => quickPickShows('mock-coder'), 15_000, 500);
+	pw('press', 'Enter'); // accept the preselected models
+	let measureDialog = 'no-dialog';
+	await waitUntil(() => { measureDialog = dialogText(); return measureDialog !== 'no-dialog'; }, 30_000, 500);
+	check('R-51: the measurement says what it will do and how long it expects to take before it starts', /Measure \d+ model\(s\) on \d+ task\(s\)/.test(measureDialog) && /\d+ units, (about|no estimate)/.test(measureDialog) && /One model is loaded at a time/.test(measureDialog), measureDialog.slice(0, 300));
+	const beforeMeasure = scorecardDirs().length;
+	clickDialogButton('Measure');
+	await waitUntil(() => quickPickShows('Save the scorecard'), 120_000, 500);
+	pw('press', 'Enter'); // the first choice: save it into the workspace
+	await waitUntil(() => scorecardDirs().length > beforeMeasure && fs.existsSync(path.join(scorecardDirs().at(-1)!, 'scorecard.json')), 20_000, 250);
+	interface IScorecardFile { partial: boolean; plannedUnits: number; attempts: { outcome: string; score: number | null }[]; skips: unknown[]; models: { id: string; runtime: string }[]; tasks: { total: number; bySource: { history: number } }; repository: { commit: string | null }; machine: { cpu: string }; ranking: { ranked: boolean; reason?: string }; routing: { tournament: { of: number }; outcomes: { of: number } } | null }
+	const readCard = (dir: string | undefined) => ({
+		json: dir && fs.existsSync(path.join(dir, 'scorecard.json')) ? JSON.parse(fs.readFileSync(path.join(dir, 'scorecard.json'), 'utf8')) as IScorecardFile : undefined,
+		markdown: dir && fs.existsSync(path.join(dir, 'scorecard.md')) ? fs.readFileSync(path.join(dir, 'scorecard.md'), 'utf8') : '',
+		svg: dir && fs.existsSync(path.join(dir, 'scorecard.svg')) ? fs.readFileSync(path.join(dir, 'scorecard.svg'), 'utf8') : '',
+	});
+	const whole = readCard(scorecardDirs().at(-1));
+	const measureRun = readRunIndex().find(run => run.title.startsWith('Measure models'));
+	// Two endpoints serve models of the same names here: each is a model of its own in the scorecard.
+	check('R-51: the measurement ran every planned unit against two or more models and journaled a completed run', !!whole.json && !whole.json.partial && whole.json.attempts.length === whole.json.plannedUnits && whole.json.models.length >= 2 && new Set(whole.json.models.map(model => model.id)).size === whole.json.models.length && whole.json.attempts.every(attempt => attempt.outcome === 'attempted') && measureRun?.status === 'completed', `${whole.json?.attempts.length} of ${whole.json?.plannedUnits}; models ${whole.json?.models.length}; run ${measureRun?.status}`);
+	check('R-51: the scorecard has provenance, a datasheet section for every model, and the task counts', !!whole.json && /^[0-9a-f]{40}$/.test(whole.json.repository.commit ?? '') && whole.json.machine.cpu.length > 0 && whole.json.tasks.total >= 1 && whole.json.tasks.bySource.history === whole.json.tasks.total
+		&& whole.markdown.includes('## Provenance') && whole.markdown.includes('Weights digest:') && (whole.markdown.match(/- Datasheet/g) ?? []).length === whole.json.models.length && /\d+ tasks: \d+ from this repository's history, 0 from your own accepted requests\./.test(whole.markdown)
+		&& whole.svg.startsWith('<svg') && whole.svg.includes('metric changed-line-f1-preserving/2'), whole.markdown.slice(0, 400));
+	check('R-51: below the minimum sample the scorecard says there are not enough tasks to rank, and does not rank', whole.json?.ranking.ranked === false && whole.json?.ranking.reason === 'too-few-tasks' && whole.markdown.includes('**Not enough tasks to rank.**') && !whole.markdown.includes('**Ranking**') && whole.svg.includes('Not ranked'), JSON.stringify(whole.json?.ranking));
+	check('R-51: the router\'s hit rate is printed with its denominators and as logged choices, not a comparison', !!whole.json?.routing && whole.markdown.includes(` of ${whole.json.routing.tournament.of} tournaments.`) && whole.markdown.includes(` of ${whole.json.routing.outcomes.of} runs with a recorded outcome.`) && whole.markdown.includes('not a randomized comparison'), whole.markdown.split('\n').filter(line => /tournament|recorded outcome|randomized/.test(line)).join(' / ').slice(0, 300));
+
+	// A cancel midway: three more commits, the middle one answered slowly, and Stop while it is in flight.
+	fs.writeFileSync(path.join(workspace, 'src', 'slow.ts'), ['export function slowWords(): string[] {', `\treturn [${Array.from({ length: 70 }, (_, index) => `'w${index}'`).join(', ')}];`, '}', ''].join('\n'));
+	git('add', '-A');
+	git('commit', '-qm', 'Add the slow word list');
+	fs.appendFileSync(path.join(workspace, 'src', 'slow.ts'), ['export function slowCount(): number {', '\tconst words = slowWords();', '\treturn words.length;', '}', ''].join('\n'));
+	git('add', '-A');
+	git('commit', '-qm', 'SLOWTEST count the slow words');
+	fs.appendFileSync(path.join(workspace, 'src', 'math.ts'), ['export function halveAll(values: number[]): number[] {', '\treturn values.map(value => value / 2);', '}', ''].join('\n'));
+	git('add', '-A');
+	git('commit', '-qm', 'Add halveAll helper');
+	await runCommand('Onyx: Measure Models for This Repository');
+	await waitUntil(() => quickPickShows('mock-coder'), 15_000, 500);
+	pw('press', 'Enter');
+	await waitUntil(() => dialogText() !== 'no-dialog', 30_000, 500);
+	const beforeCancel = scorecardDirs().length;
+	const measureRuns = () => readRunIndex().filter(run => run.title.startsWith('Measure models'));
+	const runsBefore = measureRuns().length;
+	clickDialogButton('Measure');
+	await waitUntil(() => measureRuns().length > runsBefore && measureRuns().some(run => run.status === 'running'), 30_000, 250);
+	// The newest commit is answered at once; the slow one is then in flight for many seconds.
+	await sleep(4000);
+	await runCommand('Open Onyx Control Plane');
+	await sleep(1500);
+	const measureStop = pwValue(pw('run-code', `async (page) => {
+		const stop = await page.$('.onyx-run.running .codicon-debug-stop');
+		if (!stop) { return 'no-stop-button'; }
+		await stop.click(); return 'stopped';
+	}`));
+	await waitUntil(() => measureRuns().some(run => run.status === 'cancelled'), 15_000, 250);
+	await waitUntil(() => quickPickShows('Save the scorecard'), 30_000, 500);
+	pw('press', 'Enter');
+	await waitUntil(() => scorecardDirs().length > beforeCancel && fs.existsSync(path.join(scorecardDirs().at(-1)!, 'scorecard.json')), 20_000, 250);
+	const stopped = readCard(scorecardDirs().length > beforeCancel ? scorecardDirs().at(-1) : undefined);
+	check('R-51: a measurement stopped midway is labelled partial, lists what did not run, and is not ranked', measureStop === 'stopped' && measureRuns().some(run => run.status === 'cancelled') && !!stopped.json && stopped.json.partial && stopped.json.attempts.length >= 1 && stopped.json.attempts.length < stopped.json.plannedUnits && stopped.json.skips.length === stopped.json.plannedUnits - stopped.json.attempts.length
+		&& stopped.markdown.startsWith('# Onyx scorecard (partial)') && stopped.markdown.includes('**Not ranked: this is a partial result.**') && stopped.json.ranking.reason === 'partial', `${measureStop}; ${stopped.json?.attempts.length} of ${stopped.json?.plannedUnits}; skips ${stopped.json?.skips.length}`);
+
 	// --- Speculative decoding: the pairing flow reaches the "enable it on your
 	// runtime, then measure again" gate. Onyx never puts a draft on the wire —
 	// every runtime that supports this configures it at model load time.
