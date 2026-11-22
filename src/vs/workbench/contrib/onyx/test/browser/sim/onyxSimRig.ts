@@ -495,6 +495,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this._boundaries++;
 		const occurrence = (this._occurrences.get(name) ?? 0) + 1;
 		this._occurrences.set(name, occurrence);
+		// What was staged before this boundary is recorded before the user acts at it. Until the Module 3 gate
+		// it was recorded afterwards, so an edit staged during a tool call and a Stop pressed at the boundary
+		// that follows the call were written down in the wrong order, and the campaign reported a staging
+		// after Stop that had not happened (I-05, seeds 3019, 3631 and 3809 of 20,000; none below 2,000).
+		this._observeStaging();
 		for (let index = 0; index < this.episode.userSteps.length; index++) {
 			const scheduled = this.episode.userSteps[index];
 			if (scheduled.at === name && scheduled.occurrence === occurrence && !this._takenUserSteps.has(index)) {
