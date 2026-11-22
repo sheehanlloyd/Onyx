@@ -177,7 +177,7 @@ suite('OnyxInlineEditSession', () => {
 	test('B9: a file that already has changes waiting, a file outside the workspace, a reply that is not an edit and an oversized reply are refused with the reason; nothing is changed and nothing already staged is lost', async () => {
 		const result = await withRig(async rig => {
 			const notAnEdit = await begin(rig).stageReply('You should swap the operands on the return line.');
-			const oversized = await begin(rig).stageReply('```\n' + 'x'.repeat(300 * 1024) + '\n```');
+			const oversized = await begin(rig).stageReply('```\n' + 'x'.repeat(1100 * 1024) + '\n```');
 			await rig.changeSet.stage(PATH, [{ search: '\treturn a - b;', replace: '\treturn b - a; // from the agent' }]);
 			const waiting = await begin(rig).stageReply(REPLY);
 			return {

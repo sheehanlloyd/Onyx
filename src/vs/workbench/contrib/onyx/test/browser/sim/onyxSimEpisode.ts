@@ -275,7 +275,7 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 		case 'flooder': {
 			const flood = random.chance(0.5)
 				? [answer('x'.repeat(200_000))]
-				: [editCall(EDIT_SEARCH, 'y'.repeat(300_000)), answer('Done.')];
+				: [editCall(EDIT_SEARCH, 'y\n'.repeat(20_001)), answer('Done.')];
 			// A third of the time the flood is a command's output instead: two megabytes of it (B5, I-13).
 			return random.chance(0.34)
 				? [{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'head -c 2000000 /dev/zero' } }, answer('Done.')]

@@ -157,14 +157,14 @@ suite('OnyxChangeSetService', () => {
 		const result = await withRig(async rig => {
 			await rig.changeSet.stage(PATH, [ADD]);
 			const before = shown(rig);
-			const huge = 'x'.repeat(300 * 1024);
+			const huge = 'x'.repeat(1100 * 1024);
 			const edit = await rig.changeSet.stage(PATH, [{ search: SUB.search, replace: huge }]);
-			const whole = await rig.changeSet.stageProposal(PATH, Array.from({ length: 1200 }, (_, index) => `line ${index}`).join('\n'));
+			const whole = await rig.changeSet.stageProposal(PATH, Array.from({ length: 20_001 }, (_, index) => `line ${index}`).join('\n'));
 			return { edit: edit.ok ? 'staged' : edit.error.replace(/\d{6,}/, 'N'), whole: whole.ok ? 'staged' : whole.error, unchanged: JSON.stringify(shown(rig)) === JSON.stringify(before), buffer: rig.buffer(PATH) === FILE };
 		});
 		assert.deepStrictEqual(result, {
-			edit: 'Edit refused for src/math.ts: the file and the proposed content together are N bytes; a proposal is reviewed up to 262144. Nothing was staged; the edits already staged for the file are unchanged. Make a smaller edit.',
-			whole: 'Proposal refused for src/math.ts: the file has 8 lines and the proposed content 1200; a proposal is reviewed up to 1000 lines a side. Nothing was staged, and anything already staged for the file is unchanged.',
+			edit: 'Edit refused for src/math.ts: the file and the proposed content together are N bytes; a proposal is reviewed up to 1048576. Nothing was staged; the edits already staged for the file are unchanged. Make a smaller edit.',
+			whole: 'Proposal refused for src/math.ts: the file has 8 lines and the proposed content 20001; a proposal is reviewed up to 20000 lines a side. Nothing was staged, and anything already staged for the file is unchanged.',
 			unchanged: true,
 			buffer: true,
 		});

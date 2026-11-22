@@ -33,7 +33,8 @@ export interface IOnyxSimInvariant {
 }
 
 const CHARS_PER_TOKEN = 4;
-const PROPOSAL_CAP_CHARS = 256 * 1024;
+const PROPOSAL_CAP_CHARS = 1024 * 1024;
+const PROPOSAL_CAP_LINES = 20_000;
 
 function events(state: IOnyxSimState): readonly OnyxSimTraceEvent[] {
 	return state.trace.entries.map(entry => entry.event);
@@ -474,7 +475,10 @@ const i12: OnyxSimChecker = (state, boundary) => {
 const i13: OnyxSimChecker = state => {
 	for (const stage of state.stageEvents) {
 		if (stage.proposedChars > PROPOSAL_CAP_CHARS) {
-			return `I-13/oversized-proposal: ${stage.path} staged ${stage.proposedChars} chars, above the 256 KiB cap`;
+			return `I-13/oversized-proposal: ${stage.path} staged ${stage.proposedChars} chars, above the 1 MiB cap`;
+		}
+		if (stage.proposedLines > PROPOSAL_CAP_LINES) {
+			return `I-13/oversized-proposal: ${stage.path} staged ${stage.proposedLines} lines, above the cap of 20,000 lines a side`;
 		}
 	}
 	// Output (B5): what the terminal service holds while a command prints, and what it hands to the model,
