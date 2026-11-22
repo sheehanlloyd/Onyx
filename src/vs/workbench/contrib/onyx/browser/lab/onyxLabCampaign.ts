@@ -122,11 +122,23 @@ export class OnyxLabCampaignContribution extends Disposable implements IWorkbenc
 		};
 		let checkedOut: string | undefined;
 		let done = 0;
+		const measuredModels = new Set<string>();
 		for (const unit of order.order.units) {
 			if (await shouldStop()) {
 				await status('cancelled', { done });
 				this._lifecycleService.shutdown().catch(() => undefined);
 				return;
+			}
+			if (order.order.datasheetsFirst && !measuredModels.has(unit.model)) {
+				measuredModels.add(unit.model);
+				const identifier = await this._modelIdentifier(unit.model, order.order.baseUrl);
+				const known = identifier ? this._modelService.getKnownModel(identifier.slice(ONYX_VENDOR.length + 1)) : undefined;
+				if (known) {
+					// A unit of a model the runtime does not list is recorded as not served, below; there is nothing to measure.
+					await this._runtimeService.evictLoadedModels(order.order.baseUrl).catch(() => undefined);
+					await this._datasheetService.measure({ modelKey: known.key, discovered: known.discovered, apiKey: known.apiKey }, CancellationToken.None);
+					await status('running', { units: order.order.units.length, done, step: `datasheet of ${unit.model}` });
+				}
 			}
 			const revision = `${unit.task.commit}~1`;
 			if (checkedOut !== revision) {

@@ -1,0 +1,91 @@
+{
+	"version": 1,
+	"name": "2026-11-22-single-turn",
+	"createdAt": "2026-11-22T11:32:10.452Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 4096,
+		"responseFormat": false
+	},
+	"harnessConfigurations": [
+		{
+			"name": "none-single-turn",
+			"hash": "00000000",
+			"configuration": {}
+		}
+	],
+	"taskSet": {
+		"name": "this repository's history, held out for the three installed models",
+		"hash": "fefa777b2d60e7fa",
+		"count": 120
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			7.75,
+			9.32,
+			8.66
+		],
+		"power": "AC Power, 100%, adapter 94 W"
+	},
+	"regenerate": [
+		{
+			"output": "traces/records.jsonl, campaign.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-single-turn/manifest.json"
+		},
+		{
+			"output": "results.jsonl, summary.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-single-turn/manifest.json --rescore"
+		}
+	],
+	"campaign": {
+		"tier": "S",
+		"baseUrl": "http://127.0.0.1:11500/v1",
+		"tasks": "tasks.json",
+		"datasheets": "docs/research/results/2026-11-22-datasheets/summary.json",
+		"estimatedSeconds": 3752
+	},
+	"hypotheses": [
+		"H-3"
+	],
+	"notes": "H-3's single-turn sample: both pinned models on the 120 tasks of this repository's task set, one request a task, seed 1, temperature 0 (PREREGISTRATION.md, Amendment 2). My estimate before it started: about 60 minutes."
+}
