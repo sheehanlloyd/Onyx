@@ -21,10 +21,10 @@ suite('OnyxDatasheet', () => {
 
 	/** A small model that writes its calls as text, on a runtime that enforces schemas and allocates about 4,000 tokens. */
 	const sheet = (overrides: Partial<IOnyxDatasheet> = {}): IOnyxDatasheet => ({
-		version: 1, model: 'coder:7b', digest: 'sha256:aaaa', runtime: { name: 'ollama', version: '0.33.0' }, measuredAt: '2026-11-21T00:00:00.000Z',
+		version: 2, model: 'coder:7b', digest: 'sha256:aaaa', runtime: { name: 'ollama', version: '0.33.0' }, measuredAt: '2026-11-21T00:00:00.000Z',
 		nativeToolCalls: of(0, 5), repairableTextCalls: of(5, 5),
 		schemaEnforced: { object: of(3, 3), enum: of(3, 3), nested: of(3, 3) },
-		context: { recalledUpToTokens: 3900, failedFromTokens: 4600, serverReportedTokens: 4096, steps: [] },
+		context: { recalledUpToTokens: 3900, failedFromTokens: 4600, serverReportedTokens: 4096, requestedTokens: null, verifiedTokens: null, cutObserved: false, mechanism: null, steps: [] },
 		outputCapHonoured: of(3, 3), stopHonoured: of(3, 3), reasoning: { style: 'none', replies: of(0, 3) }, seedRepeatable: of(3, 3), logprobs: of(0, 3),
 		speed: { coldFirstTokenMs: 2100, warmFirstTokenMs: 180.4, tokensPerSecond: 41.26 },
 		unmeasured: [],
@@ -47,7 +47,7 @@ suite('OnyxDatasheet', () => {
 			measured: taken(applyDatasheet(seeded, sheet())),
 			noDatasheet: taken(applyDatasheet(seeded, undefined)),
 			// Two trials decide nothing; a probe that found no limit measured no context; a schema probe that never ran says nothing.
-			tooFewTrials: taken(applyDatasheet(seeded, sheet({ nativeToolCalls: of(2, 2), schemaEnforced: { object: of(3, 3), enum: of(0, 0), nested: of(3, 3) }, context: { recalledUpToTokens: 16_384, failedFromTokens: null, serverReportedTokens: null, steps: [] } }))),
+			tooFewTrials: taken(applyDatasheet(seeded, sheet({ nativeToolCalls: of(2, 2), schemaEnforced: { object: of(3, 3), enum: of(0, 0), nested: of(3, 3) }, context: { recalledUpToTokens: 16_384, failedFromTokens: null, serverReportedTokens: null, requestedTokens: null, verifiedTokens: null, cutObserved: false, mechanism: null, steps: [] } }))),
 			// Enforced means every trial: one reply out of nine that escaped the schema is a schema that is not enforced.
 			schemaMostlyHeld: taken(applyDatasheet(seeded, sheet({ schemaEnforced: { object: of(3, 3), enum: of(2, 3), nested: of(3, 3) } }))).runtimeEnforcesSchema,
 			// A measurement never raises the budget: another number known for the model is smaller.
@@ -55,7 +55,7 @@ suite('OnyxDatasheet', () => {
 			capableModel: taken(applyDatasheet(seeded, sheet({ nativeToolCalls: of(5, 5), repairableTextCalls: of(0, 0) }))).toolCallQuality,
 			// The probe stays inside what the server said it allocated, so it can find no limit. What the server
 			// said when the model was measured is then the context: a prompt past it would be cut without a word.
-			noLimitFoundInsideWhatTheServerAllocated: taken(applyDatasheet(seeded, sheet({ context: { recalledUpToTokens: 3514, failedFromTokens: null, serverReportedTokens: 4096, steps: [] } }))),
+			noLimitFoundInsideWhatTheServerAllocated: taken(applyDatasheet(seeded, sheet({ context: { recalledUpToTokens: 3514, failedFromTokens: null, serverReportedTokens: 4096, requestedTokens: null, verifiedTokens: null, cutObserved: false, mechanism: null, steps: [] } }))),
 		}, {
 			measured: {
 				toolCallQuality: 0, contextLength: 3900, contextSource: 'measured', runtimeEnforcesSchema: true,
@@ -134,7 +134,7 @@ suite('OnyxDatasheet', () => {
 		assert.deepStrictEqual({
 			full: describeDatasheet(sheet()),
 			partial: describeDatasheet(sheet({
-				context: { recalledUpToTokens: 16_384, failedFromTokens: null, serverReportedTokens: null, steps: [] },
+				context: { recalledUpToTokens: 16_384, failedFromTokens: null, serverReportedTokens: null, requestedTokens: null, verifiedTokens: null, cutObserved: false, mechanism: null, steps: [] },
 				reasoning: { style: 'tags', replies: of(3, 3) },
 				speed: { coldFirstTokenMs: null, warmFirstTokenMs: null, tokensPerSecond: null },
 				unmeasured: [{ probe: 'cold first token', reason: 'the model was already loaded when the measurement began' }],

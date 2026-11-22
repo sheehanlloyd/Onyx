@@ -85,6 +85,8 @@ export class OnyxReviewChanges {
 		}).join('\n');
 		const truncated = perFolder.some(({ diff }) => diff.truncated);
 
+		// The run is begun with this token, so Stop in the control plane and a cancel here are one cancellation (B10).
+		const cancellation = new CancellationTokenSource();
 		const handle = this._controlPlaneService.beginRun({
 			// A review is not a chat turn, but it is a run: it deserves the same
 			// timeline, journal and inspector treatment as anything the agent does.
@@ -94,6 +96,7 @@ export class OnyxReviewChanges {
 				? localize('onyx.review.title.one', "Review of 1 changed file")
 				: localize('onyx.review.title', "Review of {0} changed files", qualifiedFiles.length),
 			task: 'review',
+			token: cancellation.token,
 			modelKey: 'auto',
 		});
 		handle.activity({
@@ -123,7 +126,6 @@ export class OnyxReviewChanges {
 			}
 		}
 
-		const cancellation = new CancellationTokenSource();
 		try {
 			const raw = await this._progressService.withProgress({
 				location: ProgressLocation.Notification,

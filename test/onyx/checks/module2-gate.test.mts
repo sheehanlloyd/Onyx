@@ -62,6 +62,15 @@ test('Module 2 gate: docs/SUPPORT.md records C6 and C7 as included', () => {
 	assert.deepStrictEqual({ C6: states.C6, C7: states.C7 }, { C6: 'included', C7: 'included' });
 });
 
+function moduleThreeGateRunsTheCampaign(): boolean {
+	const gate = path.join(repoRoot, 'test', 'onyx', 'gates', 'module-3.json');
+	if (!fs.existsSync(gate)) {
+		return false;
+	}
+	const checks = (JSON.parse(fs.readFileSync(gate, 'utf8')) as { checks: { id: string; command?: string[] }[] }).checks;
+	return checks.some(check => check.command?.includes('test/onyx/sim/run-campaign.mts') === true && check.command.includes('20000'));
+}
+
 test('Module 2 gate: no baseline exception is left for an invariant this module owns, and every one that is left has an owner in Module 3', () => {
 	const table = JSON.parse(fs.readFileSync(path.join(repoRoot, 'test', 'onyx', 'sim', 'baseline-exceptions.json'), 'utf8')) as { exceptions: { class: string; owner: string }[] };
 	// I-02, I-04, I-06, I-10, I-11 and I-14 whole; I-07 on the read side; I-13 for retained output. What I-13 says
@@ -71,6 +80,8 @@ test('Module 2 gate: no baseline exception is left for an invariant this module 
 	assert.deepStrictEqual({
 		stillOpenForThisModule: table.exceptions.map(exception => exception.class).filter(owned),
 		ownedOutsideModuleThree: table.exceptions.filter(exception => !exception.owner.split(',').map(item => item.trim()).every(item => moduleThree.has(item))).map(exception => `${exception.class} (${exception.owner})`),
-		tableIsNotEmptyByAccident: table.exceptions.length > 0,
-	}, { stillOpenForThisModule: [], ownedOutsideModuleThree: [], tableIsNotEmptyByAccident: true });
+		// Module 2 left eight entries, all Module 3's. Module 3 empties the table (its gate requires that), and an
+		// empty table is right only then: when Module 3's gate file is there and runs the campaign against it.
+		emptyOnlyUnderModuleThreesGate: table.exceptions.length > 0 || moduleThreeGateRunsTheCampaign(),
+	}, { stillOpenForThisModule: [], ownedOutsideModuleThree: [], emptyOnlyUnderModuleThreesGate: true });
 });

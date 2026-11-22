@@ -1,0 +1,90 @@
+{
+	"version": 1,
+	"name": "2026-11-21-benchmarks",
+	"createdAt": "2026-11-22T00:59:09.618Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:llama3.2:3b",
+			"digest": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		99,
+		7
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 4096,
+		"responseFormat": false
+	},
+	"harnessConfigurations": [
+		{
+			"name": "none-the-benchmark-talks-to-the-runtime-directly",
+			"hash": "00000000"
+		}
+	],
+	"taskSet": {
+		"name": "repository benchmark: the five smallest eligible single-file commits of the last 400 (their hashes are in report.json)",
+		"hash": "56859008",
+		"count": 5
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"nodeVersion": "24.22.3",
+		"osVersion": "Darwin 25.5.0"
+	},
+	"regenerate": [
+		{
+			"output": "report.json",
+			"command": "pnpm run transpile-client && node test/onyx/run-benchmarks.mts --json-out docs/benchmarks/2026-11-21/report.json"
+		},
+		{
+			"output": "docs/images/chart-*.svg",
+			"command": "node test/onyx/make-charts.mts --manifest docs/benchmarks/2026-11-21/manifest.json docs/benchmarks/2026-11-21/report.json"
+		}
+	],
+	"hypotheses": [],
+	"notes": "The raw report behind the charts in the README (C8). Measured at commit 0eebedd1d8b with a clean tree, against a private Ollama 0.33.0 on a loopback port; LM Studio was not running and nothing was measured on it, and speculative decoding was not measured. The two seeds are those of the pure-logic fuzz sections; no seed is sent with a model request. Sampling is per section: temperature 0 and at most 4,096 tokens for the repository benchmark; the tool-call and throughput sections use the runner's own settings. The benchmark requests no context, so each model ran at the runtime's own allocation (4,096 tokens on this version; docs/research/results/2026-11-21-context-allocation). The machine was busy: the one-minute load average was 39.43 when the run began and 13.96 when it ended, on 14 cores. Throughput and latency rows are lower than on an idle machine for that reason; proportions and scores at temperature 0 are not affected, except that one task timed out and is recorded under failures."
+}

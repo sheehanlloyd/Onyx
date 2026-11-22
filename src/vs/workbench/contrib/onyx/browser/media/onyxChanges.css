@@ -116,6 +116,17 @@
 	margin-left: auto;
 }
 
+/* What was checked when the hunk was staged (L6): one quiet line, louder only when the hunk wants closer reading. */
+.onyx-change-hunk-certificate {
+	padding: 0 var(--vscode-spacing-size80) var(--vscode-spacing-size20);
+	font-size: var(--vscode-fontSize-caption1);
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-change-hunk-certificate.read-closely {
+	color: var(--vscode-onyx-warn);
+}
+
 .onyx-change-hunk-lines {
 	padding: var(--vscode-spacing-size20) 0 var(--vscode-spacing-size40);
 	overflow-x: auto;
@@ -136,4 +147,19 @@
 .onyx-change-line.removed {
 	color: var(--vscode-gitDecoration-deletedResourceForeground);
 	background: color-mix(in srgb, var(--vscode-gitDecoration-deletedResourceForeground) 8%, transparent);
+}
+
+/* Where verification stands for each file: a plain sentence a line, never a badge that says more than was checked. */
+.onyx-changes-verification {
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-caption1);
+	color: var(--vscode-descriptionForeground);
+}
+
+.onyx-changes-verification-line.new-problems {
+	color: var(--vscode-onyx-error);
+}
+
+.onyx-changes-verification-line.verified {
+	color: var(--vscode-onyx-ok);
 }

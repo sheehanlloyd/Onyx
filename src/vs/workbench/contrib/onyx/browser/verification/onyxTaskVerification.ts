@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IOnyxCheckOutcome } from '../../common/onyxVerification.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
@@ -12,13 +13,13 @@ import { localize } from '../../../../../nls.js';
 import { OnyxSettingId } from '../../common/onyxConfiguration.js';
 import { ONYX_PROJECT_CONFIG_PATH } from '../../common/onyxProjectConfig.js';
 import { IOnyxProjectConfigService } from '../config/onyxProjectConfigService.js';
-import { IOnyxRunHandle } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxTerminalService } from '../terminal/onyxTerminalTool.js';
 
 /**
  * The Phase-4 slice of verification: after an agent run that changed things,
  * run the project's own checks — the workspace's default build/test task or a
- * named task — and post the verdict to the run's timeline. This is stronger
+ * named task — after an acceptance, on the accepted files as saved (C2), and
+ * post the verdict to the run's timeline. This is stronger
  * evidence than the marker diff: it is the same command the user would run to
  * trust the change.
  */
@@ -45,19 +46,20 @@ export class OnyxTaskVerification {
 	}
 
 	/**
-	 * Runs the configured check and reports to the timeline. Callers should
-	 * not await this in the response path — a build can take minutes; the
-	 * verdict lands on the (already completed) run when the task finishes.
+	 * Runs the configured check after an acceptance (C2) and says what it
+	 * came to. It is a task that reads the disk, so the caller runs it only
+	 * on accepted files that are saved, and names them: the outcome records
+	 * what the check ran on. A build can take minutes; callers do not hold
+	 * a response for it.
 	 */
-	async run(handle: IOnyxRunHandle): Promise<void> {
+	async run(runId: string, note: (label: string, ok: boolean | undefined) => void, savedFiles: readonly { readonly path: string; readonly contentHash: string }[]): Promise<IOnyxCheckOutcome> {
 		const configured = this._configuredTask();
-		if (!configured) {
-			return;
-		}
-		const task = await this._findTask(configured);
+		const task = configured ? await this._findTask(configured) : undefined;
 		if (!task) {
-			handle.activity({ kind: 'note', label: `Checks skipped: no task matching "${configured}"`, ok: undefined });
-			return;
+			if (configured) {
+				note(`Checks skipped: no task matching "${configured}"`, undefined);
+			}
+			return { kind: 'not run', reason: 'no task' };
 		}
 
 		const label = task._label ?? configured;
@@ -68,28 +70,26 @@ export class OnyxTaskVerification {
 			kind: 'task',
 			subject: `Task: ${label}`,
 			configuredBy: this._configuredBy(),
-			runId: handle.runId,
+			runId,
 		});
 		if (!approved) {
-			handle.activity({ kind: 'note', label: `Checks not run: ${label} was not approved`, ok: undefined });
-			return;
+			note(`Checks not run: ${label} was not approved`, undefined);
+			return { kind: 'not run', reason: 'not approved' };
 		}
-		handle.activity({ kind: 'note', label: `Running checks: ${label}` });
+		note(`Running checks: ${label} on the accepted, saved ${savedFiles.map(file => file.path).join(', ')}`, undefined);
 		const startedAt = Date.now();
 		try {
 			const summary = await this._taskService.run(task);
-			const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+			const seconds = Math.round((Date.now() - startedAt) / 100) / 10;
 			const passed = summary?.exitCode === 0;
-			handle.activity({
-				kind: 'note',
-				label: passed
-					? `Checks passed: ${label} (${seconds}s)`
-					: `Checks failed: ${label} exited with ${summary?.exitCode ?? 'no exit code'} (${seconds}s)`,
-				ok: passed,
-			});
+			note(passed
+				? `Checks passed: ${label} (${seconds.toFixed(1)}s)`
+				: `Checks failed: ${label} exited with ${summary?.exitCode ?? 'no exit code'} (${seconds.toFixed(1)}s)`, passed);
+			return { kind: 'ran', task: label, passed, exitCode: summary?.exitCode ?? null, seconds, savedFiles };
 		} catch (err) {
 			this._logService.warn('[onyx] verification task failed to run', err);
-			handle.activity({ kind: 'note', label: `Checks could not run: ${toErrorMessage(err)}`, ok: false });
+			note(`Checks could not run: ${toErrorMessage(err)}`, false);
+			return { kind: 'ran', task: label, passed: false, exitCode: null, seconds: Math.round((Date.now() - startedAt) / 100) / 10, savedFiles };
 		}
 	}
 

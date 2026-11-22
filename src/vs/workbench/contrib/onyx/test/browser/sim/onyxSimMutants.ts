@@ -3,13 +3,22 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IOnyxRunHandle, OnyxControlPlaneService, OnyxLiveRun } from '../../../browser/controlPlane/onyxControlPlaneService.js';
+import { IOnyxChangeSetService, OnyxAcceptOutcome, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
+import { OnyxInlineEditSession, OnyxInlineStageOutcome } from '../../../browser/editor/onyxInlineEditSession.js';
+import { IOnyxProposedFile, OnyxProposeResult, openReview, proposalSizeProblem, proposeEdits } from '../../../common/onyxChangeSet.js';
+import { certifyEdit, IOnyxCertifyInput, IOnyxEditCertificate } from '../../../common/onyxEditCertificate.js';
+import { IOnyxEditBlock, IOnyxEditHunk } from '../../../common/onyxInlineEdit.js';
+import { EditOperation, ISingleEditOperation } from '../../../../../../editor/common/core/editOperation.js';
+import { Range } from '../../../../../../editor/common/core/range.js';
+import { ITextModel } from '../../../../../../editor/common/model.js';
 import { IChatResponseToolUsePart, ILanguageModelChatMetadata } from '../../../../chat/common/languageModels.js';
 import { IChatAgentRequest } from '../../../../chat/common/participants/chatAgents.js';
 import { IOnyxSelectableTool, OnyxAgentLoop, OnyxSelectedTools } from '../../../browser/agent/onyxAgentLoop.js';
 import { IOnyxToolExclusion } from '../../../common/onyxToolSlots.js';
 import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMemoryTool.js';
 import { IOnyxStreamOutcome, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
-import { OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
+import { IOnyxWorkspaceAccessService, OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
 import { IOnyxBudgetedMessage, IOnyxTurnPlan } from '../../../common/onyxContextBudget.js';
 import { OnyxEnvelopeAnswerStream } from '../../../common/onyxConstrainedToolCalls.js';
@@ -21,7 +30,7 @@ import { digestValue, IOnyxTraceHeader } from '../../../common/onyxTrace.js';
 import { decideInferenceUse, IOnyxInferenceLocation, IOnyxInferencePolicy } from '../../../common/onyxInferenceLocation.js';
 import { OnyxTimelineOutput } from '../../../common/onyxTerminalOutput.js';
 import { buildApprovalRequest, IOnyxCommandInvocation, IOnyxTerminalApprovalRequest, normalizeCommand, OnyxTerminalDecision } from '../../../common/onyxTerminalPolicy.js';
-import { IOnyxModelProfile } from '../../../common/onyxTypes.js';
+import { IOnyxModelProfile, OnyxTerminalRunStatus } from '../../../common/onyxTypes.js';
 import { IOnyxSimProductClasses } from './onyxSimRig.js';
 
 /**
@@ -308,6 +317,170 @@ class OnyxMutantInlineHarnessRecordLoop extends OnyxAgentLoop {
 	}
 }
 
+/** B6: stages blocks with an applier that is not the product's, the way `proposeEdits` composes them. */
+function proposeWith(apply: (text: string, block: IOnyxEditBlock) => string | undefined, existing: IOnyxProposedFile | undefined, path: string, currentContent: string | undefined, blocks: readonly IOnyxEditBlock[]): OnyxProposeResult {
+	let text = existing ? existing.proposed : currentContent;
+	if (text === undefined || blocks.some(block => block.search.trim() === '')) {
+		return proposeEdits(existing, path, currentContent, blocks);
+	}
+	for (const block of blocks) {
+		const next = apply(text, block);
+		if (next === undefined) {
+			return { ok: false, error: `Could not find the "search" text in ${path}.` };
+		}
+		text = next;
+	}
+	return { ok: true, appliedCount: blocks.length, file: existing ? { ...existing, proposed: text } : { path, kind: 'modify', base: currentContent ?? '', proposed: text, stale: false } };
+}
+
+/**
+ * B6: the applier before DEC-07. An exact match first; then a match after trimming every line, with the
+ * replacement re-indented; then the first line alone, when it is unique, taking as many lines as the
+ * SEARCH text had. The last one replaced lines the model never quoted (Claude H3).
+ */
+function fuzzyApply(text: string, block: IOnyxEditBlock): string | undefined {
+	const exact = text.indexOf(block.search);
+	if (exact >= 0) {
+		return text.slice(0, exact) + block.replace + text.slice(exact + block.search.length);
+	}
+	const textLines = text.split('\n');
+	const searchLines = block.search.split('\n');
+	const trimmed = searchLines.map(line => line.trim());
+	const indentOf = (line: string) => /^[\t ]*/.exec(line)?.[0] ?? '';
+	const reindented = (start: number) => {
+		const actual = indentOf(textLines[start]);
+		const claimed = indentOf(searchLines[0]);
+		const lines = block.replace.split('\n').map(line => claimed !== actual && line.trim().length > 0 && line.startsWith(claimed) ? actual + line.slice(claimed.length) : line);
+		return [...textLines.slice(0, start), ...lines, ...textLines.slice(start + searchLines.length)].join('\n');
+	};
+	for (let start = 0; start + searchLines.length <= textLines.length; start++) {
+		if (trimmed.every((line, offset) => textLines[start + offset].trim() === line)) {
+			return reindented(start);
+		}
+	}
+	const hits = textLines.map((line, index) => line.trim() === trimmed[0] ? index : -1).filter(index => index >= 0);
+	return trimmed[0] && hits.length === 1 && hits[0] + searchLines.length <= textLines.length ? reindented(hits[0]) : undefined;
+}
+
+/** B6: the change set before exact-or-refuse. A SEARCH text that is not in the file is placed by trimming or by its first line. */
+class OnyxMutantFuzzyApplierChangeSet extends OnyxChangeSetService {
+	protected override _propose(existing: IOnyxProposedFile | undefined, path: string, currentContent: string | undefined, blocks: readonly IOnyxEditBlock[]): OnyxProposeResult {
+		return proposeWith(fuzzyApply, existing, path, currentContent, blocks);
+	}
+}
+
+/** B6: the change set before ambiguity was refused. A SEARCH text that occurs several times is placed at the first of them. */
+class OnyxMutantFirstOccurrenceChangeSet extends OnyxChangeSetService {
+	protected override _propose(existing: IOnyxProposedFile | undefined, path: string, currentContent: string | undefined, blocks: readonly IOnyxEditBlock[]): OnyxProposeResult {
+		return proposeWith((text, block) => {
+			const first = text.indexOf(block.search);
+			return first === -1 ? undefined : text.slice(0, first) + block.replace + text.slice(first + block.search.length);
+		}, existing, path, currentContent, blocks);
+	}
+}
+
+/**
+ * B7: accepting a hunk by where it was in the list (Codex N2). The user's click names a place; the buffer has
+ * changed, the proposal is carried onto it, and whatever hunk is at that place afterwards is the one applied.
+ */
+class OnyxMutantIndexAcceptChangeSet extends OnyxChangeSetService {
+	override async acceptHunk(path: string, hunkId: string): Promise<OnyxAcceptOutcome> {
+		const index = this.files.get().find(file => file.proposal.path === path)?.hunks.findIndex(hunk => hunk.id === hunkId) ?? -1;
+		await this.refresh();
+		const atThatPlace = this.files.get().find(file => file.proposal.path === path)?.hunks[index];
+		return super.acceptHunk(path, atThatPlace?.id ?? hunkId);
+	}
+}
+
+/** L6: every anchored edit is certified as seen this turn, whatever the model was sent. */
+class OnyxMutantAlwaysGroundedChangeSet extends OnyxChangeSetService {
+	protected override _certifyEdit(input: IOnyxCertifyInput): IOnyxEditCertificate {
+		const certificate = certifyEdit(input);
+		return certificate.anchor ? { ...certificate, grounding: 'grounded' } : certificate;
+	}
+}
+
+/** C10: nothing asks where a file really is before it is staged or written (R-30 write side, I-07). */
+class OnyxMutantWriteThroughLinkChangeSet extends OnyxChangeSetService {
+	protected override async _leavesWorkspace(): Promise<boolean> {
+		return false;
+	}
+}
+
+/** B7: a proposal of any size is diffed and staged (C9, R-38, I-13). */
+class OnyxMutantNoSizeGuardChangeSet extends OnyxChangeSetService {
+	protected override _openReview(base: string, proposed: string, generation: number): ReturnType<typeof openReview> {
+		// The line diff is not run on the oversized text here either: the defect is that the proposal is staged, and one hunk says so.
+		return proposalSizeProblem(base, proposed)
+			? { ok: true, review: { generation, hunks: [{ id: `g${generation}.h1`, originalStart: 0, originalLength: base.split('\n').length, originalLines: base.split('\n'), newLines: proposed.split('\n') }], conflicts: [] } }
+			: openReview(base, proposed, generation);
+	}
+}
+
+/** B8: a deletion as a replacement of its lines by nothing. The line break that followed them stays, and with it an empty line (Codex N3). */
+class OnyxMutantDeletionLeavesLineChangeSet extends OnyxChangeSetService {
+	protected override _hunkToEdit(model: ITextModel, hunk: IOnyxEditHunk): ISingleEditOperation {
+		if (hunk.originalLength === 0 || hunk.newLines.length > 0) {
+			return super._hunkToEdit(model, hunk);
+		}
+		const endLine = hunk.originalStart + hunk.originalLength;
+		return EditOperation.replace(new Range(hunk.originalStart + 1, 1, endLine, model.getLineMaxColumn(endLine)), '');
+	}
+}
+
+/**
+ * B9: the inline edit before staging. The reply is written into the buffer as soon as it arrives, and
+ * reviewed afterwards: the model's text is in the file, and in what an autosave writes, before any accept.
+ */
+class OnyxMutantApplyBeforeReviewInlineSession extends OnyxInlineEditSession {
+	constructor(private readonly _target: ITextModel, lineRange: Range, private readonly _changes: IOnyxChangeSetService, workspaceAccessService: IOnyxWorkspaceAccessService) {
+		super(_target, lineRange, _changes, workspaceAccessService);
+	}
+	override async stageReply(reply: string, runId?: string): Promise<OnyxInlineStageOutcome> {
+		const outcome = await super.stageReply(reply, runId);
+		if (outcome.kind === 'staged') {
+			const proposed = this._changes.files.get().find(file => file.proposal.path === outcome.path)?.proposal.proposed;
+			if (proposed !== undefined) {
+				this._target.pushEditOperations(null, [EditOperation.replace(this._target.getFullModelRange(), proposed)], () => null);
+			}
+		}
+		return outcome;
+	}
+}
+
+/**
+ * B10: Stop before it was a cancellation (Codex N5). Ending a run only set its status: nothing the run owned
+ * was cancelled, so the turn in flight went on to dispatch its tool, run its command and stage its edit; and
+ * whatever status came last replaced the one before it.
+ */
+class OnyxMutantStopOnlyFlipsStatusControlPlane extends OnyxControlPlaneService {
+	protected override _finish(run: OnyxLiveRun, status: OnyxTerminalRunStatus): void {
+		run.statusObs.set(status, undefined);
+		this._onDidRecordEvent.fire({ runId: run.runId, event: { t: Date.now() - run.startedAt, kind: 'outcome', data: { status } } });
+		run.resumeGate?.();
+		run.resumeGate = undefined;
+	}
+}
+
+/** B10: a pause with no time budget. A run the user paused and did not resume never ends. */
+class OnyxMutantPauseWithoutBudgetControlPlane extends OnyxControlPlaneService {
+	protected override _pauseBudgetMs(): number {
+		return 24 * 60 * 60 * 1000;
+	}
+}
+
+/**
+ * C2: verification when a tool-using turn ends (Codex N6). The run that staged an edit says "no new problems"
+ * of a workspace that does not hold the edit: nothing was accepted, and nothing was checked.
+ */
+class OnyxMutantVerdictBeforeAcceptanceLoop extends OnyxAgentLoop {
+	protected override _reportVerification(run: IOnyxRunHandle, anyToolRan: boolean): void {
+		if (anyToolRan) {
+			run.activity({ kind: 'note', label: 'Verification: no new problems (0 total)', ok: true });
+		}
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -327,6 +500,18 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B12-no-stream-deadline': { ModelService: OnyxMutantNoDeadlineModelService },
 	'B13-no-output-cap': { AgentLoop: OnyxMutantNoOutputCapLoop },
 	'B13-no-eviction': { AgentLoop: OnyxMutantNoEvictionLoop },
+	'B6-fuzzy-applier': { ChangeSetService: OnyxMutantFuzzyApplierChangeSet },
+	'B6-first-occurrence': { ChangeSetService: OnyxMutantFirstOccurrenceChangeSet },
+	'B7-index-accept': { ChangeSetService: OnyxMutantIndexAcceptChangeSet },
+	'B7-no-size-guard': { ChangeSetService: OnyxMutantNoSizeGuardChangeSet },
+	'C10-write-through-link': { ChangeSetService: OnyxMutantWriteThroughLinkChangeSet },
+	'L6-always-grounded': { ChangeSetService: OnyxMutantAlwaysGroundedChangeSet },
+	'B8-deletion-leaves-line': { ChangeSetService: OnyxMutantDeletionLeavesLineChangeSet },
+	'B9-inline-apply-before-review': { InlineEditSession: OnyxMutantApplyBeforeReviewInlineSession },
+	'B10-stop-does-not-cancel': { ControlPlaneService: OnyxMutantStopOnlyFlipsStatusControlPlane },
+	'B10-status-overwritten': { ControlPlaneService: OnyxMutantStopOnlyFlipsStatusControlPlane },
+	'B10-pause-without-budget': { ControlPlaneService: OnyxMutantPauseWithoutBudgetControlPlane },
+	'C2-verdict-before-acceptance': { AgentLoop: OnyxMutantVerdictBeforeAcceptanceLoop },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },

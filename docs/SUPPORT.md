@@ -176,6 +176,8 @@ A runtime that allocates less than the model's architecture and does not say so 
 metadata. Ollama serves a model at its default context unless told otherwise, and cuts a longer prompt
 without an error. Until the datasheet has measured the model, Onyx budgets against the architectural number
 in that case, and the oldest part of a long prompt may be lost at the runtime.
+Once the model is loaded an Ollama server says what it allocated, and that number is used from the next
+discovery on. Asking the runtime for a larger context is the next section.
 
 **Every request is planned before it is sent.**
 
@@ -202,6 +204,307 @@ ever gets smaller until the model is measured.
 **Smallest workable context.** The eight-tool agent's instructions and schemas are about 1,400 estimated
 tokens. A 2,048-token context cannot hold them with room for a reply and is refused; 4,096 works, with one
 tool result in view at a time. The supported profile is 8,192 or more.
+
+## Context allocation: asking for what the model can use (B15)
+
+A default Ollama install gives each of the supported models a context of 4,096 tokens, whatever the
+model was trained with (32,768 for both), and cuts a longer prompt without an error. Onyx can ask for more.
+It does so only when you run **Onyx: Request a Larger Model Context**, only after you agree to what that
+creates, and it uses the result only after a check has seen it work.
+
+**How a context can be asked of Ollama 0.33.0** (measured on the reference machine with
+`test/onyx/lab/probe-context-mechanisms.mts`; `mechanisms.json` in the results directory below):
+
+| Way | Request | Asked | `/api/ps` reports afterwards | Honoured |
+|---|---|---|---|---|
+| Nothing asked | `POST /v1/chat/completions` | nothing | 4,096 | yes |
+| Per-request option, OpenAI-style endpoint | `POST /v1/chat/completions with options.num_ctx` | 8,192 | 4,096 | no |
+| Per-request top-level field, OpenAI-style endpoint | `POST /v1/chat/completions with num_ctx` | 8,192 | 4,096 | no |
+| Per-request option, native endpoint | `POST /api/chat with options.num_ctx` | 8,192 | 8,192 | yes |
+| Load-time context, then an OpenAI-style request | `POST /api/chat with options.num_ctx, then POST /v1/chat/completions` | 8,192 | 4,096 | no |
+| Derived model | `POST /api/create {from, parameters: {num_ctx}}, then POST /v1/chat/completions to the new name` | 8,192 | 8,192 | yes |
+| Server setting | `a server started with OLLAMA_CONTEXT_LENGTH=8192, then POST /v1/chat/completions` | 8,192 | 8,192 | yes |
+
+Onyx speaks the OpenAI-style endpoint, which ignores a context sent with a request and reloads the model at
+the server's own allocation even when it had been loaded with more. Two ways remain that such a request then
+gets: a server setting, which is yours to change and applies to every model, and a derived model. Onyx uses
+the derived model. The native endpoint's per-request option also works; it is another wire protocol, whose
+tool calls, schemas and stream endings L5 did not measure, and any request on the OpenAI-style endpoint
+(autocomplete, another tool) would reload the model at the old context. LM Studio was not probed: it was not
+running, and starting it was outside what this work was authorised to do. Onyx reads the loaded context
+LM Studio reports and asks it for nothing; set the context length in LM Studio's own load settings.
+
+**What is created, and how to undo it.** A model alias: a second model name over the same weights, with
+`num_ctx` in its parameters, named `<model>-onyx-ctx<tokens>` (for example `qwen2.5-coder:7b-onyx-ctx16384`). It adds
+a parameters layer of a few bytes and no second copy of the weights; it appears in `ollama list`. Undo with
+**Onyx: Remove Model Context Alias**, or `ollama rm qwen2.5-coder:7b-onyx-ctx16384`. Onyx removes only names of that form, and
+never a model you made.
+
+**The number asked for** is the smallest of three, rounded down to a multiple of 1,024:
+
+| Bound | Value |
+|---|---|
+| What the model was trained with | as the runtime reports it; never exceeded, and nothing is asked when it is unknown |
+| A ceiling from this machine's memory | (half the machine's memory − the size of the model's files) ÷ 96 KiB a token |
+| The setting `onyx.context.requestTokens` | 16,384 by default; `0` keeps the server's allocation and asks for nothing |
+
+The memory cost of a token was measured between 4,096 and 16,384 tokens at 69 KiB for the 7B model and
+35 KiB for the 1.5B; 96 KiB is the larger rounded up by a third. Half the memory is left for the editor, the
+system and everything else. On the reference machine (24 GiB) the ceiling is 83,433 tokens for the 7B
+model, so the setting decides. To change the context, change the setting and run the command again.
+
+**Requested, reported, verified.** After the alias is created Onyx sends three prompts with a code at the
+start and a question about it at the end: one inside the old allocation, one aimed at nine tenths of the new
+allocation in the runtime's own tokens, and one a quarter longer than the new allocation. The context
+is **verified** when the code comes back from the first two; the third shows the cut. The budget (B13) uses
+the verified number and no other. When the runtime does not raise the context, or reports a context and
+loses the start of a prompt inside it, the alias is removed again, the server's own allocation stays in
+force, and the configuration view says the request was not honoured. If you decline, nothing is created.
+**Onyx: Show Effective Project Configuration** shows each model's budgeted context and where the number
+came from; a request that does not fit names both and the command. Every run's trace header, every
+datasheet and every experiment manifest carries the three numbers, or an explicit null.
+
+**Measured on the reference machine** (M4 Pro, 24 GiB, Ollama 0.33.0;
+`docs/research/results/2026-11-21-context-allocation/`, regenerated by the command in its manifest):
+
+| | 7B at the server's 4,096 | 7B at 16,384 | 1.5B at the server's 4,096 | 1.5B at 16,384 |
+|---|---|---|---|---|
+| Loaded, as the runtime reports | 4,521 MiB | 5,346 MiB | 1,109 MiB | 1,532 MiB |
+| Runtime resident memory, idle | 4,731 MiB | 5,498 MiB | 1,188 MiB | 1,540 MiB |
+| Runtime resident memory, peak in a run | 4,736 MiB | 5,499 MiB | 1,188 MiB | 1,541 MiB |
+| First token, cold | 2,725 ms | 1,206 ms | 1,112 ms | 594 ms |
+| First token, warm | 149 ms | 148 ms | 40 ms | 40 ms |
+| Tokens a second | 50 | 49 | 167 | 167 |
+
+Verification, 7B: control: 1,776 tokens by the runtime's count, code recalled; inside: 14,466 tokens by the runtime's count, code recalled; past: 8,194 tokens by the runtime's count, code lost. 1.5B: control: 1,776 tokens by the runtime's count, code recalled; inside: 14,466 tokens by the runtime's count, code recalled; past: 8,194 tokens by the runtime's count, code lost.
+
+The inside prompt came to 88% of the allocation: the aim is set from how the runtime counted the short
+prompt, and the count is not exactly proportional. A prompt the runtime cuts is counted at what it kept,
+which is why the longest one shows 8,194.
+
+**What it buys.** With the eight-tool set's schemas and instructions set aside, one whole tool result
+(4,000 characters) fits in a turn at 4,096 tokens, and nine at 16,384 (the `metric` test in
+`onyxContextAllocation.test.ts` computes both with the product's planner).
+
+**Limits.** Verified means recall at about nine tenths of the allocation and loss a quarter past it, with one
+prompt each; it is not a measurement of every size, and it says nothing about how well a model uses a long
+context. A model too small to recall the code from a short prompt cannot be verified, and stays on the
+server's allocation. The alias is another name to the runtime: a datasheet measured under the model's own
+name does not describe it, so measure again after requesting a context. Speculative-decoding measurement
+still addresses the model's own name.
+
+## Stopping a run (B10)
+
+**Stop means stop.** A run owns one cancellation. The Stop button on the run list, the chat's own stop and
+closing the request all cancel it, and everything the run started takes it: the model request in flight,
+every tool, an approval dialog that is open, a command that is running (which is killed). After Stop no
+further tool is called, no command is started and nothing more is staged, including the tool call a reply
+was about to make and a command whose approval you answer afterwards.
+
+| A run ends as | When | Shown as |
+|---|---|---|
+| `completed` | The model finished | Completed |
+| `failed` | The request or the runtime failed, or the reply was cut off | Failed |
+| `cancelled` | You stopped it | Stopped |
+| `budget-exhausted` | It reached its turn limit, or stayed paused for ten minutes | Ended at its turn or time limit, unfinished |
+
+The first of these a run reaches is its status. Nothing replaces it, and its journal holds one outcome.
+Commit messages, reviews, name suggestions, the repository benchmark, tournaments and inline edits are runs
+too, and Stop on the run list cancels their model request the same way.
+
+Two limits. An approval dialog that is open when you press Stop stays on screen until you answer it; the
+answer is ignored and nothing runs. And a one-shot flow stopped from the run list may still show its own
+"failed" notice, because it learns of the stop as a failed request; the run itself is recorded as stopped.
+
+## Proposals: identity, conflicts and size (B6, B7)
+
+**An edit is placed exactly or not at all.** A SEARCH text has to be in the file exactly as quoted, and at
+exactly one place. Nothing is trimmed or re-indented and no line is matched on its own; a quote with another
+indentation, other line endings or a second occurrence is refused, the file is untouched, and the model is
+told which line did not match or how many places there were. A quote may begin in the middle of a line; a
+block of several lines may not begin inside a line's indentation.
+
+**Several edits in one call are one proposal or none (C3).** `editFile` takes one edit as `path`, `search`,
+`replace`, or up to 50 for the same file as `path` and `edits: [{search, replace}, ...]`; never both shapes
+in one call. The edits are placed in order, each exactly and exactly once in the text the earlier ones left.
+If any one cannot be placed, nothing of the call is staged and the model is told which edit it was and why.
+Line numbers copied from `readFile` are taken off each edit's quote as for a single edit, and they refer to
+the file as it was read.
+
+**What you review is what is applied.** Every staging of a file is a *generation*, and each of its hunks
+has an id that does not change while that generation lasts. Accepting a hunk names it by that id.
+
+| What happened since you looked | What accepting does |
+|---|---|
+| Nothing | Applies that hunk; the others stay staged under their own ids |
+| You edited the file elsewhere | The hunk is found again by its own lines and up to three unchanged lines on each side, exactly and at one place, and applied there |
+| You edited the hunk's own lines or its context, or the same lines are now in the file twice | Nothing is applied. The hunk is shown as a conflict with both texts, and the message is "The review of <file> changed; look again." No other hunk is applied in its place |
+| The agent staged the file again | Nothing is applied: the ids you saw belong to the earlier generation |
+| Accept the whole file while a conflict is on show | Nothing is applied until the conflict is dismissed |
+
+A proposal for a file that is not open is computed against its content on disk and treated the same way.
+Staged proposals survive a restart as a new generation and are checked against the files as they are then.
+
+**Review in a diff editor (C1).** "Open the file" on a staged file in Onyx Changes opens a diff: your file
+as it is on the left, the proposal on the right. The proposal is a document of its own
+(`onyx-proposal:`), not your file, and no editor can write to it; opening the diff changes nothing. Put the
+caret on a changed line of the proposal and run **Onyx: Accept Hunk at Cursor** or **Onyx: Reject Hunk at
+Cursor**; a caret on an unchanged line accepts nothing. Each hunk also carries Accept and Reject code lenses,
+which appear when `diffEditor.codeLens` is on (the editor's default is off, and Onyx does not change it).
+Both name the hunk by the same id the side bar uses, so the rules in the table above apply unchanged. A
+proposed new file has nothing to compare with and opens as the proposal alone. During an inline review `⌥D`
+opens the same diff.
+
+**Inline edits (`⌘I`) are proposals too (B9).** The model's reply is staged in Onyx Changes and shown under
+the lines it would replace, in a read-only zone that is not part of the file. Until a hunk is kept the file,
+whether it is unsaved, and what a save or an autosave writes are yours alone. `⌘⏎` keeps the current hunk
+as one undoable edit; `⌘⌫` rejects it; `esc` discards what is left. If you type, switch files, close the
+file or a formatter changes it while the model is working, nothing is staged and you are asked to try
+again; a save that changes nothing does not count. A proposal you have not decided on is still in Onyx
+Changes after a reload. Three limits: the file has to be in the workspace; a file that already has changes
+waiting is not given a second proposal; and the size bound below applies.
+
+**Size.** A proposal over either of these is refused before it is diffed, with the numbers, and whatever was
+already staged for the file stays: 20,000 lines on either side; 1 MiB for the file and the proposed content
+together. (Until C9 the bounds were 1,000 lines, a million cells of a diff table and 256 KiB, because the
+diff built a table of one cell for every pair of lines.)
+
+**The diff (C9).** Hunks come from a shortest-edit-script search (Myers) over lines, after the lines the two
+texts begin and end with are set aside. Its cost grows with the number of lines that differ, so that number
+is bounded: up to 2,000 differing lines the hunks are the fewest changed lines possible; past that, the
+whole changed region is one hunk. That is still a correct diff and accepting it still gives the proposal,
+but it can no longer be accepted piece by piece. On the reference machine (Apple M4 Pro) two 6,000-line
+texts with 60 scattered edits take 1.4 ms and about 5 MiB, and two with nothing in common take 9 ms and
+about 25 MiB; the diff before C9 took 588 ms and 215 ms and over 300 MiB for the same. The method is in
+`test/onyx/checks/r29-diff-performance.test.mts`. This is not a linear-time diff and no such claim is made.
+
+## Edit certificates: what was checked for each hunk (L6)
+
+When an edit is staged, Onyx has decided things on your behalf: that the text the model quoted is in the
+file exactly once, and against which content. A certificate is the record of that, with one observation
+added: whether the model had been sent the text it is editing in the turn it edited it.
+
+| Under a hunk it says | When |
+|---|---|
+| Anchored exactly once · seen this turn | Every line the model quoted was in something it was sent this turn: a file it read, a search result, your message, the retrieved context |
+| Anchored exactly once · not shown to the model this turn; read closely | At least one quoted line was in nothing it was sent this turn. Typically the file was read earlier and that result has since been dropped to fit the context window, so the model is quoting from memory |
+| Anchored exactly once · what the model was shown is not on record | The edit did not come from an agent run |
+| New file · nothing existing was replaced | The edit creates the file |
+| From the lines you selected | An inline edit: you chose the lines |
+| Whole-file proposal · no quoted text to place | A refactor's result |
+
+**A certificate says what was checked. It does not say the edit is right.** "Not shown this turn" blocks
+nothing: the edit was placed exactly, or it would have been refused. It is a reason to read that hunk more
+carefully, because a quote that happens to match is weaker evidence than a quote of something just read.
+The model's own earlier words do not count as having been shown the line.
+
+A certificate holds: the path; how the edit was expressed; the turn and the tool call; a digest of the text
+the edit was placed against and that text's version; a digest of the quoted text, its number of lines and
+how many times it was found (one, for every edit that was staged); whether it was grounded; and which
+message of the prompt delivered it. No text of the file or the prompt.
+
+**In the journal.** Each certificate is written into the run's journal (`editCertificate`) with a seal, the
+digest of what it says, and the ids of the hunks it accounts for. After an acceptance the journal also
+records the digest of the file's content and where verification (C2) stands (`editCertificateOutcome`).
+`checkCertificates` in `common/onyxEditCertificate.ts` recomputes each one from the journal alone: the seal,
+the quoted text (from the call's arguments), where it came from and whether it was grounded (from the
+prompt of that turn). A certificate changed after the fact fails the seal; one changed and sealed again
+contradicts the prompt. Two things are not recomputable from a journal and are not claimed to be: the
+digest of the base, and the match count, which need the file as it was. A journal keeps each prompt up to
+a fixed size; for a longer prompt the check says "not recomputable" instead of guessing.
+
+Limits. A line counts as shown when it appears in a message with surrounding white space ignored, so a
+short line such as `}` is almost always "seen". A hunk is tied to an edit by the lines the edit took out or
+put in; a hunk that no single edit accounts for shows no line. Certificates of a proposal are kept across a
+reload; what the model was sent is not, so an edit staged after a reload by a new run is certified against
+that run's prompt only.
+
+## Constrained anchors: an experimental edit protocol (L7)
+
+**Experimental. Off by default. Not in a packaged build's behaviour:** it is one value of the harness
+configuration's `editProtocol`, which only a lab manifest in a development build can set (L4).
+
+Search and replace asks the model to quote the text it wants to change, and refuses the edit when the quote
+is not in the file exactly (B6). Constrained anchors ask for less: the first and the last line to replace.
+In a constrained turn the schema the reply is decoded against lists the lines the model was shown this
+turn, so a runtime that enforces the schema cannot produce an anchor that is not on the list.
+
+| | |
+|---|---|
+| The shape | `{"action":"edit","edit":{"path","startAnchor","endAnchor","replace"}}` in the constrained envelope. The lines from `startAnchor` to `endAnchor` are replaced |
+| What is on the list | The lines of every `readFile` result still in the prompt this turn, after eviction. A line by its text; a line that was shown more than once in its file by B1's numbered form (`12| text`); blank lines not at all |
+| What the harness still checks | Everything. Each anchor has to be exactly one line of the file as it is now, and the first may not come after the last. A line that is not there, a line that is there more than once, reversed anchors and a numbered line whose text has changed are each refused with the reason, and nothing is staged. An anchor that is not on the turn's list never reaches the edit tool at all, whatever the runtime let through |
+| Available when | The run decodes against a schema (`toolCallProtocol` is `constrained-envelope`) **and** the model's datasheet measured that the runtime enforces one (L5). Otherwise the run says "Constrained anchors are unavailable; edits use search and replace" and why |
+| The bound | 400 lines and 24,000 characters on the list. When more than that was read, that turn has no list and its edits are search and replace; the run says so |
+| Still there | `editFile` with `search` and `replace`, for new files, for files that were not read this turn, and for a file that already has staged changes (an anchored edit is placed against the file as it was read) |
+
+**Not claimed: that the anchors are the right ones.** The list makes an invented line unrepresentable. It
+does not stop the model choosing a real line that is the wrong one, and prior work on constrained copying
+reports exactly that as the main error. L14 measures it. Until then this is a protocol to experiment with,
+not one to rely on.
+
+**What the list costs** (`docs/research/results/2026-11-21-anchor-enum/`, Ollama 0.33.0, one edit of one
+line of a twenty-line file, three trials a size, the prompt the same at every size):
+
+| Lines on the list | `qwen2.5-coder:7b`: first token, whole reply | `qwen2.5-coder:1.5b`: first token, whole reply |
+|---|---|---|
+| none (the envelope alone; the reply is a shorter tool call) | 24 ms, 0.72 s | 9 ms, 0.17 s |
+| 50 | 24 ms, 0.97 s | 10 ms, 0.33 s |
+| 100 | 24 ms, 1.00 s | 10 ms, 0.35 s |
+| 200 | 24 ms, 1.05 s | 10 ms, 0.41 s |
+| 400 (the bound) | 25 ms, 1.15 s | 11 ms, 0.52 s |
+| 800 | 27 ms, 1.37 s | 13 ms, 0.72 s |
+| 1,600 | 32 ms, 1.82 s | 17 ms, 1.11 s |
+
+Building the grammar does not delay the first token measurably at any size tried. The cost is in the
+reply: every token is checked against the list, and the same edit takes about a fifth longer at 400 lines
+than at 50 on the 7B model, and nearly twice as long at 1,600. The bound of 400 is set there. In all 36
+constrained edits both anchors were on the list and were the line asked for; that is one easy task, and
+says nothing about harder ones. (The first trial at 50 lines shows 795 ms and 177 ms to the first token:
+that is the changed system prompt being read for the first time, not the grammar.) The load average was 3
+to 4 during the run.
+
+Every anchored edit has a certificate (L6) that names the protocol, so a journal says which edits used it.
+
+## Verification: of what you accepted, and only that (C2)
+
+Onyx checks an edit when you accept it, not when the model proposes it. A staged proposal is not in the
+file, so nothing a language service says about the file is about the proposal.
+
+| It says | When | What it means |
+|---|---|---|
+| not applied | A file has staged changes and none was accepted | Nothing was checked. A run that staged edits ends with this line for each file |
+| running | You accepted a hunk | Onyx is waiting for the file's diagnostics to be reported again |
+| verified | Diagnostics were reported again, and none is a problem that was not there before the acceptance | No new error or warning in that file. Not that the change is correct |
+| new problems | Diagnostics were reported again, and some were not there before | The line names how many, and the first with its line |
+| timed out | No diagnostics were reported for the file within 15 seconds | Nothing is known about what you accepted |
+| stale | The file changed after the acceptance | The result was for content that is no longer there |
+
+Any of the last five ends with "Partial: N hunks are still staged and not part of this" while hunks of the
+same proposal are still waiting.
+
+**Problems are compared one by one, not counted.** Two diagnostics are the same problem when the file, the
+reporter, the code, the severity and the message are the same. The line is not part of it: accepting an edit
+moves what is below it. One error replaced by another is one new problem and one resolved, although the
+count is unchanged. Errors and warnings are compared; hints and information are not.
+
+**The project check reads the disk, so it runs on what you saved.** When the repository names a check task
+(B2 asks you before it runs), it runs after an acceptance only if the accepted file is saved. If it is not,
+Onyx says which file is unsaved and does not save it for you; the check runs when you save it. The result
+records the file and a digest of the content it ran on. Onyx never saves another buffer to make a check
+possible.
+
+Agent edits, inline edits and refactors are all accepted through the change set, so all three are verified
+this way. Limits:
+
+- Only the accepted file's diagnostics are compared. A problem the change causes in another file is not
+  reported here; the project check is what finds those.
+- A language service that looks at the accepted content and reports exactly what it reported before sends
+  no update. Onyx cannot tell that from silence, so a file with no language service, and a file whose
+  problems did not change at all, both end as "timed out". It never says "verified" without a fresh report.
+- The wait is 15 seconds, and a report is taken as complete after 0.75 seconds of quiet. A slower language
+  service is reported as timed out.
+- Results are not kept across a reload.
 
 ## Streams, tool arguments and the content index (B12)
 
@@ -292,13 +595,13 @@ trace, so two runs can be told to have been run the same way.
 | Switch | What it decides | What the product runs | Other values (lab only) |
 |---|---|---|---|
 | `toolCallProtocol` | How a tool call is read | `constrained-envelope` when the model's tool calls are well-formed less than 75% of the time and its runtime enforces a JSON schema; otherwise `repaired-text` (the tool channel, and a call written as text is recognised and run) | `native`: the tool channel only |
-| `editProtocol` | How an edit is proposed | `search-replace` | none yet (constrained anchors, L7) |
+| `editProtocol` | How an edit is proposed | `search-replace` | `constrained-anchors` (experimental; see "Constrained anchors") |
 | `promptStyle` | How much the prompt carries | `compact` or `full`, from the model's profile | the other one |
 | `toolResultChars` | The most of one tool result that goes back to the model | 4,000 with a compact prompt, 16,000 with a full one | 200 to 1,000,000 |
 | `evictionPolicy` | What is dropped when a turn does not fit | `oldest-results-first` (B13) | none yet (L17) |
 | `contextTokens` | The context a turn is fitted to | the smallest context known for the model (B13) | 512 to 4,000,000 |
 | `turnCap` | The most model turns in a run | 8 with a compact prompt, 16 with a full one | 1 to 64 |
-| `verificationFeedback` | Whether a run that used a tool ends by comparing the workspace's problems to how it started | on | off |
+| `verificationFeedback` | Whether a run that staged edits ends by saying that nothing was verified yet ("not applied"); verification itself runs when a hunk is accepted, whatever this is set to | on | off |
 | `readToolLineNumbering` | Whether `readFile` numbers its lines | on | off |
 | `toolSlotPolicy` | Which tools are advertised when there are more than places | `essentials-first` (B1) | none yet |
 | `maxTools` | How many places there are | from the model's profile | 1 to 64 |
@@ -334,7 +637,7 @@ run, the prompts are fixed text that carries nothing of the user's, and nothing 
 | Native tool calls | A question that needs the one tool offered | A valid call to that tool on the runtime's tool channel | 5 |
 | Readable text calls | The same replies | Of those with no native call: the text repair reads a valid call out of the text | the rest |
 | Schema enforced: object, enum, nested | A JSON schema, with a prompt that asks for something the schema does not allow | The reply matches the schema anyway | 3 each |
-| Context | A code at the start of a prompt, a question about it at the end; the prompt doubles from 1,024 estimated tokens up to what the server says it allocated, then the gap is halved twice | The code comes back | up to 7 |
+| Context | A code at the start of a prompt, a question about it at the end; the prompt doubles from 1,024 estimated tokens up to what the server says it allocated, then the gap is halved twice (since B15: doubling towards nine tenths of the server's allocation, one prompt there, one a quarter past it) | The code comes back | up to 7 |
 | Output cap | A long count with a cap of 12 tokens | The reply stops at the cap and says that is why | 3 |
 | Stop sequence | A count with a stop at "4" | The reply has 3 and not 4 | 3 |
 | Reasoning | A sum to think through | Counted, not scored: thinking in tags, in a field of its own, or none | 3 |
@@ -375,6 +678,7 @@ manifest and every probe's request and reply. Ollama 0.33.0, Apple M4 Pro, 24 GB
 | Readable as text, of the rest | 5 of 5 | 3 of 5 |
 | Schema enforced: object, enum, nested | 3 of 3, 3 of 3, 3 of 3 | 3 of 3, 3 of 3, 3 of 3 |
 | Context | start of a 3,514-token prompt recalled; the server allocates 4,096 | the same |
+| Context after B15 (re-measured at a requested 16,384) | 16,384 verified: recalled at 14,466 tokens, lost past the allocation | the same |
 | Output cap honoured; stop honoured | 3 of 3; 3 of 3 | 3 of 3; 3 of 3 |
 | Reasoning | none seen in 3 replies | none seen in 3 replies |
 | Same seed, same reply | 3 of 3 | 3 of 3 |
@@ -384,13 +688,15 @@ manifest and every probe's request and reply. Ollama 0.33.0, Apple M4 Pro, 24 GB
 
 What follows for the supported model: both advertise tool support and neither put one call on the tool
 channel, so their turns are constrained to the envelope, which the runtime was seen to enforce; and their
-context is budgeted at 4,096 tokens, not the 32,768 their architecture allows.
+context is budgeted at 4,096 tokens, not the 32,768 their architecture allows, until a larger one is
+requested and verified ("Context allocation", above).
 
 **Limits.**
 
 - **Few trials.** The 1.5B model's text calls were readable 2 of 5 times in one run and 3 of 5 in the next.
-- **The context probe stays inside what the server says it allocated**, so on a server that reports its
-  allocation it confirms recall up to it and finds no limit of its own. Its sizes are estimates at four
+- **The context probe of 2026-11-21's first datasheets stayed inside what the server said it allocated**, so
+  it confirmed recall up to it and found no limit of its own. Since B15 the probe goes to nine tenths of the
+  reported allocation and then a quarter past it (datasheet format 2; "Context allocation", above). Its sizes are estimates at four
   characters a token; the filler text is denser than that, so the largest prompt was 3,514 tokens, not 4,096.
 - **A schema probe cannot tell enforcement from a model that complies anyway.** The prompts ask for what the
   schema forbids to make that unlikely, not impossible.
@@ -462,9 +768,20 @@ by default, so dev and packaged runs use the same four tools.
 | `findFiles` | Workspace-relative paths matching a glob | 50 by default, 200 at most. The glob is matched against the search's results, so ignored files stay ignored |
 | `grep` | `path:line: text` for a literal string or a regular expression | 60 lines in total, 8 per file, 240 characters per line. `include` narrows the files searched and, like "files to include" in the Search view, also reaches a file that an ignore file names. When nothing matches, up to five files from the content index are listed and labelled as suggestions, not matches |
 
-Every read tool refuses an absolute path, a path containing `..`, a backslash, and a path that resolves outside
-the workspace folder through a symbolic link; searches do not follow symbolic links (R-30, I-07 on the read
-side). A file name that merely contains two dots (`a..b.ts`) is refused as well until C10 decides otherwise.
+Every read tool refuses an absolute path, a `..` segment, a backslash, and a path that resolves outside the
+workspace folder through a symbolic link; searches do not follow symbolic links (R-30, I-07 on the read
+side).
+
+**The same rule on the write side (R-30, C10).** `editFile`, inline edits and refactors all stage through
+Onyx Changes, and it refuses the same paths. It also asks where the file really is, twice: when a proposal is
+staged and again right before it is applied. A file that is a symbolic link out of the workspace is not
+edited, and a new file is not created inside a directory that is one; what decides for a file that does not
+exist yet is the nearest directory above it that does. Before C10 the write side never asked.
+
+**A file name that contains two dots is a name (C10).** `a..b.ts`, `notes/v1..v2.md` and `..config` are
+read, searched, edited and created like any other. What is refused is a path *segment* that is `..`, and
+with it a segment made only of dots and spaces (`...`, `.. `), which some file systems read as the parent
+directory or as nothing.
 
 An edit's SEARCH text that was copied with the `12| ` prefixes is decoded only when every line carries the
 prefix, the numbers run consecutively and each line equals that line of the file character for character; the
@@ -508,10 +825,10 @@ tested. The module gate runner reads this table (`| item | state |`).
 |---|---|---|---|
 | C6 incremental constrained-answer streaming | included | 2 | Not needed: included. A constrained turn's answer is read out of its envelope and shown as it arrives (R-28's streaming case, `OnyxConstrainedStreaming`). The envelope schema is unchanged: per-tool `anyOf` schemas were not adopted, so no runtime subset had to be probed for them; what the pinned runtime enforces of a schema is measured by the datasheet (L5) |
 | C7 broader index coverage | included | 2 | Not needed: included. Source folders are indexed first, `files.exclude`, `search.exclude` and the root `.gitignore` are honoured, the cap is 20,000 files and 256 MB after measurement, and coverage is reported (`OnyxWorkspaceIndexer`, `OnyxIndexOptions`; "The content index: what it covers") |
-| C9 bounded line diff | planned | 3 | B7 enforces 1,000 lines per side, 1,000,000 LCS cells, 256 KiB before every quadratic diff; R-38 |
-| C10 benign repeated-dot names | planned | 3 | Conservative filename refusal; traversal and symlink refusals stay mandatory |
+| C9 bounded line diff | included | 3 | Not needed: included. The line diff is a bounded Myers search in `common/onyxInlineEdit.ts` (R-29, measured on the reference machine and in plain Node). A size guard stays, at 20,000 lines a side and 1 MiB, and its test (R-38 as it stands with C9) with it |
+| C10 benign repeated-dot names | included | 3 | Not needed: included. A `..` segment is refused and a name that contains two dots is not, on the read side and the write side (R-30, every subcase). Traversal, absolute paths and symbolic links out of the workspace are refused on both sides whatever this row says |
 | D3 Check for Updates command | planned | 5 | Manual replacement, rollback and uninstall instructions always ship |
-| L7 constrained anchors as default | planned | 4 (L14 decides) | Opt-in experimental protocol or withdrawn with the negative result |
+| L7 constrained anchors | included | 3 | Not needed: included as an **experimental** protocol, off by default and reachable only as a lab arm of the harness configuration (R-47). Whether it ever becomes a default is L14's decision, in Module 4; until then the fallback is what ships: search and replace |
 | L10 executable oracle | planned | 4 | Tier 1 scoring only; this file shows the sandbox probe output |
 | L16 confidence badge | planned | 4 | No badge, no claim; result published |
 | L17 eviction policy | planned | 4 | Oldest-first eviction stays; result published |

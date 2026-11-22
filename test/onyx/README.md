@@ -41,6 +41,7 @@ Prompt markers steer it:
 | `DOCTEST <query>` | searches the offline docs mirror via the `docs` tool |
 | `PBTEST <name>` | fetches that repository playbook via the `playbook` tool |
 | `SLOWTEST` | streams a ~20s answer, giving interruption tests a window |
+| `SLOWTOOLTEST` | streams slowly for about 12 seconds, then calls a tool: a run stopped meanwhile must never make that call (R-15) |
 
 `ONYX_MOCK_KIND=lmstudio` hides the Ollama native API so discovery detects the
 endpoint as LM Studio — the speculative-decoding flow only offers runtimes that
@@ -107,7 +108,7 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (57 checks):
+asserting on the run journal and the live DOM (66 checks):
 
 - the tool list a default run advertises on the 7B profile (the six essential
   tools and the two documented optional ones, R-36), Onyx's own `listDirectory`
@@ -117,22 +118,31 @@ asserting on the run journal and the live DOM (57 checks):
 - chat with the tool loop, `repoSymbols` with call-graph expansion, and the
   `remember` tool behind its confirmation (the note and the origin of its text
   on show, R-59), plus the workspace-context and agent-memory sections landing
-  in later prompts and post-run verification reporting a verdict
+  in later prompts, and no verification verdict from a run that accepted
+  nothing (R-21); the edit flow further down checks "not applied" before an
+  acceptance and a result for the accepted content after it
 - inline (FIM) autocomplete, including the cross-file context header
 - **Fix with Onyx** and **Explain with Onyx** routing into chat runs
 - the model library quick pick, including installed models outside the catalog
 - commit-message generation from a staged diff
-- **⌘I inline edit**: the widget, an applied hunk, and undoing that hunk
-  restoring the original line verbatim
+- **⌘I inline edit**: the widget, the reply staged for review with nothing of
+  it in the file, keeping the hunk applying it, and undo restoring the original
+  line verbatim
 - `Onyx: Review My Changes`, its replayable prompt snapshot and a `file:line`
   finding
 - staged agent edits: `editFile` stages instead of writing, the file appears in
   Onyx Changes, and accepting applies and clears the set
+- **the proposal diff** (R-25): opened from Onyx Changes, the file on the left
+  and the proposal on the right; one hunk accepted from the editor lands in the
+  file, the other does not, and the side bar shows one hunk left
 - the terminal tool: the approval dialog (with the exact command, and Run
   Once and Deny as its only choices), execution, the exit landing on the
   timeline, and the same command asking again and not running when denied
 - the offline docs mirror finding the workspace's own markdown
 - playbooks: the prompt index and the fetched recipe body
+- **Stop means stop** (R-15): a slow stream that would end in a tool call is
+  stopped from the run list; the journal says `cancelled` within two seconds,
+  the tool is never called and the status is never overwritten
 - stopping a streaming run and resuming it as a new briefing-run
 - the refactor engine: model-suggested names, the rename staged for review
 - the repo benchmark journaling a run and opening its evidence document
@@ -218,6 +228,49 @@ The seed goes on the wire as `seed` whenever a model's profile sets one, and
 manifest, `test/onyx/lab/manifest.schema.json`; `test/onyx/lab/manifest.mts`
 validates one or checks a results directory under `docs/research/results/`.
 `make-charts.mts --manifest <file>` is the only way to draw a chart.
+
+## Trace conformance replay
+
+A harness change should arrive with a behavioural difference, not only a code difference (L8, R-48).
+`test/onyx/traces/` holds recorded runs, one a file: the files the run saw, the request, the user's steps,
+every response the model gave, and the sequence of events the harness produced. The replay serves the same
+responses to the harness as it is now, in the simulation rig, and compares the events.
+
+```bash
+./scripts/test.sh --grep "OnyxTraceReplay"                      # replay the corpus (a CI step of its own)
+node --test test/onyx/checks/r48-trace-corpus.test.mts          # the corpus is fit to be committed
+```
+
+The corpus holds one trace for every persona of the simulated model (`persona-*`), one for every scripted
+workflow (`workflow-*`, the scenarios of `onyxSimScenarios.ts`), and traces of the two pinned models
+answering through the harness (`model-*`, named by the model's digest). Everything in it is synthetic: the
+rig's own fixture files and prompts. Each file is written through the diagnostics redactor's scrub (B11),
+and the check above fails if one would be changed by it or names a home directory.
+
+**When the replay fails** it prints the first event that differs, with the events before it, and the first
+turn of the two journals that differs, row by row (`diffRuns`). Then one of two things is true. The change
+is a regression: fix it. Or the change is intended: record the new expected traces, with one line saying
+why, which is stored in each trace that changed and has to differ from the reason it had:
+
+```bash
+ONYX_TRACE_REASON="<why the harness now behaves differently>" ONYX_TRACE_WRITE=1 ./scripts/test.sh --grep "OnyxTraceReplay"
+```
+
+A trace that still holds is left as it is. Adding a scenario adds a trace the same way. Traces of a real
+model are recorded against a runtime on this machine, and only there; the rig runs under virtual time and a
+model does not, so the two take turns (the test says how):
+
+```bash
+ONYX_TRACE_REASON="…" ONYX_TRACE_RECORD_URL=http://127.0.0.1:<port>/v1 ONYX_TRACE_RECORD_MODEL=<name> ./scripts/test.sh --grep "OnyxTraceReplay record"
+```
+
+What is served back is the model's responses. Tool results are not served back: the rig's tools are the
+product's own, run again on the same files, and what they return is among the events compared.
+
+**Cut-point mode** (`runFromCutPoint` in `sim/onyxSimReplay.ts`) serves a trace's first *k* model turns and
+then continues, with a scripted continuation or a live source. Two harness configurations run that way were
+served the same responses up to the cut. The result is labelled an *executed counterfactual*: one run under
+each arm, and no more is claimed for it than that.
 
 ## Simulation rig
 

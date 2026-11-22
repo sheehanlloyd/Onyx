@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { OnyxSimEpisode, SIM_FILES, SIM_TARGET_FILE } from './onyxSimEpisode.js';
 
 /**
@@ -79,6 +80,109 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 			{ at: 'afterRun', occurrence: 2, step: { kind: 'typeInTarget', text: '// user typed above hunk 0\n', line: 1 } },
 			{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptHunk', path: 'src/math.ts', hunk: 0 } },
 		],
+	}),
+	// R-12 proper: the user changes the very line hunk 0 replaces, then accepts what is still shown as hunk 0.
+	// It is refused; nothing of hunk 1 is applied in its place, and what the user typed stays.
+	scenario('audit-n2-edit-hunk-0-then-accept-hunk-0', 'EDITTEST src/math.ts two hunks', [
+		{
+			kind: 'toolCalls', calls: [
+				{ tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a; // hunk 0' }, id: 'edit_1' },
+				{ tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a * b;', replace: '\treturn b * a; // hunk 1' }, id: 'edit_2' },
+			],
+		},
+		{ kind: 'text', text: 'Staged two hunks.' },
+	], {
+		userSteps: [
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'typeInTarget', text: '/* mine */', line: 2 } },
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptHunk', path: 'src/math.ts', hunk: 0 } },
+		],
+	}),
+	// Codex N3 (R-13): a function is deleted and the user accepts; the buffer has to be the proposal, with no line left where the function was.
+	scenario('b8-delete-lines-then-accept-all', 'EDITTEST src/math.ts remove multiply', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: 'export function multiply(a: number, b: number): number {\n\treturn a * b;\n}\n\n', replace: '' }, id: 'edit_1' },
+		{ kind: 'text', text: 'Staged the removal.' },
+	], {
+		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }],
+	}),
+	// C3: several edits in one editFile call are one proposal, placed in order, or nothing.
+	scenario('c3-two-edits-in-one-call-then-accept-all', 'MULTIEDITTEST src/math.ts swap the operands', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', edits: [{ search: '\treturn a + b;', replace: '\treturn b + a; // first of two' }, { search: '\treturn a * b;', replace: '\treturn b * a; // second of two' }] }, id: 'edit_1' },
+		{ kind: 'text', text: 'Staged both edits.' },
+	], {
+		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }],
+	}),
+	scenario('c3-one-edit-of-two-cannot-be-placed', 'MULTIEDITTEST src/math.ts swap the operands', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', edits: [{ search: '\treturn a + b;', replace: '\treturn b + a; // first of two' }, { search: '\treturn a / b;', replace: '\treturn b / a;' }] }, id: 'edit_1' },
+		{ kind: 'text', text: 'The second edit was refused, so nothing is staged.' },
+	]),
+	// C10 (R-30, write side): an edit to a symbolic link that leaves the workspace is refused, and one to a file
+	// whose name merely contains two dots is staged and accepted.
+	scenario('c10-edit-through-a-link-is-refused', 'Update the linked file', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: SIM_LINK_PATH, search: SIM_OUTSIDE_CANARY, replace: 'overwritten by the model' }, id: 'edit_1' },
+		{ kind: 'text', text: 'The edit was refused.' },
+	]),
+	scenario('c10-a-name-with-two-dots-is-a-name', 'Add a note', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'notes/v1..v2.md', search: '', replace: '# from v1 to v2\n' }, id: 'edit_1' },
+		{ kind: 'text', text: 'Staged the note.' },
+	], {
+		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }],
+	}),
+	// B9 (R-34): an inline edit after a run. The reply is staged; the buffer and the disk stay the user's, through a save.
+	scenario('b9-inline-edit-stages-then-save', 'What does addNumbers do?', [
+		{ kind: 'text', text: 'It adds two numbers.' },
+	], {
+		userSteps: [
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'inlineEdit', startLine: 1, endLine: 3, reply: '<<<<<<< SEARCH\n\treturn a + b;\n=======\n\treturn b + a; // inline\n>>>>>>> REPLACE' } },
+			{ at: 'afterRun', occurrence: 2, step: { kind: 'save' } },
+		],
+	}),
+	// B10 (R-15, I-03, I-05): Stop means stop. The first is R-15 itself at the service layer: a slow stream that
+	// would end in a tool call, stopped half way. The other five are what the baseline campaign found.
+	scenario('b10-stop-during-slow-stream-before-a-tool-call', 'SLOWTOOLTEST think, then list the folder', [
+		{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'ls src && echo ' + Array.from({ length: 40 }, (_, index) => `slow-word-${index}`).join(' ') }, chunks: 40 },
+		{ kind: 'text', text: 'Listed.' },
+	], {
+		userSteps: [{ at: 'betweenChunks', occurrence: 10, step: { kind: 'stop' } }],
+	}),
+	scenario('b10-paused-and-never-resumed', 'Run the checks', [
+		{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
+	], {
+		dialogDefault: 'deny',
+		userSteps: [{ at: 'betweenChunks', occurrence: 3, step: { kind: 'pause' } }],
+	}),
+	scenario('b10-stop-then-the-stream-ends', 'What does it do?', [
+		{ kind: 'text', text: 'Done.' },
+	], {
+		dialogDefault: 'dismiss',
+		userSteps: [{ at: 'betweenChunks', occurrence: 1, step: { kind: 'stop' } }],
+	}),
+	scenario('b10-stop-before-a-command', 'List the folder', [
+		{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'ls src' } },
+	], {
+		userSteps: [{ at: 'beforeToolDispatch', occurrence: 1, step: { kind: 'stop' } }],
+	}),
+	scenario('b10-stop-before-an-edit', 'Change addNumbers', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a; // edited-by-sim' } },
+	], {
+		dialogDefault: 'deny',
+		userSteps: [{ at: 'beforeToolDispatch', occurrence: 1, step: { kind: 'stop' } }],
+	}),
+	scenario('b10-stop-while-an-approval-dialog-is-open', 'Fetch the page', [
+		{ kind: 'toolCall', tool: 'vscode_fetchWebPage_internal', arguments: { url: 'https://example.test/' } },
+	], {
+		networkTools: true,
+		profile: { promptStyle: 'compact', contextLength: 4096, maxTools: 24 },
+		userSteps: [{ at: 'dialogOpen', occurrence: 1, step: { kind: 'stop' } }],
+	}),
+	// C2 with B2: the repository names a check task. The user accepts the edit and saves; the check then asks,
+	// like any execution, and here the answer is no: nothing runs.
+	scenario('c2-check-task-asks-after-accept-and-save', 'EDITTEST src/math.ts with a check configured', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' }, id: 'edit_1' },
+		{ kind: 'text', text: 'Staged.' },
+	], {
+		dialogDefault: 'deny',
+		projectConfig: { verificationTask: 'test' },
+		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }, { at: 'afterRun', occurrence: 2, step: { kind: 'save' } }],
 	}),
 	// Claude H4: a proposal against base V, the buffer edited above the hunk so that duplicates shift; accepting
 	// must re-anchor to the right duplicate or conflict, never the first occurrence by default.

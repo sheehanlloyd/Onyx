@@ -14,6 +14,7 @@ import { evictOldestHistory } from '../../browser/agent/onyxPromptBuilder.js';
 import { elideMiddle } from '../../common/onyxContextCompression.js';
 import { commonPrefixTokens } from '../../browser/agent/onyxPromptCache.js';
 import { IOnyxKnownModel } from '../../browser/model/onyxLanguageModelProvider.js';
+import { IOnyxContextAllocationService } from '../../browser/models/onyxContextAllocationService.js';
 import { IOnyxDatasheetService } from '../../browser/models/onyxDatasheetService.js';
 import { IOnyxProfileService, OnyxProfileService } from '../../browser/profiles/onyxProfileService.js';
 import { OnyxRouterService } from '../../browser/routing/onyxRouterService.js';
@@ -242,10 +243,16 @@ suite('OnyxRoutingAndProfiles', () => {
 			_serviceBrand: undefined, onDidChange: Event.None, current: () => undefined, stored: () => undefined,
 			measure: () => Promise.reject(new Error('not used here')), store: () => { }, exportAll: () => ({}),
 		};
+		/** Nothing was asked of any runtime: the server's allocation is what there is. */
+		const NO_ALLOCATIONS: IOnyxContextAllocationService = {
+			_serviceBrand: undefined, onDidChange: Event.None, noteListed: () => { }, record: () => undefined, inForce: () => undefined,
+			wireModel: (_key, discovered) => discovered.id, numbers: () => ({ requestedTokens: null, reportedTokens: null, verifiedTokens: null, mechanism: null }),
+			target: () => Promise.reject(new Error('not used here')), request: () => Promise.reject(new Error('not used here')), undo: () => Promise.resolve(undefined), exportAll: () => ({}),
+		};
 
 		test('measured tool-call failures harden the harness', () => {
 			const storage = store.add(new InMemoryStorageService());
-			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS));
+			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS, NO_ALLOCATIONS));
 			const model = discovered('m', 32);
 			const before = service.getProfile('k', model);
 			for (let i = 0; i < 6; i++) {
@@ -259,7 +266,7 @@ suite('OnyxRoutingAndProfiles', () => {
 
 		test('cold and warm first tokens keep separate EMAs', () => {
 			const storage = store.add(new InMemoryStorageService());
-			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS));
+			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS, NO_ALLOCATIONS));
 			const measure = (ttft: number, wasCold: boolean) => service.reportMeasurement({ modelKey: 'k', requestedModelId: 'm', timeToFirstTokenMs: ttft, tokensPerSecond: 50, generationMs: 1000, toolCallCount: 0, toolCallParseFailures: 0, promptTokens: 10, completionTokens: 10, finishReason: 'stop', wasCold });
 			measure(4000, true);
 			measure(150, false);
@@ -272,7 +279,7 @@ suite('OnyxRoutingAndProfiles', () => {
 
 		test('fim latency is an EMA and overrides win over everything', () => {
 			const storage = store.add(new InMemoryStorageService());
-			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS));
+			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS, NO_ALLOCATIONS));
 			service.reportFimMeasurement('k', 100);
 			service.reportFimMeasurement('k', 200);
 			const stats = service.getStats('k')!;

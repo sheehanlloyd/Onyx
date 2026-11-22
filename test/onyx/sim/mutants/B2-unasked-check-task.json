@@ -31,7 +31,22 @@
 			}
 		],
 		"dialogDefault": "deny",
-		"userSteps": [],
+		"userSteps": [
+			{
+				"at": "afterRun",
+				"occurrence": 2,
+				"step": {
+					"kind": "acceptAll"
+				}
+			},
+			{
+				"at": "afterRun",
+				"occurrence": 2,
+				"step": {
+					"kind": "save"
+				}
+			}
+		],
 		"faults": [],
 		"projectConfig": {
 			"verificationTask": "test"

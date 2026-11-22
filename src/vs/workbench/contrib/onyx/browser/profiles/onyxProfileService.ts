@@ -10,9 +10,11 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IOnyxDiscoveredModel } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { applyDatasheet } from '../../common/onyxDatasheet.js';
+import { benchRoutingDataForCurrentMetric, ONYX_BENCH_METRIC } from '../../common/onyxRepoBench.js';
 import { seedProfile } from '../../common/onyxSeedProfiles.js';
 import { IOnyxModelProfile, IOnyxObservedStats } from '../../common/onyxTypes.js';
 import { IOnyxRequestMeasurement } from '../model/onyxLanguageModelProvider.js';
+import { IOnyxContextAllocationService } from '../models/onyxContextAllocationService.js';
 import { IOnyxDatasheetService } from '../models/onyxDatasheetService.js';
 
 export const IOnyxProfileService = createDecorator<IOnyxProfileService>('onyxProfileService');
@@ -72,6 +74,8 @@ interface IMutableStats {
 	/** Mean on-your-repo benchmark score per task kind, with its sample count. */
 	benchScores: Record<string, number>;
 	benchSamples: Record<string, number>;
+	/** The metric the bench scores were taken with (C8). Scores under another one are dropped when they are loaded. */
+	benchMetric: string;
 	observedContextTokens?: number;
 }
 
@@ -89,12 +93,23 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 	constructor(
 		@IStorageService private readonly _storageService: IStorageService,
 		@IOnyxDatasheetService private readonly _datasheetService: IOnyxDatasheetService,
+		@IOnyxContextAllocationService private readonly _allocationService: IOnyxContextAllocationService,
 	) {
 		super();
+		// A context that was just verified, or just undone, is another budget from that moment (B15). What an
+		// overflow taught about the old allocation says nothing about the new one.
+		this._register(this._allocationService.onDidChange(modelKey => {
+			const stats = this._stats.get(modelKey);
+			if (stats?.observedContextTokens !== undefined && this._allocationService.record(modelKey)?.status === 'verified') {
+				stats.observedContextTokens = undefined;
+				this._persistScheduler.schedule();
+			}
+			this._onDidChangeProfiles.fire();
+		}));
 		// A model that has just been measured has another profile from that moment.
 		this._register(this._datasheetService.onDidChange(() => this._onDidChangeProfiles.fire()));
 		this._stats = new Map(Object.entries(this._storageService.getObject<Record<string, Partial<IMutableStats>>>(STATS_STORAGE_KEY, StorageScope.APPLICATION, {}))
-			.map(([key, stored]) => [key, { ...emptyStats(), ...stored }]));
+			.map(([key, stored]) => [key, { ...emptyStats(), ...stored, ...benchRoutingDataForCurrentMetric(stored) }]));
 		this._overrides = new Map(Object.entries(this._storageService.getObject<Record<string, Partial<IOnyxModelProfile>>>(OVERRIDES_STORAGE_KEY, StorageScope.APPLICATION, {})));
 		this._persistScheduler = this._register(new RunOnceScheduler(() => this._persist(), 5000));
 	}
@@ -116,6 +131,20 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		// What was measured for this model replaces what was guessed for it (L5), and says which is which.
 		// The user's own override still has the last word.
 		profile = applyDatasheet(profile, this._datasheetService.current(modelKey, discovered));
+		// A context Onyx asked for is budgeted only when it was verified, and then at the verified number and
+		// no other (B15, R-61). The server's number for the model's own name describes another allocation, and
+		// so does a datasheet measured under it; an overflow learned since still narrows it.
+		const allocation = this._allocationService.inForce(modelKey, discovered);
+		if (allocation) {
+			const observed = this._stats.get(modelKey)?.observedContextTokens;
+			const contextLength = Math.min(allocation.verifiedTokens, discovered.contextLength ?? allocation.verifiedTokens, observed ?? allocation.verifiedTokens);
+			profile = {
+				...profile,
+				contextLength,
+				context: { ...profile.context, requested: allocation.requestedTokens ?? undefined, reported: allocation.reportedTokens ?? undefined, verified: allocation.verifiedTokens, source: contextLength === allocation.verifiedTokens ? 'verified' : 'observed' },
+				...(profile.provenance ? { provenance: { ...profile.provenance, contextLength: 'measured' } } : {}),
+			};
+		}
 		const override = this._overrides.get(modelKey);
 		return override ? { ...profile, ...override } : profile;
 	}
@@ -226,7 +255,7 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 }
 
 function emptyStats(): IMutableStats {
-	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0, benchScores: {}, benchSamples: {} };
+	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0, benchScores: {}, benchSamples: {}, benchMetric: ONYX_BENCH_METRIC };
 }
 
 function ema(previous: number, sample: number): number {

@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { OnyxSimEpisode, SIM_FENCED_REPLY, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
 
 /**
@@ -100,7 +101,11 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		script: script('B2-unasked-check-task', 'Change addNumbers', [
 			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } },
 			{ kind: 'text', text: 'Staged.' },
-		], { dialogDefault: 'deny', projectConfig: { verificationTask: 'test' } }),
+		], {
+			dialogDefault: 'deny', projectConfig: { verificationTask: 'test' },
+			// Since C2 the check runs after an acceptance, on the accepted file as saved: the user accepts and saves.
+			userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }, { at: 'afterRun', occurrence: 2, step: { kind: 'save' } }],
+		}),
 	},
 	{
 		id: 'B4-regex-warnings',
@@ -282,5 +287,148 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 			{ kind: 'toolCall', tool: 'readFile', arguments: { path: 'README.md' } },
 			{ kind: 'toolCall', tool: 'remember', arguments: { note: SIM_INJECTED_NOTE } },
 		], { persona: 'obedient', dialogDefault: 'deny' }),
+	},
+	{
+		id: 'B6-fuzzy-applier',
+		fixedBy: 'B6',
+		defect: 'A SEARCH text that is not in the file was still placed: after trimming each line and re-indenting the replacement, or by its first line alone when that was unique, which replaced lines the model never quoted (Claude H3; R-07, R-33)',
+		detects: 'I-08/inexact-anchor-staged',
+		resurrects: 'OnyxMutantFuzzyApplierChangeSet',
+		script: script('B6-fuzzy-applier', 'Change addNumbers', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: 'export function addNumbers(a: number, b: number): number {\n\treturn a + b + 1;', replace: '\treturn b + a; // edited-by-sim' } },
+		], { persona: 'anchor-liar' }),
+	},
+	{
+		id: 'B6-first-occurrence',
+		fixedBy: 'B6',
+		defect: 'A SEARCH text that occurs more than once was placed at the first of them instead of refused as ambiguous (Claude H4; DEC-07; R-08)',
+		detects: 'I-08/ambiguous-anchor-staged',
+		resurrects: 'OnyxMutantFirstOccurrenceChangeSet',
+		script: script('B6-first-occurrence', 'Close the function', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '}', replace: '} // sim' } },
+		], { persona: 'anchor-liar' }),
+	},
+	{
+		id: 'B7-index-accept',
+		fixedBy: 'B7',
+		defect: 'A hunk was accepted by its place in the list: after the user changed the lines of the first hunk, accepting what was shown as the first hunk applied the one that had moved into its place (Codex N2; R-12)',
+		detects: 'I-09/accepted-content-missing',
+		resurrects: 'OnyxMutantIndexAcceptChangeSet',
+		script: script('B7-index-accept', 'Change both functions', [
+			{
+				kind: 'toolCalls', calls: [
+					{ tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a; // hunk 0' }, id: 'edit_1' },
+					{ tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a * b;', replace: '\treturn b * a; // hunk 1' }, id: 'edit_2' },
+				],
+			},
+			{ kind: 'text', text: 'Staged two hunks.' },
+		], {
+			userSteps: [
+				// The user changes the very line hunk 0 replaces, then accepts what is still shown as hunk 0.
+				{ at: 'afterRun', occurrence: 2, step: { kind: 'typeInTarget', text: '/* mine */', line: 2 } },
+				{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptHunk', path: 'src/math.ts', hunk: 0 } },
+			],
+		}),
+	},
+	{
+		id: 'B7-no-size-guard',
+		fixedBy: 'B7',
+		defect: 'A proposal of any size was diffed and staged: nothing refused one above the documented bound before the quadratic line diff ran (C9; R-38)',
+		detects: 'I-13/oversized-proposal',
+		resurrects: 'OnyxMutantNoSizeGuardChangeSet',
+		script: script('B7-no-size-guard', 'Fill the function', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: 'y\n'.repeat(20_001) } },
+		], { persona: 'flooder', dialogDefault: 'deny' }),
+	},
+	{
+		id: 'C10-write-through-link',
+		fixedBy: 'C10',
+		defect: 'The write side never asked where a file really is: an edit to a symbolic link that leaves the workspace was staged, and accepting it wrote outside the workspace (R-30, write side)',
+		detects: 'I-07/write-through-link',
+		resurrects: 'OnyxMutantWriteThroughLinkChangeSet',
+		script: script('C10-write-through-link', 'Update the linked file', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: SIM_LINK_PATH, search: SIM_OUTSIDE_CANARY, replace: 'overwritten by the model' } },
+			{ kind: 'text', text: 'Done.' },
+		], { persona: 'schema-violator', dialogDefault: 'deny' }),
+	},
+	{
+		id: 'L6-always-grounded',
+		fixedBy: 'L6',
+		defect: 'A certificate that says "seen this turn" of an edit whose quoted text the model had not been sent: the one observation a certificate adds, reported as true whatever happened (R-46)',
+		detects: 'R-46/certificate-contradicts-journal',
+		resurrects: 'OnyxMutantAlwaysGroundedChangeSet',
+		// The read result is evicted by four floods of command output before the model edits the line it read.
+		script: script('L6-always-grounded', 'Swap the operands in clamp', [
+			{ kind: 'toolCall', tool: 'readFile', arguments: { path: 'src/util.ts' }, id: 'read_1' },
+			...Array.from({ length: 4 }, (_, index): OnyxSimEpisode['turns'][number] => ({ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' }, id: `test_${index}` })),
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/util.ts', search: '\treturn Math.min(max, Math.max(min, value));', replace: '\treturn Math.max(min, Math.min(max, value));' }, id: 'edit_1' },
+			{ kind: 'text', text: 'Staged one edit.' },
+		], {
+			dialogDefault: 'allow-once',
+			profile: { promptStyle: 'compact', contextLength: 4096, maxTools: 8 },
+			faults: Array.from({ length: 4 }, (_, index) => ({ at: 'afterToolDispatch' as const, occurrence: index + 2, step: { kind: 'outputFlood' as const, bytes: 20_000 } })),
+		}),
+	},
+	{
+		id: 'B8-deletion-leaves-line',
+		fixedBy: 'B8',
+		defect: 'A deleted line was replaced by nothing and its line break stayed, so an accepted deletion left an empty line and the buffer was not the proposal (Codex N3; R-13)',
+		detects: 'I-09/accepted-buffer-differs',
+		resurrects: 'OnyxMutantDeletionLeavesLineChangeSet',
+		script: script('B8-deletion-leaves-line', 'Remove multiply', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: 'export function multiply(a: number, b: number): number {\n\treturn a * b;\n}\n\n', replace: '' }, id: 'edit_1' },
+			{ kind: 'text', text: 'Staged the removal.' },
+		], { userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }] }),
+	},
+	{
+		id: 'B9-inline-apply-before-review',
+		fixedBy: 'B9',
+		defect: 'An inline edit wrote the model\'s reply into the buffer and reviewed it afterwards, so model-authored text was in the file, and in what an autosave wrote, before any accept (R-34)',
+		detects: 'I-01/buffer',
+		resurrects: 'OnyxMutantApplyBeforeReviewInlineSession',
+		script: script('B9-inline-apply-before-review', 'What does addNumbers do?', [
+			{ kind: 'text', text: 'It adds two numbers.' },
+		], { userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'inlineEdit', startLine: 1, endLine: 3, reply: '<<<<<<< SEARCH\n\treturn a + b;\n=======\n\treturn b + a; // inline\n>>>>>>> REPLACE' } }] }),
+	},
+	{
+		id: 'B10-stop-does-not-cancel',
+		fixedBy: 'B10',
+		defect: 'Stop set a status and released the pause gate; the inference token and the running tool were not cancelled, so the turn in flight still ran its command (Codex N5; R-15)',
+		detects: 'I-05/command-after-stop',
+		resurrects: 'OnyxMutantStopOnlyFlipsStatusControlPlane',
+		script: script('B10-stop-does-not-cancel', 'List the folder', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'ls src' } },
+		], { userSteps: [{ at: 'beforeToolDispatch', occurrence: 1, step: { kind: 'stop' } }] }),
+	},
+	{
+		id: 'B10-status-overwritten',
+		fixedBy: 'B10',
+		defect: 'A terminal status could be replaced: Stop set `cancelled`, and the loop then recorded `completed` when the stream ended (Codex N5; R-15)',
+		detects: 'I-03/status-overwritten',
+		resurrects: 'OnyxMutantStopOnlyFlipsStatusControlPlane',
+		script: script('B10-status-overwritten', 'What does it do?', [
+			{ kind: 'text', text: 'Done.' },
+		], { dialogDefault: 'dismiss', userSteps: [{ at: 'betweenChunks', occurrence: 1, step: { kind: 'stop' } }] }),
+	},
+	{
+		id: 'B10-pause-without-budget',
+		fixedBy: 'B10',
+		defect: 'A run the user paused and did not resume never ended on its own: a pause had no time budget (Codex N5; I-03)',
+		detects: 'I-03/no-time-budget',
+		resurrects: 'OnyxMutantPauseWithoutBudgetControlPlane',
+		script: script('B10-pause-without-budget', 'Run the checks', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
+		], { dialogDefault: 'deny', userSteps: [{ at: 'betweenChunks', occurrence: 3, step: { kind: 'pause' } }] }),
+	},
+	{
+		id: 'C2-verdict-before-acceptance',
+		fixedBy: 'C2',
+		defect: 'Verification ran when a tool-using turn ended, before anything was accepted: a run that had only staged an edit reported "no new problems" of files that did not hold it (Codex N6; R-21)',
+		detects: 'R-21/verdict-before-acceptance',
+		resurrects: 'OnyxMutantVerdictBeforeAcceptanceLoop',
+		script: script('C2-verdict-before-acceptance', 'Change addNumbers', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } },
+			{ kind: 'text', text: 'Staged.' },
+		]),
 	},
 ];

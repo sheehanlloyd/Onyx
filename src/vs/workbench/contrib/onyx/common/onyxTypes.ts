@@ -29,7 +29,7 @@ export interface IOnyxModelProfile {
 	/** The context to budget against, in tokens: the smallest of the numbers in `context` (B13). */
 	readonly contextLength: number;
 	/** Where `contextLength` came from: what the architecture allows, what the server allocates, what was observed to fit. */
-	readonly context?: { readonly architectural?: number; readonly serverConfigured?: number; readonly observed?: number; readonly measured?: number; readonly source: 'measured' | 'observed' | 'server' | 'architectural' | 'default' };
+	readonly context?: { readonly architectural?: number; readonly serverConfigured?: number; readonly observed?: number; readonly measured?: number; /** What Onyx asked the runtime for, what it reported and what a probe verified, when a requested context is in force (B15). */ readonly requested?: number; readonly reported?: number; readonly verified?: number; readonly source: 'verified' | 'measured' | 'observed' | 'server' | 'architectural' | 'default' };
 	/** Maximum number of tools to expose in a single request. */
 	readonly maxTools: number;
 	readonly temperature: number;
@@ -85,11 +85,28 @@ export interface IOnyxObservedStats {
 export interface IOnyxRunEvent {
 	/** Milliseconds since the run started. */
 	readonly t: number;
-	readonly kind: 'promptSnapshot' | 'firstToken' | 'toolCall' | 'toolResult' | 'turn' | 'outcome' | 'note' | 'trace' | 'traceTurn' | 'approval' | 'acceptance';
+	readonly kind: 'promptSnapshot' | 'firstToken' | 'toolCall' | 'toolResult' | 'turn' | 'outcome' | 'note' | 'trace' | 'traceTurn' | 'approval' | 'acceptance' | 'editCertificate' | 'editCertificateOutcome';
 	readonly data: unknown;
 }
 
-export type OnyxRunStatus = 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+/**
+ * `budget-exhausted` is a terminal status of its own (B10): the run was ended
+ * by its turn cap or its time budget, not by finishing and not by the user.
+ */
+export type OnyxRunStatus = 'running' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'budget-exhausted';
+
+/** The statuses a run ends in. The first one a run reaches is its status; nothing replaces it (I-03). */
+export type OnyxTerminalRunStatus = Extract<OnyxRunStatus, 'completed' | 'failed' | 'cancelled' | 'budget-exhausted'>;
+
+export function isTerminalRunStatus(status: string): status is OnyxTerminalRunStatus {
+	return status === 'completed' || status === 'failed' || status === 'cancelled' || status === 'budget-exhausted';
+}
+
+/** How long a run may wait, in milliseconds (B10, I-03). */
+export const ONYX_RUN_BUDGET = {
+	/** A paused run that is not resumed ends as `budget-exhausted` after this long. */
+	pausedMs: 10 * 60 * 1000,
+} as const;
 
 /** Summary of a run, as listed in the journal index and the timeline view. */
 export interface IOnyxRunSummary {

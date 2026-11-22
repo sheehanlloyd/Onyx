@@ -9,7 +9,7 @@ import { runWithFakedTimers } from '../../../../../base/test/common/timeTravelSc
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { decodeNumberedSearch, formatNumberedLines, ONYX_GREP_MAX_MATCHES, ONYX_GREP_MAX_MATCHES_PER_FILE, ONYX_READ_FILE_MAX_BYTES, ONYX_READ_FILE_MAX_LINES, replacementCarriesNumbering, resolveLineRange, splitLines } from '../../common/onyxReadTools.js';
 import { workspacePathProblem } from '../../common/onyxWorkspacePaths.js';
-import { SIM_OUTSIDE_CANARY } from './sim/onyxSimCanary.js';
+import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY } from './sim/onyxSimCanary.js';
 import { OnyxSimEpisode, SIM_FILES, SIM_TARGET_FILE } from './sim/onyxSimEpisode.js';
 import { OnyxSimRig } from './sim/onyxSimRig.js';
 
@@ -114,10 +114,29 @@ suite('OnyxReadTools', () => {
 		});
 	});
 
-	test('R-30, read side: a path that could leave the workspace is refused before anything is resolved', () => {
-		assert.deepStrictEqual(
-			['../secret', 'src/../../secret', '/etc/passwd', '~/.ssh/id_rsa', 'C:\\Windows\\win.ini', 'src\\math.ts', 'a..b.ts', 'src/math.ts', '.', ''].map(path => [path, workspacePathProblem(path) === undefined]),
-			[['../secret', false], ['src/../../secret', false], ['/etc/passwd', false], ['~/.ssh/id_rsa', false], ['C:\\Windows\\win.ini', false], ['src\\math.ts', false], ['a..b.ts', false], ['src/math.ts', true], ['.', true], ['', true]]);
+	test('R-30: a path that could leave the workspace is refused before anything is resolved; a file name that merely contains two dots is not (C10)', () => {
+		const allowed = (paths: readonly string[]) => Object.fromEntries(paths.map(path => [path, workspacePathProblem(path) === undefined]));
+		assert.deepStrictEqual({
+			escapes: allowed(['../secret', 'src/../../secret', '..', 'src/..', 'src/../math.ts', '/etc/passwd', '~/.ssh/id_rsa', 'C:\\Windows\\win.ini', 'src\\math.ts', 'src/..\\x', 'a\u0000b']),
+			// Segments of dots and spaces alone are refused too: some file systems read them as the parent or as nothing.
+			dotSegments: allowed(['...', 'src/.../x', '.. ', 'src/ ../x', '. .']),
+			benign: allowed(['a..b.ts', 'src/notes..md', 'v1..v2/diff.txt', '..config', 'src/weird..', '.hidden', 'src/math.ts', '.', '']),
+		}, {
+			escapes: { '../secret': false, 'src/../../secret': false, '..': false, 'src/..': false, 'src/../math.ts': false, '/etc/passwd': false, '~/.ssh/id_rsa': false, 'C:\\Windows\\win.ini': false, 'src\\math.ts': false, 'src/..\\x': false, 'a\u0000b': false },
+			dotSegments: { '...': false, 'src/.../x': false, '.. ': false, 'src/ ../x': false, '. .': false },
+			benign: { 'a..b.ts': true, 'src/notes..md': true, 'v1..v2/diff.txt': true, '..config': true, 'src/weird..': true, '.hidden': true, 'src/math.ts': true, '.': true, '': true },
+		});
+	});
+
+	test('R-30, read side, C10: a file whose name contains two dots is read, listed and found like any other; the escapes stay refused', async () => {
+		const outcome = await withRig({ 'src/a..b.ts': 'export const dotted = 1;\n' }, async rig => ({
+			read: (await rig.invokeTool('readFile', { path: 'src/a..b.ts' })).text,
+			found: (await rig.invokeTool('findFiles', { pattern: 'src/a..b.ts' })).text.includes('src/a..b.ts'),
+			grep: (await rig.invokeTool('grep', { pattern: 'dotted', include: 'src/a..b.ts' })).text.includes('src/a..b.ts'),
+			traversal: (await rig.invokeTool('readFile', { path: 'src/../../outside/secret.txt' })).ok,
+			throughALink: (await rig.invokeTool('readFile', { path: SIM_LINK_PATH })).ok,
+		}));
+		assert.deepStrictEqual(outcome, { read: 'src/a..b.ts (lines 1-1 of 1)\n1| export const dotted = 1;', found: true, grep: true, traversal: false, throughALink: false });
 	});
 
 	test('readFile: numbered lines, ranges, the live buffer, and refusals that name the limit', async () => {
@@ -229,8 +248,10 @@ suite('OnyxReadTools', () => {
 			const scoped = await rig.invokeTool('grep', { pattern: 'export function', include: 'src/util.ts' });
 			const flood = await rig.invokeTool('grep', { pattern: 'needle' });
 			const floodLines = flood.text.split('\n');
+			// Cancelled once the tool is running and its search begins. (A call whose token is already cancelled is
+			// never handed to a tool: the tools service refuses it.)
 			const cancellation = new CancellationTokenSource();
-			cancellation.cancel();
+			rig.search.beforeNextTextSearch = () => cancellation.cancel();
 			const cancelled = await rig.invokeTool('grep', { pattern: 'needle' }, cancellation.token);
 			const cancelledQuery = rig.search.queries[rig.search.queries.length - 1];
 			cancellation.dispose();

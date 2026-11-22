@@ -1,0 +1,368 @@
+{
+	"datasheets": {
+		"qwen2.5-coder:7b": {
+			"version": 2,
+			"model": "qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"measuredAt": "2026-11-21T20:03:11.699Z",
+			"nativeToolCalls": {
+				"successes": 0,
+				"trials": 5
+			},
+			"repairableTextCalls": {
+				"successes": 5,
+				"trials": 5
+			},
+			"schemaEnforced": {
+				"object": {
+					"successes": 3,
+					"trials": 3
+				},
+				"enum": {
+					"successes": 3,
+					"trials": 3
+				},
+				"nested": {
+					"successes": 3,
+					"trials": 3
+				}
+			},
+			"context": {
+				"recalledUpToTokens": 14745,
+				"failedFromTokens": null,
+				"serverReportedTokens": 16384,
+				"requestedTokens": 16384,
+				"verifiedTokens": 16384,
+				"cutObserved": true,
+				"mechanism": "derived-model",
+				"steps": [
+					{
+						"promptTokens": 908,
+						"recalled": true,
+						"sentTokens": 1024,
+						"role": "control"
+					},
+					{
+						"promptTokens": 1776,
+						"recalled": true,
+						"sentTokens": 2048,
+						"role": "control"
+					},
+					{
+						"promptTokens": 3514,
+						"recalled": true,
+						"sentTokens": 4096,
+						"role": "control"
+					},
+					{
+						"promptTokens": 6989,
+						"recalled": true,
+						"sentTokens": 8192,
+						"role": "control"
+					},
+					{
+						"promptTokens": 13939,
+						"recalled": true,
+						"sentTokens": 16384,
+						"role": "control"
+					},
+					{
+						"promptTokens": 14745,
+						"recalled": true,
+						"sentTokens": 17332,
+						"role": "inside"
+					},
+					{
+						"promptTokens": 20480,
+						"recalled": false,
+						"sentTokens": 24073,
+						"role": "past"
+					}
+				]
+			},
+			"outputCapHonoured": {
+				"successes": 3,
+				"trials": 3
+			},
+			"stopHonoured": {
+				"successes": 3,
+				"trials": 3
+			},
+			"reasoning": {
+				"style": "none",
+				"replies": {
+					"successes": 0,
+					"trials": 3
+				}
+			},
+			"seedRepeatable": {
+				"successes": 3,
+				"trials": 3
+			},
+			"logprobs": {
+				"successes": 3,
+				"trials": 3
+			},
+			"speed": {
+				"coldFirstTokenMs": 1208,
+				"warmFirstTokenMs": 91.5,
+				"tokensPerSecond": 49.79060027919963
+			},
+			"unmeasured": []
+		},
+		"qwen2.5-coder:1.5b": {
+			"version": 2,
+			"model": "qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"measuredAt": "2026-11-21T20:04:06.596Z",
+			"nativeToolCalls": {
+				"successes": 0,
+				"trials": 5
+			},
+			"repairableTextCalls": {
+				"successes": 0,
+				"trials": 5
+			},
+			"schemaEnforced": {
+				"object": {
+					"successes": 3,
+					"trials": 3
+				},
+				"enum": {
+					"successes": 3,
+					"trials": 3
+				},
+				"nested": {
+					"successes": 3,
+					"trials": 3
+				}
+			},
+			"context": {
+				"recalledUpToTokens": 14745,
+				"failedFromTokens": null,
+				"serverReportedTokens": 16384,
+				"requestedTokens": 16384,
+				"verifiedTokens": 16384,
+				"cutObserved": true,
+				"mechanism": "derived-model",
+				"steps": [
+					{
+						"promptTokens": 908,
+						"recalled": true,
+						"sentTokens": 1024,
+						"role": "control"
+					},
+					{
+						"promptTokens": 1776,
+						"recalled": true,
+						"sentTokens": 2048,
+						"role": "control"
+					},
+					{
+						"promptTokens": 3514,
+						"recalled": true,
+						"sentTokens": 4096,
+						"role": "control"
+					},
+					{
+						"promptTokens": 6989,
+						"recalled": true,
+						"sentTokens": 8192,
+						"role": "control"
+					},
+					{
+						"promptTokens": 13939,
+						"recalled": true,
+						"sentTokens": 16384,
+						"role": "control"
+					},
+					{
+						"promptTokens": 14745,
+						"recalled": true,
+						"sentTokens": 17332,
+						"role": "inside"
+					},
+					{
+						"promptTokens": 20480,
+						"recalled": false,
+						"sentTokens": 24073,
+						"role": "past"
+					}
+				]
+			},
+			"outputCapHonoured": {
+				"successes": 3,
+				"trials": 3
+			},
+			"stopHonoured": {
+				"successes": 3,
+				"trials": 3
+			},
+			"reasoning": {
+				"style": "none",
+				"replies": {
+					"successes": 0,
+					"trials": 3
+				}
+			},
+			"seedRepeatable": {
+				"successes": 3,
+				"trials": 3
+			},
+			"logprobs": {
+				"successes": 3,
+				"trials": 3
+			},
+			"speed": {
+				"coldFirstTokenMs": 651,
+				"warmFirstTokenMs": 28,
+				"tokensPerSecond": 149.33058702368692
+			},
+			"unmeasured": []
+		}
+	},
+	"descriptions": {
+		"qwen2.5-coder:7b": [
+			"Tool calls: 0 of 5 on the tool channel; 5 of 5 of the rest readable as text",
+			"Schema enforced: object 3 of 3, enum 3 of 3, nested 3 of 3",
+			"Context: 16384 tokens verified (requested 16384, reported 16384); a prompt past it lost its start",
+			"Output cap honoured 3 of 3; stop honoured 3 of 3",
+			"Reasoning: none seen (0 of 3 replies)",
+			"Same seed, same reply: 3 of 3; log-probabilities returned: 3 of 3",
+			"First token: 1208 ms cold, 92 ms warm; 49.8 tokens a second"
+		],
+		"qwen2.5-coder:1.5b": [
+			"Tool calls: 0 of 5 on the tool channel; 0 of 5 of the rest readable as text",
+			"Schema enforced: object 3 of 3, enum 3 of 3, nested 3 of 3",
+			"Context: 16384 tokens verified (requested 16384, reported 16384); a prompt past it lost its start",
+			"Output cap honoured 3 of 3; stop honoured 3 of 3",
+			"Reasoning: none seen (0 of 3 replies)",
+			"Same seed, same reply: 3 of 3; log-probabilities returned: 3 of 3",
+			"First token: 651 ms cold, 28 ms warm; 149.3 tokens a second"
+		]
+	},
+	"allocations": {
+		"qwen2.5-coder:7b": {
+			"status": "verified",
+			"mechanism": "derived-model",
+			"alias": "qwen2.5-coder:7b-onyx-ctx16384",
+			"previousTokens": 4096,
+			"requestedTokens": 16384,
+			"limitedBy": "setting",
+			"memoryCeilingTokens": 83433,
+			"trainedTokens": 32768,
+			"reportedTokens": 16384,
+			"verifiedTokens": 16384,
+			"cutObserved": true,
+			"steps": [
+				{
+					"role": "control",
+					"sentTokens": 2048,
+					"promptTokens": 1776,
+					"recalled": true
+				},
+				{
+					"role": "inside",
+					"sentTokens": 17004,
+					"promptTokens": 14466,
+					"recalled": true
+				},
+				{
+					"role": "past",
+					"sentTokens": 23617,
+					"promptTokens": 8194,
+					"recalled": false
+				}
+			],
+			"undo": "ollama rm qwen2.5-coder:7b-onyx-ctx16384"
+		},
+		"qwen2.5-coder:1.5b": {
+			"status": "verified",
+			"mechanism": "derived-model",
+			"alias": "qwen2.5-coder:1.5b-onyx-ctx16384",
+			"previousTokens": 4096,
+			"requestedTokens": 16384,
+			"limitedBy": "setting",
+			"memoryCeilingTokens": 121041,
+			"trainedTokens": 32768,
+			"reportedTokens": 16384,
+			"verifiedTokens": 16384,
+			"cutObserved": true,
+			"steps": [
+				{
+					"role": "control",
+					"sentTokens": 2048,
+					"promptTokens": 1776,
+					"recalled": true
+				},
+				{
+					"role": "inside",
+					"sentTokens": 17004,
+					"promptTokens": 14466,
+					"recalled": true
+				},
+				{
+					"role": "past",
+					"sentTokens": 23617,
+					"promptTokens": 8194,
+					"recalled": false
+				}
+			],
+			"undo": "ollama rm qwen2.5-coder:1.5b-onyx-ctx16384"
+		}
+	},
+	"performance": {
+		"qwen2.5-coder:7b": {
+			"serverAllocation": {
+				"wireModel": "qwen2.5-coder:7b",
+				"reportedContextTokens": 4096,
+				"loadedBytes": 4740716952,
+				"runtimeRssIdleBytes": 4960960512,
+				"runtimeRssPeakBytes": 4966187008,
+				"coldFirstTokenMs": 2725,
+				"warmFirstTokenMs": 149,
+				"tokensPerSecond": 50.2
+			},
+			"requestedContext": {
+				"wireModel": "qwen2.5-coder:7b-onyx-ctx16384",
+				"reportedContextTokens": 16384,
+				"loadedBytes": 5605802638,
+				"runtimeRssIdleBytes": 5764612096,
+				"runtimeRssPeakBytes": 5765890048,
+				"coldFirstTokenMs": 1206,
+				"warmFirstTokenMs": 148,
+				"tokensPerSecond": 48.7
+			}
+		},
+		"qwen2.5-coder:1.5b": {
+			"serverAllocation": {
+				"wireModel": "qwen2.5-coder:1.5b",
+				"reportedContextTokens": 4096,
+				"loadedBytes": 1163080498,
+				"runtimeRssIdleBytes": 1245331456,
+				"runtimeRssPeakBytes": 1246003200,
+				"coldFirstTokenMs": 1112,
+				"warmFirstTokenMs": 40,
+				"tokensPerSecond": 167.2
+			},
+			"requestedContext": {
+				"wireModel": "qwen2.5-coder:1.5b-onyx-ctx16384",
+				"reportedContextTokens": 16384,
+				"loadedBytes": 1606114344,
+				"runtimeRssIdleBytes": 1615298560,
+				"runtimeRssPeakBytes": 1615888384,
+				"coldFirstTokenMs": 594,
+				"warmFirstTokenMs": 40,
+				"tokensPerSecond": 166.7
+			}
+		}
+	}
+}

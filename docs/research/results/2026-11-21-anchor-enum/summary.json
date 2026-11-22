@@ -1,0 +1,381 @@
+{
+	"what": "Constrained anchors (L7): time to the first token of a constrained turn against the size of the enumeration in its schema. The prompt is the same at every size.",
+	"commit": "cbb66608f295b8759832e85af1c0e9ac4ee3248d",
+	"runtime": {
+		"name": "ollama",
+		"version": "0.33.0"
+	},
+	"product": {
+		"maxAnchors": 400,
+		"maxChars": 24000
+	},
+	"trials": 3,
+	"models": [
+		{
+			"model": {
+				"identifier": "ollama:qwen2.5-coder:7b",
+				"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364"
+			},
+			"machine": {
+				"cpu": "Apple M4 Pro",
+				"memoryGiB": 24,
+				"cores": 14,
+				"loadAverageAtStart": 2.92,
+				"loadAverageAtEnd": 3.79
+			},
+			"bySize": [
+				{
+					"size": 0,
+					"enumChars": 0,
+					"firstTokenMs": [
+						28,
+						24,
+						24
+					],
+					"firstTrialFirstTokenMs": 28,
+					"bestFirstTokenMs": 24,
+					"totalMs": [
+						719,
+						713,
+						717
+					],
+					"actions": [
+						"tool",
+						"tool",
+						"tool"
+					],
+					"editsWithAnchorsOnTheList": "0/0",
+					"editsOfTheLineAsked": "0/0",
+					"errors": []
+				},
+				{
+					"size": 50,
+					"enumChars": 930,
+					"firstTokenMs": [
+						795,
+						24,
+						25
+					],
+					"firstTrialFirstTokenMs": 795,
+					"bestFirstTokenMs": 24,
+					"totalMs": [
+						1731,
+						973,
+						977
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				},
+				{
+					"size": 100,
+					"enumChars": 1880,
+					"firstTokenMs": [
+						25,
+						24,
+						24
+					],
+					"firstTrialFirstTokenMs": 25,
+					"bestFirstTokenMs": 24,
+					"totalMs": [
+						1013,
+						997,
+						1010
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				},
+				{
+					"size": 200,
+					"enumChars": 3980,
+					"firstTokenMs": [
+						24,
+						24,
+						24
+					],
+					"firstTrialFirstTokenMs": 24,
+					"bestFirstTokenMs": 24,
+					"totalMs": [
+						1051,
+						1048,
+						1057
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				},
+				{
+					"size": 400,
+					"enumChars": 8180,
+					"firstTokenMs": [
+						25,
+						26,
+						24
+					],
+					"firstTrialFirstTokenMs": 25,
+					"bestFirstTokenMs": 24,
+					"totalMs": [
+						1147,
+						1173,
+						1157
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				},
+				{
+					"size": 800,
+					"enumChars": 16580,
+					"firstTokenMs": [
+						27,
+						26,
+						27
+					],
+					"firstTrialFirstTokenMs": 27,
+					"bestFirstTokenMs": 26,
+					"totalMs": [
+						1368,
+						1367,
+						1391
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				},
+				{
+					"size": 1600,
+					"enumChars": 34580,
+					"firstTokenMs": [
+						31,
+						32,
+						35
+					],
+					"firstTrialFirstTokenMs": 31,
+					"bestFirstTokenMs": 31,
+					"totalMs": [
+						1819,
+						1823,
+						1817
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				}
+			]
+		},
+		{
+			"model": {
+				"identifier": "ollama:qwen2.5-coder:1.5b",
+				"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668"
+			},
+			"machine": {
+				"cpu": "Apple M4 Pro",
+				"memoryGiB": 24,
+				"cores": 14,
+				"loadAverageAtStart": 3.79,
+				"loadAverageAtEnd": 4.33
+			},
+			"bySize": [
+				{
+					"size": 0,
+					"enumChars": 0,
+					"firstTokenMs": [
+						10,
+						9,
+						9
+					],
+					"firstTrialFirstTokenMs": 10,
+					"bestFirstTokenMs": 9,
+					"totalMs": [
+						169,
+						168,
+						168
+					],
+					"actions": [
+						"tool",
+						"tool",
+						"tool"
+					],
+					"editsWithAnchorsOnTheList": "0/0",
+					"editsOfTheLineAsked": "0/0",
+					"errors": []
+				},
+				{
+					"size": 50,
+					"enumChars": 930,
+					"firstTokenMs": [
+						177,
+						10,
+						10
+					],
+					"firstTrialFirstTokenMs": 177,
+					"bestFirstTokenMs": 10,
+					"totalMs": [
+						502,
+						329,
+						327
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				},
+				{
+					"size": 100,
+					"enumChars": 1880,
+					"firstTokenMs": [
+						10,
+						10,
+						10
+					],
+					"firstTrialFirstTokenMs": 10,
+					"bestFirstTokenMs": 10,
+					"totalMs": [
+						351,
+						352,
+						359
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				},
+				{
+					"size": 200,
+					"enumChars": 3980,
+					"firstTokenMs": [
+						10,
+						10,
+						10
+					],
+					"firstTrialFirstTokenMs": 10,
+					"bestFirstTokenMs": 10,
+					"totalMs": [
+						416,
+						409,
+						407
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				},
+				{
+					"size": 400,
+					"enumChars": 8180,
+					"firstTokenMs": [
+						11,
+						11,
+						11
+					],
+					"firstTrialFirstTokenMs": 11,
+					"bestFirstTokenMs": 11,
+					"totalMs": [
+						518,
+						525,
+						501
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				},
+				{
+					"size": 800,
+					"enumChars": 16580,
+					"firstTokenMs": [
+						13,
+						15,
+						13
+					],
+					"firstTrialFirstTokenMs": 13,
+					"bestFirstTokenMs": 13,
+					"totalMs": [
+						723,
+						726,
+						710
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				},
+				{
+					"size": 1600,
+					"enumChars": 34580,
+					"firstTokenMs": [
+						17,
+						19,
+						17
+					],
+					"firstTrialFirstTokenMs": 17,
+					"bestFirstTokenMs": 17,
+					"totalMs": [
+						1095,
+						1118,
+						1115
+					],
+					"actions": [
+						"edit",
+						"edit",
+						"edit"
+					],
+					"editsWithAnchorsOnTheList": "3/3",
+					"editsOfTheLineAsked": "3/3",
+					"errors": []
+				}
+			]
+		}
+	]
+}

@@ -170,12 +170,24 @@ jobs:
         env:
           DISPLAY: ':10'
 
+      # L8, R-48: every recorded run under test/onyx/traces is replayed
+      # through the harness as it is on this commit and has to produce the
+      # events it recorded. A failure prints the first divergence. Fix the
+      # regression, or record the new expected trace with a reason
+      # (test/onyx/README.md, "Trace conformance replay"). The unit step above
+      # runs these too; they are a step of their own so that a change of
+      # behaviour is named as one.
+      - name: Trace conformance replay
+        run: ./scripts/test.sh --grep "OnyxTraceReplay"
+        env:
+          DISPLAY: ':10'
+
       # The full end-to-end run: two mock runtimes (Ollama and LM Studio
       # flavored) plus a real workbench under Xvfb. It drives chat, tools,
       # autocomplete, the model library, commit messages, review, both code
       # actions, staged edits (Onyx Changes), the gated terminal tool, the
       # offline docs mirror, playbooks, run resume, the refactor engine, the
-      # repo benchmark, speculative decoding and the architecture map — 57
+      # repo benchmark, speculative decoding and the architecture map — 66
       # checks asserted on the run journal and the live DOM. It runs on every
       # push and pull request (A7): the editor is driven through commands,
       # Quick Open, DOM focus and the keyboard, never through synthesized
@@ -206,6 +218,9 @@ jobs:
         run: node --test --test-concurrency=1 "test/onyx/checks/*.test.mts"
         env:
           DISPLAY: ':10'
+          # R-29's time targets are for the reference machine (docs/progress/C9.md).
+          # A shared runner checks the memory targets and the hunks, not the time.
+          ONYX_R29_SKIP_TIME: '1'
 
       - name: Upload end-to-end diagnostics
         if: failure()

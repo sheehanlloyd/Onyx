@@ -5,7 +5,6 @@
 
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { HierarchicalKind } from '../../../../../base/common/hierarchicalKind.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
@@ -24,7 +23,6 @@ import { rename } from '../../../../../editor/contrib/rename/browser/rename.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IMarkerService, MarkerSeverity } from '../../../../../platform/markers/common/markers.js';
 import { INotificationService, Severity } from '../../../../../platform/notification/common/notification.js';
 import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
@@ -45,9 +43,9 @@ const EXTRACTION_PLACEHOLDERS = ['newFunction', 'newMethod', 'newLocal'];
  * The multi-file refactor engine. The language services do every mechanical
  * edit — rename sites, extraction — because they are correct across files;
  * the local model only proposes names. Every resulting edit is STAGED into
- * Onyx Changes for per-file, per-hunk review, and after the user accepts, a
- * verification pass compares the workspace's error markers against the
- * pre-refactor baseline and says what changed.
+ * Onyx Changes for per-file, per-hunk review. What is accepted is verified
+ * the way every acceptance is (C2): the diagnostics of each accepted file,
+ * compared problem by problem with those from just before, on the timeline.
  */
 export class OnyxRefactorEngine {
 
@@ -61,7 +59,6 @@ export class OnyxRefactorEngine {
 		@IEditorService private readonly _editorService: IEditorService,
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@IMarkerService private readonly _markerService: IMarkerService,
 	) { }
 
 	async renameSymbol(): Promise<void> {
@@ -170,6 +167,7 @@ export class OnyxRefactorEngine {
 		const startLine = Math.max(1, aroundLine - SNIPPET_LINES / 2);
 		const snippet = model.getValueInRange(new Range(startLine, 1, Math.min(model.getLineCount(), startLine + SNIPPET_LINES), 1));
 
+		const cancellation = new CancellationTokenSource();
 		const handle = this._controlPlaneService.beginRun({
 			sessionResource: URI.from({ scheme: 'onyx-refactor', path: `/${generateUuid()}` }),
 			requestId: generateUuid(),
@@ -178,8 +176,8 @@ export class OnyxRefactorEngine {
 				: localize('onyx.refactor.extractRun', "Name for extracted function"),
 			task: 'quick-edit',
 			modelKey: 'auto',
+			token: cancellation.token,
 		});
-		const cancellation = new CancellationTokenSource();
 		let suggestions: { name: string; reason: string }[] = [];
 		try {
 			const reply = await runOneShot(
@@ -235,7 +233,6 @@ export class OnyxRefactorEngine {
 			byResource.set(key, group);
 		}
 
-		const baseline = this._markerService.read({ severities: MarkerSeverity.Error }).length;
 		const stagedPaths: string[] = [];
 		for (const group of byResource.values()) {
 			const folder = this._workspaceService.getWorkspaceFolder(group.uri);
@@ -269,39 +266,12 @@ export class OnyxRefactorEngine {
 			return;
 		}
 
-		// The verification pass: once every staged file has been applied (or the
-		// listener times out), compare error markers against the baseline.
-		this._watchForVerification(new Set(stagedPaths), baseline, title);
 		this._notificationService.notify({
 			severity: Severity.Info,
 			message: stagedPaths.length === 1
 				? localize('onyx.refactor.staged.one', "{0}: 1 file staged in Onyx Changes — review and accept there.", title)
 				: localize('onyx.refactor.staged', "{0}: {1} files staged in Onyx Changes — review and accept there.", title, stagedPaths.length),
 		});
-	}
-
-	private _watchForVerification(paths: Set<string>, baselineErrors: number, title: string): void {
-		const store = new DisposableStore();
-		const timeout = setTimeout(() => store.dispose(), 10 * 60_000);
-		store.add({ dispose: () => clearTimeout(timeout) });
-		store.add(this._changeSetService.onDidApply(({ path }) => {
-			paths.delete(path);
-			if (paths.size > 0) {
-				return;
-			}
-			// Give the language services a beat to re-check, then report honestly.
-			setTimeout(() => {
-				const errors = this._markerService.read({ severities: MarkerSeverity.Error }).length;
-				const delta = errors - baselineErrors;
-				this._notificationService.notify({
-					severity: delta > 0 ? Severity.Warning : Severity.Info,
-					message: delta > 0
-						? localize('onyx.refactor.verifyBad', "{0} applied — {1} new error(s) appeared. Check the Problems panel.", title, delta)
-						: localize('onyx.refactor.verifyOk', "{0} applied and verified: no new errors.", title),
-				});
-				store.dispose();
-			}, 1500);
-		}));
 	}
 
 	private _activeEditorContext(): { editor: ICodeEditor; model: ITextModel; position: Position; selection: Selection | undefined } | undefined {

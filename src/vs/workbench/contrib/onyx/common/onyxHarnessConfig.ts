@@ -37,7 +37,11 @@ export interface IOnyxHarnessConfig {
 	 * behind it.
 	 */
 	readonly toolCallProtocol: OnyxToolCallProtocol;
-	/** How the model proposes an edit. Search and replace is the only protocol until constrained anchors exist (L7). */
+	/**
+	 * How the model proposes an edit. `search-replace`: quoted text and its replacement. `constrained-anchors`
+	 * (L7, experimental, a lab arm only): in a constrained turn the model may also name the first and last
+	 * line to replace, chosen from an enumeration of the lines it was shown this turn.
+	 */
 	readonly editProtocol: OnyxEditProtocol;
 	/** How much the prompt says, and how much history and workspace context it carries. */
 	readonly promptStyle: OnyxPromptStyle;
@@ -60,7 +64,7 @@ export interface IOnyxHarnessConfig {
 }
 
 export type OnyxToolCallProtocol = 'native' | 'repaired-text' | 'constrained-envelope';
-export type OnyxEditProtocol = 'search-replace';
+export type OnyxEditProtocol = 'search-replace' | 'constrained-anchors';
 export type OnyxEvictionPolicy = 'oldest-results-first';
 export type OnyxToolSlotPolicy = 'essentials-first';
 
@@ -145,8 +149,10 @@ function applyRequest(base: IOnyxHarnessConfig, requested: unknown): { readonly 
 				break;
 			}
 			case 'editProtocol':
-				if (value !== 'search-replace') {
-					problems.push('editProtocol must be search-replace: no other edit protocol exists yet');
+				if (value === 'search-replace' || value === 'constrained-anchors') {
+					configuration = { ...configuration, editProtocol: value };
+				} else {
+					problems.push('editProtocol must be one of search-replace, constrained-anchors');
 				}
 				break;
 			case 'promptStyle': {

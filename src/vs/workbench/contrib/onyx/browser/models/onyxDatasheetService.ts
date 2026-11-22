@@ -11,6 +11,7 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { IOnyxDiscoveredModel, IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { datasheetStaleness, IOnyxDatasheet } from '../../common/onyxDatasheet.js';
+import { IOnyxContextAllocationService } from './onyxContextAllocationService.js';
 import { OnyxProbeName, OnyxRuntimeProbeTransport, runDatasheetProbes } from '../../common/onyxDatasheetProbes.js';
 
 export const IOnyxDatasheetService = createDecorator<IOnyxDatasheetService>('onyxDatasheetService');
@@ -59,11 +60,12 @@ export class OnyxDatasheetService extends Disposable implements IOnyxDatasheetSe
 	constructor(
 		@IStorageService private readonly _storageService: IStorageService,
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
+		@IOnyxContextAllocationService private readonly _allocationService: IOnyxContextAllocationService,
 	) {
 		super();
 		this._datasheets = new Map(Object.entries(this._storageService.getObject<Record<string, IOnyxDatasheet>>(STORAGE_KEY, StorageScope.APPLICATION, {}))
 			// Anything that is not a datasheet in this format is left out: a later format reads its own.
-			.filter(([, datasheet]) => datasheet?.version === 1 && typeof datasheet.model === 'string'));
+			.filter(([, datasheet]) => datasheet?.version === 2 && typeof datasheet.model === 'string'));
 	}
 
 	current(modelKey: string, discovered: IOnyxDiscoveredModel): IOnyxDatasheet | undefined {
@@ -79,32 +81,36 @@ export class OnyxDatasheetService extends Disposable implements IOnyxDatasheetSe
 	async measure(target: IOnyxDatasheetTarget, token: CancellationToken, onProgress?: (probe: OnyxProbeName, done: number, total: number) => void): Promise<IOnyxDatasheet> {
 		const { discovered } = target;
 		// Whether the model is in memory before anything is sent decides whether the first reply is a cold one.
-		const loadedBefore = await this._loaded(discovered);
-		const transport = new OnyxRuntimeProbeTransport(this._runtimeService, { baseUrl: discovered.baseUrl, apiKey: target.apiKey, model: discovered.id }, `onyx-datasheet-${generateUuid()}`);
+		// The model is measured as requests reach it: under the alias, at the requested context, when one is in force (B15).
+		const allocation = this._allocationService.inForce(target.modelKey, discovered);
+		const wireModel = allocation?.alias ?? discovered.id;
+		const loadedBefore = await this._loaded(discovered, wireModel);
+		const transport = new OnyxRuntimeProbeTransport(this._runtimeService, { baseUrl: discovered.baseUrl, apiKey: target.apiKey, model: wireModel }, `onyx-datasheet-${generateUuid()}`);
 		const datasheet = await runDatasheetProbes(transport, {
 			model: discovered.id,
 			digest: discovered.digest,
 			runtime: discovered.runtime,
 			runtimeVersion: discovered.runtimeVersion,
-			serverContextTokens: discovered.serverContextLength,
+			serverContextTokens: allocation ? allocation.reportedTokens ?? undefined : discovered.serverContextLength,
+			...(allocation ? { requestedContextTokens: allocation.requestedTokens ?? undefined, contextMechanism: allocation.mechanism ?? undefined } : {}),
 			loadedAtStart: loadedBefore?.loaded,
 		}, token, {
 			onProgress,
 			// Once the model has answered it is loaded, and the runtime can say what it allocated for it.
-			resolveServerContextTokens: async () => (await this._loaded(discovered))?.contextLength ?? discovered.serverContextLength,
+			resolveServerContextTokens: async () => (await this._loaded(discovered, wireModel))?.contextLength ?? (allocation ? allocation.reportedTokens ?? undefined : discovered.serverContextLength),
 		});
 		this.store(target.modelKey, datasheet);
 		return datasheet;
 	}
 
 	/** Whether the runtime has the model in memory and what context it allocated, when the runtime can say. */
-	private async _loaded(discovered: IOnyxDiscoveredModel): Promise<{ readonly loaded: boolean; readonly contextLength?: number } | undefined> {
+	private async _loaded(discovered: IOnyxDiscoveredModel, wireModel: string): Promise<{ readonly loaded: boolean; readonly contextLength?: number } | undefined> {
 		try {
 			const loaded = await this._runtimeService.listLoadedModels(discovered.baseUrl);
 			if (!loaded) {
 				return undefined;
 			}
-			const entry = loaded.find(model => model.id === discovered.id);
+			const entry = loaded.find(model => model.id === wireModel);
 			return { loaded: !!entry, contextLength: entry?.contextLength };
 		} catch {
 			return undefined;

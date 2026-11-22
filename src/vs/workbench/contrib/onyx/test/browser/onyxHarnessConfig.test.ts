@@ -83,6 +83,8 @@ suite('OnyxHarnessConfig', () => {
 			unknownField: summary(resolveHarnessConfig(base, request({ approvalBypass: true }), 'development')).refused,
 			notAnObject: summary(resolveHarnessConfig(base, request('native'), 'development')).refused,
 			anEditProtocolThatDoesNotExist: summary(resolveHarnessConfig(base, request({ editProtocol: 'fuzzy-apply' }), 'development')).refused,
+			// L7: constrained anchors is a protocol a lab arm may ask for, and never the default.
+			constrainedAnchors: [resolveHarnessConfig(base, request({ editProtocol: 'constrained-anchors' }), 'development').configuration.editProtocol, base.editProtocol],
 			aManifestThatCouldNotBeRead: summary(resolveHarnessConfig(base, request(undefined, 'the manifest named by ONYX_LAB_MANIFEST could not be read'), 'development')).refused,
 		}, {
 			nothingRequested: { source: 'default', requested: undefined, refused: undefined, changed: {}, hashIsOfWhatRan: true },
@@ -93,7 +95,8 @@ suite('OnyxHarnessConfig', () => {
 			wrongValues: { source: 'default', requested: 'no-repair', refused: 'turnCap must be a whole number from 1 to 64; toolCallProtocol must be one of native, repaired-text, constrained-envelope', changed: {}, hashIsOfWhatRan: true },
 			unknownField: 'approvalBypass is not a field of the harness configuration',
 			notAnObject: 'the configuration is not an object',
-			anEditProtocolThatDoesNotExist: 'editProtocol must be search-replace: no other edit protocol exists yet',
+			anEditProtocolThatDoesNotExist: 'editProtocol must be one of search-replace, constrained-anchors',
+			constrainedAnchors: ['constrained-anchors', 'search-replace'],
 			aManifestThatCouldNotBeRead: 'the manifest named by ONYX_LAB_MANIFEST could not be read',
 		});
 	});

@@ -22,6 +22,9 @@ import { ViewPane } from '../../../../browser/parts/views/viewPane.js';
 import { IViewletViewOptions } from '../../../../browser/parts/views/viewsViewlet.js';
 import { IViewDescriptorService } from '../../../../common/views.js';
 import { IOnyxStagedFile, IOnyxChangeSetService } from './onyxChangeSetService.js';
+import { IOnyxVerificationService } from '../verification/onyxVerificationService.js';
+import { IOnyxEditCertificate, summarizeCertificate } from '../../common/onyxEditCertificate.js';
+import { describeVerification } from '../../common/onyxVerification.js';
 import { summarizeChangeSet } from '../../common/onyxChangeSet.js';
 
 const $ = DOM.$;
@@ -55,6 +58,7 @@ export class OnyxChangesViewPane extends ViewPane {
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@IOnyxChangeSetService private readonly _changeSetService: IOnyxChangeSetService,
+		@IOnyxVerificationService private readonly _verificationService: IOnyxVerificationService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -64,6 +68,8 @@ export class OnyxChangesViewPane extends ViewPane {
 		this._content = DOM.append(container, $('.onyx-view.onyx-changes'));
 		this._register(autorun(reader => {
 			const files = this._changeSetService.files.read(reader);
+			// What is known about each file's verification changes what the view says, too (C2).
+			this._verificationService.results.read(reader);
 			this._render(files);
 		}));
 		// Coming back to the view is the moment staleness matters: re-check every
@@ -98,6 +104,18 @@ export class OnyxChangesViewPane extends ViewPane {
 					: localize('onyx.changes.announce', "Onyx staged edits to {0} files, pending your review.", files.length));
 			}
 			this._lastAnnouncedCount = files.length;
+		}
+
+		// Where verification stands for each file: nothing verified while only staged, and what was found after an
+		// acceptance. Shown whether or not anything is still staged: the last hunk accepted is when it matters.
+		const results = this._verificationService.results.get();
+		if (results.length > 0) {
+			const verification = DOM.append(content, $('.onyx-changes-verification'));
+			verification.setAttribute('role', 'status');
+			for (const result of results) {
+				const line = DOM.append(verification, $(`.onyx-changes-verification-line.${result.state.replace(' ', '-')}`));
+				line.textContent = describeVerification(result);
+			}
 		}
 
 		if (files.length === 0) {
@@ -178,13 +196,21 @@ export class OnyxChangesViewPane extends ViewPane {
 			return;
 		}
 		const body = DOM.append(element, $('.onyx-change-file-body'));
-		file.hunks.forEach((hunk, index) => {
+		for (const hunk of file.hunks) {
 			const hunkElement = DOM.append(body, $('.onyx-change-hunk'));
 			const hunkHeader = DOM.append(hunkElement, $('.onyx-change-hunk-header'));
 			DOM.append(hunkHeader, $('span.onyx-change-hunk-line')).textContent = localize('onyx.changes.hunkAt', "Line {0}", hunk.originalStart + 1);
 			const hunkActions = DOM.append(hunkHeader, $('.onyx-run-actions'));
-			this._iconButton(hunkActions, 'check', localize('onyx.changes.acceptHunk', "Accept this hunk"), () => this._changeSetService.acceptHunk(file.proposal.path, index));
-			this._iconButton(hunkActions, 'close', localize('onyx.changes.rejectHunk', "Reject this hunk"), () => this._changeSetService.rejectHunk(file.proposal.path, index));
+			this._iconButton(hunkActions, 'check', localize('onyx.changes.acceptHunk', "Accept this hunk"), () => this._changeSetService.acceptHunk(file.proposal.path, hunk.id));
+			this._iconButton(hunkActions, 'close', localize('onyx.changes.rejectHunk', "Reject this hunk"), () => this._changeSetService.rejectHunk(file.proposal.path, hunk.id));
+			// One calm line of what was checked for this hunk (L6). It marks a hunk for closer reading; it blocks nothing.
+			const certificate = this._changeSetService.certificateFor(file.proposal.path, hunk.id);
+			if (certificate) {
+				const described = describeCertificate(certificate);
+				const certificateLine = DOM.append(hunkElement, $('.onyx-change-hunk-certificate'));
+				certificateLine.classList.toggle('read-closely', described.readClosely);
+				certificateLine.textContent = described.text;
+			}
 			const lines = DOM.append(hunkElement, $('.onyx-change-hunk-lines'));
 			for (const removed of hunk.originalLines) {
 				DOM.append(lines, $('.onyx-change-line.removed')).textContent = `− ${removed}`;
@@ -192,7 +218,24 @@ export class OnyxChangesViewPane extends ViewPane {
 			for (const added of hunk.newLines) {
 				DOM.append(lines, $('.onyx-change-line.added')).textContent = `+ ${added}`;
 			}
-		});
+		}
+		// Hunks that no longer correspond to the file: both texts on show, nothing to accept (B7).
+		for (const conflict of file.conflicts) {
+			const conflictElement = DOM.append(body, $('.onyx-change-hunk.onyx-change-conflict'));
+			const conflictHeader = DOM.append(conflictElement, $('.onyx-change-hunk-header'));
+			DOM.append(conflictHeader, $('span.onyx-change-hunk-line')).textContent = conflict.reason === 'ambiguous'
+				? localize('onyx.changes.conflictAmbiguous', "Conflict: these lines are now in the file at more than one place (was line {0}). Not applied.", conflict.wasAtLine)
+				: localize('onyx.changes.conflictMissing', "Conflict: the file changed here and these lines are no longer in it (was line {0}). Not applied.", conflict.wasAtLine);
+			const conflictActions = DOM.append(conflictHeader, $('.onyx-run-actions'));
+			this._iconButton(conflictActions, 'close', localize('onyx.changes.dismissConflict', "Dismiss this conflict"), () => this._changeSetService.rejectHunk(file.proposal.path, conflict.id));
+			const lines = DOM.append(conflictElement, $('.onyx-change-hunk-lines'));
+			for (const removed of conflict.originalLines) {
+				DOM.append(lines, $('.onyx-change-line.removed')).textContent = `− ${removed}`;
+			}
+			for (const added of conflict.newLines) {
+				DOM.append(lines, $('.onyx-change-line.added')).textContent = `+ ${added}`;
+			}
+		}
 	}
 
 	private _iconButton(parent: HTMLElement, codicon: string, title: string, onClick: () => void): void {
@@ -245,3 +288,19 @@ registerAction2(class RejectAllOnyxChangesAction extends Action2 {
 		accessor.get(IOnyxChangeSetService).rejectAll();
 	}
 });
+
+/**
+ * The line a reviewer reads under a hunk (L6): what the harness checked
+ * when the edit was staged. It never says the edit is right, because
+ * nothing here checked that.
+ */
+export function describeCertificate(certificate: IOnyxEditCertificate): { readonly text: string; readonly readClosely: boolean } {
+	switch (summarizeCertificate(certificate)) {
+		case 'anchored-seen': return { text: localize('onyx.changes.certificate.seen', "Anchored exactly once · seen this turn"), readClosely: false };
+		case 'anchored-not-seen': return { text: localize('onyx.changes.certificate.notSeen', "Anchored exactly once · not shown to the model this turn; read closely"), readClosely: true };
+		case 'anchored-unknown': return { text: localize('onyx.changes.certificate.unknown', "Anchored exactly once · what the model was shown is not on record"), readClosely: false };
+		case 'new-file': return { text: localize('onyx.changes.certificate.newFile', "New file · nothing existing was replaced"), readClosely: false };
+		case 'inline': return { text: localize('onyx.changes.certificate.inline', "From the lines you selected"), readClosely: false };
+		case 'whole-file': return { text: localize('onyx.changes.certificate.wholeFile', "Whole-file proposal · no quoted text to place"), readClosely: false };
+	}
+}

@@ -16,7 +16,10 @@
  *   SYMTEST <name>  - call repoSymbols with that query (add EXPAND for the call graph)
  *   MEMTEST <text>  - call the remember tool with that note
  *   EDITTEST <path> - propose two staged edits to that file via editFile
+ *   MULTIEDITTEST <path> - propose the same two edits in ONE editFile call,
+ *                     as {path, edits: [...]} (C3)
  *   TERMTEST <cmd>  - propose that shell command via the terminal tool
+ *   SLOWTOOLTEST - stream slowly for about 12 seconds, then call a tool (R-15)
  *   DOCTEST <query> - search the offline docs mirror via the docs tool
  *   PBTEST <name>   - fetch that repository playbook via the playbook tool
  *   NETTEST <url>   - open that URL via the openBrowserPage tool, when it is
@@ -241,7 +244,9 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 	const wantsMemory = body.tools?.length && /MEMTEST\s+(.+)/.test(lastUser?.content ?? '') && !hasToolResult;
 	// EDITTEST <path> emits two editFile calls (a modification, then a second
 	// hunk) so the staged-review flow can be driven end to end without a model.
-	const wantsEdit = body.tools?.length && /EDITTEST\s+(\S+)/.test(lastUser?.content ?? '') && !hasToolResult;
+	const multiEditPath = /MULTIEDITTEST\s+(\S+)/.exec(lastUser?.content ?? '')?.[1];
+	const wantsEdit = body.tools?.length && /(?<!MULTI)EDITTEST\s+(\S+)/.test(lastUser?.content ?? '') && !hasToolResult;
+	const wantsMultiEdit = !!multiEditPath && body.tools?.length && !hasToolResult;
 	// TERMTEST <command...> proposes one shell command through the terminal tool.
 	const wantsTerminal = body.tools?.length && /TERMTEST\s+(.+)/.test(lastUser?.content ?? '') && !hasToolResult;
 	// DOCTEST <query...> searches the offline docs mirror.
@@ -254,7 +259,7 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 	const readTool = body.tools?.find((t: any) => /^readFile$/i.test(t.function.name));
 	const wantsReadEdit = !!readEditPath && body.tools?.length && !hasToolResult;
 	const wantsEditAfterRead = !!readEditPath && body.tools?.length && hasToolResult && messages.filter((m: any) => m.role === 'tool').length === 1;
-	const wantsTool = wantsSymbols || wantsMemory || wantsEdit || wantsTerminal || wantsDocs || wantsPlaybook || (body.tools?.length && /TOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult);
+	const wantsTool = wantsSymbols || wantsMemory || wantsEdit || wantsMultiEdit || wantsTerminal || wantsDocs || wantsPlaybook || (body.tools?.length && /TOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult);
 
 	await sleep(120); // simulated TTFT
 	if (wantsReadEdit) {
@@ -335,10 +340,13 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 		res.end();
 		return;
 	}
-	if (wantsEdit) {
+	if (wantsEdit || wantsMultiEdit) {
 		const editTool = body.tools.find((t: any) => /editFile/i.test(t.function.name)) ?? body.tools[0];
-		const editPath = /EDITTEST\s+(\S+)/.exec(lastUser.content)![1];
-		const calls = [
+		const editPath = multiEditPath ?? /EDITTEST\s+(\S+)/.exec(lastUser.content)![1];
+		const calls = multiEditPath ? [
+			// C3: both edits in one call.
+			{ id: 'edit_1', args: JSON.stringify({ path: editPath, edits: [{ search: 'return value * 2;', replace: 'return 2 * value; // multi-edit-by-mock' }, { search: 'return value * 3;', replace: 'return 3 * value; // multi-edit-by-mock' }] }) },
+		] : [
 			{ id: 'edit_1', args: JSON.stringify({ path: editPath, search: 'return a + b;', replace: 'return b + a; // edited-by-mock' }) },
 			{ id: 'edit_2', args: JSON.stringify({ path: editPath, search: 'return a * b;', replace: 'return b * a; // edited-by-mock' }) },
 		];
@@ -348,6 +356,22 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 		});
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
+		res.write('data: [DONE]\n\n');
+		res.end();
+		return;
+	}
+	// SLOWTOOLTEST: a slow answer (one word every 200ms for about 12 seconds) that ends in a tool call. A
+	// run stopped while it streams must never make that call (R-15).
+	if (body.tools?.length && /SLOWTOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult) {
+		for (let index = 0; index < 60; index++) {
+			send(chunk({ content: `slow-word-${index} ` }));
+			await sleep(200);
+		}
+		const tool = body.tools.find((t: any) => /^listDirectory$/.test(t.function.name)) ?? body.tools[0];
+		send({ ...chunk({ tool_calls: [{ index: 0, id: 'call_slow', type: 'function', function: { name: tool.function.name, arguments: '' } }] }) });
+		send({ ...chunk({ tool_calls: [{ index: 0, function: { arguments: tool.function.name === 'listDirectory' ? JSON.stringify({ path: '.' }) : '{}' } }] }) });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 120, completion_tokens: 70 } });
 		res.write('data: [DONE]\n\n');
 		res.end();
 		return;

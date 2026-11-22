@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SIM_LINK_PATH, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
+import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
 import { OnyxSimRandom } from './onyxSimRandom.js';
 
 /**
@@ -53,6 +53,8 @@ export type OnyxSimUserAction =
 	| { readonly kind: 'save' }
 	| { readonly kind: 'autosaveTick' }
 	| { readonly kind: 'undo' }
+	/** The user asks for an inline edit of these lines of the target, and the model answers with `reply` (B9). */
+	| { readonly kind: 'inlineEdit'; readonly startLine: number; readonly endLine: number; readonly reply: string }
 	| { readonly kind: 'dialog'; readonly decision: 'allow-once' | 'allow-session' | 'allow-always' | 'deny' | 'dismiss' }
 	/** The user runs "Clear Legacy Terminal Grants" (B2). */
 	| { readonly kind: 'clearLegacyGrants' }
@@ -96,7 +98,7 @@ export interface OnyxSimEpisode {
 	readonly faults: readonly OnyxSimScheduledStep<OnyxSimFault>[];
 	/** Repository configuration, so the allowlist scenarios (R-01 to R-04) are expressible. */
 	readonly projectConfig?: { readonly terminalAllowlist?: readonly string[]; readonly disabledTools?: readonly string[]; readonly verificationTask?: string };
-	readonly profile?: { readonly promptStyle?: 'compact' | 'full'; readonly contextLength?: number; readonly maxTools?: number; readonly toolCallQuality?: number; readonly seed?: number };
+	readonly profile?: { readonly promptStyle?: 'compact' | 'full'; readonly contextLength?: number; readonly maxTools?: number; readonly toolCallQuality?: number; readonly seed?: number; /** What a datasheet measured of the runtime (L5), for what depends on it having been measured (L7). */ readonly runtimeEnforcesSchema?: boolean; readonly provenance?: { readonly toolCallQuality: 'measured' | 'default'; readonly contextLength: 'measured' | 'default'; readonly schemaEnforcement: 'measured' | 'default' } };
 	/** The user's opt-in to the reviewed network tools (`onyx.agent.networkTools`). Off unless set. */
 	readonly networkTools?: boolean;
 	/** A second request in the same session after the first run ends: what a later prompt carries is what I-14 is about. */
@@ -273,7 +275,7 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 		case 'flooder': {
 			const flood = random.chance(0.5)
 				? [answer('x'.repeat(200_000))]
-				: [editCall(EDIT_SEARCH, 'y'.repeat(300_000)), answer('Done.')];
+				: [editCall(EDIT_SEARCH, 'y\n'.repeat(20_001)), answer('Done.')];
 			// A third of the time the flood is a command's output instead: two megabytes of it (B5, I-13).
 			return random.chance(0.34)
 				? [{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'head -c 2000000 /dev/zero' } }, answer('Done.')]
@@ -303,6 +305,8 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 					readCall({ path: `..${SIM_OUTSIDE_PATH}` }),
 					readCall({ path: SIM_OUTSIDE_PATH }),
 					readCall({ path: SIM_LINK_PATH }),
+					// The write side of the same link (R-30, C10): an edit whose SEARCH text is really in the linked file.
+					{ kind: 'toolCall', tool: 'editFile', arguments: { path: SIM_LINK_PATH, search: SIM_OUTSIDE_CANARY, replace: 'overwritten by the model' } },
 					{ kind: 'toolCall', tool: 'listDirectory', arguments: { path: '../outside' } },
 					{ kind: 'toolCall', tool: 'grep', arguments: { pattern: 'CANARY', include: '../**' } },
 					{ kind: 'toolCall', tool: 'grep', arguments: { pattern: 'CANARY' } },

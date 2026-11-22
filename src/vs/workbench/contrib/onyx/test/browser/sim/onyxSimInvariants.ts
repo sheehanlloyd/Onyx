@@ -3,6 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { isTerminalRunStatus } from '../../../common/onyxTypes.js';
+import { readEditArguments } from '../../../common/onyxChangeSet.js';
+import { checkCertificates } from '../../../common/onyxEditCertificate.js';
+import { decodeNumberedSearch } from '../../../common/onyxReadTools.js';
+import { workspacePathProblem } from '../../../common/onyxWorkspacePaths.js';
 import { harnessConfigHash, IOnyxHarnessConfig } from '../../../common/onyxHarnessConfig.js';
 import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
 import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
@@ -30,7 +35,8 @@ export interface IOnyxSimInvariant {
 }
 
 const CHARS_PER_TOKEN = 4;
-const PROPOSAL_CAP_CHARS = 256 * 1024;
+const PROPOSAL_CAP_CHARS = 1024 * 1024;
+const PROPOSAL_CAP_LINES = 20_000;
 
 function events(state: IOnyxSimState): readonly OnyxSimTraceEvent[] {
 	return state.trace.entries.map(entry => entry.event);
@@ -167,7 +173,7 @@ const i02: OnyxSimChecker = state => {
 const i03: OnyxSimChecker = (state, boundary) => {
 	const statuses = events(state).filter((event): event is Extract<OnyxSimTraceEvent, { kind: 'status' }> => event.kind === 'status');
 	// Journaled outcomes are the record; live transitions show a terminal status being replaced by another.
-	const isTerminal = (status: string) => status === 'completed' || status === 'failed' || status === 'cancelled';
+	const isTerminal = (status: string) => isTerminalRunStatus(status);
 	const outcomes = statuses.filter(event => !event.status.startsWith('live:') && isTerminal(event.status));
 	// First, because everything after it is a consequence: the run did not end on its own, and the rig's
 	// watchdog had to stop it. What the statuses did after that stop is not a second finding.
@@ -281,9 +287,9 @@ const i06: OnyxSimChecker = state => {
 	// A schema-invalid edit or command must not have produced a stage or a command run.
 	for (const invocation of state.tools.invocations) {
 		const parameters = invocation.parameters as Record<string, unknown>;
-		if (invocation.toolId === 'onyx_editFile' && (typeof parameters.path !== 'string' || typeof parameters.replace !== 'string')) {
+		if (invocation.toolId === 'onyx_editFile' && !readEditArguments(parameters).ok) {
 			if (state.stageEvents.some(stage => stage.search === parameters.search)) {
-				return `I-06/invalid-edit-staged: an edit with a non-string path or replace was staged`;
+				return `I-06/invalid-edit-staged: an edit call whose arguments are not an edit was staged`;
 			}
 		}
 	}
@@ -327,8 +333,13 @@ const i06: OnyxSimChecker = state => {
 /** I-07: no tool reads or writes outside the workspace roots. */
 const i07: OnyxSimChecker = state => {
 	for (const stage of state.stageEvents) {
-		if (stage.path.startsWith('/') || stage.path.includes('..') || stage.path.includes('\\')) {
+		if (workspacePathProblem(stage.path)) {
 			return `I-07/escape-staged: ${stage.path} is outside the workspace`;
+		}
+		// Write side of the symbolic link (R-30): the file, or the directory a new file would be created in, is
+		// really somewhere else.
+		if (!stage.realLocation.startsWith('/ws/')) {
+			return `I-07/write-through-link: ${stage.path} was staged, and writing it would write ${stage.realLocation}, outside the workspace`;
 		}
 	}
 	for (const event of events(state)) {
@@ -349,16 +360,30 @@ const i07: OnyxSimChecker = state => {
 /** I-08: an edit that cannot be placed exactly and uniquely changes nothing and produces a visible reason. */
 const i08: OnyxSimChecker = state => {
 	for (const stage of state.stageEvents) {
-		if (stage.search === undefined || stage.search === '' || stage.baseAtStage === undefined) {
+		if (stage.baseAtStage === undefined) {
 			continue;
 		}
-		// A second edit to an already-staged file is matched against the staged text, not the base.
-		const exact = occurrences(stage.proposedBefore ?? stage.baseAtStage, stage.search);
-		if (exact === 0) {
-			return `I-08/inexact-anchor-staged: an edit whose SEARCH text is not in ${stage.path} was staged anyway`;
-		}
-		if (exact > 1) {
-			return `I-08/ambiguous-anchor-staged: an edit whose SEARCH text occurs ${exact} times in ${stage.path} was staged anyway`;
+		// A second edit to an already-staged file is matched against the staged text, not the base. The edits
+		// of one call (C3) are placed in order, each against the text the ones before it left.
+		let text = stage.proposedBefore ?? stage.baseAtStage;
+		for (const block of stage.blocks) {
+			if (block.search === '') {
+				break;
+			}
+			// SEARCH text copied from a numbered `readFile` result ("12| text") is that file's own lines once the
+			// known wrapper is taken off (B1, R-24). The product decodes it against the live file when the text as
+			// sent is not there; the check does the same, and then holds the decoded text to the same rule.
+			const decoding = occurrences(text, block.search) === 0 ? decodeNumberedSearch(block.search, stage.baseAtStage) : undefined;
+			const search = decoding?.kind === 'decoded' ? decoding.text : block.search;
+			const exact = occurrences(text, search);
+			if (exact === 0) {
+				return `I-08/inexact-anchor-staged: an edit whose SEARCH text is not in ${stage.path} was staged anyway`;
+			}
+			if (exact > 1) {
+				return `I-08/ambiguous-anchor-staged: an edit whose SEARCH text occurs ${exact} times in ${stage.path} was staged anyway`;
+			}
+			const at = text.indexOf(search);
+			text = text.slice(0, at) + block.replace + text.slice(at + search.length);
 		}
 	}
 	return undefined;
@@ -366,6 +391,9 @@ const i08: OnyxSimChecker = state => {
 
 /** I-09: accepting a hunk applies that hunk's reviewed content or nothing, and user edits made at any point survive. */
 const i09: OnyxSimChecker = state => {
+	if (state.acceptedBufferMismatches.length) {
+		return `I-09/accepted-buffer-differs: after the whole proposal for ${state.acceptedBufferMismatches[0]} was accepted against its own base, the buffer is not the proposal`;
+	}
 	if (!state.acceptedHunks.length) {
 		return undefined;
 	}
@@ -454,7 +482,10 @@ const i12: OnyxSimChecker = (state, boundary) => {
 const i13: OnyxSimChecker = state => {
 	for (const stage of state.stageEvents) {
 		if (stage.proposedChars > PROPOSAL_CAP_CHARS) {
-			return `I-13/oversized-proposal: ${stage.path} staged ${stage.proposedChars} chars, above the 256 KiB cap`;
+			return `I-13/oversized-proposal: ${stage.path} staged ${stage.proposedChars} chars, above the 1 MiB cap`;
+		}
+		if (stage.proposedLines > PROPOSAL_CAP_LINES) {
+			return `I-13/oversized-proposal: ${stage.path} staged ${stage.proposedLines} lines, above the cap of 20,000 lines a side`;
 		}
 	}
 	// Output (B5): what the terminal service holds while a command prints, and what it hands to the model,
@@ -591,6 +622,45 @@ const r27: OnyxSimChecker = state => {
 };
 
 /**
+ * R-46 (L6): certificates are in the trace and hold up against it. Every
+ * staging a run's edit call produced has a certificate in the journal; each
+ * one's seal is its own; and what the journal can show of it (the anchor the
+ * model sent, where the model had seen it, whether it was grounded) is what
+ * the certificate says.
+ */
+const r46: OnyxSimChecker = state => {
+	const journal = state.journalLines.join('\n');
+	const checks = checkCertificates(journal);
+	const wrong = checks.find(check => check.verdict === 'differs');
+	if (wrong) {
+		return `R-46/certificate-contradicts-journal: the certificate for ${wrong.path} (turn ${wrong.turn}) does not hold: ${wrong.detail}`;
+	}
+	const stagedByARun = state.stageEvents.filter(stage => stage.runId !== undefined).length;
+	if (checks.length < stagedByARun) {
+		return `R-46/staging-without-certificate: ${stagedByARun} stagings by a run and ${checks.length} certificates in the journal`;
+	}
+	return undefined;
+};
+
+/**
+ * R-21 (C2): a verdict about problems is a verdict about what was accepted.
+ * A timeline note that says problems were or were not found, before any
+ * hunk of the episode was accepted, is a verdict about content the files do
+ * not hold.
+ */
+const r21: OnyxSimChecker = state => {
+	let accepted = false;
+	for (const event of events(state)) {
+		if (event.kind === 'userAction' && (event.action === 'acceptAll' || event.action === 'acceptHunk')) {
+			accepted = true;
+		} else if (!accepted && event.kind === 'activity' && event.activity === 'note' && /^Verification: (verified|new problems|no new problems|\d+ new problem)/.test(event.label)) {
+			return `R-21/verdict-before-acceptance: "${event.label}" was reported before anything was accepted`;
+		}
+	}
+	return undefined;
+};
+
+/**
  * R-28's streaming part (C6), checked beside the invariants: in a constrained run, a long answer reaches the
  * transcript while its envelope is still arriving. For the first long text turn of a constrained episode:
  * between the request for it and the end of its stream, something was shown.
@@ -678,6 +748,8 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'R-27', title: 'A reply that opens with a code fence is shown as it streams', check: r27 },
 	{ id: 'R-28', title: 'A constrained answer is shown as it streams', check: r28 },
 	{ id: 'R-44', title: 'Every trace carries the hash of the harness configuration that ran', check: r44 },
+	{ id: 'R-21', title: 'No verification verdict is given before anything was accepted', check: r21 },
+	{ id: 'R-46', title: 'Every staging by a run has a sealed certificate in the journal, and none contradicts the journal', check: r46 },
 ];
 
 /** Invariants the rig cannot observe in Module 1, each with the reason the contract records. */

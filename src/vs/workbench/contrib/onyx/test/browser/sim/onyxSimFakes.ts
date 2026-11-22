@@ -5,6 +5,7 @@
 
 import { timeout } from '../../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { observableValue } from '../../../../../../base/common/observable.js';
@@ -16,12 +17,13 @@ import { InMemoryFileSystemProvider } from '../../../../../../platform/files/com
 import { FileSystemFileSearchProvider } from '../../../../../services/search/common/fileSystemFileSearchProvider.js';
 import { IFileMatch, IFileQuery, ISearchComplete, ISearchService, ITextQuery, OneLineRange, QueryType, TextSearchMatch } from '../../../../../services/search/common/search.js';
 import { commandEnvironment } from '../../../../../../platform/onyxRuntime/common/onyxCommandExecution.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode, OnyxContextAliasResult } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../../../chat/common/tools/languageModelToolsService.js';
 import { ITaskService } from '../../../../tasks/common/taskService.js';
 import { ITaskSummary } from '../../../../tasks/common/taskSystem.js';
 import { InMemoryTask, RunOptions, Task, TaskGroup } from '../../../../tasks/common/tasks.js';
+import { isAnchoredCall } from '../../../common/onyxAnchorEdit.js';
 import { IOnyxEnergyDecision } from '../../../common/onyxEnergyPolicy.js';
 import { IOnyxModelProfile, IOnyxObservedStats } from '../../../common/onyxTypes.js';
 import { IOnyxEnergyService } from '../../../browser/compute/onyxEnergyService.js';
@@ -97,6 +99,8 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		private readonly _commandRefusal: OnyxCommandRefusal | undefined = undefined,
 		private readonly _runtimeContextTokens: number | undefined = undefined,
 		private readonly _enforcesJsonSchema = false,
+		/** Asked for a turn when the script has none left (L8): a model that is really there, or a continuation after a cut point. */
+		private readonly _liveTurn: ((params: IOnyxChatParams) => Promise<OnyxSimModelTurn>) | undefined = undefined,
 	) {
 		super();
 	}
@@ -153,8 +157,23 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			return { ...turn, text: JSON.stringify({ action: 'answer', answer: turn.text }) };
 		}
 		if (turn.kind === 'toolCall' && turn.argumentsText === undefined) {
+			// An anchored edit (L7) is the envelope's own `edit` action. Which anchors a script names is the
+			// script's business: a runtime that only claims to enforce a schema lets any through.
+			if (turn.tool === 'editFile' && isAnchoredCall(turn.arguments)) {
+				return { kind: 'text', text: JSON.stringify({ action: 'edit', edit: turn.arguments }), reasoning: turn.reasoning };
+			}
 			return { kind: 'text', text: JSON.stringify({ action: 'tool', tool: turn.tool, arguments: turn.arguments }), reasoning: turn.reasoning };
 		}
+		return turn;
+	}
+
+	/** Every turn that was served, in order, as it was before any constraining: what a recording of this run holds (L8). */
+	readonly servedTurns: OnyxSimModelTurn[] = [];
+
+	/** The next turn: the script's, then a live one when there is a live source, then the persona's fallback. */
+	private async _takeTurn(params: IOnyxChatParams): Promise<OnyxSimModelTurn> {
+		const turn = this._turnIndex >= this._turns.length && this._liveTurn ? await this._liveTurn(params) : this._nextTurn();
+		this.servedTurns.push(turn);
 		return turn;
 	}
 
@@ -198,7 +217,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			this._emit({ operationId, kind: 'error', message: 'the runtime service was disposed' });
 			return;
 		}
-		const turn = this._constrain(this._nextTurn(), params.responseFormat !== undefined);
+		const turn = this._constrain(await this._takeTurn(params), params.responseFormat !== undefined);
 		const op = this._trace.canonical('op', operationId);
 		const emit = async (event: IOnyxStreamEvent, size: number, finishReason?: string) => {
 			await this._scheduler.boundary('betweenChunks');
@@ -364,6 +383,8 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	async ensureWorkspaceIndex(): Promise<IOnyxIndexStats> { return { files: 0, eligibleFiles: 0, buildMs: 0, truncated: false, source: 'built', builtAt: 0 }; }
 	async configureWorkspaceIndex(): Promise<void> { }
 	async listLoadedModels(): Promise<undefined> { return undefined; }
+	async createContextAlias(): Promise<OnyxContextAliasResult> { return { ok: false, error: 'the simulated runtime creates nothing' }; }
+	async removeContextAlias(): Promise<OnyxContextAliasResult> { return { ok: false, error: 'the simulated runtime removes nothing' }; }
 	/** What a lab manifest named by the environment would ask for; nothing unless a test sets it. */
 	labHarness: IOnyxLabHarnessRequest | undefined;
 	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> { return this.labHarness; }
@@ -589,6 +610,11 @@ export class OnyxSimToolsService {
 			this._trace.record({ kind: 'toolResult', call, tool: name, ok: false, resultDigest: digest(message) });
 			return { content: [{ kind: 'text', value: message }], toolResultError: true };
 		}
+		// As the product's tools service does: a call whose token is cancelled before the tool is entered is not invoked.
+		if (token.isCancellationRequested) {
+			this._trace.record({ kind: 'toolResult', call, tool: name, ok: false, resultDigest: digest('cancelled') });
+			throw new CancellationError();
+		}
 		const result = await impl.invoke(invocation, countTokens, { report: () => { } }, token);
 		const text = result.content.map(part => part.kind === 'text' ? part.value : '').join('');
 		this.results.push({ toolId: invocation.toolId, text, ok: !result.toolResultError });
@@ -717,12 +743,17 @@ export class OnyxSimFileSystemProvider extends InMemoryFileSystemProvider implem
 	}
 
 	async realpath(resource: URI): Promise<string> {
+		return this.realLocation(resource.path);
+	}
+
+	/** Where a path really is, links followed. The same answer `realpath` gives, for a check that cannot wait. */
+	realLocation(path: string): string {
 		for (const [link, target] of this._links) {
-			if (resource.path === link || resource.path.startsWith(`${link}/`)) {
-				return target + resource.path.slice(link.length);
+			if (path === link || path.startsWith(`${link}/`)) {
+				return target + path.slice(link.length);
 			}
 		}
-		return resource.path;
+		return path;
 	}
 
 	override async stat(resource: URI): Promise<IStat> {
@@ -758,7 +789,12 @@ export class OnyxSimSearchService extends Disposable implements Pick<ISearchServ
 		return this._files.fileSearch(query, token);
 	}
 
+	/** Called once, as the next text search begins: the moment a test cancels a search that is already under way. */
+	beforeNextTextSearch: (() => void) | undefined;
+
 	async textSearch(query: ITextQuery, token: CancellationToken = CancellationToken.None): Promise<ISearchComplete> {
+		this.beforeNextTextSearch?.();
+		this.beforeNextTextSearch = undefined;
 		this.queries.push({ kind: 'text', ignoreSymlinks: query.folderQueries.every(folder => folder.ignoreSymlinks === true), cancelled: token.isCancellationRequested });
 		const files = await this._files.fileSearch({ type: QueryType.File, folderQueries: query.folderQueries, includePattern: query.includePattern, excludePattern: query.excludePattern }, token);
 		const source = query.contentPattern.isRegExp ? query.contentPattern.pattern : query.contentPattern.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

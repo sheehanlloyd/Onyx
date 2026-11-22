@@ -55,6 +55,8 @@ export class OnyxCommitMessageGenerator {
 
 		// A commit message is a run too: it shows as in flight in the Compute
 		// view and its exact prompt is replayable from the Inspector.
+		// The run is begun with this token, so Stop in the control plane and a cancel here are one cancellation (B10).
+		const cancellation = new CancellationTokenSource();
 		const handle = this._controlPlaneService.beginRun({
 			sessionResource: URI.from({ scheme: 'onyx-commit', path: `/${generateUuid()}` }),
 			requestId: generateUuid(),
@@ -63,10 +65,10 @@ export class OnyxCommitMessageGenerator {
 				: localize('onyx.commit.runTitle', "Commit message for {0} staged files", diff.files.length),
 			task: 'quick-edit',
 			modelKey: 'auto',
+			token: cancellation.token,
 		});
 
 		const user = buildCommitDiffDigest(diff.text, diff.files, MAX_DIFF_CHARS);
-		const cancellation = new CancellationTokenSource();
 		try {
 			const raw = await this._progressService.withProgress({
 				location: ProgressLocation.Scm,

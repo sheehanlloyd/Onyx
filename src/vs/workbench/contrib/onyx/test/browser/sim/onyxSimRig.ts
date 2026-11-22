@@ -21,11 +21,11 @@ import { FileService } from '../../../../../../platform/files/common/fileService
 import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { IEnvironmentService } from '../../../../../../platform/environment/common/environment.js';
-import { IOnyxLabHarnessRequest, IOnyxRuntimeService } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxLabHarnessRequest, IOnyxRuntimeService } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService } from '../../../../../../platform/workspace/common/workspaceTrust.js';
 import { testWorkspace } from '../../../../../../platform/workspace/test/common/testWorkspace.js';
-import { TestContextService, TestLifecycleService, TestWorkspaceTrustManagementService } from '../../../../../test/common/workbenchTestServices.js';
+import { TestContextService, TestLifecycleService, TestWorkspaceTrustManagementService, TestStorageService } from '../../../../../test/common/workbenchTestServices.js';
 import { ILifecycleService } from '../../../../../services/lifecycle/common/lifecycle.js';
 import { workbenchInstantiationService } from '../../../../../test/browser/workbenchTestServices.js';
 import { ITextFileService, TextFileEditorModelState } from '../../../../../services/textfile/common/textfiles.js';
@@ -42,6 +42,8 @@ import { OnyxAgentLoop } from '../../../browser/agent/onyxAgentLoop.js';
 import { IOnyxPromptCacheService, OnyxPromptCacheService } from '../../../browser/agent/onyxPromptCache.js';
 import { IOnyxChangeSetService, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
 import { OnyxEditToolContribution } from '../../../browser/changes/onyxEditTool.js';
+import { readEditArguments } from '../../../common/onyxChangeSet.js';
+import { IOnyxEditBlock } from '../../../common/onyxInlineEdit.js';
 import { IOnyxEnergyService } from '../../../browser/compute/onyxEnergyService.js';
 import { IOnyxProjectConfigService, OnyxProjectConfigService } from '../../../browser/config/onyxProjectConfigService.js';
 import { IOnyxControlPlaneService, OnyxControlPlaneService } from '../../../browser/controlPlane/onyxControlPlaneService.js';
@@ -57,10 +59,19 @@ import { IOnyxEndpointSecretService } from '../../../browser/model/onyxEndpointS
 import { IOnyxModelService, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
 import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../../../browser/agent/onyxHarnessConfigService.js';
+import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../../../browser/models/onyxContextAllocationService.js';
+import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
+import { IStorageService, WillSaveStateReason } from '../../../../../../platform/storage/common/storage.js';
+import { OnyxProposalDocuments } from '../../../browser/changes/onyxProposalDiff.js';
+import { IOnyxVerificationService, OnyxVerificationService } from '../../../browser/verification/onyxVerificationService.js';
+import { IMarkerService } from '../../../../../../platform/markers/common/markers.js';
+import { MarkerService } from '../../../../../../platform/markers/common/markerService.js';
+import { OnyxInlineEditSession } from '../../../browser/editor/onyxInlineEditSession.js';
+import { Range } from '../../../../../../editor/common/core/range.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
 import { IOnyxRouterService, OnyxRouterService } from '../../../browser/routing/onyxRouterService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../../../browser/terminal/onyxTerminalTool.js';
-import { OnyxSimBoundary, OnyxSimEpisode, OnyxSimFault, OnyxSimUserAction } from './onyxSimEpisode.js';
+import { OnyxSimBoundary, OnyxSimEpisode, OnyxSimFault, OnyxSimModelTurn, OnyxSimUserAction } from './onyxSimEpisode.js';
 import { IOnyxSimCommandScript, IOnyxSimScheduler, OnyxSimDialogService, OnyxSimEnergyService, OnyxSimFileSystemProvider, OnyxSimLanguageModelsService, OnyxSimPinService, OnyxSimPlaybookService, OnyxSimProfileService, OnyxSimRuntimeService, OnyxSimSearchService, OnyxSimTaskService, OnyxSimToolsService, SIM_CLOUD_MODEL_KEY, SIM_CORE_TOOLS, SIM_MODEL_KEY, simWorkspaceUri } from './onyxSimFakes.js';
 import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
 import { digest, OnyxSimTrace } from './onyxSimTrace.js';
@@ -103,8 +114,10 @@ export interface IOnyxSimState {
 	readonly typedTexts: readonly string[];
 	readonly stopped: boolean;
 	readonly acceptedHunks: readonly { readonly path: string; readonly hunk: number | 'all'; readonly newLines: readonly string[] }[];
+	/** Files whose buffer, after the whole proposal was accepted against its own base, is not the proposal. */
+	readonly acceptedBufferMismatches: readonly string[];
 	/** Staged proposals observed after each tool result: path, hunk count and the proposal's size. */
-	readonly stageEvents: readonly { readonly path: string; readonly hunks: number; readonly proposedChars: number; readonly search: string | undefined; readonly baseAtStage: string | undefined; readonly proposedBefore: string | undefined }[];
+	readonly stageEvents: readonly { readonly path: string; readonly hunks: number; readonly proposedChars: number; readonly proposedLines: number; readonly realLocation: string; readonly runId: string | undefined; readonly search: string | undefined; readonly blocks: readonly IOnyxEditBlock[]; readonly baseAtStage: string | undefined; readonly proposedBefore: string | undefined }[];
 	readonly profile: IOnyxModelProfile;
 	/** The most command output the terminal service held at once, in characters, over the whole episode. */
 	readonly peakRetainedOutputChars: number | undefined;
@@ -130,6 +143,9 @@ export interface IOnyxSimProductClasses {
 	readonly MemoryTool: typeof OnyxMemoryToolContribution;
 	readonly DiagnosticsRedactor: typeof OnyxDiagnosticsRedactor;
 	readonly ModelService: typeof OnyxModelService;
+	readonly ChangeSetService: typeof OnyxChangeSetService;
+	readonly InlineEditSession: typeof OnyxInlineEditSession;
+	readonly ControlPlaneService: typeof OnyxControlPlaneService;
 }
 
 export interface IOnyxSimRigOptions {
@@ -138,6 +154,8 @@ export interface IOnyxSimRigOptions {
 	readonly workspaceTrusted?: boolean;
 	/** A harness configuration asked for through a lab manifest (L4), and whether the product is a packaged build. */
 	readonly labHarness?: { readonly request: IOnyxLabHarnessRequest; readonly packaged: boolean };
+	/** Where a turn comes from when the episode's script has none left (L8): a real model while recording, or what follows a cut point. */
+	readonly liveTurn?: (params: IOnyxChatParams) => Promise<OnyxSimModelTurn>;
 }
 
 export interface IOnyxSimResult {
@@ -147,6 +165,9 @@ export interface IOnyxSimResult {
 	readonly journal: string;
 	readonly violations: readonly { readonly invariant: string; readonly detail: string; readonly boundary: string }[];
 	readonly status: string;
+	/** The target file's buffer when the episode ended, and how many user steps were carried out. */
+	readonly targetBuffer: string | undefined;
+	readonly userStepsTaken: number;
 	readonly turns: number;
 	readonly boundaries: number;
 	/** The text of every tool result, in dispatch order. */
@@ -162,7 +183,7 @@ export interface IOnyxSimResult {
 	/** The most command output the terminal service held at once, in characters. */
 	readonly peakRetainedOutputChars: number | undefined;
 	/** Every request as it went on the wire: estimated tokens of messages and tool schemas, and the output cap. */
-	readonly requests: readonly { readonly promptTokens: number; readonly maxTokens: number | undefined; readonly text: string }[];
+	readonly requests: readonly { readonly promptTokens: number; readonly maxTokens: number | undefined; readonly text: string; /** The schema the turn was to be decoded against, when there was one. */ readonly responseFormat: unknown }[];
 	/** What the loop told the profile service fits, after an overflow. */
 	readonly observedContexts: readonly number[];
 	/** Tasks the task service was asked to run. */
@@ -173,6 +194,10 @@ export interface IOnyxSimResult {
 	readonly memoryNotes: readonly string[];
 	/** Everything the first request of the follow-up run sent, when the episode has one. */
 	readonly followUpPromptText: string | undefined;
+	/** The files that have changes staged when the episode ends. */
+	readonly stagedPaths: readonly string[];
+	/** Every model turn that was served, scripted or live, in order (L8). */
+	readonly servedTurns: readonly OnyxSimModelTurn[];
 }
 
 /**
@@ -207,8 +232,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly pendingBuffer = new Map<string, string>();
 	readonly typedTexts: string[] = [];
 	readonly acceptedHunks: { path: string; hunk: number | 'all'; newLines: readonly string[] }[] = [];
-	readonly stageEvents: { path: string; hunks: number; proposedChars: number; search: string | undefined; baseAtStage: string | undefined; proposedBefore: string | undefined }[] = [];
+	readonly acceptedBufferMismatches: string[] = [];
+	readonly stageEvents: { path: string; hunks: number; proposedChars: number; proposedLines: number; realLocation: string; runId: string | undefined; search: string | undefined; blocks: readonly IOnyxEditBlock[]; baseAtStage: string | undefined; proposedBefore: string | undefined }[] = [];
 	private readonly _lastProposed = new Map<string, string>();
+	/** The generation of each file's staging at the last look: a new one is a new staging, the same one is a review that moved. */
+	private readonly _lastGeneration = new Map<string, number>();
 	readonly profile: IOnyxModelProfile;
 	/** Every journal event the control plane recorded, as the outcome service would write it (one JSON line each). */
 	readonly journalLines: string[] = [];
@@ -219,6 +247,15 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private readonly _modelService: IModelService;
 	private readonly _textModelService: ITextModelService;
 	private readonly _textFileService: ITextFileService;
+	private readonly _instantiationService: IInstantiationService;
+	private readonly _storageService: TestStorageService;
+	private readonly _changeSetClass: typeof OnyxChangeSetService;
+	private readonly _inlineEditSessionClass: typeof OnyxInlineEditSession;
+	readonly verification: IOnyxVerificationService;
+	/** The window's diagnostics, for a test to report problems as a language service would. */
+	readonly markers: IMarkerService;
+	/** The product's own path service, for callers that turn a file's address into the path the tools use. */
+	readonly workspaceAccess: IOnyxWorkspaceAccessService;
 	private readonly _loop: OnyxAgentLoop;
 	private readonly _languageModels: OnyxSimLanguageModelsService;
 	private readonly _references = new Map<string, IReference<IResolvedTextEditorModel>>();
@@ -235,7 +272,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private _prepared = false;
 
 	constructor(readonly episode: OnyxSimEpisode, checkers: readonly OnyxSimChecker[] = [], options: IOnyxSimRigOptions = {}) {
-		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ...options.classes };
+		const classes: IOnyxSimProductClasses = { AgentLoop: OnyxAgentLoop, TerminalService: OnyxTerminalService, WorkspaceAccess: OnyxWorkspaceAccessService, MemoryTool: OnyxMemoryToolContribution, DiagnosticsRedactor: OnyxDiagnosticsRedactor, ModelService: OnyxModelService, ChangeSetService: OnyxChangeSetService, InlineEditSession: OnyxInlineEditSession, ControlPlaneService: OnyxControlPlaneService, ...options.classes };
 		this._redactorClass = classes.DiagnosticsRedactor;
 		this._checkers.push(...checkers);
 		this.trace = new OnyxSimTrace(() => Date.now());
@@ -248,7 +285,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			}
 			return { exitCode: 0, output: command.startsWith('cat ') ? (episode.files[command.slice(4).trim()] ?? '') : `ran: ${command}\n` };
 		};
-		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal, episode.runtimeContextTokens, episode.constrained === true));
+		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal, episode.runtimeContextTokens, episode.constrained === true, options.liveTurn));
 		this.dialogs = new OnyxSimDialogService(episode.dialogDefault, this, this.trace);
 		this.tools = new OnyxSimToolsService(this, this.trace);
 
@@ -293,12 +330,20 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		configuration.setUserConfiguration('onyx', { agent: { networkTools: episode.networkTools === true }, terminal: { passEnvironment: episode.passEnvironment === true } });
 		this._lifecycle = instantiationService.get(ILifecycleService) as TestLifecycleService;
 		instantiationService.stub(ISearchService, this.search);
-		instantiationService.stub(IOnyxWorkspaceAccessService, instantiationService.createInstance(classes.WorkspaceAccess));
+		this.workspaceAccess = instantiationService.createInstance(classes.WorkspaceAccess);
+		instantiationService.stub(IOnyxWorkspaceAccessService, this.workspaceAccess);
+		this._instantiationService = instantiationService;
+		this._storageService = instantiationService.get(IStorageService) as TestStorageService;
+		this._changeSetClass = classes.ChangeSetService;
+		this._inlineEditSessionClass = classes.InlineEditSession;
 
-		this.controlPlane = this._disposables.add(new OnyxControlPlaneService());
+		this.controlPlane = this._disposables.add(new classes.ControlPlaneService());
 		instantiationService.stub(IOnyxControlPlaneService, this.controlPlane);
 		// No endpoint is configured in the rig, so there is no key to store or read.
 		instantiationService.stub(IOnyxEndpointSecretService, { _serviceBrand: undefined, onDidChange: Event.None, setApiKey: async () => { }, configuredApiKeys: async () => new Map<string, string>() });
+		// The real allocation service over the simulated runtime (B15): nothing was asked of that runtime, so
+		// every model is requested under its own name at the server's allocation.
+		instantiationService.stub(IOnyxContextAllocationService, this._disposables.add(instantiationService.createInstance(OnyxContextAllocationService)));
 		const modelService: IOnyxModelService = this._disposables.add(instantiationService.createInstance(classes.ModelService));
 		instantiationService.stub(IOnyxModelService, modelService);
 		this._languageModels = new OnyxSimLanguageModelsService(modelService);
@@ -307,10 +352,16 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IOnyxPromptCacheService, this._disposables.add(new OnyxPromptCacheService()));
 		this.memory = this._disposables.add(instantiationService.createInstance(OnyxMemoryService));
 		instantiationService.stub(IOnyxMemoryService, this.memory);
-		this.changeSet = this._disposables.add(instantiationService.createInstance(OnyxChangeSetService));
+		this.changeSet = this._disposables.add(instantiationService.createInstance(classes.ChangeSetService));
 		instantiationService.stub(IOnyxChangeSetService, this.changeSet);
 		this._terminal = this._disposables.add(instantiationService.createInstance(classes.TerminalService));
 		instantiationService.stub(IOnyxTerminalService, this._terminal);
+		// The product's marker service, not the test stub: diagnostics have to arrive as events (C2).
+		instantiationService.stub(IMarkerService, this._disposables.add(new MarkerService()));
+		// The real verification service (C2): it watches the change set and reports after an acceptance.
+		this.verification = this._disposables.add(instantiationService.createInstance(OnyxVerificationService));
+		instantiationService.stub(IOnyxVerificationService, this.verification);
+		this.markers = instantiationService.get(IMarkerService);
 		this._disposables.add(instantiationService.createInstance(OnyxReadFileToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxListDirectoryToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxFindFilesToolContribution));
@@ -367,6 +418,51 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		return this._modelService.getModel(this._uri(path))?.getValue();
 	}
 
+	/** The live text model of a workspace file, when it has one. */
+	textModel(path: string): ITextModel | undefined {
+		return this._modelService.getModel(this._uri(path)) ?? undefined;
+	}
+
+	/** Closes a file the rig had open: its text model is disposed, as when the last editor on it closes. */
+	closeModel(path: string): void {
+		this._close(path);
+		this._modelService.getModel(this._uri(path))?.dispose();
+	}
+
+	/** The product's proposal documents (C1), over this rig's change set and text models. */
+	proposalDocuments(): OnyxProposalDocuments {
+		return this._disposables.add(this._instantiationService.createInstance(OnyxProposalDocuments));
+	}
+
+	/** The address of a workspace file, for a test that reports diagnostics on it. */
+	uri(path: string): URI {
+		return this._uri(path);
+	}
+
+	/** Whether the file has unsaved changes, as the editor would show it. */
+	isDirty(path: string): boolean {
+		return this._textFileService.isDirty(this._uri(path));
+	}
+
+	/** Saves the file through the editor's own save, as Save or an autosave would. */
+	async save(path: string): Promise<void> {
+		await this._textFileService.save(this._uri(path));
+	}
+
+	/**
+	 * What a window reload does to the change set: the storage is asked to
+	 * save its state, and a new service is built from what was stored.
+	 */
+	reloadChangeSet(): IOnyxChangeSetService {
+		this._storageService.testEmitWillSaveState(WillSaveStateReason.SHUTDOWN);
+		return this._disposables.add(this._instantiationService.createInstance(this._changeSetClass));
+	}
+
+	/** Changes a file on the in-memory disk, as another program would. */
+	async writeDisk(path: string, content: string): Promise<void> {
+		await this._fileService.writeFile(this._uri(path), VSBuffer.fromString(content));
+	}
+
 	async disk(path: string): Promise<string | undefined> {
 		try {
 			return (await this._fileService.readFile(this._uri(path))).value.toString();
@@ -399,6 +495,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this._boundaries++;
 		const occurrence = (this._occurrences.get(name) ?? 0) + 1;
 		this._occurrences.set(name, occurrence);
+		// What was staged before this boundary is recorded before the user acts at it. Until the Module 3 gate
+		// it was recorded afterwards, so an edit staged during a tool call and a Stop pressed at the boundary
+		// that follows the call were written down in the wrong order, and the campaign reported a staging
+		// after Stop that had not happened (I-05, seeds 3019, 3631 and 3809 of 20,000; none below 2,000).
+		this._observeStaging();
 		for (let index = 0; index < this.episode.userSteps.length; index++) {
 			const scheduled = this.episode.userSteps[index];
 			if (scheduled.at === name && scheduled.occurrence === occurrence && !this._takenUserSteps.has(index)) {
@@ -475,21 +576,35 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			}
 			case 'acceptHunk': {
 				const staged = this.changeSet.files.get().find(file => file.proposal.path === action.path);
+				// The user accepts the hunk that is on show at that place, by the id it is shown with (B7).
 				const hunk = staged?.hunks[action.hunk];
-				if (await this.changeSet.acceptHunk(action.path, action.hunk)) {
+				if (hunk && (await this.changeSet.acceptHunk(action.path, hunk.id)).applied) {
 					this.acceptedHunks.push({ path: action.path, hunk: action.hunk, newLines: hunk?.newLines ?? [] });
 					this._sanction(action.path);
 				}
 				break;
 			}
-			case 'rejectHunk':
-				this.changeSet.rejectHunk(action.path, action.hunk);
+			case 'rejectHunk': {
+				const hunk = this.changeSet.files.get().find(file => file.proposal.path === action.path)?.hunks[action.hunk];
+				if (hunk) {
+					this.changeSet.rejectHunk(action.path, hunk.id);
+				}
 				break;
+			}
 			case 'acceptAll': {
-				const staged = this.changeSet.files.get();
-				await this.changeSet.acceptAll();
-				for (const file of staged) {
+				// File by file, as the product's accept-all does, so that what each accept came to is known.
+				for (const file of [...this.changeSet.files.get()]) {
+					const before = this.buffer(file.proposal.path)?.replace(/\r\n/g, '\n');
+					if (!(await this.changeSet.acceptFile(file.proposal.path)).applied) {
+						continue;
+					}
 					this.acceptedHunks.push({ path: file.proposal.path, hunk: 'all', newLines: file.hunks.flatMap(hunk => hunk.newLines) });
+					// The whole proposal was accepted against the very text it was computed from: the buffer is
+					// then the proposal, byte for byte (I-09, B8).
+					const after = this.buffer(file.proposal.path)?.replace(/\r\n/g, '\n');
+					if (before !== undefined && before === file.proposal.base && file.conflicts.length === 0 && after !== file.proposal.proposed) {
+						this.acceptedBufferMismatches.push(file.proposal.path);
+					}
 					this._sanction(file.proposal.path);
 				}
 				break;
@@ -499,10 +614,14 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 				break;
 			case 'stop':
 				this.stopped = true;
+				// The Stop button on the run list, and nothing else: the chat request's own token is not cancelled
+				// here. That one press has to end everything the run owns (B10, R-15). Before a run exists there is
+				// only the request to cancel.
 				if (this._runId) {
 					this.controlPlane.stop(this._runId);
+				} else {
+					this._cancellation.cancel();
 				}
-				this._cancellation.cancel();
 				break;
 			case 'pause':
 				if (this._runId) {
@@ -540,6 +659,13 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 					}
 				}
 				break;
+			case 'inlineEdit': {
+				// The product's own session, from request to staged reply; the reply is the simulated model's.
+				const model = await this._open(this.episode.target);
+				const session = new this._inlineEditSessionClass(model, new Range(action.startLine, 1, action.endLine, model.getLineMaxColumn(action.endLine)), this.changeSet, this.workspaceAccess);
+				await session.stageReply(action.reply);
+				break;
+			}
 			case 'undo': {
 				const model = this._modelService.getModel(this._uri(this.episode.target));
 				if (model) {
@@ -603,22 +729,29 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private _observeStaging(): void {
 		const files = this.changeSet.files.get();
 		const lastEdit = [...this.tools.invocations].reverse().find(invocation => invocation.toolId === 'onyx_editFile');
+		// The call's edits as the product reads them (C3): one, or several placed in order.
+		const read = lastEdit ? readEditArguments(lastEdit.parameters) : undefined;
+		const blocks = read?.ok ? read.blocks : [];
 		const search = typeof (lastEdit?.parameters as { search?: unknown } | undefined)?.search === 'string' ? (lastEdit!.parameters as { search: string }).search : undefined;
 		for (const staged of files) {
 			const previous = this._lastProposed.get(staged.proposal.path);
-			if (previous === staged.proposal.proposed) {
-				continue; // unchanged since the last look
-			}
+			const sameGeneration = this._lastGeneration.get(staged.proposal.path) === staged.generation;
 			this._lastProposed.set(staged.proposal.path, staged.proposal.proposed);
+			this._lastGeneration.set(staged.proposal.path, staged.generation);
+			if (sameGeneration) {
+				// The same staging, carried onto a changed buffer or partly accepted: the review moved, nothing new was staged.
+				continue;
+			}
 			if (previous !== undefined && staged.hunks.length <= 0) {
 				continue;
 			}
-			this.stageEvents.push({ path: staged.proposal.path, hunks: staged.hunks.length, proposedChars: staged.proposal.proposed.length, search, baseAtStage: staged.proposal.base, proposedBefore: previous });
+			this.stageEvents.push({ path: staged.proposal.path, hunks: staged.hunks.length, proposedChars: staged.proposal.proposed.length, proposedLines: staged.proposal.proposed.split('\n').length, realLocation: this._provider.realLocation(this._uri(staged.proposal.path).path), runId: staged.runId, search, blocks, baseAtStage: staged.proposal.base, proposedBefore: previous });
 			this.trace.record({ kind: 'stage', path: staged.proposal.path, hunks: staged.hunks.length, ok: true });
 		}
 		for (const path of [...this._lastProposed.keys()]) {
 			if (!files.some(staged => staged.proposal.path === path)) {
 				this._lastProposed.delete(path);
+				this._lastGeneration.delete(path);
 			}
 		}
 	}
@@ -711,6 +844,20 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this._provider.addLink(this._uri(path).path, target);
 	}
 
+	/** Makes the existing workspace file `path` a symbolic link to the file `target` outside the workspace. */
+	linkFile(path: string, target: string): void {
+		this._provider.addLink(this._uri(path).path, target);
+	}
+
+	/** What is on the in-memory disk at an absolute path, outside the workspace included; undefined when nothing is. */
+	async diskAt(absolutePath: string): Promise<string | undefined> {
+		try {
+			return (await this._fileService.readFile(URI.file(absolutePath))).value.toString();
+		} catch {
+			return undefined;
+		}
+	}
+
 	/** The repository's `.onyx/config.json` as it is on the in-memory disk now. */
 	async projectConfigOnDisk(): Promise<string | undefined> {
 		return this.disk('.onyx/config.json');
@@ -725,7 +872,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 
 	async run(): Promise<IOnyxSimResult> {
 		await this.prepare();
-		await this._observe('afterRun');
+		// The first `afterRun` boundary is the state before anything ran; the ones after the loop has
+		// returned follow below. Until B7 this was an observation only, and no `afterRun` boundary was ever
+		// raised: a user step scheduled there (accept, type, save) never happened, in the random episodes
+		// and in the scripted audit scenarios alike.
+		await this.boundary('afterRun');
 
 		const request: IChatAgentRequest = {
 			sessionResource: URI.parse('onyx-sim://session/1'),
@@ -767,6 +918,15 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		}
 		// Fire-and-forget work after a run (risk badges, verification) settles on virtual time.
 		await timeout(1000);
+		// The user acts on what the run left: every step scheduled after the run, in the order of its occurrence.
+		for (let round = 0; round < 12; round++) {
+			await this.boundary('afterRun');
+			await timeout(50);
+			const reached = this._occurrences.get('afterRun') ?? 0;
+			if (!this.episode.userSteps.some((scheduled, index) => scheduled.at === 'afterRun' && scheduled.occurrence > reached && !this._takenUserSteps.has(index))) {
+				break;
+			}
+		}
 		if (this.episode.followUpPrompt !== undefined && !this.stopped) {
 			// A later request in the same workspace: its prompt is built from whatever persistent state the first run left.
 			this._followUpFirstRequest = this.runtime.requests.length;
@@ -791,6 +951,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			journal: this.journalLines.join('\n') + '\n',
 			violations: this._violations,
 			status,
+			targetBuffer: this.buffer(this.episode.target),
+			userStepsTaken: this._takenUserSteps.size,
 			turns: this.runtime.requests.length,
 			boundaries: this._boundaries,
 			toolResults: [...this.tools.results],
@@ -802,12 +964,14 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			requests: this.runtime.requests.map(request => {
 				const text = request.messages.map(message => String(message.content ?? '') + (message.tool_calls ?? []).map(call => call.function.name + call.function.arguments).join('')).join('\n');
 				const promptChars = request.messages.reduce((total, message) => total + String(message.content ?? '').length + (message.tool_calls ?? []).reduce((sum, call) => sum + call.function.name.length + call.function.arguments.length, 0), 0);
-				return { promptTokens: Math.ceil((promptChars + (request.tools?.length ? JSON.stringify(request.tools).length : 0)) / 4), maxTokens: request.maxTokens, text };
+				return { promptTokens: Math.ceil((promptChars + (request.tools?.length ? JSON.stringify(request.tools).length : 0)) / 4), maxTokens: request.maxTokens, text, responseFormat: request.responseFormat };
 			}),
 			observedContexts: [...this._profiles.observedContexts],
 			tasksRan: [...this.tasks.ran],
 			projectConfigOnDisk: await this.projectConfigOnDisk(),
 			memoryNotes: this.memory.getNotes().map(note => note.text),
+			stagedPaths: this.changeSet.files.get().map(file => file.proposal.path),
+			servedTurns: [...this.runtime.servedTurns],
 			followUpPromptText: this._followUpFirstRequest === undefined ? undefined : (this.runtime.requests[this._followUpFirstRequest]?.messages ?? []).map(message => String(message.content ?? '')).join('\n'),
 		};
 	}

@@ -74,7 +74,7 @@ function event(kind: string, data: unknown): IOnyxRunEvent {
 }
 
 const EVENTS: readonly unknown[] = [
-	event('trace', { kind: 'trace', v: 2, runId: 'run-1-0', startedAt: 1, harness: { configurationHash: 'abc123', configuration: { promptStyle: 'full', maxTools: 8 } }, model: { identifier: 'onyx:10.0.0.5:8000/coder', digest: null }, runtime: { name: 'vllm', version: null, baseUrl: CREDENTIALED_URL }, sampling: { temperature: 0.2, seed: null, maxTokens: null, responseFormat: false }, tools: [{ name: 'terminal', schemaHash: 'ffff0000' }] }),
+	event('trace', { kind: 'trace', v: 2, runId: 'run-1-0', startedAt: 1, harness: { configurationHash: 'abc123', configuration: { promptStyle: 'full', maxTools: 8 } }, model: { identifier: 'onyx:10.0.0.5:8000/coder', digest: null }, runtime: { name: 'vllm', version: null, baseUrl: CREDENTIALED_URL }, sampling: { temperature: 0.2, seed: null, maxTokens: null, responseFormat: false }, tools: [{ name: 'terminal', schemaHash: 'ffff0000' }], context: { budgetedTokens: 16384, source: 'server', requestedTokens: null, reportedTokens: 16384, verifiedTokens: null, mechanism: null } }),
 	event('promptSnapshot', {
 		turn: 1, model: 'onyx:10.0.0.5:8000/coder', tools: ['terminal'], messages: [
 			{ role: 1, content: [{ type: 'text', value: `please ${CONTENT.promptText}` }] },

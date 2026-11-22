@@ -66,6 +66,11 @@ const MATH_TS_CONTENT = [
 	'\treturn total;',
 	'}',
 	'',
+	// The second line the mock's EDITTEST edits: without it the flow stages one hunk, not two (R-25 needs two).
+	'export function multiply(a: number, b: number): number {',
+	'\treturn a * b;',
+	'}',
+	'',
 ].join('\n');
 
 function sleep(ms: number) {
@@ -101,8 +106,49 @@ async function waitUntil(condition: () => boolean, timeoutMs = 20_000, stepMs = 
  */
 const playwrightCli = createRequire(import.meta.url).resolve('@playwright/cli/playwright-cli.js');
 
-function pw(...args: string[]) {
+/** How often the driver's session was found gone while the workbench was still there, and was attached again. */
+let sessionsLost = 0;
+
+/** Whether the workbench still answers on its debugging port. Synchronous: it is asked from inside `pw`. */
+function workbenchAnswers(): boolean {
+	try {
+		return execFileSync('curl', ['-s', '-m', '3', `http://127.0.0.1:${cdpPort}/json/version`], { encoding: 'utf8' }).includes('webSocketDebuggerUrl');
+	} catch {
+		return false;
+	}
+}
+
+function pwOnce(...args: string[]) {
 	return execFileSync(process.execPath, [playwrightCli, `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+/**
+ * One command of the driver. The driver keeps its attachment to the
+ * workbench in a process of its own, and that process has been seen to go
+ * away in the middle of a run while the workbench was untouched ("The
+ * browser … is not open"), three times on 2026-11-21 on a loaded machine and
+ * at a different step each time. When that happens and the workbench still
+ * answers on its debugging port, the driver is attached again and the
+ * command is sent once more; it is counted and printed, never silent. When
+ * the workbench does not answer, nothing is retried: that is a failure of
+ * the product or of the machine, and the run aborts saying which.
+ */
+function pw(...args: string[]) {
+	try {
+		return pwOnce(...args);
+	} catch (error) {
+		const output = String((error as { stdout?: unknown }).stdout ?? '');
+		if (args[0] === 'attach' || args[0] === 'close' || !/is not open, please run open first/.test(output)) {
+			throw error;
+		}
+		if (!workbenchAnswers()) {
+			throw new Error(`the driver's session is gone and the workbench no longer answers on :${cdpPort}: the application has exited or its main process is blocked`, { cause: error });
+		}
+		sessionsLost++;
+		console.error(`  note  the driver's session was gone while the workbench still answered on :${cdpPort}; attached again (${sessionsLost}) before: ${args[0]}`);
+		pwOnce('attach', `--cdp=http://127.0.0.1:${cdpPort}`);
+		return pwOnce(...args);
+	}
 }
 
 /**
@@ -375,6 +421,9 @@ async function typeInEditor() {
  * a real `<input>`, so Playwright's fill works — unlike the Monaco chat input.
  */
 async function runCommand(label: string) {
+	// The first-run dialog can come up later than the two moments this runner waits for it at: on a loaded
+	// machine it has appeared a minute in. It is modal, so it is looked for before every command and prompt.
+	await dismissOnboarding(0);
 	pw('press', 'F1');
 	await sleep(800);
 	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ${JSON.stringify('>' + label)}); }`);
@@ -436,6 +485,7 @@ async function dismissOnboarding(waitMs: number): Promise<void> {
 }
 
 async function send(prompt: string) {
+	await dismissOnboarding(0);
 	const focusScript = path.join(repoRoot, '.agents', 'skills', 'launch', 'playwrightScripts', 'focus-chat-input.ts');
 	const paste = path.join(repoRoot, '.agents', 'skills', 'launch', 'scripts', 'monaco-paste.sh');
 	pw('run-code', `--filename=${focusScript}`);
@@ -604,8 +654,9 @@ async function main() {
 	const symbolResult = snapshots.map(snapshot => JSON.stringify(snapshot.data)).find(text => text.includes('Call graph of computeTotal'));
 	check('repoSymbols returned a call graph', !!symbolResult, 'no call-graph section in any tool result');
 
-	const verdicts = all.filter(event => event.kind === 'note' && /Verification/.test(event.data?.label ?? ''));
-	check('post-run verification reported', verdicts.length >= 1, 'no verification note');
+	// C2: a run that staged nothing and accepted nothing has nothing to verify, and says nothing about verification.
+	const verdicts = all.filter(event => event.kind === 'note' && /^Verification/.test(event.data?.label ?? ''));
+	check('R-21: runs that accepted nothing report no verification verdict', verdicts.length === 0, verdicts.map(event => String(event.data?.label)).slice(0, 3).join(' | '));
 
 	await typeInEditor();
 	// The FIM model is the smallest one discovered; with two mock endpoints it
@@ -681,19 +732,28 @@ async function main() {
 	const widgetOpened = pwValue(pw('run-code', 'async (page) => { const input = await page.$(".onyx-inline-edit-input"); if (!input) { return "missing"; } await input.fill("mark this function"); return "filled"; }'));
 	check('the inline edit widget opens on the selection', widgetOpened === 'filled', widgetOpened.slice(0, 120));
 	pw('press', 'Enter');
+	// The reply is staged for review (B9, R-34): the proposed lines are on show in a read-only zone, and
+	// nothing of them is in the file until a hunk is kept.
 	const readHunkState = () => pw('run-code', `async (page) => page.evaluate(() => ({
-		edited: Array.from(document.querySelectorAll('.editor-instance .view-line')).some(l => (l.textContent || '').includes('edited-by-mock')),
+		inBuffer: Array.from(document.querySelectorAll('.editor-instance .view-line')).some(l => (l.textContent || '').includes('edited-by-mock')),
+		proposed: Array.from(document.querySelectorAll('.editor-instance .onyx-inline-proposal-line')).some(l => (l.textContent || '').includes('edited-by-mock')),
 		decorated: !!document.querySelector('.onyx-inline-hunk'),
 	}))`);
-	await waitUntil(() => /"edited"\s*:\s*true/.test(readHunkState()));
+	await waitUntil(() => /"proposed"\s*:\s*true/.test(readHunkState()));
 	const hunkState = readHunkState();
-	check('the inline edit applied a reviewable hunk', /"edited"\s*:\s*true/.test(hunkState) && /"decorated"\s*:\s*true/.test(hunkState), hunkState.slice(0, 160));
-	// Undo the hunk: the original line must come back verbatim.
+	check('the inline edit is staged for review and nothing of it is in the file', /"proposed"\s*:\s*true/.test(hunkState) && /"decorated"\s*:\s*true/.test(hunkState) && /"inBuffer"\s*:\s*false/.test(hunkState), hunkState.slice(0, 200));
+	// Keep the hunk: only now does the file change.
 	focusEditor();
-	pw('press', `${mod}+Backspace`);
-	await sleep(1500);
-	const afterReject = pw(`run-code`, `async (page) => page.evaluate(() => Array.from(document.querySelectorAll('.editor-instance .view-line')).some(l => (l.textContent || '').includes('edited-by-mock')))`);
-	check('undoing a hunk restores the original line', /false/.test(afterReject), afterReject.slice(0, 120));
+	pw('press', `${mod}+Enter`);
+	await waitUntil(() => /"inBuffer"\s*:\s*true/.test(readHunkState()));
+	const keptState = readHunkState();
+	check('keeping the hunk applies it to the file', /"inBuffer"\s*:\s*true/.test(keptState) && /"proposed"\s*:\s*false/.test(keptState), keptState.slice(0, 200));
+	// The kept hunk is one undoable edit: undo brings the original line back verbatim.
+	focusEditor();
+	pw('press', `${mod}+z`);
+	await waitUntil(() => /"inBuffer"\s*:\s*false/.test(readHunkState()));
+	const afterUndo = readHunkState();
+	check('undoing the kept hunk restores the original line', /"inBuffer"\s*:\s*false/.test(afterUndo), afterUndo.slice(0, 200));
 	await waitUntil(() => readRunIndex().some(run => run.title.startsWith('Inline edit')));
 	check('the inline edit run was journaled', readRunIndex().some(run => run.title.startsWith('Inline edit')), JSON.stringify(readRunIndex().map(run => run.title).slice(0, 6)));
 
@@ -731,6 +791,52 @@ async function main() {
 	const changesState = readChangesState();
 	const wasStaged = changesState.includes('src/math.ts');
 	check('the staged file appears in Onyx Changes', wasStaged, changesState.slice(0, 160));
+	// --- R-25 (C1): the proposal in a real diff editor. Open it from Onyx Changes, accept one hunk from the
+	// editor, and the file holds that hunk and not the other; the side bar follows.
+	const openedDiff = pwValue(pw('run-code', `async (page) => {
+		const open = await page.$('.onyx-change-file-header .codicon-go-to-file');
+		if (!open) { return 'no-open-button'; }
+		await open.click(); return 'opened';
+	}`));
+	const readDiffState = () => pw('run-code', `async (page) => page.evaluate(() => {
+		const lines = side => Array.from(document.querySelectorAll('.monaco-diff-editor .editor.' + side + ' .view-line')).map(l => (l.textContent || '').replace(/\\u00a0/g, ' '));
+		const has = (side, text) => lines(side).some(l => l.includes(text));
+		return {
+			diff: !!document.querySelector('.monaco-diff-editor'),
+			fileHasFirst: has('original', 'return b + a; // edited-by-mock'),
+			fileHasSecond: has('original', 'return b * a; // edited-by-mock'),
+			proposalHasFirst: has('modified', 'return b + a; // edited-by-mock'),
+			proposalHasSecond: has('modified', 'return b * a; // edited-by-mock'),
+			stat: (document.querySelector('.onyx-change-file-stat') || {}).textContent || '',
+		};
+	})`);
+	await waitUntil(() => /"proposalHasFirst"\s*:\s*true/.test(readDiffState()));
+	const diffState = readDiffState();
+	check('R-25: the proposal opens in a diff editor, the file on the left without the edits and the proposal on the right with them', openedDiff === 'opened' && /"diff"\s*:\s*true/.test(diffState) && /"fileHasFirst"\s*:\s*false/.test(diffState) && /"fileHasSecond"\s*:\s*false/.test(diffState) && /"proposalHasFirst"\s*:\s*true/.test(diffState) && /"proposalHasSecond"\s*:\s*true/.test(diffState), `${openedDiff}; ${diffState.slice(0, 260)}`);
+	// The caret goes to the first changed line of the proposal, and that hunk is accepted from the editor.
+	pw('run-code', 'async (page) => { const ed = await page.$(".monaco-diff-editor .editor.modified .native-edit-context, .monaco-diff-editor .editor.modified textarea.inputarea"); if (!ed) { throw new Error("no proposal editor input"); } await ed.focus(); }');
+	pw('press', 'Control+g');
+	await sleep(800);
+	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ':2'); }`);
+	pw('press', 'Enter');
+	await sleep(800);
+	await runCommand('Onyx: Accept Hunk at Cursor');
+	await waitUntil(() => /"fileHasFirst"\s*:\s*true/.test(readDiffState()));
+	const acceptedHunkState = readDiffState();
+	check('R-25: accepting one hunk from the editor puts that hunk in the file and not the other, and the side bar shows one hunk left', /"fileHasFirst"\s*:\s*true/.test(acceptedHunkState) && /"fileHasSecond"\s*:\s*false/.test(acceptedHunkState) && /"stat"\s*:\s*"\+1 −1"/.test(acceptedHunkState), acceptedHunkState.slice(0, 260));
+	// R-21 (C2), end to end: before the acceptance the run's timeline said "not applied"; after it, a result for
+	// the accepted content arrives, and it is never the old "no new problems" said of an unapplied edit.
+	// The notes are read run by run: the inline edit above has verification notes of its own.
+	const verificationNotesByRun = () => readRuns().map(run => run.events.filter(event => event.kind === 'note' && /^Verification/.test(event.data?.label ?? '')).map(event => String(event.data?.label)));
+	const settled = /^Verification: (verified|new problems|timed out)/;
+	const agentRunNotes = () => verificationNotesByRun().find(labels => labels.some(label => label.startsWith('Verification: not applied'))) ?? [];
+	await waitUntil(() => agentRunNotes().some(label => settled.test(label)), 30_000);
+	const verificationSeen = agentRunNotes();
+	check('R-21: verification says "not applied" while the edit is only staged, and reports on the accepted content after the acceptance', verificationSeen.length >= 2 && verificationSeen[0].startsWith('Verification: not applied') && settled.test(verificationSeen[verificationSeen.length - 1]) && verificationSeen[verificationSeen.length - 1].includes('Partial: 1 hunk is still staged'), verificationSeen.join(' | ').slice(0, 400));
+	// The inline edit went through the same path: its kept hunk was verified, and undoing it made that result stale.
+	const inlineRunNotes = verificationNotesByRun().find(labels => labels.some(label => label.startsWith('Verification: stale'))) ?? [];
+	check('R-21: an inline edit is verified through the same path: undoing the kept hunk makes its result stale', inlineRunNotes.length > 0 && !inlineRunNotes.some(label => label.startsWith('Verification: not applied')), verificationNotesByRun().flat().join(' | ').slice(0, 400));
+	// Back to the side bar for the rest: Accept All takes the hunk that is left.
 	pw('run-code', 'async (page) => { const el = await page.$(".onyx-changes-summary button"); await el.click(); }'); // Accept All
 	const readAcceptedState = () => pw('run-code', `async (page) => page.evaluate(() => ({
 		empty: !!document.querySelector('.onyx-changes .onyx-empty'),
@@ -755,6 +861,32 @@ async function main() {
 	const readResult = JSON.stringify(readRuns().flatMap(run => run.events).filter(event => event.kind === 'promptSnapshot').slice(-2));
 	check('R-31: the model read the file through Onyx\'s own readFile tool, as numbered lines', readEditCalls()[0] === 'readFile' && /src\/math\.ts \(lines 1-\d+ of \d+/.test(readResult) && readResult.includes('1| export function addNumbers'), `tool calls: ${readEditCalls().join(', ') || 'none'}`);
 	check('R-31: the edit that quotes the line it read is staged, not written', readChangesState().includes('src/math.ts') && !fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8').includes('edited-by-mock // edited-by-mock'), readChangesState().slice(0, 160));
+	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
+	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
+
+	// --- C3: one editFile call that carries two edits stages two hunks, as one proposal.
+	const toolCallsBeforeMulti = readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall').length;
+	await send('MULTIEDITTEST src/util.ts two edits in one call');
+	const multiEditCalls = () => readRuns().flatMap(run => run.events).filter(event => event.kind === 'toolCall').slice(toolCallsBeforeMulti).map(event => String(event.data?.label ?? ''));
+	await waitUntil(() => multiEditCalls().includes('editFile') && readStagedSnapshot().includes('Staged 2 edit(s) to src/util.ts'), 40_000);
+	await runCommand('Open Onyx Control Plane');
+	await waitUntil(() => readChangesState().includes('src/util.ts'));
+	const readMultiState = () => pw('run-code', `async (page) => page.evaluate(() => ({
+		stat: (document.querySelector('.onyx-change-file-stat') || {}).textContent || '',
+		hunks: document.querySelectorAll('.onyx-change-hunk:not(.onyx-change-conflict)').length,
+		certificates: Array.from(document.querySelectorAll('.onyx-change-hunk-certificate')).map(el => el.textContent),
+	}))`);
+	// A file in Onyx Changes is collapsed until its header is clicked; its hunks are rendered when it is open.
+	pw('run-code', 'async (page) => { const header = await page.$(".onyx-change-file-path"); await header.click(); }');
+	await waitUntil(() => /"hunks"\s*:\s*2/.test(readMultiState()));
+	const multiState = readMultiState();
+	const utilOnDisk = fs.readFileSync(path.join(workspace, 'src', 'util.ts'), 'utf8');
+	check('C3: one editFile call with two edits stages two hunks for the file, and writes nothing', multiEditCalls().filter(label => label === 'editFile').length === 1 && readStagedSnapshot().includes('Staged 2 edit(s) to src/util.ts') && /"hunks"\s*:\s*2/.test(multiState) && /"stat"\s*:\s*"\+2 −2"/.test(multiState) && !utilOnDisk.includes('multi-edit-by-mock'), `${multiEditCalls().join(',')} ${multiState.slice(0, 200)}`);
+	// R-46 (L6), end to end: each staged hunk shows one line of what was checked for it, the journal holds a
+	// sealed certificate for each edit of the call, and no line claims more than was checked.
+	const certificateLines: string[] = JSON.parse(/"certificates"\s*:\s*(\[[^\]]*\])/.exec(multiState)?.[1] ?? '[]');
+	const journaledCertificates = readRuns().flatMap(run => run.events).filter(event => event.kind === 'editCertificate' && event.data?.certificate?.path === 'src/util.ts');
+	check('R-46: each staged hunk shows what was checked for it, and the journal holds a sealed certificate for each edit', certificateLines.length === 2 && certificateLines.every(line => /^Anchored exactly once · /.test(line) && !/proof|correct|safe|guarantee/i.test(line)) && journaledCertificates.length === 2 && journaledCertificates.every(event => typeof event.data?.seal === 'string' && event.data?.certificate?.anchor?.matchCount === 1 && event.data?.certificate?.protocol === 'multi-edit'), `${certificateLines.join(' | ')} ; ${journaledCertificates.length} in the journal`);
 	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
 	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
 
@@ -811,6 +943,31 @@ async function main() {
 	const playbookSnapshots = readRuns().flatMap(run => run.events).filter(event => event.kind === 'promptSnapshot').map(event => JSON.stringify(event.data));
 	check('the prompt advertises the repository playbooks', playbookSnapshots.some(text => text.includes('ships playbooks') && text.includes('e2e-recipe')), 'no playbook index in any prompt');
 	check('the playbook tool fetched the recipe body', playbookSnapshots.some(text => text.includes('Follow this repository playbook') && text.includes('Confirm the recipe body reached the model')), 'the recipe body never reached a tool result');
+
+	// --- R-15: Stop means stop. A slow stream that would end in a tool call is stopped from the run list. The
+	// journal has to say `cancelled` within two seconds, the tool must never be called, and the status must
+	// still be `cancelled` after the stream would have ended.
+	await send('SLOWTOOLTEST think slowly, then list the folder');
+	await waitUntil(() => readRunIndex().some(run => run.title.startsWith('SLOWTOOLTEST') && run.status === 'running'), 15_000, 250);
+	await sleep(2500);
+	await runCommand('Open Onyx Control Plane');
+	await sleep(1500);
+	const slowStop = pwValue(pw('run-code', `async (page) => {
+		const stop = await page.$('.onyx-run.running .codicon-debug-stop');
+		if (!stop) { return 'no-stop-button'; }
+		await stop.click(); return 'stopped';
+	}`));
+	const stoppedAt = Date.now();
+	const slowRun = () => readRunIndex().find(run => run.title.startsWith('SLOWTOOLTEST'));
+	await waitUntil(() => slowRun()?.status === 'cancelled', 10_000, 100);
+	const cancelledAfterMs = Date.now() - stoppedAt;
+	check('R-15: Stop from the run list journals the run as cancelled within two seconds', slowStop === 'stopped' && slowRun()?.status === 'cancelled' && cancelledAfterMs <= 2000, `${slowStop}; status ${slowRun()?.status} after ${cancelledAfterMs} ms`);
+	// Past the point where the stream would have ended and asked for its tool.
+	await sleep(13_000);
+	const slowEvents = readRuns().find(run => run.events.some((event: { data?: { status?: string } }) => event.data?.status === 'cancelled') && JSON.stringify(run.events).includes('SLOWTOOLTEST'))?.events ?? [];
+	const slowToolCalls = slowEvents.filter((event: { kind?: string }) => event.kind === 'toolCall' || event.kind === 'toolResult').length;
+	const slowOutcomes = slowEvents.filter((event: { kind?: string }) => event.kind === 'outcome').map((event: { data?: { status?: string } }) => event.data?.status);
+	check('R-15: the tool call the stopped stream would have made never happens, and the status is not overwritten', slowEvents.length > 0 && slowToolCalls === 0 && slowOutcomes.length === 1 && slowOutcomes[0] === 'cancelled' && slowRun()?.status === 'cancelled', `events ${slowEvents.length}; tool events ${slowToolCalls}; outcomes ${JSON.stringify(slowOutcomes)}; status ${slowRun()?.status}`);
 
 	// --- Resume: stop a deliberately slow run mid-stream, then resume it.
 	await send('SLOWTEST take your time with this one');
@@ -977,5 +1134,5 @@ try {
 
 console.log(failures.length
 	? `\n${failures.length} of ${checksRun} checks failed`
-	: `\nall ${checksRun} checks passed`);
+	: `\nall ${checksRun} checks passed${sessionsLost ? ` (the driver's session was lost and attached again ${sessionsLost} time${sessionsLost === 1 ? '' : 's'}; the workbench was not restarted)` : ''}`);
 process.exit(failures.length ? 1 : 0);

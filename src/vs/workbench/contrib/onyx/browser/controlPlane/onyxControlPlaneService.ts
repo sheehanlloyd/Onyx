@@ -4,13 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { derived, IObservable, ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+import { IOnyxTraceCertificate, IOnyxTraceCertificateOutcome } from '../../common/onyxEditCertificate.js';
 import { IOnyxTraceAcceptance, IOnyxTraceApproval, IOnyxTraceHeader, IOnyxTraceTurn } from '../../common/onyxTrace.js';
 import { describeNoteOrigin, IOnyxRunText, OnyxNoteOrigin } from '../../common/onyxMemoryOrigin.js';
-import { IOnyxBudgetSlice, IOnyxRunEvent, OnyxRunStatus, OnyxTaskKind } from '../../common/onyxTypes.js';
+import { IOnyxBudgetSlice, IOnyxRunEvent, isTerminalRunStatus, ONYX_RUN_BUDGET, OnyxRunStatus, OnyxTaskKind, OnyxTerminalRunStatus } from '../../common/onyxTypes.js';
 
 export const IOnyxControlPlaneService = createDecorator<IOnyxControlPlaneService>('onyxControlPlaneService');
 
@@ -74,7 +76,18 @@ export interface IOnyxRunHandle {
 	 * when the run was stopped.
 	 */
 	gate(): Promise<{ steerMessages: readonly string[] } | undefined>;
-	complete(status: Extract<OnyxRunStatus, 'completed' | 'failed' | 'cancelled'>): void;
+	/**
+	 * Ends the run. The first terminal status a run reaches is its status:
+	 * a later call, or a call after Stop, changes nothing (B10, I-03).
+	 */
+	complete(status: OnyxTerminalRunStatus): void;
+	/**
+	 * Cancelled when the run is stopped, when the request it began with is
+	 * cancelled, or when the run ends any other way than by completing
+	 * (B10). Everything the run owns takes this token: inference, every tool
+	 * invocation, approval dialogs and child commands.
+	 */
+	readonly token: CancellationToken;
 }
 
 /**
@@ -93,13 +106,16 @@ export interface IOnyxControlPlaneService {
 	readonly onDidRecordEvent: Event<{ readonly runId: string; readonly event: IOnyxRunEvent }>;
 
 	/** `request` is the user's whole message, kept so a later origin question can be answered (I-14); `title` is its start. */
-	beginRun(info: { sessionResource: URI; requestId: string; title: string; task: OnyxTaskKind; modelKey: string; request?: string }): IOnyxRunHandle;
+	/** `token`: the cancellation of the request the run begins with; the run's own token is cancelled with it (B10). */
+	beginRun(info: { sessionResource: URI; requestId: string; title: string; task: OnyxTaskKind; modelKey: string; request?: string; token?: CancellationToken }): IOnyxRunHandle;
 	getRun(runId: string): IOnyxLiveRun | undefined;
 	/**
 	 * Appends a timeline entry to a live run from outside its loop — tools
 	 * that stream progress (the terminal tool's output) report through this.
 	 */
 	appendActivity(runId: string, entry: Omit<IOnyxActivityEntry, 'at'>): void;
+	/** Writes one record into a live run's journal on behalf of a service that does not own the run: an edit certificate (L6), what became of it. An acceptance usually comes after its run has ended; the record is still written, as an activity is. */
+	recordTrace(runId: string, data: IOnyxTraceCertificate | IOnyxTraceCertificateOutcome): void;
 	selectRun(runId: string | undefined): void;
 	updateCompute(state: Partial<IOnyxComputeState>): void;
 	/** The terminal service records every approval decision with its source (L3, I-02). */
@@ -121,7 +137,8 @@ const MAX_RETAINED_RUNS = 50;
 const MAX_ORIGIN_TEXTS = 32;
 const MAX_ORIGIN_TEXT_CHARS = 64 * 1024;
 
-class LiveRun implements IOnyxLiveRun {
+/** A run as the control plane holds it while it is live. Exported for the service's subclasses; nothing else builds one. */
+export class OnyxLiveRun implements IOnyxLiveRun {
 
 	readonly startedAt = Date.now();
 	readonly statusObs: ISettableObservable<OnyxRunStatus> = observableValue(this, 'running');
@@ -131,6 +148,10 @@ class LiveRun implements IOnyxLiveRun {
 
 	pendingSteer: string[] = [];
 	resumeGate: (() => void) | undefined;
+	/** The run's own cancellation, linked to the request it began with. */
+	readonly cancellation: CancellationTokenSource;
+	/** What ends with the run: the watch on the request's token, a pause's time budget. */
+	readonly listeners = new DisposableStore();
 	/** What tools returned to the model in this run, newest last, bounded. */
 	readonly toolResults: IOnyxRunText[] = [];
 
@@ -143,7 +164,10 @@ class LiveRun implements IOnyxLiveRun {
 		readonly modelKey: string,
 		/** The user's whole request; `title` is its first line, cut. */
 		readonly request: string,
-	) { }
+		parentToken: CancellationToken | undefined,
+	) {
+		this.cancellation = new CancellationTokenSource(parentToken);
+	}
 
 	get status(): IObservable<OnyxRunStatus> { return this.statusObs; }
 	get activity(): IObservable<readonly IOnyxActivityEntry[]> { return this.activityObs; }
@@ -164,10 +188,10 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 	private readonly _onDidBeginRun = this._register(new Emitter<IOnyxLiveRun>());
 	readonly onDidBeginRun = this._onDidBeginRun.event;
 
-	private readonly _onDidRecordEvent = this._register(new Emitter<{ runId: string; event: IOnyxRunEvent }>());
+	protected readonly _onDidRecordEvent = this._register(new Emitter<{ runId: string; event: IOnyxRunEvent }>());
 	readonly onDidRecordEvent = this._onDidRecordEvent.event;
 
-	private readonly _liveRuns = new Map<string, LiveRun>();
+	private readonly _liveRuns = new Map<string, OnyxLiveRun>();
 	private _runCounter = 0;
 
 	private readonly _selectedRunId: ISettableObservable<string | undefined> = observableValue(this, undefined);
@@ -181,9 +205,13 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 		this._selectedRunId.set(runId, undefined);
 	}
 
-	beginRun(info: { sessionResource: URI; requestId: string; title: string; task: OnyxTaskKind; modelKey: string; request?: string }): IOnyxRunHandle {
+	beginRun(info: { sessionResource: URI; requestId: string; title: string; task: OnyxTaskKind; modelKey: string; request?: string; token?: CancellationToken }): IOnyxRunHandle {
 		const runId = `run-${Date.now()}-${this._runCounter++}`;
-		const run = new LiveRun(runId, info.sessionResource, info.requestId, info.title, info.task, info.modelKey, info.request ?? info.title);
+		const run = new OnyxLiveRun(runId, info.sessionResource, info.requestId, info.title, info.task, info.modelKey, info.request ?? info.title, info.token);
+		// The request being cancelled (the chat's own stop button) ends the run as Stop does.
+		if (info.token) {
+			run.listeners.add(info.token.onCancellationRequested(() => this._finish(run, 'cancelled')));
+		}
 		this._liveRuns.set(runId, run);
 		const retained = [run, ...this._runsObs.get()].slice(0, MAX_RETAINED_RUNS);
 		this._runsObs.set(retained, undefined);
@@ -216,12 +244,18 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 				}
 			},
 			async gate() {
-				if (run.statusObs.get() === 'cancelled') {
+				if (isTerminalRunStatus(run.statusObs.get())) {
 					return undefined;
 				}
 				if (run.statusObs.get() === 'paused') {
-					await new Promise<void>(resolve => { run.resumeGate = resolve; });
-					if (run.statusObs.get() === 'cancelled') {
+					// A pause waits for the user, and not for ever: left alone it ends the run, and says which way (I-03).
+					const budget = setTimeout(() => service._finish(run, 'budget-exhausted'), service._pauseBudgetMs());
+					try {
+						await new Promise<void>(resolve => { run.resumeGate = resolve; });
+					} finally {
+						clearTimeout(budget);
+					}
+					if (isTerminalRunStatus(run.statusObs.get())) {
 						return undefined;
 					}
 				}
@@ -230,15 +264,21 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 				return { steerMessages };
 			},
 			complete(status) {
-				run.statusObs.set(status, undefined);
-				run.resumeGate?.();
-				service._onDidRecordEvent.fire({ runId, event: { t: Date.now() - run.startedAt, kind: 'outcome', data: { status } } });
+				service._finish(run, status);
 			},
+			token: run.cancellation.token,
 		};
 	}
 
 	getRun(runId: string): IOnyxLiveRun | undefined {
 		return this._liveRuns.get(runId);
+	}
+
+	recordTrace(runId: string, data: IOnyxTraceCertificate | IOnyxTraceCertificateOutcome): void {
+		const run = this._liveRuns.get(runId);
+		if (run) {
+			this._onDidRecordEvent.fire({ runId, event: { t: Date.now() - run.startedAt, kind: data.kind, data } });
+		}
 	}
 
 	appendActivity(runId: string, entry: Omit<IOnyxActivityEntry, 'at'>): void {
@@ -290,13 +330,47 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 		}
 	}
 
+	override dispose(): void {
+		// A run that is still live when the window goes owns a token and listeners; they go with it.
+		for (const run of this._liveRuns.values()) {
+			run.listeners.dispose();
+			run.cancellation.dispose(true);
+		}
+		super.dispose();
+	}
+
+	/** How long a paused run waits for the user before it ends as `budget-exhausted`. */
+	protected _pauseBudgetMs(): number {
+		return ONYX_RUN_BUDGET.pausedMs;
+	}
+
 	stop(runId: string): void {
 		const run = this._liveRuns.get(runId);
-		if (run && (run.statusObs.get() === 'running' || run.statusObs.get() === 'paused')) {
-			run.statusObs.set('cancelled', undefined);
-			run.resumeGate?.();
-			run.resumeGate = undefined;
+		if (run) {
+			this._finish(run, 'cancelled');
 		}
+	}
+
+	/**
+	 * Ends a run (B10). The first terminal status is the run's status and
+	 * the only outcome its journal holds; a later attempt to end it another
+	 * way changes nothing. Ending in any way but completing cancels what
+	 * the run owns: the model request in flight, a tool that is running, a
+	 * dialog that is open, a child command.
+	 */
+	protected _finish(run: OnyxLiveRun, status: OnyxTerminalRunStatus): void {
+		if (isTerminalRunStatus(run.statusObs.get())) {
+			return;
+		}
+		run.statusObs.set(status, undefined);
+		this._onDidRecordEvent.fire({ runId: run.runId, event: { t: Date.now() - run.startedAt, kind: 'outcome', data: { status } } });
+		if (status !== 'completed') {
+			run.cancellation.cancel();
+		}
+		run.listeners.dispose();
+		run.cancellation.dispose();
+		run.resumeGate?.();
+		run.resumeGate = undefined;
 	}
 
 	redirect(runId: string, instruction: string): void {

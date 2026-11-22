@@ -1,0 +1,707 @@
+{
+	"provenance": {
+		"schema": 1,
+		"generatedAt": "2026-11-22T00:59:09.618Z",
+		"commit": "0eebedd1d8bd004c16b3352a4f550340be9bb53b",
+		"dirty": false,
+		"command": [
+			"--json-out"
+		],
+		"machine": {
+			"platform": "darwin",
+			"arch": "arm64",
+			"cpu": "Apple M4 Pro",
+			"memoryGiB": 24,
+			"osRelease": "25.5.0",
+			"nodeVersion": "v24.22.3"
+		},
+		"load": {
+			"atStart": 39.43,
+			"atEnd": 13.96,
+			"cores": 14
+		},
+		"runtimes": [
+			{
+				"name": "ollama",
+				"version": "0.33.0"
+			}
+		],
+		"models": [
+			{
+				"key": "qwen2.5-coder:7b",
+				"runtime": "ollama",
+				"id": "qwen2.5-coder:7b",
+				"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364"
+			},
+			{
+				"key": "llama3.2:3b",
+				"runtime": "ollama",
+				"id": "llama3.2:3b",
+				"digest": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72"
+			},
+			{
+				"key": "qwen2.5-coder:1.5b",
+				"runtime": "ollama",
+				"id": "qwen2.5-coder:1.5b",
+				"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668"
+			}
+		],
+		"parameters": {
+			"warmRounds": 3,
+			"benchTasks": 5,
+			"toolTrials": 6,
+			"skipModels": false,
+			"speculative": false,
+			"benchMetric": "changed-line-f1-preserving/2",
+			"benchPreservationCap": 0.5,
+			"benchTemperature": 0,
+			"benchMaxTokens": 4096
+		}
+	},
+	"results": [
+		{
+			"group": "retrieval",
+			"name": "files indexed",
+			"value": 18252,
+			"unit": "files",
+			"detail": "production indexer; cap 20000 files; 34 exclude patterns and the root .gitignore"
+		},
+		{
+			"group": "retrieval",
+			"name": "files eligible",
+			"value": 18252,
+			"unit": "files",
+			"detail": "all of them indexed"
+		},
+		{
+			"group": "retrieval",
+			"name": "index coverage",
+			"value": 100,
+			"unit": "%",
+			"detail": "files indexed of files eligible"
+		},
+		{
+			"group": "retrieval",
+			"name": "index build time",
+			"value": 8346,
+			"unit": "ms",
+			"detail": "2187 files/s"
+		},
+		{
+			"group": "retrieval",
+			"name": "BM25 hit@5",
+			"value": 70,
+			"unit": "%",
+			"detail": "7/10 natural-language queries; missed: onyxChangeSetService.ts, onyxTerminalPolicy.ts, onyxRouterService.ts"
+		},
+		{
+			"group": "retrieval",
+			"name": "substring search hit@5",
+			"value": 0,
+			"unit": "%",
+			"detail": "0/10"
+		},
+		{
+			"group": "retrieval",
+			"name": "mean query latency",
+			"value": 15.13,
+			"unit": "ms",
+			"detail": "mean over 10 queries"
+		},
+		{
+			"group": "retrieval",
+			"name": "tokens per query (mean)",
+			"value": 4.9,
+			"unit": "tokens"
+		},
+		{
+			"group": "architecture",
+			"name": "files scanned",
+			"value": 16411,
+			"unit": "files"
+		},
+		{
+			"group": "architecture",
+			"name": "modules produced",
+			"value": 56,
+			"unit": "modules"
+		},
+		{
+			"group": "architecture",
+			"name": "full scan time",
+			"value": 892.97,
+			"unit": "ms",
+			"detail": "18378 files/s"
+		},
+		{
+			"group": "architecture",
+			"name": "dependency edges found",
+			"value": 45,
+			"unit": "edges"
+		},
+		{
+			"group": "parsers",
+			"name": "malformed edits recovered",
+			"value": 100,
+			"unit": "%",
+			"detail": "8/8 shapes whose SEARCH text is exactly in the file"
+		},
+		{
+			"group": "parsers",
+			"name": "inexact or absent edits refused",
+			"value": 100,
+			"unit": "%",
+			"detail": "2/2 shapes: SEARCH text with different indentation, and prose"
+		},
+		{
+			"group": "parsers",
+			"name": "edits applied where the SEARCH text is not exactly in the file",
+			"value": 0,
+			"unit": "cases",
+			"detail": "must be 0"
+		},
+		{
+			"group": "parsers",
+			"name": "format markers written into a file",
+			"value": 0,
+			"unit": "cases",
+			"detail": "must be 0"
+		},
+		{
+			"group": "parsers",
+			"name": "fuzz inputs parsed",
+			"value": 5000,
+			"unit": "inputs",
+			"detail": "21ms"
+		},
+		{
+			"group": "parsers",
+			"name": "fuzz crashes",
+			"value": 0,
+			"unit": "crashes",
+			"detail": "must be 0"
+		},
+		{
+			"group": "parsers",
+			"name": "fuzz marker leaks",
+			"value": 0,
+			"unit": "leaks",
+			"detail": "must be 0"
+		},
+		{
+			"group": "changeset",
+			"name": "accept-all reproduces the proposal",
+			"value": 100,
+			"unit": "%",
+			"detail": "2000 random edit shapes; must be 100"
+		},
+		{
+			"group": "changeset",
+			"name": "reject-all restores the original",
+			"value": 100,
+			"unit": "%",
+			"detail": "must be 100"
+		},
+		{
+			"group": "changeset",
+			"name": "partial selection is deterministic",
+			"value": 100,
+			"unit": "%",
+			"detail": "must be 100"
+		},
+		{
+			"group": "changeset",
+			"name": "hunk computation throughput",
+			"value": 132940.42,
+			"unit": "files/s"
+		},
+		{
+			"group": "terminal",
+			"name": "dangerous commands caught",
+			"value": 100,
+			"unit": "%",
+			"detail": "15/15 on the labelled set; must be 100"
+		},
+		{
+			"group": "terminal",
+			"name": "everyday commands wrongly flagged",
+			"value": 0,
+			"unit": "%",
+			"detail": "0/18 on the labelled set; must be 0"
+		},
+		{
+			"group": "terminal",
+			"name": "quoted danger still warns (by design)",
+			"value": 100,
+			"unit": "%",
+			"detail": "so nothing hides behind quoting"
+		},
+		{
+			"group": "terminal",
+			"name": "audit bypass list that earns a warning",
+			"value": 100,
+			"unit": "%",
+			"detail": "16/16 on the regression set; must be 100"
+		},
+		{
+			"group": "terminal",
+			"name": "exfiltration shapes named as network egress",
+			"value": 100,
+			"unit": "%",
+			"detail": "4/4 on the regression set; must be 100"
+		},
+		{
+			"group": "terminal",
+			"name": "repository script run that is named as unseen code",
+			"value": 100,
+			"unit": "%",
+			"detail": "`python3 scripts/steal.py`: the prompt says it cannot show what the script does; must be 100"
+		},
+		{
+			"group": "coverage",
+			"name": "Onyx unit tests",
+			"value": 291,
+			"unit": "tests",
+			"detail": "43 suites"
+		},
+		{
+			"group": "coverage",
+			"name": "end-to-end checks",
+			"value": 65,
+			"unit": "checks",
+			"detail": "against a real workbench"
+		},
+		{
+			"group": "coverage",
+			"name": "Onyx source files",
+			"value": 211,
+			"unit": "files"
+		},
+		{
+			"group": "coverage",
+			"name": "Onyx source lines",
+			"value": 43008,
+			"unit": "lines"
+		},
+		{
+			"group": "runtimes",
+			"name": "chat models reachable",
+			"value": 3,
+			"unit": "models",
+			"detail": "qwen2.5-coder:7b, llama3.2:3b, qwen2.5-coder:1.5b"
+		},
+		{
+			"group": "throughput",
+			"name": "qwen2.5-coder:7b — tok/s",
+			"value": 21.63,
+			"unit": "tok/s",
+			"detail": "ollama, best of 3",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"group": "throughput",
+			"name": "qwen2.5-coder:7b — TTFT warm",
+			"value": 63.12,
+			"unit": "ms",
+			"detail": "model already resident",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"group": "throughput",
+			"name": "qwen2.5-coder:7b — TTFT cold",
+			"value": 3046.44,
+			"unit": "ms",
+			"detail": "first request after unload",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"group": "toolcalls",
+			"name": "qwen2.5-coder:7b — native tool channel",
+			"value": 0,
+			"unit": "%",
+			"detail": "0/6 arrived as a well-formed tool_calls entry",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"group": "toolcalls",
+			"name": "qwen2.5-coder:7b — free-form valid",
+			"value": 100,
+			"unit": "%",
+			"detail": "6/6 usable, 6 of them recovered from prose by Onyx",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"group": "toolcalls",
+			"name": "qwen2.5-coder:7b — constrained valid",
+			"value": 100,
+			"unit": "%",
+			"detail": "6/6",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"group": "repobench",
+			"name": "qwen2.5-coder:7b — debug",
+			"value": 0,
+			"unit": "score",
+			"detail": "1 task",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"group": "repobench",
+			"name": "qwen2.5-coder:7b — quick-edit",
+			"value": 0.1,
+			"unit": "score",
+			"detail": "4 tasks",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"group": "repobench",
+			"name": "qwen2.5-coder:7b — overall",
+			"value": 0.08,
+			"unit": "score",
+			"detail": "mean of 5, 1/5 scored above zero, 4 capped for removing a line the author kept",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"group": "throughput",
+			"name": "llama3.2:3b — tok/s",
+			"value": 40.04,
+			"unit": "tok/s",
+			"detail": "ollama, best of 3",
+			"model": "llama3.2:3b"
+		},
+		{
+			"group": "throughput",
+			"name": "llama3.2:3b — TTFT warm",
+			"value": 49.19,
+			"unit": "ms",
+			"detail": "model already resident",
+			"model": "llama3.2:3b"
+		},
+		{
+			"group": "throughput",
+			"name": "llama3.2:3b — TTFT cold",
+			"value": 1648.29,
+			"unit": "ms",
+			"detail": "first request after unload",
+			"model": "llama3.2:3b"
+		},
+		{
+			"group": "toolcalls",
+			"name": "llama3.2:3b — native tool channel",
+			"value": 100,
+			"unit": "%",
+			"detail": "6/6 arrived as a well-formed tool_calls entry",
+			"model": "llama3.2:3b"
+		},
+		{
+			"group": "toolcalls",
+			"name": "llama3.2:3b — free-form valid",
+			"value": 100,
+			"unit": "%",
+			"detail": "6/6 usable, 0 of them recovered from prose by Onyx",
+			"model": "llama3.2:3b"
+		},
+		{
+			"group": "toolcalls",
+			"name": "llama3.2:3b — constrained valid",
+			"value": 100,
+			"unit": "%",
+			"detail": "6/6",
+			"model": "llama3.2:3b"
+		},
+		{
+			"group": "repobench",
+			"name": "llama3.2:3b — debug",
+			"value": 0.13,
+			"unit": "score",
+			"detail": "1 task",
+			"model": "llama3.2:3b"
+		},
+		{
+			"group": "repobench",
+			"name": "llama3.2:3b — quick-edit",
+			"value": 0,
+			"unit": "score",
+			"detail": "3 tasks",
+			"model": "llama3.2:3b"
+		},
+		{
+			"group": "repobench",
+			"name": "llama3.2:3b — overall",
+			"value": 0.03,
+			"unit": "score",
+			"detail": "mean of 4, 1/4 scored above zero, 2 capped for removing a line the author kept, 1 task the runtime could not serve",
+			"model": "llama3.2:3b"
+		},
+		{
+			"group": "throughput",
+			"name": "qwen2.5-coder:1.5b — tok/s",
+			"value": 71.22,
+			"unit": "tok/s",
+			"detail": "ollama, best of 3",
+			"model": "qwen2.5-coder:1.5b"
+		},
+		{
+			"group": "throughput",
+			"name": "qwen2.5-coder:1.5b — TTFT warm",
+			"value": 26.56,
+			"unit": "ms",
+			"detail": "model already resident",
+			"model": "qwen2.5-coder:1.5b"
+		},
+		{
+			"group": "throughput",
+			"name": "qwen2.5-coder:1.5b — TTFT cold",
+			"value": 1387.99,
+			"unit": "ms",
+			"detail": "first request after unload",
+			"model": "qwen2.5-coder:1.5b"
+		},
+		{
+			"group": "toolcalls",
+			"name": "qwen2.5-coder:1.5b — native tool channel",
+			"value": 0,
+			"unit": "%",
+			"detail": "0/6 arrived as a well-formed tool_calls entry",
+			"model": "qwen2.5-coder:1.5b"
+		},
+		{
+			"group": "toolcalls",
+			"name": "qwen2.5-coder:1.5b — free-form valid",
+			"value": 100,
+			"unit": "%",
+			"detail": "6/6 usable, 6 of them recovered from prose by Onyx",
+			"model": "qwen2.5-coder:1.5b"
+		},
+		{
+			"group": "toolcalls",
+			"name": "qwen2.5-coder:1.5b — constrained valid",
+			"value": 83.33,
+			"unit": "%",
+			"detail": "5/6",
+			"model": "qwen2.5-coder:1.5b"
+		},
+		{
+			"group": "repobench",
+			"name": "qwen2.5-coder:1.5b — debug",
+			"value": 0,
+			"unit": "score",
+			"detail": "1 task",
+			"model": "qwen2.5-coder:1.5b"
+		},
+		{
+			"group": "repobench",
+			"name": "qwen2.5-coder:1.5b — quick-edit",
+			"value": 0,
+			"unit": "score",
+			"detail": "4 tasks",
+			"model": "qwen2.5-coder:1.5b"
+		},
+		{
+			"group": "repobench",
+			"name": "qwen2.5-coder:1.5b — overall",
+			"value": 0,
+			"unit": "score",
+			"detail": "mean of 5, 0/5 scored above zero, 2 capped for removing a line the author kept",
+			"model": "qwen2.5-coder:1.5b"
+		}
+	],
+	"attempts": [
+		{
+			"modelKey": "qwen2.5-coder:7b",
+			"commit": "652443110404f6bd808db0a84d1d4bc73fb6365b",
+			"subject": "Agents feedback: keep the Add Feedback gutter button a fixed size (#347880)",
+			"file": "src/vs/sessions/contrib/agentFeedback/browser/media/agentFeedbackEditorInput.css",
+			"kind": "debug",
+			"score": 0,
+			"reason": "0% of the author's changed lines reproduced, 0% of the model's on target; the reply removed 1 line the author kept (\"font-size: var(--vscode-codiconFontSize);\")",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 1,
+			"finishReason": "stop",
+			"durationMs": 13875
+		},
+		{
+			"modelKey": "qwen2.5-coder:7b",
+			"commit": "8b85d0efe7079fbe990a460e89601b4c02883326",
+			"subject": "docs: STATE.md names no home-directory paths (the hygiene check caught them)",
+			"file": "docs/progress/STATE.md",
+			"kind": "quick-edit",
+			"score": 0.4,
+			"reason": "33% of the author's changed lines reproduced, 50% of the model's on target",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 0,
+			"finishReason": "stop",
+			"durationMs": 14166
+		},
+		{
+			"modelKey": "qwen2.5-coder:7b",
+			"commit": "c1cffbed963dbf758c0aa88b37716127c34c4536",
+			"subject": "B9: integration run recorded",
+			"file": "docs/progress/B9.md",
+			"kind": "quick-edit",
+			"score": 0,
+			"reason": "0% of the author's changed lines reproduced, 0% of the model's on target; the reply removed 1 line the author kept (\"## Integration run\")",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 1,
+			"finishReason": "stop",
+			"durationMs": 5709
+		},
+		{
+			"modelKey": "qwen2.5-coder:7b",
+			"commit": "0e8e5cbca14126ecbbd69fa89c6ca2267da1a32a",
+			"subject": "B6: report wording",
+			"file": "docs/progress/B6.md",
+			"kind": "quick-edit",
+			"score": 0,
+			"reason": "0% of the author's changed lines reproduced, 0% of the model's on target; the reply removed 6 lines the author kept (\"refused, naming the first unmatched line`\")",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 6,
+			"finishReason": "stop",
+			"durationMs": 37527
+		},
+		{
+			"modelKey": "qwen2.5-coder:7b",
+			"commit": "ce208b803c041be9e0c76075469d1f382cd6815b",
+			"subject": "B10: integration run recorded",
+			"file": "docs/progress/B10.md",
+			"kind": "quick-edit",
+			"score": 0,
+			"reason": "0% of the author's changed lines reproduced, 0% of the model's on target; the reply removed 1 line the author kept (\"## Integration run\")",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 1,
+			"finishReason": "stop",
+			"durationMs": 6836
+		},
+		{
+			"modelKey": "llama3.2:3b",
+			"commit": "652443110404f6bd808db0a84d1d4bc73fb6365b",
+			"subject": "Agents feedback: keep the Add Feedback gutter button a fixed size (#347880)",
+			"file": "src/vs/sessions/contrib/agentFeedback/browser/media/agentFeedbackEditorInput.css",
+			"kind": "debug",
+			"score": 0.13,
+			"reason": "13% of the author's changed lines reproduced, 13% of the model's on target; the reply removed 4 lines the author kept (\"/*----------------------------------------------------------…\")",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 4,
+			"finishReason": "stop",
+			"durationMs": 5285
+		},
+		{
+			"modelKey": "llama3.2:3b",
+			"commit": "8b85d0efe7079fbe990a460e89601b4c02883326",
+			"subject": "docs: STATE.md names no home-directory paths (the hygiene check caught them)",
+			"file": "docs/progress/STATE.md",
+			"kind": "quick-edit",
+			"score": 0,
+			"reason": "0% of the author's changed lines reproduced, 0% of the model's on target",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 0,
+			"finishReason": "stop",
+			"durationMs": 44323
+		},
+		{
+			"modelKey": "llama3.2:3b",
+			"commit": "c1cffbed963dbf758c0aa88b37716127c34c4536",
+			"subject": "B9: integration run recorded",
+			"file": "docs/progress/B9.md",
+			"kind": "quick-edit",
+			"score": 0,
+			"reason": "0% of the author's changed lines reproduced, 0% of the model's on target; the reply removed 52 lines the author kept (\"# B9. Inline edits stage before acceptance and preserve inte…\")",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 52,
+			"finishReason": "stop",
+			"durationMs": 9726
+		},
+		{
+			"modelKey": "llama3.2:3b",
+			"commit": "ce208b803c041be9e0c76075469d1f382cd6815b",
+			"subject": "B10: integration run recorded",
+			"file": "docs/progress/B10.md",
+			"kind": "quick-edit",
+			"score": 0,
+			"reason": "no edit block could be located in the file",
+			"metric": null,
+			"removedLinesTheAuthorKept": 0,
+			"finishReason": "stop",
+			"durationMs": 70177
+		},
+		{
+			"modelKey": "qwen2.5-coder:1.5b",
+			"commit": "652443110404f6bd808db0a84d1d4bc73fb6365b",
+			"subject": "Agents feedback: keep the Add Feedback gutter button a fixed size (#347880)",
+			"file": "src/vs/sessions/contrib/agentFeedback/browser/media/agentFeedbackEditorInput.css",
+			"kind": "debug",
+			"score": 0,
+			"reason": "0% of the author's changed lines reproduced, 0% of the model's on target; the reply removed 1 line the author kept (\"font-size: var(--vscode-codiconFontSize);\")",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 1,
+			"finishReason": "stop",
+			"durationMs": 4983
+		},
+		{
+			"modelKey": "qwen2.5-coder:1.5b",
+			"commit": "8b85d0efe7079fbe990a460e89601b4c02883326",
+			"subject": "docs: STATE.md names no home-directory paths (the hygiene check caught them)",
+			"file": "docs/progress/STATE.md",
+			"kind": "quick-edit",
+			"score": 0,
+			"reason": "0% of the author's changed lines reproduced, 0% of the model's on target",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 0,
+			"finishReason": "stop",
+			"durationMs": 32970
+		},
+		{
+			"modelKey": "qwen2.5-coder:1.5b",
+			"commit": "c1cffbed963dbf758c0aa88b37716127c34c4536",
+			"subject": "B9: integration run recorded",
+			"file": "docs/progress/B9.md",
+			"kind": "quick-edit",
+			"score": 0,
+			"reason": "no edit block could be located in the file",
+			"metric": null,
+			"removedLinesTheAuthorKept": 0,
+			"finishReason": "stop",
+			"durationMs": 76474
+		},
+		{
+			"modelKey": "qwen2.5-coder:1.5b",
+			"commit": "0e8e5cbca14126ecbbd69fa89c6ca2267da1a32a",
+			"subject": "B6: report wording",
+			"file": "docs/progress/B6.md",
+			"kind": "quick-edit",
+			"score": 0,
+			"reason": "0% of the author's changed lines reproduced, 0% of the model's on target; the reply removed 3 lines the author kept (\"# B6. Exact-or-refuse applier\")",
+			"metric": "changed-line-f1-preserving/2",
+			"removedLinesTheAuthorKept": 3,
+			"finishReason": "stop",
+			"durationMs": 27160
+		},
+		{
+			"modelKey": "qwen2.5-coder:1.5b",
+			"commit": "ce208b803c041be9e0c76075469d1f382cd6815b",
+			"subject": "B10: integration run recorded",
+			"file": "docs/progress/B10.md",
+			"kind": "quick-edit",
+			"score": 0,
+			"reason": "no edit block could be located in the file",
+			"metric": null,
+			"removedLinesTheAuthorKept": 0,
+			"finishReason": "stop",
+			"durationMs": 208118
+		}
+	],
+	"failures": [
+		{
+			"modelKey": "llama3.2:3b",
+			"commit": "0e8e5cbca14126ecbbd69fa89c6ca2267da1a32a",
+			"error": "The operation was aborted due to timeout"
+		}
+	],
+	"skipped": [
+		"skipped: no LM Studio at http://localhost:1234 (start it with `lms server start`)",
+		"llama3.2:3b: bench task 0e8e5cb failed (The operation was aborted due to timeout)",
+		"speculative decoding not measured — pass --speculative (it reloads models in LM Studio)"
+	],
+	"violations": []
+}

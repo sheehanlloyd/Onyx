@@ -15,9 +15,22 @@ a chart cannot claim a number the harness did not produce, and a number that
 was not measured on the machine you are reading this on is simply absent.
 
 ```bash
-node test/onyx/run-benchmarks.mts --json-out /tmp/onyx-bench.json
-node test/onyx/make-charts.mts --manifest <manifest.json> /tmp/onyx-bench.json
+node test/onyx/run-benchmarks.mts --json-out docs/benchmarks/<date>/report.json
+node test/onyx/make-charts.mts --manifest docs/benchmarks/<date>/manifest.json docs/benchmarks/<date>/report.json
 ```
+
+**Every published chart has its raw report in the repository (C8).** A report
+begins with a `provenance` block: the commit and whether the tree was clean,
+the machine and its load average at the start and the end, each runtime with
+its version, each model with its digest, and the parameters. It carries every
+repository-benchmark attempt (commit, score, reason, how the reply ended) and
+every skip and failure. `make-charts.mts` refuses a report without that block,
+and each chart starts with a comment naming its manifest, its models and the
+commit of each report. The reports are under [`docs/benchmarks/`](benchmarks/);
+the charts in the README today come from
+[`docs/benchmarks/2026-11-21/`](benchmarks/2026-11-21/report.json). LM Studio
+exposes neither its version nor a digest of a model's weights, so those two
+fields are `null` for its models.
 
 `--manifest` is required: the chart builder refuses to draw without an experiment manifest that validates
 against [`test/onyx/lab/manifest.schema.json`](../test/onyx/lab/manifest.schema.json) (models with digests,
@@ -125,17 +138,15 @@ with this repository's `.vscode/settings.json` merged over them, and the root
 is and how many were eligible. On 2026-11-20 it was 18,205 of 18,205: source,
 tests, documentation and the built-in extensions.
 
-**The current result, and the chart.** On that corpus the index finds 7 of the
-10 files. The chart in the README shows 9 of 10: it was drawn in August 2026,
-when the benchmark indexed only the `.ts` files under `src/vs` (8,673 of them
-then) and the tree was smaller. The difference is the tree, not the corpus:
-the August method run on today's tree (11,863 files) also finds 7, and misses
-the same three. They are `onyxChangeSetService.ts`, which ranks tenth behind
+**The current result.** On that corpus the index finds 7 of the 10 files, and
+the chart shows that. (Until C8 the README showed 9 of 10, drawn in August 2026
+when the benchmark indexed only the `.ts` files under `src/vs` and the tree was
+smaller.) The three misses are `onyxChangeSetService.ts`, which ranks behind
 the README and other prose that describe staging; `onyxTerminalPolicy.ts`,
 behind upstream's own tool-approval tests and the progress reports; and
 `onyxRouterService.ts`, behind upstream's local-model bridge, which arrived
-with the move to 1.147. The chart is redrawn when the retrieval benchmark is
-next published with a manifest (C8).
+with the move to 1.147. The latency row is the mean over the ten queries; it
+was labelled "median" before C8, and never was one.
 
 **The comparison.** The same corpus is searched for the question as a literal
 substring — what an agent without an index falls back to. Natural-language
@@ -170,9 +181,18 @@ Two numbers come out: how many produced a usable edit, and **how many wrote a
 conflict marker into the file** — the second must be zero, because a marker in
 your source is a far worse failure than a refused edit.
 
-The prose case ("you should swap the operands") is excluded from the recovery
-rate: refusing to edit is the *correct* outcome there, and counting it as a
-failure would reward a parser that guesses.
+Two shapes are excluded from the recovery rate because refusing is the
+*correct* outcome for them, and they are counted on a line of their own: the
+prose case ("you should swap the operands"), and whitespace drift, where the
+quoted text has a different indentation from the file. Until B6 the drifted
+quote was matched after trimming and re-indented, and counted as recovered.
+An edit is now placed only where its SEARCH text is in the file exactly, and
+exactly once (DEC-07), so that reply changes nothing and says why. Remeasured
+on 2026-11-21: 8 of 8 shapes whose SEARCH text is exact are recovered, 2 of 2
+are refused, and none is applied where its text is not (`node
+test/onyx/run-benchmarks.mts --skip-models`, "Parser resilience"). The chart
+in the README was drawn before this change, when the drifted quote counted
+as recovered; it is redrawn with its manifest under C8.
 
 Then 5,000 fuzzed inputs, assembled from marker fragments, fences, braces,
 CJK text and emoji with a seeded PRNG, assert that the parser never throws and
@@ -307,10 +327,25 @@ realism for repeatability, because a published number that moves between runs is
 not a measurement — and the app's number is the one that feeds your router,
 which is the one that should reflect how you actually run the model.
 
-**Scoring** is `scoreBenchAttempt`, unchanged from the product: apply the
-reply with the real edit applier, then take the F1 of changed lines against
-what the author actually committed. An unparseable reply scores 0 — a model
-that cannot produce an applicable edit has failed, whatever prose it wrote.
+**Scoring** is `scoreBenchAttempt`, unchanged from the product (metric
+`changed-line-f1-preserving/2`). The reply is applied with the real edit
+applier. A *changed line* is a line added or a line removed relative to the
+file as it was, compared trimmed and as a multiset. The score is the F1 between
+the model's changed lines and the author's: the model has to add what the
+author added and remove what the author removed. An unparseable reply scores 0.
+
+**A deletion cannot buy a score.** Before C8 only added lines were scored
+(removed lines only for commits that added nothing), so a reply that wrote the
+author's lines and deleted an unrelated one scored 1.0. Now a line the reply
+removed and the author kept caps the score at 0.5, and the reason names the
+line. One lost import among ten good lines would otherwise still score 0.95.
+Adding too much lowers precision and is not capped. A wrong edit of the right
+line scores 0.5: it removed the line the author removed and added the wrong one.
+
+**It measures closeness to the author's change, not correctness.** A different
+and equally good fix scores low. Stored routing scores carry the metric's name;
+scores kept under another metric are dropped when they are loaded, not mixed
+with new ones.
 
 **How to read the numbers.** They are low, and they should be. Reproducing a
 specific human commit from its subject line is a hard task; 1.0 means "wrote
@@ -320,7 +355,7 @@ consumes, and it is why Onyx can say "the router learns" without waving at a
 leaderboard.
 
 **Caveats, plainly.** Five tasks is a small sample, F1 over trimmed lines
-rewards near-misses unevenly, and the task set is drawn from whatever this
+rewards near-misses unevenly, the cap is a fixed 0.5 chosen by judgement, and the task set is drawn from whatever this
 repository's recent history happens to contain. It is a routing signal
 measured on real code, not a claim about general model quality.
 

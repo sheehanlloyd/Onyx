@@ -1,15 +1,15 @@
 {
 	"mode": "release",
 	"app": "../VSCode-darwin-arm64/Onyx.app",
-	"ranAt": "2026-11-21T17:22:18.857Z",
+	"ranAt": "2026-11-22T05:13:02.735Z",
 	"observed": {
 		"product": {
 			"nameShort": "Onyx",
 			"version": "1.147.0",
-			"commit": "719cfd5ba4dd5879195478ddc2ae9a6b3cf049e8",
-			"date": "2026-11-21T12:10:04-05:00"
+			"commit": "d6e161b50cf61e684d2b4fc0d765d38bab602462",
+			"date": "2026-11-21T23:58:38-05:00"
 		},
-		"sourceRevision": "719cfd5ba4dd5879195478ddc2ae9a6b3cf049e8",
+		"sourceRevision": "d6e161b50cf61e684d2b4fc0d765d38bab602462",
 		"window": {
 			"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.147.0 Chrome/150.0.7871.250 Electron/43.8.9 Safari/537.36",
 			"title": "math.ts — ws"
@@ -58,15 +58,15 @@
 		},
 		"bundleScan": {
 			"filesScanned": 1007,
-			"charsScanned": 539181413,
-			"markers": 28
+			"charsScanned": 539542435,
+			"markers": 40
 		}
 	},
 	"checks": [
 		{
 			"name": "the app bundle has a product.json with a commit",
 			"ok": true,
-			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.147.0\",\"commit\":\"719cfd5ba4dd5879195478ddc2ae9a6b3cf049e8\",\"date\":\"2026-11-21T12:10:04-05:00\"}",
+			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.147.0\",\"commit\":\"d6e161b50cf61e684d2b4fc0d765d38bab602462\",\"date\":\"2026-11-21T23:58:38-05:00\"}",
 			"claim": "infrastructure"
 		},
 		{
@@ -89,7 +89,7 @@
 		{
 			"name": "the run journal lives in the throwaway profile",
 			"ok": true,
-			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-zVsU62/user-data/User/workspaceStorage/bd64851c04b81b9663a4d40a192d7337/onyx/journal/runs",
+			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-KSuJM2/user-data/User/workspaceStorage/d8c15427b4c7719d7369f162404dbd0c/onyx/journal/runs",
 			"claim": "infrastructure"
 		},
 		{
@@ -142,19 +142,19 @@
 		{
 			"name": "the terminal tool asks before running",
 			"ok": true,
-			"detail": "approved:echo onyx-packaged-terminal-okWorking directory: /var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-zVsU62/wsStops after: 60 s buttons=Deny",
+			"detail": "approved:echo onyx-packaged-terminal-okWorking directory: /var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-KSuJM2/wsStops after: 60 s buttons=Deny",
 			"claim": "contract"
 		},
 		{
 			"name": "the approval names the exact command",
 			"ok": true,
-			"detail": "approved:echo onyx-packaged-terminal-okWorking directory: /var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-zVsU62/wsStops after: 60 s buttons=Deny",
+			"detail": "approved:echo onyx-packaged-terminal-okWorking directory: /var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-KSuJM2/wsStops after: 60 s buttons=Deny",
 			"claim": "contract"
 		},
 		{
 			"name": "the approval offers Run Once and Deny, and nothing that outlives the invocation (B2)",
 			"ok": true,
-			"detail": "approved:echo onyx-packaged-terminal-okWorking directory: /var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-zVsU62/wsStops after: 60 s buttons=Deny+Run Once",
+			"detail": "approved:echo onyx-packaged-terminal-okWorking directory: /var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-KSuJM2/wsStops after: 60 s buttons=Deny+Run Once",
 			"claim": "contract"
 		},
 		{

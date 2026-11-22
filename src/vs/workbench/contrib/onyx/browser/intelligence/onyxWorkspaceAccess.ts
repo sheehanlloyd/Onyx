@@ -31,6 +31,14 @@ export interface IOnyxWorkspaceAccessService {
 	qualify(uri: URI): string | undefined;
 	/** Whether a URI that a search returned really lies inside the workspace, following symbolic links. */
 	isContained(uri: URI): Promise<boolean>;
+	/**
+	 * Whether writing to a URI stays inside the workspace (R-30, write side).
+	 * A file to be written may not exist yet, and a file that does not exist
+	 * has no real location of its own: what decides is the real location of
+	 * the nearest directory above it that does exist. A new file inside a
+	 * directory that is a link out of the workspace is outside it.
+	 */
+	isContainedForWrite(uri: URI): Promise<boolean>;
 }
 
 export class OnyxWorkspaceAccessService implements IOnyxWorkspaceAccessService {
@@ -87,6 +95,24 @@ export class OnyxWorkspaceAccessService implements IOnyxWorkspaceAccessService {
 	async isContained(uri: URI): Promise<boolean> {
 		const folder = this._workspaceService.getWorkspaceFolder(uri);
 		return !!folder && this._realLocationIsInside(uri, folder);
+	}
+
+	async isContainedForWrite(uri: URI): Promise<boolean> {
+		const folder = this._workspaceService.getWorkspaceFolder(uri);
+		if (!folder || !this._uriIdentityService.extUri.isEqualOrParent(uri, folder.uri)) {
+			return false;
+		}
+		// From the file up to the folder: the first one that exists has a real location, and that one decides.
+		const extUri = this._uriIdentityService.extUri;
+		for (let candidate = uri; extUri.isEqualOrParent(candidate, folder.uri); candidate = extUri.dirname(candidate)) {
+			if (await this._fileService.exists(candidate)) {
+				return this._realLocationIsInside(candidate, folder);
+			}
+			if (extUri.isEqual(candidate, folder.uri)) {
+				break;
+			}
+		}
+		return true;
 	}
 
 	/**

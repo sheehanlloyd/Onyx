@@ -80,16 +80,22 @@ suite('OnyxTerminalApproval', () => {
 
 	test('R-01: a verification task named by .onyx/config.json does not run without an approval for that run', async () => {
 		const edit: OnyxSimModelTurn = { kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } };
-		const denied = await run({ projectConfig: { verificationTask: 'test' }, turns: [edit, DONE], dialogDefault: 'deny' });
-		const approved = await run({ projectConfig: { verificationTask: 'test' }, turns: [edit, DONE], dialogDefault: 'allow-once' });
+		// Since C2 the check runs after an acceptance, on the accepted file as saved: the user accepts and saves.
+		const userSteps: OnyxSimEpisode['userSteps'] = [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }, { at: 'afterRun', occurrence: 2, step: { kind: 'save' } }];
+		const denied = await run({ projectConfig: { verificationTask: 'test' }, turns: [edit, DONE], dialogDefault: 'deny', userSteps });
+		const approved = await run({ projectConfig: { verificationTask: 'test' }, turns: [edit, DONE], dialogDefault: 'allow-once', userSteps });
+		// And with the edit staged but never accepted, nothing is asked and nothing runs: there is nothing to check.
+		const notAccepted = await run({ projectConfig: { verificationTask: 'test' }, turns: [edit, DONE], dialogDefault: 'allow-once' });
 		assert.deepStrictEqual({
 			denied: summarize(denied),
 			deniedDialogNamesTheTask: denied.dialogs.map(dialog => dialog.detail.includes('npm: test') && dialog.detail.includes('.onyx/config.json')),
 			approved: summarize(approved),
+			notAccepted: summarize(notAccepted),
 		}, {
 			denied: { asked: ['deny: [Run Once]'], ran: [], tasksRan: [], violations: [] },
 			deniedDialogNamesTheTask: [true],
 			approved: { asked: ['allow-once: [Run Once]'], ran: [], tasksRan: ['npm: test'], violations: [] },
+			notAccepted: { asked: [], ran: [], tasksRan: [], violations: [] },
 		});
 	});
 

@@ -123,6 +123,11 @@ export function runtimesFoundHeadline(runtimes: readonly IOnyxDetectedRuntime[])
 	return localize('onyx.onboarding.found.many', "{0} local runtimes are running — {1} models ready", runtimes.length, models);
 }
 
+/** What a first-time user is told about context: the server's default is small, and how to ask for more. Pure, for tests. */
+export function runtimeContextHint(): string {
+	return localize('onyx.onboarding.contextHint', "A runtime gives each model a context of its own choosing, often far less than the model can use. Onyx budgets against what the runtime reports. To ask for more, run \"Onyx: Request a Larger Model Context\": it asks before it changes anything and checks the result.");
+}
+
 function renderStatus(status: HTMLElement, state: 'probing' | 'found' | 'none', runtimes: readonly IOnyxDetectedRuntime[]): void {
 	clearNode(status);
 	status.classList.toggle('found', state === 'found');
@@ -141,6 +146,8 @@ function renderStatus(status: HTMLElement, state: 'probing' | 'found' | 'none', 
 		case 'found':
 			text.textContent = runtimesFoundHeadline(runtimes);
 			detail.textContent = runtimes.map(runtime => runtime.host).join(' · ');
+			// A default Ollama gives a model far less context than it was trained with, and says so nowhere (B15).
+			append(status, $('.onyx-onboarding-status-detail')).textContent = runtimeContextHint();
 			break;
 		case 'none':
 			text.textContent = localize('onyx.onboarding.none', "No local runtime yet");
