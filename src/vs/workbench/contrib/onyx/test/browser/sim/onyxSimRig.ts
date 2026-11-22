@@ -21,7 +21,7 @@ import { FileService } from '../../../../../../platform/files/common/fileService
 import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { IEnvironmentService } from '../../../../../../platform/environment/common/environment.js';
-import { IOnyxLabHarnessRequest, IOnyxRuntimeService } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxLabHarnessRequest, IOnyxRuntimeService } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService } from '../../../../../../platform/workspace/common/workspaceTrust.js';
 import { testWorkspace } from '../../../../../../platform/workspace/test/common/testWorkspace.js';
@@ -71,7 +71,7 @@ import { Range } from '../../../../../../editor/common/core/range.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
 import { IOnyxRouterService, OnyxRouterService } from '../../../browser/routing/onyxRouterService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../../../browser/terminal/onyxTerminalTool.js';
-import { OnyxSimBoundary, OnyxSimEpisode, OnyxSimFault, OnyxSimUserAction } from './onyxSimEpisode.js';
+import { OnyxSimBoundary, OnyxSimEpisode, OnyxSimFault, OnyxSimModelTurn, OnyxSimUserAction } from './onyxSimEpisode.js';
 import { IOnyxSimCommandScript, IOnyxSimScheduler, OnyxSimDialogService, OnyxSimEnergyService, OnyxSimFileSystemProvider, OnyxSimLanguageModelsService, OnyxSimPinService, OnyxSimPlaybookService, OnyxSimProfileService, OnyxSimRuntimeService, OnyxSimSearchService, OnyxSimTaskService, OnyxSimToolsService, SIM_CLOUD_MODEL_KEY, SIM_CORE_TOOLS, SIM_MODEL_KEY, simWorkspaceUri } from './onyxSimFakes.js';
 import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
 import { digest, OnyxSimTrace } from './onyxSimTrace.js';
@@ -154,6 +154,8 @@ export interface IOnyxSimRigOptions {
 	readonly workspaceTrusted?: boolean;
 	/** A harness configuration asked for through a lab manifest (L4), and whether the product is a packaged build. */
 	readonly labHarness?: { readonly request: IOnyxLabHarnessRequest; readonly packaged: boolean };
+	/** Where a turn comes from when the episode's script has none left (L8): a real model while recording, or what follows a cut point. */
+	readonly liveTurn?: (params: IOnyxChatParams) => Promise<OnyxSimModelTurn>;
 }
 
 export interface IOnyxSimResult {
@@ -194,6 +196,8 @@ export interface IOnyxSimResult {
 	readonly followUpPromptText: string | undefined;
 	/** The files that have changes staged when the episode ends. */
 	readonly stagedPaths: readonly string[];
+	/** Every model turn that was served, scripted or live, in order (L8). */
+	readonly servedTurns: readonly OnyxSimModelTurn[];
 }
 
 /**
@@ -281,7 +285,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			}
 			return { exitCode: 0, output: command.startsWith('cat ') ? (episode.files[command.slice(4).trim()] ?? '') : `ran: ${command}\n` };
 		};
-		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal, episode.runtimeContextTokens, episode.constrained === true));
+		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal, episode.runtimeContextTokens, episode.constrained === true, options.liveTurn));
 		this.dialogs = new OnyxSimDialogService(episode.dialogDefault, this, this.trace);
 		this.tools = new OnyxSimToolsService(this, this.trace);
 
@@ -962,6 +966,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			projectConfigOnDisk: await this.projectConfigOnDisk(),
 			memoryNotes: this.memory.getNotes().map(note => note.text),
 			stagedPaths: this.changeSet.files.get().map(file => file.proposal.path),
+			servedTurns: [...this.runtime.servedTurns],
 			followUpPromptText: this._followUpFirstRequest === undefined ? undefined : (this.runtime.requests[this._followUpFirstRequest]?.messages ?? []).map(message => String(message.content ?? '')).join('\n'),
 		};
 	}
