@@ -439,6 +439,14 @@ small sample and the caveats are in
 with its commit, score and reason, is in the
 [raw report](./docs/benchmarks/2026-11-21/report.json).
 
+The same measurement is a command in the product, `Onyx: Measure Models for
+This Repository`. Run on this machine on 2026-11-22 over 18 held-out tasks a
+model, it gave mean scores of 0.08, 0.01 and 0.01, and no model reproduced a
+task exactly. Its
+[scorecard](./docs/research/results/2026-11-22-reference-measure/scorecard.md)
+and [raw results](./docs/research/results/2026-11-22-reference-measure/scorecard.json)
+are committed with their manifest.
+
 <details>
 <summary><b>The deterministic half</b> — retrieval, parsers, the approval classifier, scale and test surface</summary>
 
