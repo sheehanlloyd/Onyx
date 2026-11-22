@@ -216,6 +216,11 @@ export interface IOnyxAppliedEdit {
 }
 
 /** The places `search` occurs in `text`, counting overlapping ones, up to `limit`. */
+/** How many times `search` is in `text`, counting overlapping places, up to `limit`. */
+export function countOccurrences(text: string, search: string, limit = 100): number {
+	return search === '' ? 0 : occurrencesOf(text, search, limit).length;
+}
+
 function occurrencesOf(text: string, search: string, limit: number): number[] {
 	const found: number[] = [];
 	for (let index = text.indexOf(search); index !== -1 && found.length < limit; index = text.indexOf(search, index + 1)) {

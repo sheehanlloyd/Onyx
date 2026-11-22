@@ -5,6 +5,7 @@
 
 import { isTerminalRunStatus } from '../../../common/onyxTypes.js';
 import { readEditArguments } from '../../../common/onyxChangeSet.js';
+import { checkCertificates } from '../../../common/onyxEditCertificate.js';
 import { decodeNumberedSearch } from '../../../common/onyxReadTools.js';
 import { workspacePathProblem } from '../../../common/onyxWorkspacePaths.js';
 import { harnessConfigHash, IOnyxHarnessConfig } from '../../../common/onyxHarnessConfig.js';
@@ -621,6 +622,27 @@ const r27: OnyxSimChecker = state => {
 };
 
 /**
+ * R-46 (L6): certificates are in the trace and hold up against it. Every
+ * staging a run's edit call produced has a certificate in the journal; each
+ * one's seal is its own; and what the journal can show of it (the anchor the
+ * model sent, where the model had seen it, whether it was grounded) is what
+ * the certificate says.
+ */
+const r46: OnyxSimChecker = state => {
+	const journal = state.journalLines.join('\n');
+	const checks = checkCertificates(journal);
+	const wrong = checks.find(check => check.verdict === 'differs');
+	if (wrong) {
+		return `R-46/certificate-contradicts-journal: the certificate for ${wrong.path} (turn ${wrong.turn}) does not hold: ${wrong.detail}`;
+	}
+	const stagedByARun = state.stageEvents.filter(stage => stage.runId !== undefined).length;
+	if (checks.length < stagedByARun) {
+		return `R-46/staging-without-certificate: ${stagedByARun} stagings by a run and ${checks.length} certificates in the journal`;
+	}
+	return undefined;
+};
+
+/**
  * R-21 (C2): a verdict about problems is a verdict about what was accepted.
  * A timeline note that says problems were or were not found, before any
  * hunk of the episode was accepted, is a verdict about content the files do
@@ -727,6 +749,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'R-28', title: 'A constrained answer is shown as it streams', check: r28 },
 	{ id: 'R-44', title: 'Every trace carries the hash of the harness configuration that ran', check: r44 },
 	{ id: 'R-21', title: 'No verification verdict is given before anything was accepted', check: r21 },
+	{ id: 'R-46', title: 'Every staging by a run has a sealed certificate in the journal, and none contradicts the journal', check: r46 },
 ];
 
 /** Invariants the rig cannot observe in Module 1, each with the reason the contract records. */

@@ -31,6 +31,7 @@ import { admitTool, needsApprovalPerCall, ONYX_NETWORK_TOOLS_SETTING } from '../
 import { IOnyxToolExclusion, ONYX_MIN_EDIT_SLOTS, OnyxToolSlotSelection, requestedOptionalTools, selectToolSlots } from '../../common/onyxToolSlots.js';
 import { IOnyxVerificationService } from '../verification/onyxVerificationService.js';
 import { IOnyxChangeSetService } from '../changes/onyxChangeSetService.js';
+import { readPromptMessages } from '../../common/onyxEditCertificate.js';
 import { describeVerification } from '../../common/onyxVerification.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
 import { qualifyWorkspacePath } from '../../common/onyxWorkspacePaths.js';
@@ -139,6 +140,7 @@ export class OnyxAgentLoop {
 			this._logService.warn('[onyx] agent loop failed', err);
 			return { errorDetails: { message: toErrorMessage(err) } };
 		} finally {
+			this._changeSetService.setPromptEvidence(run.runId, undefined);
 			this._controlPlaneService.updateCompute({ inFlight: false });
 		}
 	}
@@ -299,6 +301,8 @@ export class OnyxAgentLoop {
 			run.setContextBudget(budgetSlices(built.budget, plan, kinds, schemaTokens));
 
 			run.snapshot(snapshotForJournal(turn + 1, modelIdentifier, messages, tools));
+			// What the model is sent this turn, uncut: the edits it stages now are certified against it (L6).
+			this._changeSetService.setPromptEvidence(run.runId, readPromptMessages(turn + 1, messagesForJournal(messages, value => value)).evidence);
 			this._promptCacheService.notePrompt(request.sessionResource.toString(), messages);
 
 			const maxTokens = this._outputCap(plan);
@@ -824,22 +828,23 @@ function snapshotForJournal(turn: number, modelIdentifier: string, messages: rea
 		remaining = Math.max(0, remaining - clipped.length);
 		return clipped;
 	};
-	return {
-		turn,
-		model: modelIdentifier,
-		tools: tools.map(t => t.name),
-		messages: messages.map(message => ({
-			role: message.role,
-			content: message.content.map(part => {
-				switch (part.type) {
-					case 'text': return { type: 'text', value: clip(part.value) };
-					case 'tool_use': return { type: 'tool_use', name: part.name, parameters: part.parameters };
-					case 'tool_result': return { type: 'tool_result', toolCallId: part.toolCallId, value: clip(part.value.map(v => v.type === 'text' ? v.value : '').join('')) };
-					default: return { type: part.type };
-				}
-			}),
-		})),
-	};
+	return { turn, model: modelIdentifier, tools: tools.map(t => t.name), messages: messagesForJournal(messages, clip) };
+}
+
+/** A prompt's messages in the shape a journal holds them. `clip` bounds each text; the identity keeps it whole. */
+function messagesForJournal(messages: readonly IChatMessage[], clip: (value: string) => string): unknown[] {
+	return messages.map(message => ({
+		role: message.role,
+		content: message.content.map(part => {
+			switch (part.type) {
+				case 'text': return { type: 'text', value: clip(part.value) };
+				// The call's id ties a certificate to the edit it certifies (L6).
+				case 'tool_use': return { type: 'tool_use', name: part.name, toolCallId: part.toolCallId, parameters: part.parameters };
+				case 'tool_result': return { type: 'tool_result', toolCallId: part.toolCallId, value: clip(part.value.map(v => v.type === 'text' ? v.value : '').join('')) };
+				default: return { type: part.type };
+			}
+		}),
+	}));
 }
 
 /** A tool that passed gating and exclusions, under the unique name the model will see. */

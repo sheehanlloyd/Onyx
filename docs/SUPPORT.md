@@ -378,6 +378,47 @@ texts with 60 scattered edits take 1.4 ms and about 5 MiB, and two with nothing 
 about 25 MiB; the diff before C9 took 588 ms and 215 ms and over 300 MiB for the same. The method is in
 `test/onyx/checks/r29-diff-performance.test.mts`. This is not a linear-time diff and no such claim is made.
 
+## Edit certificates: what was checked for each hunk (L6)
+
+When an edit is staged, Onyx has decided things on your behalf: that the text the model quoted is in the
+file exactly once, and against which content. A certificate is the record of that, with one observation
+added: whether the model had been sent the text it is editing in the turn it edited it.
+
+| Under a hunk it says | When |
+|---|---|
+| Anchored exactly once · seen this turn | Every line the model quoted was in something it was sent this turn: a file it read, a search result, your message, the retrieved context |
+| Anchored exactly once · not shown to the model this turn; read closely | At least one quoted line was in nothing it was sent this turn. Typically the file was read earlier and that result has since been dropped to fit the context window, so the model is quoting from memory |
+| Anchored exactly once · what the model was shown is not on record | The edit did not come from an agent run |
+| New file · nothing existing was replaced | The edit creates the file |
+| From the lines you selected | An inline edit: you chose the lines |
+| Whole-file proposal · no quoted text to place | A refactor's result |
+
+**A certificate says what was checked. It does not say the edit is right.** "Not shown this turn" blocks
+nothing: the edit was placed exactly, or it would have been refused. It is a reason to read that hunk more
+carefully, because a quote that happens to match is weaker evidence than a quote of something just read.
+The model's own earlier words do not count as having been shown the line.
+
+A certificate holds: the path; how the edit was expressed; the turn and the tool call; a digest of the text
+the edit was placed against and that text's version; a digest of the quoted text, its number of lines and
+how many times it was found (one, for every edit that was staged); whether it was grounded; and which
+message of the prompt delivered it. No text of the file or the prompt.
+
+**In the journal.** Each certificate is written into the run's journal (`editCertificate`) with a seal, the
+digest of what it says, and the ids of the hunks it accounts for. After an acceptance the journal also
+records the digest of the file's content and where verification (C2) stands (`editCertificateOutcome`).
+`checkCertificates` in `common/onyxEditCertificate.ts` recomputes each one from the journal alone: the seal,
+the quoted text (from the call's arguments), where it came from and whether it was grounded (from the
+prompt of that turn). A certificate changed after the fact fails the seal; one changed and sealed again
+contradicts the prompt. Two things are not recomputable from a journal and are not claimed to be: the
+digest of the base, and the match count, which need the file as it was. A journal keeps each prompt up to
+a fixed size; for a longer prompt the check says "not recomputable" instead of guessing.
+
+Limits. A line counts as shown when it appears in a message with surrounding white space ignored, so a
+short line such as `}` is almost always "seen". A hunk is tied to an edit by the lines the edit took out or
+put in; a hunk that no single edit accounts for shows no line. Certificates of a proposal are kept across a
+reload; what the model was sent is not, so an edit staged after a reload by a new run is certified against
+that run's prompt only.
+
 ## Verification: of what you accepted, and only that (C2)
 
 Onyx checks an edit when you accept it, not when the model proposes it. A staged proposal is not in the

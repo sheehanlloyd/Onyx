@@ -257,6 +257,22 @@
 			]
 		},
 		{
+			"id": "R-46",
+			"title": "L6 edit certificates: an anchor delivered this turn is grounded in the result that delivered it; one evicted before the edit is not, and is staged all the same; the certificate is in the journal with its hunks and recomputes from the journal alone; a tampered certificate, and one tampered and sealed again, fail; no line a reviewer reads calls a certificate proof of anything",
+			"layer": "pure, service",
+			"regressions": [
+				"R-46"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxEditCertificate.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxEditCertificate"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

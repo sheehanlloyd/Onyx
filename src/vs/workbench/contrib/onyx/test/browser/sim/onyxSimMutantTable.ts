@@ -352,6 +352,24 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		], { persona: 'schema-violator', dialogDefault: 'deny' }),
 	},
 	{
+		id: 'L6-always-grounded',
+		fixedBy: 'L6',
+		defect: 'A certificate that says "seen this turn" of an edit whose quoted text the model had not been sent: the one observation a certificate adds, reported as true whatever happened (R-46)',
+		detects: 'R-46/certificate-contradicts-journal',
+		resurrects: 'OnyxMutantAlwaysGroundedChangeSet',
+		// The read result is evicted by four floods of command output before the model edits the line it read.
+		script: script('L6-always-grounded', 'Swap the operands in clamp', [
+			{ kind: 'toolCall', tool: 'readFile', arguments: { path: 'src/util.ts' }, id: 'read_1' },
+			...Array.from({ length: 4 }, (_, index): OnyxSimEpisode['turns'][number] => ({ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' }, id: `test_${index}` })),
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/util.ts', search: '\treturn Math.min(max, Math.max(min, value));', replace: '\treturn Math.max(min, Math.min(max, value));' }, id: 'edit_1' },
+			{ kind: 'text', text: 'Staged one edit.' },
+		], {
+			dialogDefault: 'allow-once',
+			profile: { promptStyle: 'compact', contextLength: 4096, maxTools: 8 },
+			faults: Array.from({ length: 4 }, (_, index) => ({ at: 'afterToolDispatch' as const, occurrence: index + 2, step: { kind: 'outputFlood' as const, bytes: 20_000 } })),
+		}),
+	},
+	{
 		id: 'B8-deletion-leaves-line',
 		fixedBy: 'B8',
 		defect: 'A deleted line was replaced by nothing and its line break stayed, so an accepted deletion left an empty line and the buffer was not the proposal (Codex N3; R-13)',

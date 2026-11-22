@@ -175,7 +175,7 @@ jobs:
       # autocomplete, the model library, commit messages, review, both code
       # actions, staged edits (Onyx Changes), the gated terminal tool, the
       # offline docs mirror, playbooks, run resume, the refactor engine, the
-      # repo benchmark, speculative decoding and the architecture map — 65
+      # repo benchmark, speculative decoding and the architecture map — 66
       # checks asserted on the run journal and the live DOM. It runs on every
       # push and pull request (A7): the editor is driven through commands,
       # Quick Open, DOM focus and the keyboard, never through synthesized

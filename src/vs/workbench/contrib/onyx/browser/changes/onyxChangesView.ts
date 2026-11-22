@@ -23,6 +23,7 @@ import { IViewletViewOptions } from '../../../../browser/parts/views/viewsViewle
 import { IViewDescriptorService } from '../../../../common/views.js';
 import { IOnyxStagedFile, IOnyxChangeSetService } from './onyxChangeSetService.js';
 import { IOnyxVerificationService } from '../verification/onyxVerificationService.js';
+import { IOnyxEditCertificate, summarizeCertificate } from '../../common/onyxEditCertificate.js';
 import { describeVerification } from '../../common/onyxVerification.js';
 import { summarizeChangeSet } from '../../common/onyxChangeSet.js';
 
@@ -202,6 +203,14 @@ export class OnyxChangesViewPane extends ViewPane {
 			const hunkActions = DOM.append(hunkHeader, $('.onyx-run-actions'));
 			this._iconButton(hunkActions, 'check', localize('onyx.changes.acceptHunk', "Accept this hunk"), () => this._changeSetService.acceptHunk(file.proposal.path, hunk.id));
 			this._iconButton(hunkActions, 'close', localize('onyx.changes.rejectHunk', "Reject this hunk"), () => this._changeSetService.rejectHunk(file.proposal.path, hunk.id));
+			// One calm line of what was checked for this hunk (L6). It marks a hunk for closer reading; it blocks nothing.
+			const certificate = this._changeSetService.certificateFor(file.proposal.path, hunk.id);
+			if (certificate) {
+				const described = describeCertificate(certificate);
+				const certificateLine = DOM.append(hunkElement, $('.onyx-change-hunk-certificate'));
+				certificateLine.classList.toggle('read-closely', described.readClosely);
+				certificateLine.textContent = described.text;
+			}
 			const lines = DOM.append(hunkElement, $('.onyx-change-hunk-lines'));
 			for (const removed of hunk.originalLines) {
 				DOM.append(lines, $('.onyx-change-line.removed')).textContent = `− ${removed}`;
@@ -279,3 +288,19 @@ registerAction2(class RejectAllOnyxChangesAction extends Action2 {
 		accessor.get(IOnyxChangeSetService).rejectAll();
 	}
 });
+
+/**
+ * The line a reviewer reads under a hunk (L6): what the harness checked
+ * when the edit was staged. It never says the edit is right, because
+ * nothing here checked that.
+ */
+export function describeCertificate(certificate: IOnyxEditCertificate): { readonly text: string; readonly readClosely: boolean } {
+	switch (summarizeCertificate(certificate)) {
+		case 'anchored-seen': return { text: localize('onyx.changes.certificate.seen', "Anchored exactly once · seen this turn"), readClosely: false };
+		case 'anchored-not-seen': return { text: localize('onyx.changes.certificate.notSeen', "Anchored exactly once · not shown to the model this turn; read closely"), readClosely: true };
+		case 'anchored-unknown': return { text: localize('onyx.changes.certificate.unknown', "Anchored exactly once · what the model was shown is not on record"), readClosely: false };
+		case 'new-file': return { text: localize('onyx.changes.certificate.newFile', "New file · nothing existing was replaced"), readClosely: false };
+		case 'inline': return { text: localize('onyx.changes.certificate.inline', "From the lines you selected"), readClosely: false };
+		case 'whole-file': return { text: localize('onyx.changes.certificate.wholeFile', "Whole-file proposal · no quoted text to place"), readClosely: false };
+	}
+}

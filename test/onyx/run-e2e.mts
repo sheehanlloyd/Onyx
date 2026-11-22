@@ -380,6 +380,9 @@ async function typeInEditor() {
  * a real `<input>`, so Playwright's fill works — unlike the Monaco chat input.
  */
 async function runCommand(label: string) {
+	// The first-run dialog can come up later than the two moments this runner waits for it at: on a loaded
+	// machine it has appeared a minute in. It is modal, so it is looked for before every command and prompt.
+	await dismissOnboarding(0);
 	pw('press', 'F1');
 	await sleep(800);
 	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ${JSON.stringify('>' + label)}); }`);
@@ -441,6 +444,7 @@ async function dismissOnboarding(waitMs: number): Promise<void> {
 }
 
 async function send(prompt: string) {
+	await dismissOnboarding(0);
 	const focusScript = path.join(repoRoot, '.agents', 'skills', 'launch', 'playwrightScripts', 'focus-chat-input.ts');
 	const paste = path.join(repoRoot, '.agents', 'skills', 'launch', 'scripts', 'monaco-paste.sh');
 	pw('run-code', `--filename=${focusScript}`);
@@ -829,6 +833,7 @@ async function main() {
 	const readMultiState = () => pw('run-code', `async (page) => page.evaluate(() => ({
 		stat: (document.querySelector('.onyx-change-file-stat') || {}).textContent || '',
 		hunks: document.querySelectorAll('.onyx-change-hunk:not(.onyx-change-conflict)').length,
+		certificates: Array.from(document.querySelectorAll('.onyx-change-hunk-certificate')).map(el => el.textContent),
 	}))`);
 	// A file in Onyx Changes is collapsed until its header is clicked; its hunks are rendered when it is open.
 	pw('run-code', 'async (page) => { const header = await page.$(".onyx-change-file-path"); await header.click(); }');
@@ -836,6 +841,11 @@ async function main() {
 	const multiState = readMultiState();
 	const utilOnDisk = fs.readFileSync(path.join(workspace, 'src', 'util.ts'), 'utf8');
 	check('C3: one editFile call with two edits stages two hunks for the file, and writes nothing', multiEditCalls().filter(label => label === 'editFile').length === 1 && readStagedSnapshot().includes('Staged 2 edit(s) to src/util.ts') && /"hunks"\s*:\s*2/.test(multiState) && /"stat"\s*:\s*"\+2 −2"/.test(multiState) && !utilOnDisk.includes('multi-edit-by-mock'), `${multiEditCalls().join(',')} ${multiState.slice(0, 200)}`);
+	// R-46 (L6), end to end: each staged hunk shows one line of what was checked for it, the journal holds a
+	// sealed certificate for each edit of the call, and no line claims more than was checked.
+	const certificateLines: string[] = JSON.parse(/"certificates"\s*:\s*(\[[^\]]*\])/.exec(multiState)?.[1] ?? '[]');
+	const journaledCertificates = readRuns().flatMap(run => run.events).filter(event => event.kind === 'editCertificate' && event.data?.certificate?.path === 'src/util.ts');
+	check('R-46: each staged hunk shows what was checked for it, and the journal holds a sealed certificate for each edit', certificateLines.length === 2 && certificateLines.every(line => /^Anchored exactly once · /.test(line) && !/proof|correct|safe|guarantee/i.test(line)) && journaledCertificates.length === 2 && journaledCertificates.every(event => typeof event.data?.seal === 'string' && event.data?.certificate?.anchor?.matchCount === 1 && event.data?.certificate?.protocol === 'multi-edit'), `${certificateLines.join(' | ')} ; ${journaledCertificates.length} in the journal`);
 	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
 	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
 

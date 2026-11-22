@@ -7,6 +7,7 @@ import { IOnyxRunHandle, OnyxControlPlaneService, OnyxLiveRun } from '../../../b
 import { IOnyxChangeSetService, OnyxAcceptOutcome, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
 import { OnyxInlineEditSession, OnyxInlineStageOutcome } from '../../../browser/editor/onyxInlineEditSession.js';
 import { IOnyxProposedFile, OnyxProposeResult, openReview, proposalSizeProblem, proposeEdits } from '../../../common/onyxChangeSet.js';
+import { certifyEdit, IOnyxCertifyInput, IOnyxEditCertificate } from '../../../common/onyxEditCertificate.js';
 import { IOnyxEditBlock, IOnyxEditHunk } from '../../../common/onyxInlineEdit.js';
 import { EditOperation, ISingleEditOperation } from '../../../../../../editor/common/core/editOperation.js';
 import { Range } from '../../../../../../editor/common/core/range.js';
@@ -391,6 +392,14 @@ class OnyxMutantIndexAcceptChangeSet extends OnyxChangeSetService {
 	}
 }
 
+/** L6: every anchored edit is certified as seen this turn, whatever the model was sent. */
+class OnyxMutantAlwaysGroundedChangeSet extends OnyxChangeSetService {
+	protected override _certifyEdit(input: IOnyxCertifyInput): IOnyxEditCertificate {
+		const certificate = certifyEdit(input);
+		return certificate.anchor ? { ...certificate, grounding: 'grounded' } : certificate;
+	}
+}
+
 /** C10: nothing asks where a file really is before it is staged or written (R-30 write side, I-07). */
 class OnyxMutantWriteThroughLinkChangeSet extends OnyxChangeSetService {
 	protected override async _leavesWorkspace(): Promise<boolean> {
@@ -496,6 +505,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B7-index-accept': { ChangeSetService: OnyxMutantIndexAcceptChangeSet },
 	'B7-no-size-guard': { ChangeSetService: OnyxMutantNoSizeGuardChangeSet },
 	'C10-write-through-link': { ChangeSetService: OnyxMutantWriteThroughLinkChangeSet },
+	'L6-always-grounded': { ChangeSetService: OnyxMutantAlwaysGroundedChangeSet },
 	'B8-deletion-leaves-line': { ChangeSetService: OnyxMutantDeletionLeavesLineChangeSet },
 	'B9-inline-apply-before-review': { InlineEditSession: OnyxMutantApplyBeforeReviewInlineSession },
 	'B10-stop-does-not-cancel': { ControlPlaneService: OnyxMutantStopOnlyFlipsStatusControlPlane },
