@@ -1,0 +1,88 @@
+{
+	"campaign": "2026-11-22-rankings-brew",
+	"tier": "S",
+	"plannedUnits": 120,
+	"finishedUnits": 120,
+	"complete": true,
+	"machineSeconds": 1087,
+	"firstEstimate": {
+		"seconds": 1674,
+		"unmeasuredModels": [],
+		"units": 120
+	},
+	"repository": {
+		"unchanged": true,
+		"before": {
+			"status": "9b828d53402d6e332ef05a2fe03063b359192571ba99fcd3b85074f46a72fd7e",
+			"index": "absent",
+			"head": "3e47189a707c739ee1278a28a3b845f5834574e6",
+			"refs": "4a5aacea9ca9ebdd9996c29657b6f88b2a10468cc8b8b3d056768a7f79f90dea"
+		},
+		"after": {
+			"status": "9b828d53402d6e332ef05a2fe03063b359192571ba99fcd3b85074f46a72fd7e",
+			"index": "absent",
+			"head": "3e47189a707c739ee1278a28a3b845f5834574e6",
+			"refs": "4a5aacea9ca9ebdd9996c29657b6f88b2a10468cc8b8b3d056768a7f79f90dea"
+		}
+	},
+	"sessions": [
+		{
+			"startedAt": "2026-11-22T11:14:02.906Z",
+			"seconds": 1087,
+			"unitsLeftAtStart": 120,
+			"estimate": {
+				"seconds": 1674,
+				"unmeasuredModels": [],
+				"units": 120
+			},
+			"conditionsAtStart": {
+				"at": "2026-11-22T11:14:02.906Z",
+				"loadAverage": [
+					6.03,
+					7.06,
+					7.1
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"conditionsAtEnd": {
+				"at": "2026-11-22T11:32:10.161Z",
+				"loadAverage": [
+					7.75,
+					9.32,
+					8.66
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"ended": "complete",
+			"evictions": [
+				{
+					"before": "qwen2.5-coder:7b",
+					"evicted": [],
+					"left": []
+				},
+				{
+					"before": "qwen2.5-coder:1.5b",
+					"evicted": [
+						"qwen2.5-coder:7b"
+					],
+					"left": []
+				},
+				{
+					"before": "llama3.2:3b",
+					"evicted": [
+						"qwen2.5-coder:1.5b"
+					],
+					"left": []
+				},
+				{
+					"after": "the campaign",
+					"evicted": [
+						"llama3.2:3b"
+					],
+					"left": []
+				}
+			],
+			"notes": []
+		}
+	]
+}
