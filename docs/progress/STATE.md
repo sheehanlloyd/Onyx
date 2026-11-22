@@ -1,11 +1,18 @@
 # Onyx plan state
 Plan version: v4.2 in the owner's checkout since 2026-11-21 (the addition is to Module 5's D7). Module 3 was implemented from v4.1, and its chapter is the same in both.
-Current module: 3      Status: gate passed (2026-11-22, on d6e161b50cf, 68 checks of 68). Module 3 is complete in the pull request and waits for review; it is not merged. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
-Revision: branch `module-3` at 5c7a93b5786 (the merge of the gate) plus this file's commit; pull request sheehanlloyd/Onyx#4 into `main`, marked ready for review, not merged
+Current module: 4      Status: in progress (started 2026-11-22). Module 3: complete; gate passed on d6e161b50cf (2026-11-22, 68 checks of 68), merged into `main` as cc0916dc2a1 (sheehanlloyd/Onyx#4), push-to-main CI run 44992119167 green. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
+Revision: branch `module-4`, cut from `main` at cc0916dc2a1; one draft pull request into `main`
 Isolated checkout: branch `module-3` in a work clone that was moved out of the cloud-synchronised Desktop folder on 2026-11-21 into a plain developer folder under the same account (clone directory `onyx-work`; packaged builds land beside it); the four audit documents are excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-11-20 the base was 36d38757a15 (August 2026)
 Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; this machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
+
+## Module 4
+Items done: none yet.
+Items remaining: L9, L10, L11, L12, L13, L14, L15, L16, L17, L18, in that order.
+Item in progress: L9 (campaign engine), on branch `codex/l9-campaign-engine`.
+Campaigns running: none.
+Gate: not run.
 
 ## Module 3
 Items done:
