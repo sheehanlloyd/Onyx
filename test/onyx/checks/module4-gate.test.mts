@@ -115,3 +115,110 @@ test('Module 4 gate (L12): the full campaign and the mutation score are committe
 		outcome: ['H-1', 'supported'],
 	});
 });
+
+const OUTCOMES = ['supported', 'refuted', 'inconclusive', 'unavailable on this hardware'];
+/** Every outcome file under docs/research/results, with the directory it is in. */
+function outcomeFiles(): { directory: string; hypothesis: string; outcome: string; number: string }[] {
+	const root = path.join(repoRoot, 'docs', 'research', 'results');
+	return fs.readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory()).flatMap(entry => fs.readdirSync(path.join(root, entry.name)).filter(name => /^outcome(-H-\d+)?\.json$/.test(name)).map(name => {
+		const file = read<{ hypothesis: string; outcome: string; number?: string }>(path.join(root, entry.name, name));
+		return { directory: entry.name, hypothesis: file.hypothesis, outcome: file.outcome, number: file.number ?? '' };
+	}));
+}
+const gitOk = (...args: string[]): boolean => {
+	try {
+		execFileSync('git', ['-C', repoRoot, ...args], { stdio: 'ignore' });
+		return true;
+	} catch {
+		return false;
+	}
+};
+const gitText = (...args: string[]): string => execFileSync('git', ['-C', repoRoot, ...args], { encoding: 'utf8' }).trim();
+
+test('Module 4 gate: every hypothesis H-1 to H-10 has one outcome committed with its manifest and a number, and "unavailable" comes with the probe output', () => {
+	const outcomes = outcomeFiles();
+	const byHypothesis = Object.fromEntries(Array.from({ length: 10 }, (_, index) => `H-${index + 1}`).map(hypothesis => [hypothesis, outcomes.filter(outcome => outcome.hypothesis === hypothesis)]));
+	assert.deepStrictEqual({
+		hypothesesWithoutExactlyOneOutcome: Object.entries(byHypothesis).filter(([, found]) => found.length !== 1).map(([hypothesis, found]) => `${hypothesis}: ${found.length}`),
+		outcomesNotOfTheFour: outcomes.filter(outcome => !OUTCOMES.includes(outcome.outcome)).map(outcome => `${outcome.hypothesis}: ${outcome.outcome}`),
+		outcomesWithoutANumber: outcomes.filter(outcome => outcome.number.length === 0).map(outcome => outcome.hypothesis),
+		directoriesThatAreNotValidResults: [...new Set(outcomes.map(outcome => outcome.directory))].filter(directory => checkResultsDirectory(results(directory)).errors.length > 0),
+		uncommitted: gitText('status', '--porcelain', '--', 'docs/research/results'),
+		unavailableWithoutAProbe: outcomes.filter(outcome => outcome.outcome === 'unavailable on this hardware' && !fs.readdirSync(results(outcome.directory)).some(name => /probe/.test(name))).map(outcome => outcome.hypothesis),
+	}, {
+		hypothesesWithoutExactlyOneOutcome: [],
+		outcomesNotOfTheFour: [],
+		outcomesWithoutANumber: [],
+		directoriesThatAreNotValidResults: [],
+		uncommitted: '',
+		unavailableWithoutAProbe: [],
+	});
+});
+
+test('Module 4 gate: the pre-registration is an ancestor of every results commit, and each amendment of the commits whose design it fixed', () => {
+	const registration = gitText('log', '--diff-filter=A', '--format=%H', '--', 'docs/research/PREREGISTRATION.md').split('\n').at(-1)!;
+	// The commit of each amendment, found by the heading it added.
+	const amendment = (number: number) => gitText('log', '--reverse', '--format=%H', '-S', `### Amendment ${number},`, '--', 'docs/research/PREREGISTRATION.md').split('\n')[0];
+	const firstCommitOf = (directory: string) => gitText('log', '--diff-filter=A', '--format=%H', '--', `docs/research/results/${directory}/manifest.json`).split('\n').at(-1)!;
+	const outcomes = outcomeFiles();
+	// Which amendment fixed the design each hypothesis's campaign ran under.
+	const designedBy: Record<string, number> = { 'H-2': 1, 'H-3': 2, 'H-4': 2, 'H-5': 2, 'H-6': 3, 'H-7': 3, 'H-8': 3, 'H-9': 3, 'H-10': 3 };
+	const late: string[] = [];
+	for (const outcome of outcomes) {
+		const commit = firstCommitOf(outcome.directory);
+		if (!commit || !gitOk('merge-base', '--is-ancestor', registration, commit)) {
+			late.push(`${outcome.hypothesis}: ${outcome.directory} is not after the registration`);
+		}
+		const needed = designedBy[outcome.hypothesis];
+		if (needed && !gitOk('merge-base', '--is-ancestor', amendment(needed), commit)) {
+			late.push(`${outcome.hypothesis}: ${outcome.directory} is not after Amendment ${needed}`);
+		}
+	}
+	const text = fs.readFileSync(path.join(repoRoot, 'docs', 'research', 'PREREGISTRATION.md'), 'utf8');
+	assert.deepStrictEqual({
+		registrationFound: /^[0-9a-f]{40}$/.test(registration),
+		amendmentsFound: [1, 2, 3].map(number => /^[0-9a-f]{40}$/.test(amendment(number))),
+		resultsNotAfterTheirDesign: late,
+		noWordingTheProjectDoesNotUse: /\b(novel|first-ever|the first to)\b/i.exec(text)?.[0] ?? null,
+	}, {
+		registrationFound: true,
+		amendmentsFound: [true, true, true],
+		resultsNotAfterTheirDesign: [],
+		noWordingTheProjectDoesNotUse: null,
+	});
+});
+
+test('Module 4 gate: the L7 decision, the badge decision and the adopted eviction policy are recorded in docs/SUPPORT.md, and they are what the outcomes say', () => {
+	const support = fs.readFileSync(path.join(repoRoot, 'docs', 'SUPPORT.md'), 'utf8');
+	const outcomes = Object.fromEntries(outcomeFiles().map(outcome => [outcome.hypothesis, outcome.outcome]));
+	const state = (item: string) => new RegExp(`^\\| ${item} \\| (?<state>[^|]+) \\|`, 'm').exec(support)?.groups?.state.trim();
+	const l7 = state('L7 constrained anchors');
+	const badge = state('L16 hunk confidence badge');
+	const eviction = state('L17 eviction policy');
+	assert.deepStrictEqual({
+		l7Recorded: ['default for supported models', 'opt-in', 'withdrawn'].includes(l7 ?? ''),
+		// Anchors become the default only if H-4 was supported.
+		l7FollowsH4: l7 !== 'default for supported models' || outcomes['H-4'] === 'supported',
+		badgeRecorded: ['shipped', 'not shipped'].includes(badge ?? ''),
+		badgeFollowsH8: badge !== 'shipped' || outcomes['H-8'] === 'supported',
+		evictionRecorded: ['oldest-results-first', 'block-to-low-watermark', 'placeholder-results'].includes(eviction ?? ''),
+	}, { l7Recorded: true, l7FollowsH4: true, badgeRecorded: true, badgeFollowsH8: true, evictionRecorded: true });
+});
+
+test('Module 4 gate (L11): the reference machine\'s measurement is committed with its scorecard, raw results and manifest', () => {
+	const directory = results('2026-11-22-reference-measure');
+	const scorecard = read<{ partial: boolean; plannedUnits: number; attempts: unknown[]; models: { id: string; datasheet?: unknown }[]; repository: { commit: string } }>(path.join(directory, 'scorecard.json'));
+	const campaign = read<ICampaignFile>(path.join(directory, 'campaign.json'));
+	const markdown = fs.readFileSync(path.join(directory, 'scorecard.md'), 'utf8');
+	assert.deepStrictEqual({
+		directory: checkResultsDirectory(directory).errors,
+		complete: campaign.complete && !scorecard.partial,
+		everyPlannedUnitRan: scorecard.attempts.length === scorecard.plannedUnits && scorecard.plannedUnits > 0,
+		thePinnedModels: ['qwen2.5-coder:1.5b', 'qwen2.5-coder:7b'].filter(id => !scorecard.models.some(model => model.id.endsWith(id))),
+		everyModelHasItsDatasheet: scorecard.models.every(model => model.datasheet !== undefined && model.datasheet !== null),
+		provenance: /^[0-9a-f]{40}$/.test(scorecard.repository.commit),
+		svgIsThere: fs.existsSync(path.join(directory, 'scorecard.svg')),
+		noHomeDirectory: !/\/Users\/|\/home\//.test(markdown + JSON.stringify(scorecard)),
+		repositoryUnchanged: campaign.repository.unchanged,
+	}, { directory: [], complete: true, everyPlannedUnitRan: true, thePinnedModels: [], everyModelHasItsDatasheet: true, provenance: true, svgIsThere: true, noHomeDirectory: true, repositoryUnchanged: true });
+});
