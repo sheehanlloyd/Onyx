@@ -273,6 +273,8 @@ export interface IOnyxLabWorkOrder {
 	 * advance, and save its scorecard into the worktree.
 	 */
 	readonly measure?: { readonly modelIds: readonly string[]; readonly datasheets: boolean; readonly taskCount?: number };
+	/** Measure the datasheet of each unit's model in this instance before its first unit: some harness switches exist only for a measured model (L7). */
+	readonly datasheetsFirst?: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -325,7 +327,7 @@ export function parseLabWorkOrder(text: string | undefined): { readonly ok: true
 		}
 		measure = { modelIds: asked.modelIds.map(String), datasheets: asked.datasheets !== false, ...(typeof asked.taskCount === 'number' ? { taskCount: asked.taskCount } : {}) };
 	}
-	return { ok: true, order: { worktree: String(parsed.worktree), recordsPath: String(parsed.recordsPath), statusPath: String(parsed.statusPath), cancelPath: String(parsed.cancelPath), heartbeatPath: String(parsed.heartbeatPath), baseUrl: String(parsed.baseUrl), unitTimeoutMs: parsed.unitTimeoutMs, units, ...(measure ? { measure } : {}) } };
+	return { ok: true, order: { worktree: String(parsed.worktree), recordsPath: String(parsed.recordsPath), statusPath: String(parsed.statusPath), cancelPath: String(parsed.cancelPath), heartbeatPath: String(parsed.heartbeatPath), baseUrl: String(parsed.baseUrl), unitTimeoutMs: parsed.unitTimeoutMs, units, ...(measure ? { measure } : {}), ...(parsed.datasheetsFirst === true ? { datasheetsFirst: true } : {}) } };
 }
 
 /**

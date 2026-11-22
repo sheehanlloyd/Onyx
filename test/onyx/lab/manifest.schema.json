@@ -123,6 +123,7 @@
 				"unitTimeoutMs": { "type": "integer", "minimum": 1000 },
 				"maxBeforeChars": { "type": "integer", "minimum": 1, "description": "A task whose file is longer than this before the change is not given to a model (the context-fit rule)" },
 				"datasheets": { "type": "string", "description": "A datasheet summary.json, relative to the repository, whose measured speeds the estimate uses" },
+				"datasheetsFirst": { "type": "boolean", "description": "Tier A: measure each model's datasheet in the campaign's own instance before its first unit, for a harness switch that exists only for a measured model" },
 				"measure": {
 					"type": "object",
 					"additionalProperties": false,

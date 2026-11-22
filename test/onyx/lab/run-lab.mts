@@ -65,7 +65,7 @@ interface ILabTask { readonly id: string; readonly commit: string; readonly file
 interface ILabUnit { readonly id: string; readonly model: string; readonly configuration: string; readonly task: ILabTask; readonly seed: number; readonly repetition: number }
 interface ILabRecord { readonly unit: string; readonly model: string; readonly configuration: string; readonly task: string; readonly seed: number; readonly repetition: number; readonly tier: 'S' | 'A'; readonly outcome: string; readonly reply: string | null; readonly edits: readonly unknown[]; readonly events: readonly unknown[]; readonly requests: readonly unknown[]; readonly harnessHash: string | null; readonly deniedCommands: number; readonly durationMs: number; readonly finishReason?: string | null; readonly error?: string }
 interface ILabResult { readonly unit: string; readonly outcome: string; readonly score: number | null; readonly success: boolean | null }
-interface ICampaign { readonly tier: 'S' | 'A'; readonly baseUrl: string; readonly tasks?: string; readonly unitTimeoutMs?: number; readonly maxBeforeChars?: number; readonly datasheets?: string; readonly measure?: { readonly revision: string; readonly taskCount?: number; readonly datasheets?: boolean } }
+interface ICampaign { readonly tier: 'S' | 'A'; readonly baseUrl: string; readonly datasheetsFirst?: boolean; readonly tasks?: string; readonly unitTimeoutMs?: number; readonly maxBeforeChars?: number; readonly datasheets?: string; readonly measure?: { readonly revision: string; readonly taskCount?: number; readonly datasheets?: boolean } }
 interface ILabModule {
 	planLabCampaign(spec: { tier: 'S' | 'A'; models: readonly string[]; configurations: readonly string[]; tasks: readonly ILabTask[]; seeds: readonly number[]; repetitions: number }): ILabUnit[];
 	remainingLabUnits(plan: readonly ILabUnit[], finished: ReadonlySet<string>): ILabUnit[];
@@ -418,7 +418,7 @@ function applicationLogTail(userDataDir: string): string | undefined {
  * Starts the application on a worktree with a work order, waits until the engine inside says it is done, has
  * failed, or has stopped answering, and ends the application. One instance, one profile of its own.
  */
-async function runApplication(workDir: string, worktree: string, heartbeatPath: string, index: number, order: { readonly unitTimeoutMs: number; readonly units: readonly object[]; readonly measure?: object }): Promise<{ readonly state: string; readonly reason: string | undefined; readonly exited: boolean; readonly userDataDir: string }> {
+async function runApplication(workDir: string, worktree: string, heartbeatPath: string, index: number, order: { readonly unitTimeoutMs: number; readonly units: readonly object[]; readonly measure?: object; readonly datasheetsFirst?: boolean }): Promise<{ readonly state: string; readonly reason: string | undefined; readonly exited: boolean; readonly userDataDir: string }> {
 	const statusPath = path.join(workDir, 'status.json');
 	const cancelPath = path.join(workDir, 'cancel');
 	const orderPath = path.join(workDir, 'order.json');
@@ -559,6 +559,7 @@ async function runTierA(units: readonly ILabUnit[], evictions: object[], notes: 
 						id: unit.id, manifest: manifest.name, model: unit.model, configuration: { name: unit.configuration, configuration: configurations.get(unit.configuration) ?? {} }, task: unit.task,
 						seed: unit.seed, repetition: unit.repetition, temperature: manifest.sampling.temperature, instruction: lab.labAgentInstruction(unit.task.file, instructionOf(unit.task)),
 					})),
+					...(campaign!.datasheetsFirst ? { datasheetsFirst: true } : {}),
 				});
 				if (cancelled) {
 					notes.push(`cancelled; the application's last word was "${state}"`);
