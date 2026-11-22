@@ -23,6 +23,7 @@ import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult
 import { ITaskService } from '../../../../tasks/common/taskService.js';
 import { ITaskSummary } from '../../../../tasks/common/taskSystem.js';
 import { InMemoryTask, RunOptions, Task, TaskGroup } from '../../../../tasks/common/tasks.js';
+import { isAnchoredCall } from '../../../common/onyxAnchorEdit.js';
 import { IOnyxEnergyDecision } from '../../../common/onyxEnergyPolicy.js';
 import { IOnyxModelProfile, IOnyxObservedStats } from '../../../common/onyxTypes.js';
 import { IOnyxEnergyService } from '../../../browser/compute/onyxEnergyService.js';
@@ -154,6 +155,11 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			return { ...turn, text: JSON.stringify({ action: 'answer', answer: turn.text }) };
 		}
 		if (turn.kind === 'toolCall' && turn.argumentsText === undefined) {
+			// An anchored edit (L7) is the envelope's own `edit` action. Which anchors a script names is the
+			// script's business: a runtime that only claims to enforce a schema lets any through.
+			if (turn.tool === 'editFile' && isAnchoredCall(turn.arguments)) {
+				return { kind: 'text', text: JSON.stringify({ action: 'edit', edit: turn.arguments }), reasoning: turn.reasoning };
+			}
 			return { kind: 'text', text: JSON.stringify({ action: 'tool', tool: turn.tool, arguments: turn.arguments }), reasoning: turn.reasoning };
 		}
 		return turn;

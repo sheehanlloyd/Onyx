@@ -181,7 +181,7 @@ export interface IOnyxSimResult {
 	/** The most command output the terminal service held at once, in characters. */
 	readonly peakRetainedOutputChars: number | undefined;
 	/** Every request as it went on the wire: estimated tokens of messages and tool schemas, and the output cap. */
-	readonly requests: readonly { readonly promptTokens: number; readonly maxTokens: number | undefined; readonly text: string }[];
+	readonly requests: readonly { readonly promptTokens: number; readonly maxTokens: number | undefined; readonly text: string; /** The schema the turn was to be decoded against, when there was one. */ readonly responseFormat: unknown }[];
 	/** What the loop told the profile service fits, after an overflow. */
 	readonly observedContexts: readonly number[];
 	/** Tasks the task service was asked to run. */
@@ -192,6 +192,8 @@ export interface IOnyxSimResult {
 	readonly memoryNotes: readonly string[];
 	/** Everything the first request of the follow-up run sent, when the episode has one. */
 	readonly followUpPromptText: string | undefined;
+	/** The files that have changes staged when the episode ends. */
+	readonly stagedPaths: readonly string[];
 }
 
 /**
@@ -953,12 +955,13 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			requests: this.runtime.requests.map(request => {
 				const text = request.messages.map(message => String(message.content ?? '') + (message.tool_calls ?? []).map(call => call.function.name + call.function.arguments).join('')).join('\n');
 				const promptChars = request.messages.reduce((total, message) => total + String(message.content ?? '').length + (message.tool_calls ?? []).reduce((sum, call) => sum + call.function.name.length + call.function.arguments.length, 0), 0);
-				return { promptTokens: Math.ceil((promptChars + (request.tools?.length ? JSON.stringify(request.tools).length : 0)) / 4), maxTokens: request.maxTokens, text };
+				return { promptTokens: Math.ceil((promptChars + (request.tools?.length ? JSON.stringify(request.tools).length : 0)) / 4), maxTokens: request.maxTokens, text, responseFormat: request.responseFormat };
 			}),
 			observedContexts: [...this._profiles.observedContexts],
 			tasksRan: [...this.tasks.ran],
 			projectConfigOnDisk: await this.projectConfigOnDisk(),
 			memoryNotes: this.memory.getNotes().map(note => note.text),
+			stagedPaths: this.changeSet.files.get().map(file => file.proposal.path),
 			followUpPromptText: this._followUpFirstRequest === undefined ? undefined : (this.runtime.requests[this._followUpFirstRequest]?.messages ?? []).map(message => String(message.content ?? '')).join('\n'),
 		};
 	}

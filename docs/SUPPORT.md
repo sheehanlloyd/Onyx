@@ -419,6 +419,53 @@ put in; a hunk that no single edit accounts for shows no line. Certificates of a
 reload; what the model was sent is not, so an edit staged after a reload by a new run is certified against
 that run's prompt only.
 
+## Constrained anchors: an experimental edit protocol (L7)
+
+**Experimental. Off by default. Not in a packaged build's behaviour:** it is one value of the harness
+configuration's `editProtocol`, which only a lab manifest in a development build can set (L4).
+
+Search and replace asks the model to quote the text it wants to change, and refuses the edit when the quote
+is not in the file exactly (B6). Constrained anchors ask for less: the first and the last line to replace.
+In a constrained turn the schema the reply is decoded against lists the lines the model was shown this
+turn, so a runtime that enforces the schema cannot produce an anchor that is not on the list.
+
+| | |
+|---|---|
+| The shape | `{"action":"edit","edit":{"path","startAnchor","endAnchor","replace"}}` in the constrained envelope. The lines from `startAnchor` to `endAnchor` are replaced |
+| What is on the list | The lines of every `readFile` result still in the prompt this turn, after eviction. A line by its text; a line that was shown more than once in its file by B1's numbered form (`12| text`); blank lines not at all |
+| What the harness still checks | Everything. Each anchor has to be exactly one line of the file as it is now, and the first may not come after the last. A line that is not there, a line that is there more than once, reversed anchors and a numbered line whose text has changed are each refused with the reason, and nothing is staged. An anchor that is not on the turn's list never reaches the edit tool at all, whatever the runtime let through |
+| Available when | The run decodes against a schema (`toolCallProtocol` is `constrained-envelope`) **and** the model's datasheet measured that the runtime enforces one (L5). Otherwise the run says "Constrained anchors are unavailable; edits use search and replace" and why |
+| The bound | 400 lines and 24,000 characters on the list. When more than that was read, that turn has no list and its edits are search and replace; the run says so |
+| Still there | `editFile` with `search` and `replace`, for new files, for files that were not read this turn, and for a file that already has staged changes (an anchored edit is placed against the file as it was read) |
+
+**Not claimed: that the anchors are the right ones.** The list makes an invented line unrepresentable. It
+does not stop the model choosing a real line that is the wrong one, and prior work on constrained copying
+reports exactly that as the main error. L14 measures it. Until then this is a protocol to experiment with,
+not one to rely on.
+
+**What the list costs** (`docs/research/results/2026-11-21-anchor-enum/`, Ollama 0.33.0, one edit of one
+line of a twenty-line file, three trials a size, the prompt the same at every size):
+
+| Lines on the list | `qwen2.5-coder:7b`: first token, whole reply | `qwen2.5-coder:1.5b`: first token, whole reply |
+|---|---|---|
+| none (the envelope alone; the reply is a shorter tool call) | 24 ms, 0.72 s | 9 ms, 0.17 s |
+| 50 | 24 ms, 0.97 s | 10 ms, 0.33 s |
+| 100 | 24 ms, 1.00 s | 10 ms, 0.35 s |
+| 200 | 24 ms, 1.05 s | 10 ms, 0.41 s |
+| 400 (the bound) | 25 ms, 1.15 s | 11 ms, 0.52 s |
+| 800 | 27 ms, 1.37 s | 13 ms, 0.72 s |
+| 1,600 | 32 ms, 1.82 s | 17 ms, 1.11 s |
+
+Building the grammar does not delay the first token measurably at any size tried. The cost is in the
+reply: every token is checked against the list, and the same edit takes about a fifth longer at 400 lines
+than at 50 on the 7B model, and nearly twice as long at 1,600. The bound of 400 is set there. In all 36
+constrained edits both anchors were on the list and were the line asked for; that is one easy task, and
+says nothing about harder ones. (The first trial at 50 lines shows 795 ms and 177 ms to the first token:
+that is the changed system prompt being read for the first time, not the grammar.) The load average was 3
+to 4 during the run.
+
+Every anchored edit has a certificate (L6) that names the protocol, so a journal says which edits used it.
+
 ## Verification: of what you accepted, and only that (C2)
 
 Onyx checks an edit when you accept it, not when the model proposes it. A staged proposal is not in the
@@ -548,7 +595,7 @@ trace, so two runs can be told to have been run the same way.
 | Switch | What it decides | What the product runs | Other values (lab only) |
 |---|---|---|---|
 | `toolCallProtocol` | How a tool call is read | `constrained-envelope` when the model's tool calls are well-formed less than 75% of the time and its runtime enforces a JSON schema; otherwise `repaired-text` (the tool channel, and a call written as text is recognised and run) | `native`: the tool channel only |
-| `editProtocol` | How an edit is proposed | `search-replace` | none yet (constrained anchors, L7) |
+| `editProtocol` | How an edit is proposed | `search-replace` | `constrained-anchors` (experimental; see "Constrained anchors") |
 | `promptStyle` | How much the prompt carries | `compact` or `full`, from the model's profile | the other one |
 | `toolResultChars` | The most of one tool result that goes back to the model | 4,000 with a compact prompt, 16,000 with a full one | 200 to 1,000,000 |
 | `evictionPolicy` | What is dropped when a turn does not fit | `oldest-results-first` (B13) | none yet (L17) |
@@ -781,7 +828,7 @@ tested. The module gate runner reads this table (`| item | state |`).
 | C9 bounded line diff | included | 3 | Not needed: included. The line diff is a bounded Myers search in `common/onyxInlineEdit.ts` (R-29, measured on the reference machine and in plain Node). A size guard stays, at 20,000 lines a side and 1 MiB, and its test (R-38 as it stands with C9) with it |
 | C10 benign repeated-dot names | included | 3 | Not needed: included. A `..` segment is refused and a name that contains two dots is not, on the read side and the write side (R-30, every subcase). Traversal, absolute paths and symbolic links out of the workspace are refused on both sides whatever this row says |
 | D3 Check for Updates command | planned | 5 | Manual replacement, rollback and uninstall instructions always ship |
-| L7 constrained anchors as default | planned | 4 (L14 decides) | Opt-in experimental protocol or withdrawn with the negative result |
+| L7 constrained anchors | included | 3 | Not needed: included as an **experimental** protocol, off by default and reachable only as a lab arm of the harness configuration (R-47). Whether it ever becomes a default is L14's decision, in Module 4; until then the fallback is what ships: search and replace |
 | L10 executable oracle | planned | 4 | Tier 1 scoring only; this file shows the sandbox probe output |
 | L16 confidence badge | planned | 4 | No badge, no claim; result published |
 | L17 eviction policy | planned | 4 | Oldest-first eviction stays; result published |

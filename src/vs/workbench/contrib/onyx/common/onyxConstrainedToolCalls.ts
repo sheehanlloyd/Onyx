@@ -21,8 +21,14 @@ export interface IOnyxEnvelopeTool {
 	readonly inputSchema?: object;
 }
 
-/** OpenAI `response_format` payload constraining a turn to the tool/answer envelope. */
-export function buildToolEnvelopeFormat(tools: readonly IOnyxEnvelopeTool[]): unknown {
+/**
+ * OpenAI `response_format` payload constraining a turn to the tool/answer
+ * envelope. With `anchoredEdit` (L7) the envelope has a third action,
+ * `edit`, whose arguments follow that schema: the anchors and the path are
+ * enumerated, so a runtime that enforces the schema cannot produce one that
+ * is not on the list.
+ */
+export function buildToolEnvelopeFormat(tools: readonly IOnyxEnvelopeTool[], anchoredEdit?: object): unknown {
 	return {
 		type: 'json_schema',
 		json_schema: {
@@ -31,10 +37,11 @@ export function buildToolEnvelopeFormat(tools: readonly IOnyxEnvelopeTool[]): un
 			schema: {
 				type: 'object',
 				properties: {
-					action: { type: 'string', enum: ['tool', 'answer'] },
+					action: { type: 'string', enum: anchoredEdit ? ['tool', 'answer', 'edit'] : ['tool', 'answer'] },
 					tool: { type: 'string', enum: tools.map(tool => tool.name) },
 					arguments: { type: 'object' },
 					answer: { type: 'string' },
+					...(anchoredEdit ? { edit: anchoredEdit } : {}),
 				},
 				required: ['action'],
 				additionalProperties: false,
@@ -47,6 +54,9 @@ export function buildToolEnvelopeFormat(tools: readonly IOnyxEnvelopeTool[]): un
 export function toolEnvelopeInstruction(): string {
 	return 'Respond with exactly one JSON object per turn: {"action":"tool","tool":"<name>","arguments":{...}} to call a tool, or {"action":"answer","answer":"<your final answer>"} when done. No other text.';
 }
+
+/** The tool an `edit` action of the envelope calls. */
+export const ONYX_ANCHORED_EDIT_TOOL = 'editFile';
 
 export type OnyxEnvelopeResult =
 	| { readonly kind: 'tool'; readonly name: string; readonly parameters: object }
@@ -69,7 +79,12 @@ export function parseToolEnvelope(modelReply: string, knownTools: readonly strin
 		return { kind: 'invalid', raw: text };
 	}
 	try {
-		const parsed = JSON.parse(json) as { action?: string; tool?: string; arguments?: unknown; answer?: unknown };
+		const parsed = JSON.parse(json) as { action?: string; tool?: string; arguments?: unknown; answer?: unknown; edit?: unknown };
+		if (parsed.action === 'edit' && knownTools.includes(ONYX_ANCHORED_EDIT_TOOL)) {
+			// An anchored edit (L7) is a call of the edit tool with the anchor arguments. Whether those arguments
+			// are on this turn's list is checked where every call's arguments are, before anything is dispatched.
+			return { kind: 'tool', name: ONYX_ANCHORED_EDIT_TOOL, parameters: typeof parsed.edit === 'object' && parsed.edit !== null ? parsed.edit as object : {} };
+		}
 		if (parsed.action === 'tool' && typeof parsed.tool === 'string' && knownTools.includes(parsed.tool)) {
 			return { kind: 'tool', name: parsed.tool, parameters: typeof parsed.arguments === 'object' && parsed.arguments !== null ? parsed.arguments as object : {} };
 		}

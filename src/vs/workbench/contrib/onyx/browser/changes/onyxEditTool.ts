@@ -8,6 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { localize } from '../../../../../nls.js';
 import { ILanguageModelToolsService, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource } from '../../../chat/common/tools/languageModelToolsService.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
+import { isAnchoredCall, readAnchorArguments } from '../../common/onyxAnchorEdit.js';
 import { ONYX_EDIT_CALL_MAX_EDITS, readEditArguments } from '../../common/onyxChangeSet.js';
 import { IOnyxChangeSetService } from './onyxChangeSetService.js';
 
@@ -80,12 +81,21 @@ export class OnyxEditToolContribution extends Disposable {
 			// Stopped (B10, I-05): nothing more is staged for a run the user has stopped.
 			return { content: [{ kind: 'text', value: 'Error: the run was stopped by the user. Nothing was staged.' }], toolResultError: true };
 		}
+		const runId = this._controlPlaneService.runs.get().find(run => run.requestId === invocation.chatRequestId)?.runId;
+		if (isAnchoredCall(invocation.parameters)) {
+			// An anchored edit (L7): the first and the last line to replace, resolved against the file as it is.
+			const anchored = readAnchorArguments(invocation.parameters);
+			if (!anchored || !anchored.path) {
+				return { content: [{ kind: 'text', value: 'Error: an anchored edit needs "path", "startAnchor", "endAnchor" and "replace", all text. Nothing was staged.' }], toolResultError: true };
+			}
+			const staged = await this._changeSetService.stageAnchored(anchored.path, anchored.startAnchor, anchored.endAnchor, anchored.replace, runId, { call: invocation.callId });
+			return staged.ok ? { content: [{ kind: 'text', value: staged.summary }] } : { content: [{ kind: 'text', value: `Error: ${staged.error}` }], toolResultError: true };
+		}
 		const parsed = readEditArguments(invocation.parameters);
 		if (!parsed.ok) {
 			return { content: [{ kind: 'text', value: `Error: ${parsed.error}` }], toolResultError: true };
 		}
 		const { path, blocks } = parsed;
-		const runId = this._controlPlaneService.runs.get().find(run => run.requestId === invocation.chatRequestId)?.runId;
 		const outcome = await this._changeSetService.stage(path, blocks, runId, { call: invocation.callId });
 		if (!outcome.ok) {
 			return { content: [{ kind: 'text', value: `Error: ${outcome.error}` }], toolResultError: true };
