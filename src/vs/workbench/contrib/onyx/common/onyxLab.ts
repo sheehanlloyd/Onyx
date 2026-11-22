@@ -314,9 +314,15 @@ export function parseLabWorkOrder(text: string | undefined): { readonly ok: true
 	return { ok: true, order: { worktree: String(parsed.worktree), recordsPath: String(parsed.recordsPath), statusPath: String(parsed.statusPath), cancelPath: String(parsed.cancelPath), heartbeatPath: String(parsed.heartbeatPath), baseUrl: String(parsed.baseUrl), unitTimeoutMs: parsed.unitTimeoutMs, units } };
 }
 
-/** What a tier A unit asks the agent to do: the commit's subject, and the file it is about. */
-export function labAgentInstruction(file: string, subject: string): string {
-	return `In the file ${file}, make this change: ${subject}`;
+/**
+ * What a tier A unit asks the agent to do: the task's instruction, the file
+ * it is about, and what is expected back. The last sentence is there
+ * because without it the pinned models answered in prose, or asked the
+ * user for the text to change (L9's first campaign): a campaign has no
+ * user to answer, so a task says that an edit is what is wanted.
+ */
+export function labAgentInstruction(file: string, instruction: string): string {
+	return `Make this change to the file ${file}:\n\n${instruction}\n\nRead the file first, then propose the change with the editFile tool. Do not ask for more information.`;
 }
 
 export interface IOnyxLabSummaryRow {

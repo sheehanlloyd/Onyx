@@ -104,6 +104,12 @@ export interface IOnyxTraceAcceptance {
 	readonly path: string;
 	/** The id of the hunk as it was shown (B7), or `all` for a whole file. Journals written before B7 hold the hunk's index, a number. */
 	readonly hunk: string | number;
+	/**
+	 * Digests of the lines the accept added, one a non-empty line (L10). No
+	 * text: enough to find, later, the commit in which the accepted lines
+	 * first appear. Absent in journals written before L10.
+	 */
+	readonly added?: readonly string[];
 }
 
 /** FNV-1a over UTF-16 code units, hex. Stable across platforms; not a security digest. */

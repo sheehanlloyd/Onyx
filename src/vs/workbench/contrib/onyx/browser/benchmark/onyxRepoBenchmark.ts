@@ -17,14 +17,16 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import {
 	aggregateBenchResults, buildBenchPrompt, IOnyxBenchResult, IOnyxBenchTask, ONYX_BENCH_METRIC, ONYX_BENCH_PRESERVATION_CAP, ONYX_BENCH_SYSTEM_PROMPT, scoreBenchAttempt, selectBenchmarkCommits
 } from '../../common/onyxRepoBench.js';
+import { latestPublication, ONYX_MIN_TASKS_TO_RANK } from '../../common/onyxLabTasks.js';
+import { modelPublishedAt } from '../../common/onyxModelCatalog.js';
 import { ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { runOneShot } from '../agent/onyxOneShot.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
 
-const MAX_COMMITS_SCANNED = 200;
-const DEFAULT_TASK_COUNT = 6;
+const MAX_COMMITS_SCANNED = 500;
+const DEFAULT_TASK_COUNT = 12;
 const MAX_BEFORE_CHARS = 12_000;
 
 /**
@@ -55,13 +57,6 @@ export class OnyxRepoBenchmark {
 			this._notificationService.notify({ severity: Severity.Info, message: localize('onyx.bench.noFolder', "Open a local git repository to benchmark on it.") });
 			return;
 		}
-		const candidates = await this._runtimeService.gitCommitCandidates(folder.uri.fsPath, MAX_COMMITS_SCANNED);
-		const tasks = selectBenchmarkCommits(candidates, DEFAULT_TASK_COUNT);
-		if (tasks.length === 0) {
-			this._notificationService.notify({ severity: Severity.Info, message: localize('onyx.bench.noTasks', "No suitable commits found — the benchmark needs small, single-file, non-merge commits in this repository's history.") });
-			return;
-		}
-
 		const models = this._modelService.getKnownModels();
 		if (models.length === 0) {
 			this._notificationService.notify({ severity: Severity.Info, message: localize('onyx.bench.noModels', "No local model is available to benchmark.") });
@@ -72,8 +67,21 @@ export class OnyxRepoBenchmark {
 			description: model.discovered.baseUrl,
 			picked: true,
 			model,
-		})), { canPickMany: true, placeHolder: localize('onyx.bench.pickModels', "Which models should attempt this repository's {0} benchmark tasks?", tasks.length) });
+		})), { canPickMany: true, placeHolder: localize('onyx.bench.pickModelsFirst', "Which models should attempt this repository's benchmark tasks?") });
 		if (!chosen || chosen.length === 0) {
+			return;
+		}
+		// Temporal holdout (L10): only commits authored after the latest of the chosen models was published
+		// are tasks. A model the catalog does not date makes the holdout unknown, and the report says so.
+		const publishedAt = latestPublication(chosen.map(pick => modelPublishedAt(pick.model.discovered.id)));
+		const candidates = await this._runtimeService.gitCommitCandidates(folder.uri.fsPath, MAX_COMMITS_SCANNED);
+		const tasks = selectBenchmarkCommits(candidates, DEFAULT_TASK_COUNT, { publishedAt });
+		if (tasks.length === 0) {
+			this._notificationService.notify({
+				severity: Severity.Info, message: publishedAt
+					? localize('onyx.bench.noHeldOutTasks', "No suitable commits found that were authored after {0}, when the latest of these models was published. The benchmark needs small, single-file, non-merge commits the models cannot have been trained on.", publishedAt)
+					: localize('onyx.bench.noTasks', "No suitable commits found — the benchmark needs small, single-file, non-merge commits in this repository's history."),
+			});
 			return;
 		}
 
@@ -143,7 +151,7 @@ export class OnyxRepoBenchmark {
 		}
 
 		if (results.length > 0) {
-			await this._openResults(results);
+			await this._openResults(results, publishedAt);
 		}
 	}
 
@@ -159,8 +167,10 @@ export class OnyxRepoBenchmark {
 	}
 
 	/** The evidence, not just the leaderboard: per-model per-kind means, then every task with its reason. */
-	private async _openResults(results: readonly IOnyxBenchResult[]): Promise<void> {
+	private async _openResults(results: readonly IOnyxBenchResult[], publishedAt: string | undefined): Promise<void> {
 		const aggregates = aggregateBenchResults(results);
+		const taskIds = new Set(results.map(result => result.task.hash));
+		const scoredForFewest = Math.min(...[...new Set(results.map(result => result.modelKey))].map(model => results.filter(result => result.modelKey === model).length));
 		const lines: string[] = [
 			localize('onyx.bench.docTitle', "# Onyx repo benchmark — this repository's own commits"),
 			'',
@@ -168,6 +178,11 @@ export class OnyxRepoBenchmark {
 			'',
 			localize('onyx.bench.docMetric', "Metric: {0}", ONYX_BENCH_METRIC),
 			'',
+			publishedAt
+				? localize('onyx.bench.docHeldOut', "Tasks: {0} from this repository's history, all held out in time (authored after {1}, when the latest of these models was published); 0 from your own requests.", taskIds.size, publishedAt)
+				: localize('onyx.bench.docHoldoutUnknown', "Tasks: {0} from this repository's history, holdout unknown (the publication date of at least one of these models is not known, so a model may have been trained on these commits); 0 from your own requests.", taskIds.size),
+			'',
+			...(scoredForFewest < ONYX_MIN_TASKS_TO_RANK ? [localize('onyx.bench.docTooFew', "**Not enough tasks to rank.** A model was scored on {0} tasks and a ranking needs at least {1}. The table below is evidence about each model, not an order of them.", scoredForFewest, ONYX_MIN_TASKS_TO_RANK), ''] : []),
 			'| model | task kind | mean score | tasks |',
 			'|---|---|---|---|',
 			...aggregates.map(entry => `| ${entry.modelKey} | ${entry.kind} | ${entry.meanScore.toFixed(2)} | ${entry.taskCount} |`),

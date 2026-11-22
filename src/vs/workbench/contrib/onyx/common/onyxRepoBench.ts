@@ -14,6 +14,7 @@
  */
 
 import { applyEditBlocks, parseInlineEdits } from './onyxInlineEdit.js';
+import { classifyHoldout, OnyxHoldout } from './onyxLabTasks.js';
 import { OnyxTaskKind } from './onyxTypes.js';
 
 export interface IOnyxBenchCommitCandidate {
@@ -23,6 +24,8 @@ export interface IOnyxBenchCommitCandidate {
 	readonly files: readonly string[];
 	readonly insertions: number;
 	readonly deletions: number;
+	/** When the commit was authored (ISO 8601), where the caller knows it. */
+	readonly authoredAt?: string;
 }
 
 export interface IOnyxBenchTask {
@@ -30,6 +33,20 @@ export interface IOnyxBenchTask {
 	readonly subject: string;
 	readonly file: string;
 	readonly kind: OnyxTaskKind;
+	/** Whether the task is held out in time for the models it was selected for (L10). Absent when no holdout was asked for. */
+	readonly holdout?: OnyxHoldout;
+	readonly authoredAt?: string;
+}
+
+/** Temporal holdout for a selection (L10). */
+export interface IOnyxBenchHoldout {
+	/**
+	 * The day the model was published, or the latest such day among the
+	 * models the tasks are for. Only commits authored after it are taken,
+	 * and they are labelled `held-out`. Undefined: the date is not known,
+	 * every eligible commit is taken, and each is labelled `unknown`.
+	 */
+	readonly publishedAt: string | undefined;
 }
 
 /** A commit's task kind, by the same intuition the router uses for requests. */
@@ -50,9 +67,13 @@ export function classifyCommitTask(candidate: IOnyxBenchCommitCandidate): OnyxTa
  * mechanical commits. Picks spread across history rather than clustering on
  * the newest commits, deterministically.
  */
-export function selectBenchmarkCommits(candidates: readonly IOnyxBenchCommitCandidate[], count: number): IOnyxBenchTask[] {
+export function selectBenchmarkCommits(candidates: readonly IOnyxBenchCommitCandidate[], count: number, holdout?: IOnyxBenchHoldout): IOnyxBenchTask[] {
 	const eligible = candidates.filter(candidate => {
 		const changed = candidate.insertions + candidate.deletions;
+		// Temporal holdout (L10): with a publication date, a commit that is not shown to be later is not a task.
+		if (holdout?.publishedAt !== undefined && classifyHoldout(candidate.authoredAt, holdout.publishedAt) !== 'held-out') {
+			return false;
+		}
 		return candidate.files.length === 1
 			&& changed >= 3 && changed <= 80
 			&& !/^merge\b|^revert\b|^bump\b|^wip\b/i.test(candidate.subject)
@@ -66,7 +87,10 @@ export function selectBenchmarkCommits(candidates: readonly IOnyxBenchCommitCand
 	const step = Math.max(1, Math.floor(eligible.length / count));
 	for (let i = 0; i < eligible.length && picked.length < count; i += step) {
 		const candidate = eligible[i];
-		picked.push({ hash: candidate.hash, subject: candidate.subject, file: candidate.files[0], kind: classifyCommitTask(candidate) });
+		picked.push({
+			hash: candidate.hash, subject: candidate.subject, file: candidate.files[0], kind: classifyCommitTask(candidate),
+			...(holdout ? { holdout: holdout.publishedAt !== undefined ? 'held-out' as const : 'unknown' as const, ...(candidate.authoredAt ? { authoredAt: candidate.authoredAt } : {}) } : {}),
+		});
 	}
 	return picked;
 }

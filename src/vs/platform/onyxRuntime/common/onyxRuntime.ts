@@ -5,6 +5,7 @@
 
 import { IOnyxArchitectureMap } from './onyxArchitecture.js';
 import { Event } from '../../../base/common/event.js';
+import { IOnyxOracleProbe } from './onyxOracle.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
 
 export const IOnyxRuntimeService = createDecorator<IOnyxRuntimeService>('onyxRuntimeService');
@@ -300,6 +301,8 @@ export type IOnyxStreamEvent =
 /** One commit summarized for on-your-repo benchmark selection. */
 export interface IOnyxCommitCandidate {
 	readonly hash: string;
+	/** When the commit was authored, ISO 8601. */
+	readonly authoredAt?: string;
 	readonly subject: string;
 	readonly files: readonly string[];
 	readonly insertions: number;
@@ -348,8 +351,13 @@ export interface IOnyxCommandResult {
 	readonly refusal: OnyxCommandRefusal | undefined;
 }
 
-/** Why a command was not started: this platform has no tested way to run and end one in this release (DEC-02). */
-export type OnyxCommandRefusal = 'unsupported-platform';
+/**
+ * Why a command was not started. `unsupported-platform`: this platform has no tested way to run and end one in
+ * this release (DEC-02). `sandbox-unavailable`: the command was to run inside a sandbox and none can be started
+ * here; it is never run without one (L10, DEC-10). `not-a-worktree`: a verification command runs only in a
+ * linked worktree, never in a repository's own working tree.
+ */
+export type OnyxCommandRefusal = 'unsupported-platform' | 'sandbox-unavailable' | 'not-a-worktree';
 
 export interface IOnyxCommandOptions {
 	/**
@@ -581,4 +589,15 @@ export interface IOnyxRuntimeService {
 
 	/** Kills a running command (its whole process group) started via {@link execCommand}. */
 	killCommand(operationId: string): Promise<void>;
+
+	/** Probes whether a sandbox that denies the network and writes outside a worktree can be established here (L10, DEC-10). */
+	oracleProbe(): Promise<IOnyxOracleProbe>;
+
+	/**
+	 * Runs a verification command inside the sandbox, in a linked worktree
+	 * (L10, DEC-10). Nothing is run outside the sandbox: where it cannot be
+	 * started, or the folder is not a linked worktree, the result is a
+	 * refusal. Whether the user agreed is the caller's to have established.
+	 */
+	oracleRun(worktree: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult>;
 }

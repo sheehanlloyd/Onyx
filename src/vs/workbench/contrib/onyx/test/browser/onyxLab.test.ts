@@ -127,7 +127,7 @@ suite('OnyxLab', () => {
 			noWorktree: parseLabWorkOrder(JSON.stringify({ ...order, worktree: '' })),
 			aCommitThatIsNotAHash: parseLabWorkOrder(JSON.stringify({ ...order, units: [{ ...unit, task: { ...unit.task, commit: 'HEAD; rm -rf' } }] })),
 		}, {
-			whole: 'In the file a.ts, make this change: Fix the sum',
+			whole: 'Make this change to the file a.ts:\n\nFix the sum\n\nRead the file first, then propose the change with the editFile tool. Do not ask for more information.',
 			notJson: { ok: false, error: 'the work order is not JSON' },
 			unread: { ok: false, error: 'the work order could not be read' },
 			noWorktree: { ok: false, error: 'the work order has no worktree' },
