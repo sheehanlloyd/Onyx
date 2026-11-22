@@ -196,6 +196,46 @@
 			"timeoutMs": 120000
 		},
 		{
+			"id": "R-29",
+			"title": "C9 bounded line diff: 6,000 lines a side with scattered edits and with nothing in common, within C9's time and memory on the reference machine, in plain Node; the hunks reproduce the text. On 2,000 random pairs the hunks are a shortest edit script; past the search bound the changed region is one hunk",
+			"layer": "pure, node",
+			"regressions": [
+				"R-29"
+			],
+			"scope": {
+				"item": "C9",
+				"when": "included"
+			},
+			"files": [
+				"test/onyx/checks/r29-diff-performance.test.mts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxInlineEdit.test.ts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r29-diff-performance.test.mts"
+			],
+			"timeoutMs": 300000
+		},
+		{
+			"id": "R-29-correctness",
+			"title": "C9 hunk correctness and the size guard that remains: shortest scripts on random pairs, the one-hunk answer past the bound, 6,000 lines reviewed, 20,001 lines and over 1 MiB refused before the diff",
+			"layer": "pure, service",
+			"regressions": [
+				"R-29",
+				"R-38"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxInlineEdit.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChangeSet.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxInlineEdit computeLineHunks|OnyxChangeSet .*R-38|OnyxChangeSetService R-38"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

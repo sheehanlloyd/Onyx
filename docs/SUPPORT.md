@@ -364,10 +364,19 @@ again; a save that changes nothing does not count. A proposal you have not decid
 Changes after a reload. Three limits: the file has to be in the workspace; a file that already has changes
 waiting is not given a second proposal; and the size bound below applies.
 
-**Size.** A proposal is diffed line by line, at a cost that grows with the product of the two sides. One
-over any of these is refused before the diff, with the numbers, and whatever was already staged for the
-file stays: 1,000 lines on either side; 1,000,000 cells of the diff table; 256 KiB for the file and the
-proposed content together. C9 replaces the diff and raises the first two.
+**Size.** A proposal over either of these is refused before it is diffed, with the numbers, and whatever was
+already staged for the file stays: 20,000 lines on either side; 1 MiB for the file and the proposed content
+together. (Until C9 the bounds were 1,000 lines, a million cells of a diff table and 256 KiB, because the
+diff built a table of one cell for every pair of lines.)
+
+**The diff (C9).** Hunks come from a shortest-edit-script search (Myers) over lines, after the lines the two
+texts begin and end with are set aside. Its cost grows with the number of lines that differ, so that number
+is bounded: up to 2,000 differing lines the hunks are the fewest changed lines possible; past that, the
+whole changed region is one hunk. That is still a correct diff and accepting it still gives the proposal,
+but it can no longer be accepted piece by piece. On the reference machine (Apple M4 Pro) two 6,000-line
+texts with 60 scattered edits take 1.4 ms and about 5 MiB, and two with nothing in common take 9 ms and
+about 25 MiB; the diff before C9 took 588 ms and 215 ms and over 300 MiB for the same. The method is in
+`test/onyx/checks/r29-diff-performance.test.mts`. This is not a linear-time diff and no such claim is made.
 
 ## Verification: of what you accepted, and only that (C2)
 
@@ -717,7 +726,7 @@ tested. The module gate runner reads this table (`| item | state |`).
 |---|---|---|---|
 | C6 incremental constrained-answer streaming | included | 2 | Not needed: included. A constrained turn's answer is read out of its envelope and shown as it arrives (R-28's streaming case, `OnyxConstrainedStreaming`). The envelope schema is unchanged: per-tool `anyOf` schemas were not adopted, so no runtime subset had to be probed for them; what the pinned runtime enforces of a schema is measured by the datasheet (L5) |
 | C7 broader index coverage | included | 2 | Not needed: included. Source folders are indexed first, `files.exclude`, `search.exclude` and the root `.gitignore` are honoured, the cap is 20,000 files and 256 MB after measurement, and coverage is reported (`OnyxWorkspaceIndexer`, `OnyxIndexOptions`; "The content index: what it covers") |
-| C9 bounded line diff | planned | 3 | B7 enforces 1,000 lines per side, 1,000,000 LCS cells, 256 KiB before every quadratic diff; R-38 |
+| C9 bounded line diff | included | 3 | Not needed: included. The line diff is a bounded Myers search in `common/onyxInlineEdit.ts` (R-29, measured on the reference machine and in plain Node). A size guard stays, at 20,000 lines a side and 1 MiB, and its test (R-38 as it stands with C9) with it |
 | C10 benign repeated-dot names | planned | 3 | Conservative filename refusal; traversal and symlink refusals stay mandatory |
 | D3 Check for Updates command | planned | 5 | Manual replacement, rollback and uninstall instructions always ship |
 | L7 constrained anchors as default | planned | 4 (L14 decides) | Opt-in experimental protocol or withdrawn with the negative result |

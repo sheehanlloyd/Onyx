@@ -157,19 +157,18 @@ export function applyHunkSelection(base: string, hunks: readonly IOnyxEditHunk[]
 }
 
 /**
- * The most a proposal may be before it is diffed (B7, I-13, R-38). The line
- * diff builds a table of one cell per pair of lines, so its cost is the
- * product of the two sides. A proposal over any of these is refused before
- * that table is allocated, on every path that diffs: an agent edit, an
+ * The most a proposal may be before it is diffed (B7, I-13; C9). Since C9
+ * the line diff is bounded in what it searches (`computeLineHunks`), so
+ * these no longer protect a quadratic table: they bound what is kept for
+ * review, stored across a reload and rendered. A proposal over either is
+ * refused before it is diffed, on every path that diffs: an agent edit, an
  * inline edit, a refactor, a restored proposal.
  */
 export const ONYX_PROPOSAL_LIMITS = {
 	/** Lines on either side. */
-	maxLinesPerSide: 1000,
-	/** Cells of the diff table, its sentinel row and column included. */
-	maxDiffCells: 1_000_000,
+	maxLinesPerSide: 20_000,
 	/** Base and proposed text together, as UTF-8. */
-	maxCombinedBytes: 256 * 1024,
+	maxCombinedBytes: 1024 * 1024,
 } as const;
 
 function utf8Length(text: string): number {
@@ -208,9 +207,6 @@ export function proposalSizeProblem(base: string, proposed: string): string | un
 	const proposedLines = lineCount(proposed);
 	if (baseLines > ONYX_PROPOSAL_LIMITS.maxLinesPerSide || proposedLines > ONYX_PROPOSAL_LIMITS.maxLinesPerSide) {
 		return `the file has ${baseLines} lines and the proposed content ${proposedLines}; a proposal is reviewed up to ${ONYX_PROPOSAL_LIMITS.maxLinesPerSide} lines a side`;
-	}
-	if ((baseLines + 1) * (proposedLines + 1) > ONYX_PROPOSAL_LIMITS.maxDiffCells) {
-		return `comparing ${baseLines} lines with ${proposedLines} is more than a proposal is reviewed at`;
 	}
 	return undefined;
 }

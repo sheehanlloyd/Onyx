@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { applyEditBlocks, describeEditRefusal, computeLineHunks, parseInlineEdits } from '../../common/onyxInlineEdit.js';
+import { applyEditBlocks, describeEditRefusal, computeLineHunks, IOnyxEditHunk, ONYX_DIFF_MAX_DIFFERING_LINES, parseInlineEdits } from '../../common/onyxInlineEdit.js';
 
 suite('OnyxInlineEdit', () => {
 
@@ -120,6 +120,76 @@ suite('OnyxInlineEdit', () => {
 				computeLineHunks('x\ny', 'x\ny'),
 				computeLineHunks('x', 'completely\ndifferent').length,
 			], [[], 1]);
+		});
+
+		/** The base with every hunk applied. */
+		const applyAll = (base: string, hunks: readonly IOnyxEditHunk[]): string => {
+			const lines = base.split('\n');
+			for (const hunk of [...hunks].reverse()) {
+				lines.splice(hunk.originalStart, hunk.originalLength, ...hunk.newLines);
+			}
+			return lines.join('\n');
+		};
+		/** The length of a longest common subsequence, by the table the diff used to build: the reference for "shortest". */
+		const lcsLength = (a: readonly string[], b: readonly string[]): number => {
+			let previous = new Array<number>(b.length + 1).fill(0);
+			for (let i = 1; i <= a.length; i++) {
+				const row = new Array<number>(b.length + 1).fill(0);
+				for (let j = 1; j <= b.length; j++) {
+					row[j] = a[i - 1] === b[j - 1] ? previous[j - 1] + 1 : Math.max(previous[j], row[j - 1]);
+				}
+				previous = row;
+			}
+			return previous[b.length];
+		};
+
+		test('R-29 (C9): on 2,000 random pairs of texts full of repeated lines, the hunks reproduce the other text, are a shortest edit script, are in order, never touch, and keep the original lines', () => {
+			let seed = 29;
+			const random = (bound: number) => (seed = (seed * 1103515245 + 12345) % 2147483648) % bound;
+			const failures: string[] = [];
+			for (let round = 0; round < 2000 && failures.length < 3; round++) {
+				// A small alphabet, so lines repeat and there are many equally short scripts to choose among.
+				// At least one line: a text of no lines does not exist, the empty text is one empty line.
+				const text = () => Array.from({ length: 1 + random(14) }, () => 'line ' + 'abcd'[random(4)]);
+				const a = text();
+				// Half the pairs are an edit of the first text, half are unrelated.
+				const edited = a.flatMap(line => random(4) === 0 ? [] : random(4) === 0 ? [line, 'line ' + 'abcd'[random(4)]] : [line]);
+				const b = round % 2 === 0 && edited.length > 0 ? edited : text();
+				const hunks = computeLineHunks(a.join('\n'), b.join('\n'));
+				const changed = hunks.reduce((total, hunk) => total + hunk.originalLength + hunk.newLines.length, 0);
+				const problems = [
+					applyAll(a.join('\n'), hunks) === b.join('\n') ? undefined : 'does not reproduce the text',
+					changed === a.length + b.length - 2 * lcsLength(a, b) ? undefined : `changes ${changed} lines where ${a.length + b.length - 2 * lcsLength(a, b)} are enough`,
+					hunks.every((hunk, index) => index === 0 || hunk.originalStart > hunks[index - 1].originalStart + hunks[index - 1].originalLength) ? undefined : 'hunks touch or are out of order',
+					hunks.every(hunk => hunk.originalLines.join('\n') === a.slice(hunk.originalStart, hunk.originalStart + hunk.originalLength).join('\n') && hunk.originalLength + hunk.newLines.length > 0) ? undefined : 'a hunk misstates the lines it replaces',
+				].filter(problem => problem !== undefined);
+				if (problems.length) {
+					failures.push(`${JSON.stringify(a)} -> ${JSON.stringify(b)}: ${problems.join('; ')}`);
+				}
+			}
+			assert.deepStrictEqual(failures, []);
+		});
+
+		test('R-29 (C9): more differing lines than the search looks for come back as one hunk over the changed region, still a correct diff; one fewer is still searched', () => {
+			const lines = (count: number, name: string) => Array.from({ length: count }, (_, index) => `${name} ${index}`);
+			const half = ONYX_DIFF_MAX_DIFFERING_LINES / 2;
+			// The same first and last line, and between them nothing in common, with one shared line in the middle.
+			const pair = (each: number) => ({
+				a: ['first', ...lines(each, 'old'), 'shared', ...lines(each, 'old again'), 'last'].join('\n'),
+				b: ['first', ...lines(each, 'new'), 'shared', ...lines(each, 'new again'), 'last'].join('\n'),
+			});
+			const within = pair(half / 2);
+			const beyond = pair(half / 2 + 1);
+			const describe = (texts: { a: string; b: string }) => {
+				const hunks = computeLineHunks(texts.a, texts.b);
+				return { hunks: hunks.map(hunk => [hunk.originalStart, hunk.originalLength, hunk.newLines.length]), reproduces: applyAll(texts.a, hunks) === texts.b };
+			};
+			assert.deepStrictEqual({ within: describe(within), beyond: describe(beyond) }, {
+				// Exactly the bound in differing lines: the shared line in the middle is found, two hunks.
+				within: { hunks: [[1, half / 2, half / 2], [half / 2 + 2, half / 2, half / 2]], reproduces: true },
+				// Four more: one hunk from the line after `first` to the line before `last`.
+				beyond: { hunks: [[1, half + 3, half + 3]], reproduces: true },
+			});
 		});
 	});
 

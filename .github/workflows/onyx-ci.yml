@@ -206,6 +206,9 @@ jobs:
         run: node --test --test-concurrency=1 "test/onyx/checks/*.test.mts"
         env:
           DISPLAY: ':10'
+          # R-29's time targets are for the reference machine (docs/progress/C9.md).
+          # A shared runner checks the memory targets and the hunks, not the time.
+          ONYX_R29_SKIP_TIME: '1'
 
       - name: Upload end-to-end diagnostics
         if: failure()

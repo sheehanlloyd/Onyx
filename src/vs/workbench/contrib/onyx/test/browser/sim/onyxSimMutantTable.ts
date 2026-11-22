@@ -336,7 +336,7 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		detects: 'I-13/oversized-proposal',
 		resurrects: 'OnyxMutantNoSizeGuardChangeSet',
 		script: script('B7-no-size-guard', 'Fill the function', [
-			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: 'y'.repeat(300_000) } },
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: 'y\n'.repeat(20_001) } },
 		], { persona: 'flooder', dialogDefault: 'deny' }),
 	},
 	{

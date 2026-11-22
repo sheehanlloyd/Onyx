@@ -230,24 +230,24 @@ suite('OnyxChangeSet', () => {
 			});
 		});
 
-		test('R-38: a proposal over the documented size is refused before it is diffed, by lines, by table cells and by bytes', () => {
+		test('R-38, as it stands with C9: a proposal over the documented size is refused before it is diffed, by lines and by bytes; 6,000 lines a side is reviewed', () => {
 			const lines = (count: number) => Array.from({ length: count }, (_, index) => `line ${index}`).join('\n');
 			const outcome = (base: string, next: string) => { const opened = openReview(base, next, 1); return opened.ok ? 'reviewed' : opened.error; };
 			assert.deepStrictEqual({
 				limits: ONYX_PROPOSAL_LIMITS,
-				atTheLineLimit: outcome(lines(900), lines(900) + '\nmore'),
-				tooManyLines: outcome(lines(1001), lines(1001) + '\nmore'),
-				tooManyCells: outcome(lines(1000), lines(1000)),
-				tooManyBytes: outcome('a'.repeat(200 * 1024), 'b'.repeat(57 * 1024)),
-				multibyteCountsAsBytes: outcome('é'.repeat(70 * 1024), 'é'.repeat(60 * 1024)),
+				sixThousandLines: outcome(lines(6000), lines(6000).replace('line 3000', 'line three thousand')),
+				atTheLineLimit: outcome(lines(19_999), lines(19_999) + '\nmore'),
+				tooManyLines: outcome(lines(20_001), lines(20_001) + '\nmore'),
+				tooManyBytes: outcome('a'.repeat(1000 * 1024), 'b'.repeat(25 * 1024)),
+				multibyteCountsAsBytes: outcome('é'.repeat(270 * 1024), 'é'.repeat(260 * 1024)),
 				sizeOnly: proposalSizeProblem('a', 'b'),
 			}, {
-				limits: { maxLinesPerSide: 1000, maxDiffCells: 1_000_000, maxCombinedBytes: 262_144 },
+				limits: { maxLinesPerSide: 20_000, maxCombinedBytes: 1_048_576 },
+				sixThousandLines: 'reviewed',
 				atTheLineLimit: 'reviewed',
-				tooManyLines: 'the file has 1001 lines and the proposed content 1002; a proposal is reviewed up to 1000 lines a side',
-				tooManyCells: 'comparing 1000 lines with 1000 is more than a proposal is reviewed at',
-				tooManyBytes: 'the file and the proposed content together are 263168 bytes; a proposal is reviewed up to 262144',
-				multibyteCountsAsBytes: 'the file and the proposed content together are 266240 bytes; a proposal is reviewed up to 262144',
+				tooManyLines: 'the file has 20001 lines and the proposed content 20002; a proposal is reviewed up to 20000 lines a side',
+				tooManyBytes: 'the file and the proposed content together are 1049600 bytes; a proposal is reviewed up to 1048576',
+				multibyteCountsAsBytes: 'the file and the proposed content together are 1085440 bytes; a proposal is reviewed up to 1048576',
 				sizeOnly: undefined,
 			});
 		});
