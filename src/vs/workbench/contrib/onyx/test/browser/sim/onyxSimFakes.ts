@@ -99,6 +99,8 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		private readonly _commandRefusal: OnyxCommandRefusal | undefined = undefined,
 		private readonly _runtimeContextTokens: number | undefined = undefined,
 		private readonly _enforcesJsonSchema = false,
+		/** Asked for a turn when the script has none left (L8): a model that is really there, or a continuation after a cut point. */
+		private readonly _liveTurn: ((params: IOnyxChatParams) => Promise<OnyxSimModelTurn>) | undefined = undefined,
 	) {
 		super();
 	}
@@ -165,6 +167,16 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		return turn;
 	}
 
+	/** Every turn that was served, in order, as it was before any constraining: what a recording of this run holds (L8). */
+	readonly servedTurns: OnyxSimModelTurn[] = [];
+
+	/** The next turn: the script's, then a live one when there is a live source, then the persona's fallback. */
+	private async _takeTurn(params: IOnyxChatParams): Promise<OnyxSimModelTurn> {
+		const turn = this._turnIndex >= this._turns.length && this._liveTurn ? await this._liveTurn(params) : this._nextTurn();
+		this.servedTurns.push(turn);
+		return turn;
+	}
+
 	/** The next scripted turn; the looping persona repeats its last turn, every other persona falls back to a plain answer. */
 	private _nextTurn(): OnyxSimModelTurn {
 		if (this._turnIndex < this._turns.length) {
@@ -205,7 +217,7 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			this._emit({ operationId, kind: 'error', message: 'the runtime service was disposed' });
 			return;
 		}
-		const turn = this._constrain(this._nextTurn(), params.responseFormat !== undefined);
+		const turn = this._constrain(await this._takeTurn(params), params.responseFormat !== undefined);
 		const op = this._trace.canonical('op', operationId);
 		const emit = async (event: IOnyxStreamEvent, size: number, finishReason?: string) => {
 			await this._scheduler.boundary('betweenChunks');

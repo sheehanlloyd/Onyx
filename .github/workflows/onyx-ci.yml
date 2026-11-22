@@ -170,6 +170,18 @@ jobs:
         env:
           DISPLAY: ':10'
 
+      # L8, R-48: every recorded run under test/onyx/traces is replayed
+      # through the harness as it is on this commit and has to produce the
+      # events it recorded. A failure prints the first divergence. Fix the
+      # regression, or record the new expected trace with a reason
+      # (test/onyx/README.md, "Trace conformance replay"). The unit step above
+      # runs these too; they are a step of their own so that a change of
+      # behaviour is named as one.
+      - name: Trace conformance replay
+        run: ./scripts/test.sh --grep "OnyxTraceReplay"
+        env:
+          DISPLAY: ':10'
+
       # The full end-to-end run: two mock runtimes (Ollama and LM Studio
       # flavored) plus a real workbench under Xvfb. It drives chat, tools,
       # autocomplete, the model library, commit messages, review, both code

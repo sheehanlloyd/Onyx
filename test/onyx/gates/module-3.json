@@ -294,6 +294,41 @@
 			]
 		},
 		{
+			"id": "R-48",
+			"title": "L8 trace conformance replay: every trace of the committed corpus (every persona, every scripted workflow, the pinned models) replays with the events it recorded; a deliberate change of behaviour fails with a report of the first divergence until the expected trace is replaced with a reason; cut-point mode serves the same prefix to two configurations and labels the result an executed counterfactual",
+			"layer": "service",
+			"regressions": [
+				"R-48"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimReplay.test.ts",
+				"test/onyx/traces"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxTraceReplay"
+			]
+		},
+		{
+			"id": "R-48-corpus",
+			"title": "L8 the committed corpus is fit to be committed: well formed, unchanged by the diagnostics redactor (B11), no home directory, real-model traces named by digest; the CI workflow replays it as a step of its own",
+			"layer": "node",
+			"regressions": [
+				"R-48"
+			],
+			"files": [
+				"test/onyx/checks/r48-trace-corpus.test.mts",
+				".github/workflows/onyx-ci.yml"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r48-trace-corpus.test.mts"
+			],
+			"timeoutMs": 120000
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

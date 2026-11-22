@@ -229,6 +229,49 @@ manifest, `test/onyx/lab/manifest.schema.json`; `test/onyx/lab/manifest.mts`
 validates one or checks a results directory under `docs/research/results/`.
 `make-charts.mts --manifest <file>` is the only way to draw a chart.
 
+## Trace conformance replay
+
+A harness change should arrive with a behavioural difference, not only a code difference (L8, R-48).
+`test/onyx/traces/` holds recorded runs, one a file: the files the run saw, the request, the user's steps,
+every response the model gave, and the sequence of events the harness produced. The replay serves the same
+responses to the harness as it is now, in the simulation rig, and compares the events.
+
+```bash
+./scripts/test.sh --grep "OnyxTraceReplay"                      # replay the corpus (a CI step of its own)
+node --test test/onyx/checks/r48-trace-corpus.test.mts          # the corpus is fit to be committed
+```
+
+The corpus holds one trace for every persona of the simulated model (`persona-*`), one for every scripted
+workflow (`workflow-*`, the scenarios of `onyxSimScenarios.ts`), and traces of the two pinned models
+answering through the harness (`model-*`, named by the model's digest). Everything in it is synthetic: the
+rig's own fixture files and prompts. Each file is written through the diagnostics redactor's scrub (B11),
+and the check above fails if one would be changed by it or names a home directory.
+
+**When the replay fails** it prints the first event that differs, with the events before it, and the first
+turn of the two journals that differs, row by row (`diffRuns`). Then one of two things is true. The change
+is a regression: fix it. Or the change is intended: record the new expected traces, with one line saying
+why, which is stored in each trace that changed and has to differ from the reason it had:
+
+```bash
+ONYX_TRACE_REASON="<why the harness now behaves differently>" ONYX_TRACE_WRITE=1 ./scripts/test.sh --grep "OnyxTraceReplay"
+```
+
+A trace that still holds is left as it is. Adding a scenario adds a trace the same way. Traces of a real
+model are recorded against a runtime on this machine, and only there; the rig runs under virtual time and a
+model does not, so the two take turns (the test says how):
+
+```bash
+ONYX_TRACE_REASON="…" ONYX_TRACE_RECORD_URL=http://127.0.0.1:<port>/v1 ONYX_TRACE_RECORD_MODEL=<name> ./scripts/test.sh --grep "OnyxTraceReplay record"
+```
+
+What is served back is the model's responses. Tool results are not served back: the rig's tools are the
+product's own, run again on the same files, and what they return is among the events compared.
+
+**Cut-point mode** (`runFromCutPoint` in `sim/onyxSimReplay.ts`) serves a trace's first *k* model turns and
+then continues, with a scripted continuation or a live source. Two harness configurations run that way were
+served the same responses up to the cut. The result is labelled an *executed counterfactual*: one run under
+each arm, and no more is claimed for it than that.
+
 ## Simulation rig
 
 `src/vs/workbench/contrib/onyx/test/browser/sim/` is the deterministic
