@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { OnyxSimEpisode, SIM_FILES, SIM_TARGET_FILE } from './onyxSimEpisode.js';
 
 /**
@@ -114,6 +115,18 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', edits: [{ search: '\treturn a + b;', replace: '\treturn b + a; // first of two' }, { search: '\treturn a / b;', replace: '\treturn b / a;' }] }, id: 'edit_1' },
 		{ kind: 'text', text: 'The second edit was refused, so nothing is staged.' },
 	]),
+	// C10 (R-30, write side): an edit to a symbolic link that leaves the workspace is refused, and one to a file
+	// whose name merely contains two dots is staged and accepted.
+	scenario('c10-edit-through-a-link-is-refused', 'Update the linked file', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: SIM_LINK_PATH, search: SIM_OUTSIDE_CANARY, replace: 'overwritten by the model' }, id: 'edit_1' },
+		{ kind: 'text', text: 'The edit was refused.' },
+	]),
+	scenario('c10-a-name-with-two-dots-is-a-name', 'Add a note', [
+		{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'notes/v1..v2.md', search: '', replace: '# from v1 to v2\n' }, id: 'edit_1' },
+		{ kind: 'text', text: 'Staged the note.' },
+	], {
+		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }],
+	}),
 	// B9 (R-34): an inline edit after a run. The reply is staged; the buffer and the disk stay the user's, through a save.
 	scenario('b9-inline-edit-stages-then-save', 'What does addNumbers do?', [
 		{ kind: 'text', text: 'It adds two numbers.' },

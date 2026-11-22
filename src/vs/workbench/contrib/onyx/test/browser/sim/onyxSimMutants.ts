@@ -391,6 +391,13 @@ class OnyxMutantIndexAcceptChangeSet extends OnyxChangeSetService {
 	}
 }
 
+/** C10: nothing asks where a file really is before it is staged or written (R-30 write side, I-07). */
+class OnyxMutantWriteThroughLinkChangeSet extends OnyxChangeSetService {
+	protected override async _leavesWorkspace(): Promise<boolean> {
+		return false;
+	}
+}
+
 /** B7: a proposal of any size is diffed and staged (C9, R-38, I-13). */
 class OnyxMutantNoSizeGuardChangeSet extends OnyxChangeSetService {
 	protected override _openReview(base: string, proposed: string, generation: number): ReturnType<typeof openReview> {
@@ -488,6 +495,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B6-first-occurrence': { ChangeSetService: OnyxMutantFirstOccurrenceChangeSet },
 	'B7-index-accept': { ChangeSetService: OnyxMutantIndexAcceptChangeSet },
 	'B7-no-size-guard': { ChangeSetService: OnyxMutantNoSizeGuardChangeSet },
+	'C10-write-through-link': { ChangeSetService: OnyxMutantWriteThroughLinkChangeSet },
 	'B8-deletion-leaves-line': { ChangeSetService: OnyxMutantDeletionLeavesLineChangeSet },
 	'B9-inline-apply-before-review': { InlineEditSession: OnyxMutantApplyBeforeReviewInlineSession },
 	'B10-stop-does-not-cancel': { ControlPlaneService: OnyxMutantStopOnlyFlipsStatusControlPlane },
