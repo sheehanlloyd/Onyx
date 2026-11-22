@@ -1,0 +1,58 @@
+{
+	"module": 4,
+	"title": "Module 4: the harness lab",
+	"checks": [
+		{
+			"id": "R-49-pure",
+			"title": "L9 campaign planning: one model resident at a time, a killed campaign resumes at the next unfinished unit, a unit the runtime could not serve is counted apart from a failed attempt, a task that needed a command is blocked by policy, a work order is run whole or not at all, and a campaign's seed is refused by a packaged build",
+			"layer": "pure",
+			"regressions": [
+				"R-49"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxLab.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxLab"
+			]
+		},
+		{
+			"id": "R-49-node",
+			"title": "L9 tier S against the mock, through the launcher: killed mid-run and restarted, Ctrl+C within two seconds with no record of the unit in flight, an unservable model counted apart, one model resident, the repository's files, index, HEAD and refs unchanged",
+			"layer": "node",
+			"regressions": [
+				"R-49"
+			],
+			"files": [
+				"test/onyx/lab/run-lab.mts",
+				"test/onyx/checks/r49-lab-campaign.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r49-lab-campaign.test.mts"
+			],
+			"timeoutMs": 600000
+		},
+		{
+			"id": "R-49-app",
+			"title": "L9 tier A against the mock, in the application: the agent loop on a linked worktree stages an edit that the record holds, a command is denied by campaign policy and counted, a cancel during a task leaves no record and a later run resumes, the worktree is removed and the repository unchanged",
+			"layer": "e2e",
+			"regressions": [
+				"R-49"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/browser/lab/onyxLabCampaign.ts",
+				"test/onyx/checks/r49-lab-campaign-app.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r49-lab-campaign-app.test.mts"
+			],
+			"timeoutMs": 1800000
+		}
+	]
+}

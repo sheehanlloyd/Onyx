@@ -1,0 +1,88 @@
+{
+	"campaign": "2026-11-22-engine-tier-s",
+	"tier": "S",
+	"plannedUnits": 24,
+	"finishedUnits": 24,
+	"complete": true,
+	"machineSeconds": 428,
+	"firstEstimate": {
+		"seconds": 335,
+		"unmeasuredModels": [],
+		"units": 24
+	},
+	"repository": {
+		"unchanged": true,
+		"before": {
+			"status": "f92d0c1cca6a209aa3abf4c80b70cdf2e5a0e053dacda1fe7f3d9c946364bbff",
+			"index": "496323a147d0931f62f79311cdcb28def1e2edafdb7c15b947be0c985b6b56d6",
+			"head": "514ed9f88a187095e95259fd7c3a3301d2f13e2a",
+			"refs": "521954d6588c7da3b775ad62147c42abcc86fbc02d82a040d1b3e5203e3c62ad"
+		},
+		"after": {
+			"status": "f92d0c1cca6a209aa3abf4c80b70cdf2e5a0e053dacda1fe7f3d9c946364bbff",
+			"index": "496323a147d0931f62f79311cdcb28def1e2edafdb7c15b947be0c985b6b56d6",
+			"head": "514ed9f88a187095e95259fd7c3a3301d2f13e2a",
+			"refs": "521954d6588c7da3b775ad62147c42abcc86fbc02d82a040d1b3e5203e3c62ad"
+		}
+	},
+	"sessions": [
+		{
+			"startedAt": "2026-11-22T06:44:02.907Z",
+			"seconds": 428,
+			"unitsLeftAtStart": 24,
+			"estimate": {
+				"seconds": 335,
+				"unmeasuredModels": [],
+				"units": 24
+			},
+			"conditionsAtStart": {
+				"at": "2026-11-22T06:44:02.907Z",
+				"loadAverage": [
+					4.77,
+					4.35,
+					4.57
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"conditionsAtEnd": {
+				"at": "2026-11-22T06:51:11.239Z",
+				"loadAverage": [
+					33.17,
+					31.2,
+					17.69
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"ended": "complete",
+			"evictions": [
+				{
+					"before": "qwen2.5-coder:7b",
+					"evicted": [],
+					"left": []
+				},
+				{
+					"before": "qwen2.5-coder:1.5b",
+					"evicted": [
+						"qwen2.5-coder:7b"
+					],
+					"left": []
+				},
+				{
+					"before": "llama3.2:3b",
+					"evicted": [
+						"qwen2.5-coder:1.5b"
+					],
+					"left": []
+				},
+				{
+					"after": "the campaign",
+					"evicted": [
+						"llama3.2:3b"
+					],
+					"left": []
+				}
+			],
+			"notes": []
+		}
+	]
+}

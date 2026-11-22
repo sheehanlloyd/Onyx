@@ -80,6 +80,7 @@ import { OnyxMeasureModel } from '../browser/models/onyxMeasureModel.js';
 import { describeModelContexts, OnyxRequestContext } from '../browser/models/onyxRequestContext.js';
 import { OnyxModelLibrary } from '../browser/models/onyxModelLibrary.js';
 import { OnyxIdleReviewContribution } from '../browser/review/onyxIdleReview.js';
+import { OnyxLabCampaignContribution } from '../browser/lab/onyxLabCampaign.js';
 import { OnyxTournament } from '../browser/tournament/onyxTournament.js';
 import { OnyxReviewChanges } from '../browser/review/onyxReviewChanges.js';
 import { OnyxCommitMessageGenerator } from '../browser/scm/onyxCommitMessage.js';
@@ -228,6 +229,7 @@ registerWorkbenchContribution2(OnyxChatWelcomeContribution.ID, OnyxChatWelcomeCo
 registerWorkbenchContribution2(OnyxCodeActionsContribution.ID, OnyxCodeActionsContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(OnyxWorkspaceIndexContribution.ID, OnyxWorkspaceIndexContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(OnyxIdleReviewContribution.ID, OnyxIdleReviewContribution, WorkbenchPhase.Eventually);
+registerWorkbenchContribution2(OnyxLabCampaignContribution.ID, OnyxLabCampaignContribution, WorkbenchPhase.Eventually);
 
 registerAction2(class BenchmarkOnyxModelsAction extends Action2 {
 	constructor() {

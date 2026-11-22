@@ -1,0 +1,32 @@
+{
+	"campaign": "2026-11-22-engine-tier-a",
+	"tier": "A",
+	"plannedUnits": 8,
+	"finishedUnits": 8,
+	"complete": true,
+	"recordsWhoseTaskIsNotInTheRepository": 0,
+	"rows": [
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "shipping",
+			"units": 4,
+			"attempted": 4,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0,
+			"deniedCommands": 0
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "shipping",
+			"units": 4,
+			"attempted": 4,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0,
+			"deniedCommands": 0
+		}
+	]
+}

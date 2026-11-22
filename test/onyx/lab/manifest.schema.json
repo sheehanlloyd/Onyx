@@ -31,6 +31,7 @@
 						}
 					},
 					"identifier": { "type": "string", "minLength": 1, "description": "The runtime-qualified model identifier, e.g. ollama:qwen2.5-coder:7b" },
+					"wireModel": { "type": "string", "minLength": 1, "description": "The name requests are sent under when it is not the identifier's: a derived-model alias over the same weights (B15)" },
 					"digest": { "type": "string", "pattern": "^(sha256:)?[0-9a-f]{12,64}$|^mock$", "description": "The weights digest the runtime reports; `mock` only for the mock runtime" },
 					"runtime": {
 						"type": "object",
@@ -91,7 +92,9 @@
 				"memoryGiB": { "type": "number", "minimum": 0 },
 				"gpu": { "type": "string" },
 				"osVersion": { "type": "string" },
-				"nodeVersion": { "type": "string" }
+				"nodeVersion": { "type": "string" },
+				"loadAverage": { "type": "array", "minItems": 3, "items": { "type": "number", "minimum": 0 }, "description": "The 1, 5 and 15 minute load averages when the manifest was written. A campaign records the load again when it starts and ends (campaign.json)" },
+				"power": { "type": "string", "description": "The power source and adapter when the manifest was written, as the system reports them" }
 			}
 		},
 		"regenerate": {
@@ -106,6 +109,21 @@
 					"output": { "type": "string", "minLength": 1 },
 					"command": { "type": "string", "minLength": 1 }
 				}
+			}
+		},
+		"campaign": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["tier", "baseUrl", "tasks"],
+			"description": "What run-lab.mts needs to run this manifest as a campaign (L9)",
+			"properties": {
+				"tier": { "type": "string", "enum": ["S", "A"], "description": "S: one request a task, from plain Node. A: the agent loop inside the application" },
+				"baseUrl": { "type": "string", "pattern": "^http://(127\\.0\\.0\\.1|localhost|\\[::1\\]):[0-9]+/v1$", "description": "The runtime the campaign talks to. It has to be on this machine (DEC-10)" },
+				"tasks": { "type": "string", "minLength": 1, "description": "The task set, a file beside the manifest: commit ids and content hashes, never content" },
+				"unitTimeoutMs": { "type": "integer", "minimum": 1000 },
+				"maxBeforeChars": { "type": "integer", "minimum": 1, "description": "A task whose file is longer than this before the change is not given to a model (the context-fit rule)" },
+				"datasheets": { "type": "string", "description": "A datasheet summary.json, relative to the repository, whose measured speeds the estimate uses" },
+				"estimatedSeconds": { "type": ["number", "null"], "minimum": 0, "description": "The duration estimated from the datasheets when the manifest was written; null when no model had a measured speed" }
 			}
 		},
 		"hypotheses": { "type": "array", "items": { "type": "string", "pattern": "^H-([1-9]|10)$" }, "description": "The pre-registered hypotheses this campaign tests, if any" },

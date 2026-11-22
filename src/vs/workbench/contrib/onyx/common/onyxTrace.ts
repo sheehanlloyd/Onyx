@@ -89,12 +89,14 @@ export interface IOnyxTraceApproval {
 	readonly timeoutMs?: number | null;
 	readonly decision: string;
 	/**
-	 * Where the authority came from. Since B2 it is always the dialog: every
-	 * invocation asks. The other two values appear only in journals written
-	 * before B2, when a repository allowlist or a session grant could run a
-	 * command without one.
+	 * Where the authority came from. Since B2 it is the dialog: every
+	 * invocation asks. `workspace-allowlist` and `session` appear only in
+	 * journals written before B2, when a repository allowlist or a session
+	 * grant could run a command without one. `campaign-policy` is a denial,
+	 * never an approval: a lab campaign denies every command without asking
+	 * (L9, DEC-10).
 	 */
-	readonly source: 'dialog' | 'workspace-allowlist' | 'session';
+	readonly source: 'dialog' | 'workspace-allowlist' | 'session' | 'campaign-policy';
 }
 
 export interface IOnyxTraceAcceptance {
