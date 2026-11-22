@@ -14,11 +14,13 @@ import { ILogService } from '../../log/common/log.js';
 import { OnyxArchitectureScanner } from './onyxArchitectureScanner.js';
 import { IOnyxCommandProcess, OnyxCommandRunner } from './onyxCommandRunner.js';
 import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
-import { readLabHarnessRequest } from './onyxLabManifest.js';
+import { labCampaignPaths, readLabCampaignRequest, readLabHarnessRequest } from './onyxLabManifest.js';
+import { probeOracleSandbox, runOracleCommand } from './onyxOracle.js';
+import { IOnyxOracleProbe } from '../common/onyxOracle.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
 import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
 import { contextAliasName, ONYX_CONTEXT_ALIAS_BOUNDS, parseContextAlias, sameOllamaModel } from '../common/onyxContextAlias.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxLoadedModel, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxContextAliasResult, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, IOnyxLabCampaignRequest, IOnyxLabHarnessRequest, IOnyxLoadedModel, OnyxLabCheckoutResult, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxContextAliasResult, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -342,13 +344,14 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	}
 
 	async gitCommitCandidates(repoPath: string, maxCommits: number): Promise<readonly IOnyxCommitCandidate[]> {
-		const raw = await this._git(repoPath, ['log', '--no-merges', '--numstat', '--pretty=format:@@%H|%s', '-n', String(clamp(maxCommits, 1, 500))], 4 * 1024 * 1024);
-		const candidates: { hash: string; subject: string; files: string[]; insertions: number; deletions: number }[] = [];
-		let current: { hash: string; subject: string; files: string[]; insertions: number; deletions: number } | undefined;
+		const raw = await this._git(repoPath, ['log', '--no-merges', '--numstat', '--pretty=format:@@%H|%aI|%s', '-n', String(clamp(maxCommits, 1, 500))], 4 * 1024 * 1024);
+		const candidates: { hash: string; authoredAt: string; subject: string; files: string[]; insertions: number; deletions: number }[] = [];
+		let current: { hash: string; authoredAt: string; subject: string; files: string[]; insertions: number; deletions: number } | undefined;
 		for (const line of raw.split('\n')) {
 			if (line.startsWith('@@')) {
 				const separator = line.indexOf('|');
-				current = { hash: line.slice(2, separator), subject: line.slice(separator + 1), files: [], insertions: 0, deletions: 0 };
+				const second = line.indexOf('|', separator + 1);
+				current = { hash: line.slice(2, separator), authoredAt: line.slice(separator + 1, second), subject: line.slice(second + 1), files: [], insertions: 0, deletions: 0 };
 				candidates.push(current);
 				continue;
 			}
@@ -369,6 +372,51 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		}
 		const content = await this._git(repoPath, ['show', `${revision}:${path}`], 2 * 1024 * 1024);
 		return content || undefined; // '' means git failed (file absent at that revision)
+	}
+
+	async gitCommitMessage(repoPath: string, commit: string): Promise<string | undefined> {
+		if (!/^[0-9a-f]{7,40}$/i.test(commit)) {
+			return undefined;
+		}
+		return (await this._git(repoPath, ['log', '-1', '--format=%B', commit], 256 * 1024)) || undefined;
+	}
+
+	async gitCommitsTouching(repoPath: string, path: string, sinceCommit: string, maxCommits: number): Promise<readonly { readonly hash: string; readonly authoredAt: string }[] | undefined> {
+		if (!/^[0-9a-f]{7,40}$/i.test(sinceCommit) || path.startsWith('-')) {
+			return undefined;
+		}
+		// An ancestor of HEAD is its own merge base with HEAD. (`merge-base --is-ancestor` prints nothing either way.)
+		const full = (await this._git(repoPath, ['rev-parse', '--verify', '--quiet', `${sinceCommit}^{commit}`])).trim();
+		const base = (await this._git(repoPath, ['merge-base', sinceCommit, 'HEAD'])).trim();
+		if (!full || base !== full) {
+			return undefined;
+		}
+		const raw = await this._git(repoPath, ['log', '--reverse', '--format=%H|%aI', '-n', String(clamp(maxCommits, 1, 500)), `${sinceCommit}..HEAD`, '--', path], 1024 * 1024);
+		return raw.split('\n').filter(Boolean).map(line => {
+			const separator = line.indexOf('|');
+			return { hash: line.slice(0, separator), authoredAt: line.slice(separator + 1) };
+		});
+	}
+
+	async evictLoadedModels(baseUrl: string): Promise<{ readonly evicted: readonly string[]; readonly left: readonly string[] } | undefined> {
+		const held = await this.listLoadedModels(baseUrl);
+		if (held === undefined) {
+			return undefined;
+		}
+		const root = ollamaRootUrl(normalizeBaseUrl(baseUrl));
+		for (const model of held) {
+			try {
+				await fetch(`${root}/api/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: model.id, keep_alive: 0 }), signal: AbortSignal.timeout(60_000) });
+			} catch {
+				// what is still held is read back below
+			}
+		}
+		let left = await this.listLoadedModels(baseUrl) ?? [];
+		for (let waited = 0; left.length > 0 && waited < 20; waited++) {
+			await new Promise(resolve => setTimeout(resolve, 500));
+			left = await this.listLoadedModels(baseUrl) ?? [];
+		}
+		return { evicted: held.map(model => model.id), left: left.map(model => model.id) };
 	}
 
 	async gitDiff(repoPath: string, mode: OnyxDiffMode, maxChars: number): Promise<IOnyxDiff> {
@@ -460,6 +508,54 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 
 	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> {
 		return readLabHarnessRequest(process.env, path => fs.promises.readFile(path, 'utf8'));
+	}
+
+	private _labCampaign: Promise<IOnyxLabCampaignRequest | undefined> | undefined;
+
+	async labCampaignRequest(): Promise<IOnyxLabCampaignRequest | undefined> {
+		this._labCampaign ??= readLabCampaignRequest(process.env, path => fs.promises.readFile(path, 'utf8'));
+		return this._labCampaign;
+	}
+
+	async labCheckout(revision: string): Promise<OnyxLabCheckoutResult> {
+		const paths = labCampaignPaths((await this.labCampaignRequest())?.order);
+		if (!paths) {
+			return { ok: false, error: 'this process was not started with a campaign work order' };
+		}
+		if (!/^[0-9a-f]{7,40}(~1)?$/i.test(revision)) {
+			return { ok: false, error: 'a campaign checks out a commit by its hash, or that commit\'s parent' };
+		}
+		// A linked worktree keeps its own git directory under the repository's: the two differ. In a
+		// repository's own working tree they are the same, and that tree is never checked out by a campaign.
+		const gitDir = (await this._git(paths.worktree, ['rev-parse', '--absolute-git-dir'])).trim();
+		const commonDir = (await this._git(paths.worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir'])).trim();
+		if (!gitDir || !commonDir || gitDir === commonDir) {
+			return { ok: false, error: 'the campaign\'s folder is not a linked worktree; a campaign never checks out a repository\'s own working tree' };
+		}
+		const failure = await new Promise<string | undefined>(resolve => {
+			execFile('git', ['-C', paths.worktree, 'checkout', '--quiet', '--detach', revision], { timeout: 120_000, maxBuffer: 4 * 1024 * 1024, env: { ...process.env, GIT_LFS_SKIP_SMUDGE: '1' } },
+				err => resolve(err ? err.message.slice(0, 400) : undefined));
+		});
+		if (failure !== undefined) {
+			return { ok: false, error: failure };
+		}
+		// What was read from the history before the checkout is of another revision. Kept, it went into the
+		// prompts of the next task for up to a minute, and ran out between two repetitions of a unit (H-6).
+		this._gitRecentCache.clear();
+		this._gitGroupsCache.clear();
+		return { ok: true, head: (await this._git(paths.worktree, ['rev-parse', 'HEAD'])).trim() };
+	}
+
+	async labWrite(kind: 'record' | 'status', text: string): Promise<void> {
+		const paths = labCampaignPaths((await this.labCampaignRequest())?.order);
+		if (!paths) {
+			return;
+		}
+		if (kind === 'record') {
+			await fs.promises.appendFile(paths.recordsPath, text.endsWith('\n') ? text : `${text}\n`);
+		} else {
+			await fs.promises.writeFile(paths.statusPath, text);
+		}
 	}
 
 	async configureWorkspaceIndex(rootPath: string, options: IOnyxIndexOptions): Promise<void> {
@@ -978,6 +1074,19 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		} finally {
 			this._runningCommands.delete(operationId);
 		}
+	}
+
+	async oracleProbe(): Promise<IOnyxOracleProbe> {
+		return probeOracleSandbox(this._commandRunner, process.platform, os.tmpdir());
+	}
+
+	async oracleRun(worktree: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult> {
+		const gitDir = (await this._git(worktree, ['rev-parse', '--absolute-git-dir'])).trim();
+		const commonDir = (await this._git(worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir'])).trim();
+		if (!gitDir || !commonDir || gitDir === commonDir) {
+			return { exitCode: undefined, timedOut: false, killed: false, durationMs: 0, output: '', outputChars: 0, outputTruncated: false, withheldEnvironment: [], refusal: 'not-a-worktree' };
+		}
+		return runOracleCommand(this._commandRunner, worktree, command, timeoutMs);
 	}
 
 	async killCommand(operationId: string): Promise<void> {

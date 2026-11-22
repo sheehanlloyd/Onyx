@@ -20,9 +20,32 @@ export interface IOnyxCatalogModel {
 	readonly downloadGb: number;
 	readonly quantization: string;
 	readonly note: string;
+	/**
+	 * The day the model was published (ISO date), and the page that says
+	 * so (L10). A task from history counts as held out for the model only
+	 * when it was authored after this day. Absent: not known, and tasks
+	 * are reported as "holdout unknown".
+	 */
+	readonly publishedAt?: string;
+	readonly publishedSource?: string;
+}
+
+/** The publication day of a model by its runtime id, from the catalog; undefined for a model the catalog does not date. */
+export function modelPublishedAt(modelId: string): string | undefined {
+	return ONYX_MODEL_CATALOG.find(model => model.id === modelId)?.publishedAt;
 }
 
 /**
+ * What the notes rest on (L11). The three models that are installed on the
+ * reference machine were measured there on 2026-11-22
+ * (docs/research/results/2026-11-22-reference-measure): qwen2.5-coder:7b
+ * used the runtime's tool-call channel in 0 of 5 requests and its calls were
+ * readable as text in 5 of 5, which is why its note no longer says
+ * "reliable tool calls"; llama3.2:3b used the channel in 5 of 5 and removed
+ * 168 lines the author kept over 18 editing tasks. The notes of the 14B,
+ * 32B and GPT-OSS entries are not measurements: those models are not
+ * installed there.
+ *
  * A deliberately short, opinionated list. Onyx is not an app store: it should
  * name the few models that make the product good on a Mac and get out of the
  * way. Sizes are the runtime's default quantization.
@@ -30,6 +53,8 @@ export interface IOnyxCatalogModel {
 export const ONYX_MODEL_CATALOG: readonly IOnyxCatalogModel[] = [
 	{
 		id: 'qwen2.5-coder:1.5b',
+		publishedAt: '2024-09-19',
+		publishedSource: 'https://qwenlm.github.io/blog/qwen2.5/',
 		label: 'Qwen2.5 Coder 1.5B',
 		role: 'autocomplete',
 		parameterB: 1.5,
@@ -39,21 +64,25 @@ export const ONYX_MODEL_CATALOG: readonly IOnyxCatalogModel[] = [
 	},
 	{
 		id: 'llama3.2:3b',
+		publishedAt: '2024-09-25',
+		publishedSource: 'https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct',
 		label: 'Llama 3.2 3B',
 		role: 'chat',
 		parameterB: 3,
 		downloadGb: 2.0,
 		quantization: 'Q4_K_M',
-		note: localize('onyx.catalog.llama32', "General chat and quick explanations when you do not need a coding specialist."),
+		note: localize('onyx.catalog.llama32', "General chat and quick explanations. It calls tools the way the runtime intends, and it is the weakest of the small models at editing existing code."),
 	},
 	{
 		id: 'qwen2.5-coder:7b',
+		publishedAt: '2024-09-19',
+		publishedSource: 'https://qwenlm.github.io/blog/qwen2.5/',
 		label: 'Qwen2.5 Coder 7B',
 		role: 'agent',
 		parameterB: 7,
 		downloadGb: 4.7,
 		quantization: 'Q4_K_M',
-		note: localize('onyx.catalog.qwen7', "The everyday agent model: reliable tool calls at a latency you can work with."),
+		note: localize('onyx.catalog.qwen7', "The everyday agent model for a 16 to 24 GB Mac. On Ollama it writes its tool calls as text, which Onyx reads. Measure it on your repository before you rely on its edits."),
 	},
 	{
 		id: 'qwen2.5-coder:14b',
@@ -75,6 +104,8 @@ export const ONYX_MODEL_CATALOG: readonly IOnyxCatalogModel[] = [
 	},
 	{
 		id: 'gpt-oss:20b',
+		publishedAt: '2025-08-05',
+		publishedSource: 'https://openai.com/index/introducing-gpt-oss/',
 		label: 'GPT-OSS 20B',
 		role: 'agent',
 		parameterB: 20,

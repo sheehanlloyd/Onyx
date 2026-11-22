@@ -5,6 +5,7 @@
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { ChatMessageRole, IChatMessage } from '../../../chat/common/languageModels.js';
+import { ONYX_CONTEXT_BUDGET } from '../../common/onyxContextBudget.js';
 import { ONYX_AUTO_MODEL_ID, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxControlPlaneService, IOnyxRunHandle } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
@@ -21,7 +22,18 @@ export interface IOnyxOneShotOptions {
 	readonly controlPlane?: IOnyxControlPlaneService;
 	/** Full model identifier (`onyx:<key>`) to bypass routing — tournament runs race specific models. */
 	readonly modelIdentifier?: string;
+	/** A seed and a temperature for this request, in place of the model profile's (L11: a measurement fixes both). */
+	readonly sampling?: { readonly temperature?: number; readonly seed?: number };
+	/** The most tokens the reply may have. Default: `ONYX_ONE_SHOT_MAX_TOKENS`. */
+	readonly maxTokens?: number;
 }
+
+/**
+ * The output cap of a one-shot request that names none: the ceiling the
+ * agent loop's own cap has (B13). A request without a cap ends only when the
+ * model emits its end token, and some models, on some prompts, never do.
+ */
+export const ONYX_ONE_SHOT_MAX_TOKENS = ONYX_CONTEXT_BUDGET.outputMaxTokens;
 
 /**
  * A single non-agentic request to a local model, streamed. Used by the small
@@ -30,7 +42,7 @@ export interface IOnyxOneShotOptions {
  * agent does, rather than opening a private side channel to the runtime.
  */
 export async function runOneShot(
-	modelService: IOnyxModelService,
+	modelService: Pick<IOnyxModelService, 'sendChatRequest'>,
 	system: string,
 	user: string,
 	token: CancellationToken,
@@ -60,7 +72,7 @@ export async function runOneShot(
 	try {
 		// The run's own token when the request belongs to a run (B10): Stop in the control plane and the caller's
 		// own cancel both end the request, because the run was begun with the caller's token.
-		const response = await modelService.sendChatRequest(requestedModel, messages, undefined, {}, options?.run?.token ?? token);
+		const response = await modelService.sendChatRequest(requestedModel, messages, undefined, { modelOptions: { maxTokens: options?.maxTokens ?? ONYX_ONE_SHOT_MAX_TOKENS, ...options?.sampling } }, options?.run?.token ?? token);
 		let text = '';
 		for await (const part of response.stream) {
 			for (const one of Array.isArray(part) ? part : [part]) {

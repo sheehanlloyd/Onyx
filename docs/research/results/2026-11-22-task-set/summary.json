@@ -1,0 +1,71 @@
+{
+	"taskSet": "this repository's history, held out for the three installed models",
+	"hash": "fefa777b2d60e7fa",
+	"readBackFrom": "cc0916dc2a19f4397766c1b915de8ad335c30d6a",
+	"tasks": 120,
+	"counts": {
+		"total": 120,
+		"bySource": {
+			"history": 120,
+			"request": 0
+		},
+		"byHoldout": {
+			"held-out": 120,
+			"not-held-out": 0,
+			"unknown": 0
+		},
+		"withTests": 19
+	},
+	"holdout": {
+		"publishedAt": "2024-09-25",
+		"models": [
+			"qwen2.5-coder:7b",
+			"qwen2.5-coder:1.5b",
+			"llama3.2:3b"
+		],
+		"rule": "only commits authored after 2024-09-25, the latest day one of the models was published"
+	},
+	"selection": {
+		"withTests": true,
+		"excludedCommits": 8,
+		"rule": "selectBenchmarkCommits (one changed file, 3 to 80 changed lines, no merge, revert, bump or wip), source files only",
+		"scannedCommits": 37736,
+		"since": "2025-01-01",
+		"until": null,
+		"maxBeforeChars": 12000,
+		"excludedPaths": [],
+		"eligible": 2912,
+		"taken": 120,
+		"spread": "every 24th eligible commit, newest first"
+	},
+	"byYear": {
+		"2025": 54,
+		"2026": 66
+	},
+	"byKind": {
+		"debug": 37,
+		"implement": 34,
+		"quick-edit": 49
+	},
+	"byFileType": {
+		".cjs": 1,
+		".css": 23,
+		".mjs": 1,
+		".mts": 1,
+		".ts": 92,
+		".tsx": 2
+	},
+	"authoredFrom": "2025-01-29T14:13:00-08:00",
+	"authoredTo": "2026-11-20T00:34:39-05:00",
+	"fromYourOwnRequests": {
+		"tasks": 0,
+		"reason": "source 2 needs a workspace's opt-in and its run journal with accepted proposals; this set was built without one, from history alone"
+	},
+	"executionChecked": {
+		"tasksWhoseCommitAlsoChangedOneTestFile": 19
+	},
+	"checkedAgainstTheRepository": {
+		"tasksWhoseHashesMatch": 120,
+		"mismatches": []
+	}
+}

@@ -1,0 +1,27 @@
+{
+	"hypothesis": "H-8",
+	"statement": "Sample agreement or token probability predicts hunk correctness better than chance by a pre-registered margin",
+	"outcome": "inconclusive",
+	"number": "agreement: AUROC 0.507 on 120 hunks (6 correct), inconclusive; token-probability: AUROC 0.599 on 114 hunks (6 correct), inconclusive",
+	"badge": "no badge ships",
+	"byEstimator": [
+		{
+			"estimator": "agreement",
+			"outcome": "inconclusive",
+			"badge": false,
+			"reason": "6 correct and 114 incorrect hunks: fewer than 20 of one class"
+		},
+		{
+			"estimator": "token-probability",
+			"outcome": "inconclusive",
+			"badge": false,
+			"reason": "6 correct and 108 incorrect hunks: fewer than 20 of one class"
+		}
+	],
+	"thresholds": "Supported for an estimator: AUROC lower bound at least 0.65. Refuted: upper bound below 0.60. Inconclusive otherwise, and when fewer than 20 labelled hunks are correct or fewer than 20 incorrect. A badge ships only for a supported estimator whose ECE is at most 0.10 (PREREGISTRATION.md, H-8 and Amendment 2).",
+	"decidedFrom": [
+		"confidence.json",
+		"traces/records.jsonl"
+	],
+	"regenerate": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence"
+}

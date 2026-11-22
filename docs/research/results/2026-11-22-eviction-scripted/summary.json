@@ -1,0 +1,86 @@
+{
+	"scripted": {
+		"runs": 18,
+		"unusableRuns": [],
+		"pairedTurns": 90,
+		"policies": [
+			{
+				"policy": "oldest-results-first",
+				"turns": 90,
+				"reprocessedTokens": 365920,
+				"ratioToOldestFirst": null,
+				"meanFirstTokenMs": 8062,
+				"evictedCalls": 60,
+				"replacedResults": 0
+			},
+			{
+				"policy": "block-to-low-watermark",
+				"turns": 90,
+				"reprocessedTokens": 153178,
+				"ratioToOldestFirst": {
+					"value": 0.41861003376928696,
+					"low": 0.37622712221810145,
+					"high": 0.4661699448518133
+				},
+				"meanFirstTokenMs": 3343,
+				"evictedCalls": 72,
+				"replacedResults": 0
+			},
+			{
+				"policy": "placeholder-results",
+				"turns": 90,
+				"reprocessedTokens": 339187,
+				"ratioToOldestFirst": {
+					"value": 0.9269429422403942,
+					"low": 0.9025319938024687,
+					"high": 0.9520735416611069
+				},
+				"meanFirstTokenMs": 8460,
+				"evictedCalls": 0,
+				"replacedResults": 66
+			}
+		],
+		"estimate": "prompt-evaluation milliseconds of the turn over the milliseconds a token took in the same run's first turn, never more than the prompt's own tokens (the fallback of PREREGISTRATION.md, Amendment 3)"
+	},
+	"agentic": {
+		"policies": [
+			{
+				"policy": "oldest-results-first",
+				"units": 40,
+				"attempted": 40,
+				"succeeded": 0,
+				"runsThatEvicted": 0,
+				"successLessOldestFirst": null
+			},
+			{
+				"policy": "block-to-low-watermark",
+				"units": 40,
+				"attempted": 40,
+				"succeeded": 0,
+				"runsThatEvicted": 0,
+				"successLessOldestFirst": {
+					"value": 0,
+					"low": 0,
+					"high": 0,
+					"pairs": 40
+				}
+			},
+			{
+				"policy": "placeholder-results",
+				"units": 40,
+				"attempted": 40,
+				"succeeded": 0,
+				"runsThatEvicted": 0,
+				"successLessOldestFirst": {
+					"value": 0,
+					"low": 0,
+					"high": 0,
+					"pairs": 40
+				}
+			}
+		]
+	},
+	"bestCacheAwarePolicy": "block-to-low-watermark",
+	"outcome": "supported",
+	"adoptedAsAnOption": "block-to-low-watermark"
+}

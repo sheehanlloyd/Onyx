@@ -114,6 +114,8 @@ export interface IOnyxSimState {
 	readonly typedTexts: readonly string[];
 	readonly stopped: boolean;
 	readonly acceptedHunks: readonly { readonly path: string; readonly hunk: number | 'all'; readonly newLines: readonly string[] }[];
+	/** How many accepts the user made that were applied. An undo does not take one back: this counts what was asked for. */
+	readonly userAccepts: number;
 	/** Files whose buffer, after the whole proposal was accepted against its own base, is not the proposal. */
 	readonly acceptedBufferMismatches: readonly string[];
 	/** Staged proposals observed after each tool result: path, hunk count and the proposal's size. */
@@ -232,6 +234,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly pendingBuffer = new Map<string, string>();
 	readonly typedTexts: string[] = [];
 	readonly acceptedHunks: { path: string; hunk: number | 'all'; newLines: readonly string[] }[] = [];
+	userAccepts = 0;
 	readonly acceptedBufferMismatches: string[] = [];
 	readonly stageEvents: { path: string; hunks: number; proposedChars: number; proposedLines: number; realLocation: string; runId: string | undefined; search: string | undefined; blocks: readonly IOnyxEditBlock[]; baseAtStage: string | undefined; proposedBefore: string | undefined }[] = [];
 	private readonly _lastProposed = new Map<string, string>();
@@ -579,6 +582,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 				// The user accepts the hunk that is on show at that place, by the id it is shown with (B7).
 				const hunk = staged?.hunks[action.hunk];
 				if (hunk && (await this.changeSet.acceptHunk(action.path, hunk.id)).applied) {
+					this.userAccepts++;
 					this.acceptedHunks.push({ path: action.path, hunk: action.hunk, newLines: hunk?.newLines ?? [] });
 					this._sanction(action.path);
 				}
@@ -598,6 +602,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 					if (!(await this.changeSet.acceptFile(file.proposal.path)).applied) {
 						continue;
 					}
+					this.userAccepts++;
 					this.acceptedHunks.push({ path: file.proposal.path, hunk: 'all', newLines: file.hunks.flatMap(hunk => hunk.newLines) });
 					// The whole proposal was accepted against the very text it was computed from: the buffer is
 					// then the proposal, byte for byte (I-09, B8).
@@ -654,7 +659,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 					const wasDirty = this._textFileService.isDirty(this._uri(this.episode.target));
 					await this._textFileService.save(this._uri(this.episode.target));
 					const saved = this.buffer(this.episode.target);
-					if (wasDirty && saved !== undefined) {
+					// What the user sanctioned on disk is what the save wrote. A save that did not go through
+					// (the file had changed on disk under a dirty buffer, and the editor does not overwrite it
+					// unasked) wrote nothing: the disk still holds what it held, which was sanctioned when it
+					// got there. Found by the 50,000-episode campaign at seeds 32218 and 46211 (L12).
+					if (wasDirty && saved !== undefined && await this.disk(this.episode.target) === saved) {
 						this.sanctionedDisk.set(this.episode.target, saved);
 					}
 				}
@@ -776,6 +785,19 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			if (this._lastDigests.get(diskKey) !== diskDigest) {
 				this._lastDigests.set(diskKey, diskDigest);
 				this.trace.record({ kind: 'disk', path, digest: diskDigest, cause: boundary });
+			}
+		}
+		// A file the episode did not start with and a proposal wants to create (L12): it is looked at too, and
+		// recorded once it exists. Until then there is nothing to say about it, and nothing is said.
+		for (const path of new Set(this.stageEvents.map(stage => stage.path))) {
+			if (Object.hasOwn(this.episode.files, path)) {
+				continue;
+			}
+			const created = await this.disk(path);
+			const diskKey = `disk:${path}`;
+			if (created !== undefined && this._lastDigests.get(diskKey) !== digest(created)) {
+				this._lastDigests.set(diskKey, digest(created));
+				this.trace.record({ kind: 'disk', path, digest: digest(created), cause: boundary });
 			}
 		}
 		for (const checker of this._checkers) {

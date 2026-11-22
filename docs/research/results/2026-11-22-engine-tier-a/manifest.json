@@ -1,0 +1,102 @@
+{
+	"version": 1,
+	"name": "2026-11-22-engine-tier-a",
+	"createdAt": "2026-11-22T08:09:11.610Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 4096,
+		"responseFormat": true
+	},
+	"harnessConfigurations": [
+		{
+			"name": "shipping",
+			"hash": "9801945d",
+			"configuration": {
+				"toolCallProtocol": "constrained-envelope",
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"toolResultChars": 4000,
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"readToolLineNumbering": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8
+			}
+		}
+	],
+	"taskSet": {
+		"name": "history tasks for the L9 engine campaign, tier A (four of the eight)",
+		"hash": "437ad53c285b11fe",
+		"count": 4
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			3.74,
+			3.65,
+			4.69
+		],
+		"power": "AC Power, 100%, adapter 94 W"
+	},
+	"regenerate": [
+		{
+			"output": "traces/records.jsonl, campaign.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-engine-tier-a/manifest.json"
+		},
+		{
+			"output": "results.jsonl, summary.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-engine-tier-a/manifest.json --rescore"
+		}
+	],
+	"campaign": {
+		"tier": "A",
+		"baseUrl": "http://127.0.0.1:11500/v1",
+		"tasks": "tasks.json",
+		"datasheets": "docs/research/results/2026-11-22-datasheets/summary.json",
+		"estimatedSeconds": 589,
+		"unitTimeoutMs": 600000
+	},
+	"hypotheses": [],
+	"notes": "L9: a real-model campaign of the engine, tier A: the agent loop inside the application on a linked worktree of this repository, both pinned models, four tasks, one configuration with every switch named. It shows that the engine runs; it is too small to rank anything. This is the second run of this campaign: the first, on the same day, recorded temperature 0 and seed 1 in its traces while the runtime was sent the profile's temperature 0.2 and no seed (docs/progress/L9.md, Erratum). It was discarded and this run replaces it. The machine was not idle: see the load averages in campaign.json."
+}

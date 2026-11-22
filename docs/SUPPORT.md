@@ -625,6 +625,10 @@ folders.
 **Limit.** With `readToolLineNumbering` off the tool's description still tells the model its lines are
 numbered. An experiment that uses that switch has to account for it.
 
+### Lab campaigns (L9)
+
+A development build started with `ONYX_LAB_CAMPAIGN` set to a work order runs that order's units through the agent loop and writes down what each run did (`test/onyx/README.md`, "Lab campaigns"). A packaged build refuses, as it refuses a lab configuration: it logs that a campaign was requested and runs nothing. What a campaign changes about a run, and nothing else: the harness configuration and the seed and temperature, per unit, in place of what the profile would decide; and every execution the terminal service is asked for is denied without a dialog and counted, with `campaign-policy` as its source in the journal. A campaign accepts nothing: proposals are read and discarded, so no file of the worktree it runs on is changed. It checks out commits only in the worktree its work order names, and only when that is a linked worktree: never a repository's own working tree.
+
 ## Model datasheets (L5)
 
 A model's profile used to be a guess from its size. A datasheet is what the model, on its runtime, was
@@ -705,6 +709,65 @@ requested and verified ("Context allocation", above).
   have been in the operating system's cache.
 - **Datasheets are not in the diagnostics export**, and reasoning models remain unvalidated against a real
   model (C4): neither pinned model reasons.
+
+## The private benchmark: tasks from your history and your requests (L10)
+
+A measurement of models on a repository uses that repository's own tasks. Nothing of a task leaves the machine: a task set is commit ids and content hashes, and what a model is shown is read from the repository when the measurement runs (DEC-10).
+
+**Tasks from history, held out in time.** A commit is a task when it changed one source file by 3 to 80 lines and is not a merge, a revert or a mechanical commit. It counts as *held out* for a model only when it was authored after the day the model was published, with the whole of that day anywhere in the world taken as "not after": the model cannot have been trained on it. The catalog carries the publication day and the page that states it, for the models it dates:
+
+| Model | Published | Source |
+|---|---|---|
+| `qwen2.5-coder:1.5b`, `qwen2.5-coder:7b` | 2024-09-19 | The Qwen2.5 announcement, which names both sizes: `https://qwenlm.github.io/blog/qwen2.5/` |
+| `llama3.2:3b` | 2024-09-25 | The model card: `https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct` |
+| `gpt-oss:20b` | 2025-08-05 | The announcement: `https://openai.com/index/introducing-gpt-oss/` |
+
+The pages were read on 2026-11-22. The Qwen announcement is dated 2024-09-19 and lists the 1.5B and 7B coder models; it does not say in so many words that their weights were released that day, and no page was found that dates the 14B and 32B sizes, so the catalog leaves those undated. For a model with no date, and for a model the catalog does not know, tasks are labelled **holdout unknown** and reported apart: such a result may be measuring what the model memorised. When several models are measured together, the latest of their days decides, and one undated model makes the whole set unknown.
+
+**A model is not scored on a task it could not read.** A task's file is at most 12,000 characters before the change, and at most two fifths of the model's context at three characters a token.
+
+**Tasks from your own requests** (`onyx.lab.requestTasks`, off by default, decided for one workspace at a time). A request becomes a task when you accepted its proposal and the lines you accepted were later committed. The instruction is what you typed, the base is the commit the workspace was at, and the reference is the file at the first commit that holds the accepted lines. An acceptance records digests of the lines it added, never the lines, so that the commit can be found later. Requests with nothing accepted, with a base commit that is no longer reachable, or whose accepted lines were never committed are skipped and counted. Without the opt-in the journal is not read for this.
+
+**Counts before scores.** A result states how many tasks came from history and how many from requests, and how many are held out, not held out, or unknown. Below 10 scored tasks for a model it says there are not enough tasks to rank, and does not rank.
+
+**Scoring, tier 1: nothing is run.** The preservation-aware score of C8 (`changed-line-f1-preserving/2`), with the lines a reply removed that the author kept counted on their own.
+
+**Scoring, tier 2: your verification command, in a sandbox.** For a task whose commit also changed a test, the command you type is run on the file before the change and on the file a model proposed: the task is passed when it fails before and passes after. This executes code a model wrote, so all of the following hold or the tier is unavailable and scoring is tier 1:
+
+- The command is the one you typed. A dialog shows it byte for byte with the most times it will be run, says that model-written code will be executed, and nothing runs unless you agree. Another command, or one run more, is refused.
+- It runs inside the operating system's sandbox, in a disposable worktree: no network operation, and no write outside that worktree. Its temporary folder and home folder are pointed inside the worktree.
+- The sandbox was probed first on this machine: a connection to a listener the probe opens on the loopback interface is made once from outside the sandbox, as the control, and must fail from inside; a write outside the stand-in worktree must fail and leave no file; a write inside must succeed.
+- Only macOS has a sandbox Onyx uses (`sandbox-exec`, which Apple marks as deprecated and which is present on current macOS). On any other platform the oracle is unavailable, and a command that was to be sandboxed is never run without the sandbox.
+
+The probe on the reference machine, macOS 26.5.1, 2026-11-22 (`node test/onyx/lab/probe-oracle.mts`):
+
+```
+platform: darwin 25.5.0
+sandboxed-run: exit 0, observed true
+network-outside-sandbox: exit 0, observed true, said "1 connection(s) reached the probe's listener"
+network-inside-sandbox: exit 1, observed false
+write-outside-worktree: exit 1, observed false, said "touch: <scratch>/outside/escaped: Operation not permitted"
+write-inside-worktree: exit 0, observed true
+sandbox: established
+```
+
+What the sandbox is not: it denies the network and writes outside the worktree. It does not hide your files from the command, and it does not limit processor time or memory beyond the command's timeout.
+
+## Measuring models on your repository (L11)
+
+**`Onyx: Measure Models for This Repository`** gives each model you pick this repository's own tasks (above), one request a task, and opens a scorecard. Before anything runs it says how many models and tasks there are and how long it expects to take, from each model's measured speed; a model that was never measured is named, not guessed. One model is loaded at a time: whatever the runtime holds is dropped before a model's first task and after the last. It can be stopped from its progress notification or with Stop in the run list; what finished is then shown as a **partial** scorecard, which lists what did not run and is not ranked.
+
+**The scorecard** is Markdown, with an SVG and a JSON form written beside it when you choose to save it (`.onyx/scorecards/<time>/` in the workspace). It is not uploaded. It carries: the ranking, or why there is none; for each model the scored tasks, the tasks reproduced exactly, the mean score, the tasks it could not be served, and the lines it removed that the author kept; the task counts by source and by holdout; the repository's commit, the machine, the parameters, the estimate and the time taken; for each model the weights digest, the runtime and its version, the context, the publication day, and its datasheet as measured on this machine; every attempt with its reason; and everything that was planned and not run.
+
+**Ranking.** Models are ordered only when the measurement ran whole, at least two models were measured, and every model was scored on at least 10 tasks. Otherwise the scorecard says which of these failed and gives no order.
+
+**The router's picks.** The scorecard reports how often the router's pick was the model you picked in a tournament, and how often you kept what a routed run staged, each as a count out of a count. A routed run counts once it staged an edit, as "not kept" until you accept part of it. These are logged choices in this workspace on this machine. They are not a randomized comparison and say nothing about a model the router did not pick; the word "learns" is not used for them anywhere in the product's documents on the strength of these counts alone.
+
+**`Onyx: Should I Switch Models?`** replays your own accepted requests in this workspace (the setting `onyx.lab.requestTasks` has to be on) against one model and reports how often it reproduced what you accepted, as counts. Below 10 replayable requests it says there are not enough to say. It says how often the model writes what you kept; it does not say that its other answers were wrong.
+
+**Sharing.** `docs/scorecards/` in the repository collects scorecards people chose to submit by pull request. Onyx never sends one.
+
+**What these commands do not do.** They do not run the agent loop: a task is one request with the file and the instruction, answered with edit blocks, so they measure a model's editing on your code, not its use of tools. They do not execute anything: scores are tier 1. They do not use a model you did not pick.
 
 ## Command execution and its limits (B5)
 
@@ -828,11 +891,11 @@ tested. The module gate runner reads this table (`| item | state |`).
 | C9 bounded line diff | included | 3 | Not needed: included. The line diff is a bounded Myers search in `common/onyxInlineEdit.ts` (R-29, measured on the reference machine and in plain Node). A size guard stays, at 20,000 lines a side and 1 MiB, and its test (R-38 as it stands with C9) with it |
 | C10 benign repeated-dot names | included | 3 | Not needed: included. A `..` segment is refused and a name that contains two dots is not, on the read side and the write side (R-30, every subcase). Traversal, absolute paths and symbolic links out of the workspace are refused on both sides whatever this row says |
 | D3 Check for Updates command | planned | 5 | Manual replacement, rollback and uninstall instructions always ship |
-| L7 constrained anchors | included | 3 | Not needed: included as an **experimental** protocol, off by default and reachable only as a lab arm of the harness configuration (R-47). Whether it ever becomes a default is L14's decision, in Module 4; until then the fallback is what ships: search and replace |
-| L10 executable oracle | planned | 4 | Tier 1 scoring only; this file shows the sandbox probe output |
-| L16 confidence badge | planned | 4 | No badge, no claim; result published |
-| L17 eviction policy | planned | 4 | Oldest-first eviction stays; result published |
-| L18 energy | planned | 4 | "Unavailable on this hardware" with the probe output |
+| L7 constrained anchors | included | 3 | Not needed: included as an **experimental** protocol, off by default and reachable only as a lab arm of the harness configuration (R-47). L14 decided, in Module 4, that it stays opt-in ("Decisions recorded here", below); the fallback is what ships: search and replace |
+| L10 executable oracle | included | 4 | Not needed: included. The sandbox probe passes on the reference machine ("The private benchmark", below, has its output) and R-50's sandbox cases pass (`OnyxOracle`, `OnyxLabTasks`). Where the probe fails, or without the user's consent, scoring is tier 1 only and the result says so |
+| L16 confidence badge | included | 4 | The study is done and its result is that no badge ships: H-8 is inconclusive (`docs/research/results/2026-11-22-confidence/`: 120 labelled hunks, 6 of them correct, where the registration needs 20 of each class). The review pane shows no confidence for a hunk and makes no claim about one. The rule that decides it is in the product (`common/onyxCalibration.ts`, R-55): a line of confidence is rendered only for an estimator the study supported and found calibrated, and none is named |
+| L17 eviction policy | included | 4 | The study is done. H-9 is supported on scripted runs (`docs/research/results/2026-11-22-eviction-scripted/`): evicting in blocks down to a low watermark re-processed 0.42 of the prompt tokens that oldest-first did. `block-to-low-watermark` is therefore a value of the harness configuration's eviction switch, for the lab. As the product's default, oldest-results-first stays: in 120 agent runs no policy evicted anything and no run succeeded, so there is no evidence about what block eviction does to task success, and the default is not changed without it |
+| L18 energy | included | 4 | The study is done. Power telemetry is readable on the reference laptop without elevated privileges (the battery controller, through `ioreg`; `docs/research/results/2026-11-22-energy/power-probe.json`), so energy was measured, at a resolution of about a minute. H-10 is inconclusive: no model solved a task, so energy per solved task has no value to rank. Energy per attempt is reported and decides nothing. On a machine without this telemetry the probe says so and the outcome there is "unavailable on this hardware"; nothing is derived from the parameter-seconds proxy |
 
 ## Decisions recorded here
 
@@ -840,3 +903,4 @@ tested. The module gate runner reads this table (`| item | state |`).
 |---|---|
 | DEC-05 upstream baseline | Confirmed by the owner on 2026-11-20 and completed the same day: the fork is on upstream 1.147.0 (`docs/progress/DEC-05.md`, `REBASE.md`) |
 | DEC-03 tool capability contract | Implemented by B3: contract version 1 above; one supported opt-in (network tools); MCP unavailable in the alpha; upstream's Agent Host excluded |
+| L14 decision on constrained anchors (L7) | Opt-in. Constrained anchors stay an experimental protocol, off by default and reachable only as a lab arm of the harness configuration. H-4 is inconclusive (`docs/research/results/2026-11-22-edit-mechanisms/`): in 160 agent runs no task had an edit call in both arms, so there was no pair to compare. Under the product's configuration neither pinned model called the edit tool at all with search and replace; with anchors they did in 55 of 80 runs, and 51 of those proposals changed a line the author had not. That is not a reason to make anchors a default, and not a reason to withdraw them. Search and replace is what ships |

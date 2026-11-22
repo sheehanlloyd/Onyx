@@ -1,0 +1,375 @@
+{
+	"episodesPerMutant": 2000,
+	"firstSeed": 1,
+	"mutants": [
+		{
+			"id": "B1-naive-read-path",
+			"fixedBy": "B1",
+			"generic": null,
+			"detects": "I-07/read-escape",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 43
+		},
+		{
+			"id": "B1-priority-truncation",
+			"fixedBy": "B1",
+			"generic": null,
+			"detects": "I-06/partial-edit-set",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 11
+		},
+		{
+			"id": "B2-repository-allowlist",
+			"fixedBy": "B2",
+			"generic": null,
+			"detects": "I-02/repository-allowlist",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 181
+		},
+		{
+			"id": "B2-reused-approval",
+			"fixedBy": "B2",
+			"generic": null,
+			"detects": "I-02/reused-approval",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 136
+		},
+		{
+			"id": "B2-normalized-approval",
+			"fixedBy": "B2",
+			"generic": null,
+			"detects": "I-02/approval-for-other-bytes",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 214
+		},
+		{
+			"id": "B2-unasked-check-task",
+			"fixedBy": "B2",
+			"generic": null,
+			"detects": "I-02/unapproved-task",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": "c2-check-task-asks-after-accept-and-save"
+		},
+		{
+			"id": "B4-regex-warnings",
+			"fixedBy": "B4",
+			"generic": null,
+			"detects": "I-02/unwarned-command",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 27
+		},
+		{
+			"id": "B5-unbounded-output",
+			"fixedBy": "B5",
+			"generic": "I-13",
+			"detects": "I-13/unbounded-output",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 134
+		},
+		{
+			"id": "B5-full-environment",
+			"fixedBy": "B5",
+			"generic": "I-10",
+			"detects": "I-10/secret-environment-reached-child",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 27
+		},
+		{
+			"id": "B5-cwd-ignored",
+			"fixedBy": "B5",
+			"generic": null,
+			"detects": "I-06/cwd-not-honoured",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 107
+		},
+		{
+			"id": "B5-command-outlives-window",
+			"fixedBy": "B5",
+			"generic": null,
+			"detects": "I-13/command-outlives-window",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 102
+		},
+		{
+			"id": "B11-value-only-redaction",
+			"fixedBy": "B11",
+			"generic": null,
+			"detects": "I-10/content-in-default-export",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 6
+		},
+		{
+			"id": "B12-truncated-is-complete",
+			"fixedBy": "B12",
+			"generic": "I-11",
+			"detects": "I-11/truncated-reported-complete",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 29
+		},
+		{
+			"id": "B12-unvalidated-arguments",
+			"fixedBy": "B12",
+			"generic": "I-06",
+			"detects": "I-06/schema-invalid-dispatched",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 4
+		},
+		{
+			"id": "B12-no-stream-deadline",
+			"fixedBy": "B12",
+			"generic": null,
+			"detects": "I-03/no-time-budget",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 30
+		},
+		{
+			"id": "B13-no-output-cap",
+			"fixedBy": "B13",
+			"generic": null,
+			"detects": "I-04/no-output-cap",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 1
+		},
+		{
+			"id": "B13-no-eviction",
+			"fixedBy": "B13",
+			"generic": "I-04",
+			"detects": "I-04/over-budget",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 1
+		},
+		{
+			"id": "B14-address-is-locality",
+			"fixedBy": "B14",
+			"generic": null,
+			"detects": "DEC-04/refused-model-used",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 7
+		},
+		{
+			"id": "C4-thinking-is-answer",
+			"fixedBy": "C4",
+			"generic": null,
+			"detects": "I-11/unterminated-reasoning-complete",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 12
+		},
+		{
+			"id": "C5-fence-withheld",
+			"fixedBy": "C5",
+			"generic": null,
+			"detects": "R-27/fenced-reply-withheld",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 192
+		},
+		{
+			"id": "C6-constrained-answer-withheld",
+			"fixedBy": "C6",
+			"generic": null,
+			"detects": "R-28/constrained-answer-withheld",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 22
+		},
+		{
+			"id": "L4-inline-harness-record",
+			"fixedBy": "L4",
+			"generic": null,
+			"detects": "R-44/trace-hash-not-of-configuration",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 1
+		},
+		{
+			"id": "B3-uncontracted-tools",
+			"fixedBy": "B3",
+			"generic": null,
+			"detects": "I-06/uncontracted-tool-advertised",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 2
+		},
+		{
+			"id": "B3-unconfirmed-memory",
+			"fixedBy": "B3",
+			"generic": "I-14",
+			"detects": "I-14/unconfirmed-memory",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 14
+		},
+		{
+			"id": "B6-fuzzy-applier",
+			"fixedBy": "B6",
+			"generic": "I-08",
+			"detects": "I-08/inexact-anchor-staged",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 6
+		},
+		{
+			"id": "B6-first-occurrence",
+			"fixedBy": "B6",
+			"generic": null,
+			"detects": "I-08/ambiguous-anchor-staged",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 50
+		},
+		{
+			"id": "B7-index-accept",
+			"fixedBy": "B7",
+			"generic": "I-09",
+			"detects": "I-09/accepted-content-missing",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": "audit-n2-edit-hunk-0-then-accept-hunk-0"
+		},
+		{
+			"id": "B7-no-size-guard",
+			"fixedBy": "B7",
+			"generic": null,
+			"detects": "I-13/oversized-proposal",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 1
+		},
+		{
+			"id": "C10-write-through-link",
+			"fixedBy": "C10",
+			"generic": null,
+			"detects": "I-07/write-through-link",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 67
+		},
+		{
+			"id": "L6-always-grounded",
+			"fixedBy": "L6",
+			"generic": null,
+			"detects": "R-46/certificate-contradicts-journal",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 8
+		},
+		{
+			"id": "B8-deletion-leaves-line",
+			"fixedBy": "B8",
+			"generic": null,
+			"detects": "I-09/accepted-buffer-differs",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": "b8-delete-lines-then-accept-all"
+		},
+		{
+			"id": "B9-inline-apply-before-review",
+			"fixedBy": "B9",
+			"generic": null,
+			"detects": "I-01/buffer",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": "b9-inline-edit-stages-then-save"
+		},
+		{
+			"id": "B10-stop-does-not-cancel",
+			"fixedBy": "B10",
+			"generic": "I-05",
+			"detects": "I-05/command-after-stop",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 487
+		},
+		{
+			"id": "B10-status-overwritten",
+			"fixedBy": "B10",
+			"generic": null,
+			"detects": "I-03/status-overwritten",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 18
+		},
+		{
+			"id": "B10-pause-without-budget",
+			"fixedBy": "B10",
+			"generic": null,
+			"detects": "I-03/no-time-budget",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 37
+		},
+		{
+			"id": "C2-verdict-before-acceptance",
+			"fixedBy": "C2",
+			"generic": null,
+			"detects": "R-21/verdict-before-acceptance",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 4
+		},
+		{
+			"id": "G-I01-stage-applies",
+			"fixedBy": "L12",
+			"generic": "I-01",
+			"detects": "I-01/buffer",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 8
+		},
+		{
+			"id": "G-I02-approve-without-asking",
+			"fixedBy": "L12",
+			"generic": "I-02",
+			"detects": "I-02/reused-approval",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 27
+		},
+		{
+			"id": "G-I03-never-finishes",
+			"fixedBy": "L12",
+			"generic": "I-03",
+			"detects": "I-03/no-terminal-status",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 1
+		},
+		{
+			"id": "G-I07-stage-anywhere",
+			"fixedBy": "L12",
+			"generic": "I-07",
+			"detects": "I-07/escape-staged",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 308
+		},
+		{
+			"id": "G-I12-unjournaled-dispatch",
+			"fixedBy": "L12",
+			"generic": "I-12",
+			"detects": "I-12/dispatch-not-in-journal",
+			"killedByItsScript": true,
+			"killedByTheCampaign": true,
+			"firstDetectedAt": 1
+		}
+	]
+}

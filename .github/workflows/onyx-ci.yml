@@ -54,6 +54,11 @@ jobs:
         with:
           # Only the bundled Copilot test fixtures are in LFS and nothing here reads them.
           lfs: false
+          # The evidence checks of Module 4 read the history: a task's file at its commit and the commit before
+          # it, and whether a results directory was committed after the pre-registration and its amendments.
+          # Commits and trees in full, file contents when one is asked for.
+          fetch-depth: 0
+          filter: blob:none
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -170,6 +175,17 @@ jobs:
         env:
           DISPLAY: ':10'
 
+      # L12, R-52: the simulation smoke campaign on every push and pull request.
+      # 2,000 seeded episodes, the scripted workflows and the injection corpus,
+      # against every invariant checker. The full campaign (50,000 episodes and
+      # every mutant) is onyx-nightly.yml.
+      - name: Simulation smoke campaign (2,000 episodes)
+        run: ./scripts/test.sh --grep "OnyxSim R-42"
+        env:
+          DISPLAY: ':10'
+          ONYX_SIM_EPISODES: '2000'
+          ONYX_SIM_SEED: '1'
+
       # L8, R-48: every recorded run under test/onyx/traces is replayed
       # through the harness as it is on this commit and has to produce the
       # events it recorded. A failure prints the first divergence. Fix the
@@ -187,7 +203,7 @@ jobs:
       # autocomplete, the model library, commit messages, review, both code
       # actions, staged edits (Onyx Changes), the gated terminal tool, the
       # offline docs mirror, playbooks, run resume, the refactor engine, the
-      # repo benchmark, speculative decoding and the architecture map — 66
+      # repo benchmark, speculative decoding and the architecture map — 72
       # checks asserted on the run journal and the live DOM. It runs on every
       # push and pull request (A7): the editor is driven through commands,
       # Quick Open, DOM focus and the keyboard, never through synthesized
@@ -250,6 +266,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: false
+          # The module gate's evidence checks read the history (see the job above).
+          fetch-depth: 0
+          filter: blob:none
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

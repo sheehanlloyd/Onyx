@@ -80,6 +80,7 @@ import { OnyxMeasureModel } from '../browser/models/onyxMeasureModel.js';
 import { describeModelContexts, OnyxRequestContext } from '../browser/models/onyxRequestContext.js';
 import { OnyxModelLibrary } from '../browser/models/onyxModelLibrary.js';
 import { OnyxIdleReviewContribution } from '../browser/review/onyxIdleReview.js';
+import { OnyxLabCampaignContribution } from '../browser/lab/onyxLabCampaign.js';
 import { OnyxTournament } from '../browser/tournament/onyxTournament.js';
 import { OnyxReviewChanges } from '../browser/review/onyxReviewChanges.js';
 import { OnyxCommitMessageGenerator } from '../browser/scm/onyxCommitMessage.js';
@@ -90,6 +91,9 @@ import { OnyxAgentHostEnablementService } from '../browser/onyxAgentHost.js';
 import { ILanguageModelToolsService } from '../../chat/common/tools/languageModelToolsService.js';
 import { describeToolInventory, ONYX_NETWORK_TOOLS_SETTING, ONYX_TOOL_CONTRACT_VERSION } from '../common/onyxToolContract.js';
 import { IOnyxRouterService, OnyxRouterService } from '../browser/routing/onyxRouterService.js';
+import { IOnyxRouterLogService, OnyxRouterLogService } from '../browser/routing/onyxRouterLog.js';
+import { IOnyxMeasureOptions, OnyxMeasureRepository } from '../browser/lab/onyxMeasureRepository.js';
+import { IOnyxScorecard } from '../common/onyxScorecard.js';
 
 registerSharedProcessRemoteService(IOnyxRuntimeService, 'onyxRuntime');
 
@@ -99,6 +103,7 @@ AccessibleViewRegistry.register(new OnyxInlineEditAccessibilityHelp());
 
 registerSingleton(IOnyxProfileService, OnyxProfileService, InstantiationType.Delayed);
 registerSingleton(IOnyxRouterService, OnyxRouterService, InstantiationType.Delayed);
+registerSingleton(IOnyxRouterLogService, OnyxRouterLogService, InstantiationType.Delayed);
 registerSingleton(IOnyxEndpointSecretService, OnyxEndpointSecretService, InstantiationType.Delayed);
 registerSingleton(IOnyxModelService, OnyxModelService, InstantiationType.Delayed);
 registerSingleton(IOnyxControlPlaneService, OnyxControlPlaneService, InstantiationType.Delayed);
@@ -228,6 +233,7 @@ registerWorkbenchContribution2(OnyxChatWelcomeContribution.ID, OnyxChatWelcomeCo
 registerWorkbenchContribution2(OnyxCodeActionsContribution.ID, OnyxCodeActionsContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(OnyxWorkspaceIndexContribution.ID, OnyxWorkspaceIndexContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(OnyxIdleReviewContribution.ID, OnyxIdleReviewContribution, WorkbenchPhase.Eventually);
+registerWorkbenchContribution2(OnyxLabCampaignContribution.ID, OnyxLabCampaignContribution, WorkbenchPhase.Eventually);
 
 registerAction2(class BenchmarkOnyxModelsAction extends Action2 {
 	constructor() {
@@ -299,6 +305,41 @@ registerAction2(class MeasureOnyxModelAction extends Action2 {
 		await accessor.get(IInstantiationService).createInstance(OnyxMeasureModel).run();
 	}
 });
+
+registerAction2(class MeasureOnyxModelsForRepositoryAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.measureRepository',
+			title: localize2('onyx.measureRepository', "Onyx: Measure Models for This Repository"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor, options?: IOnyxMeasureOptions): Promise<IOnyxScorecard | undefined> {
+		return accessor.get(IInstantiationService).createInstance(OnyxMeasureRepository).run(options);
+	}
+});
+
+registerAction2(class ShouldISwitchOnyxModelsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.shouldISwitchModels',
+			title: localize2('onyx.shouldISwitchModels', "Onyx: Should I Switch Models?"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor, options?: IOnyxMeasureOptions): Promise<IOnyxScorecard | undefined> {
+		return accessor.get(IInstantiationService).createInstance(OnyxMeasureRepository).shouldISwitch(options);
+	}
+});
+
+/** The router's log is kept from the first routed run on, not from the first scorecard: something has to hold it. */
+class OnyxRouterLogContribution {
+	static readonly ID = 'workbench.contrib.onyxRouterLog';
+	constructor(@IOnyxRouterLogService _routerLog: IOnyxRouterLogService) { }
+}
+registerWorkbenchContribution2(OnyxRouterLogContribution.ID, OnyxRouterLogContribution, WorkbenchPhase.AfterRestored);
 
 registerAction2(class RequestOnyxModelContextAction extends Action2 {
 	constructor() {

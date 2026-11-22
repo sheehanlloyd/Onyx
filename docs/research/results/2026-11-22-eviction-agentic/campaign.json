@@ -1,0 +1,89 @@
+{
+	"campaign": "2026-11-22-eviction-agentic",
+	"tier": "A",
+	"plannedUnits": 120,
+	"finishedUnits": 120,
+	"complete": true,
+	"machineSeconds": 536,
+	"firstEstimate": {
+		"seconds": 8832,
+		"unmeasuredModels": [],
+		"units": 120
+	},
+	"repository": {
+		"unchanged": true,
+		"before": {
+			"status": "9b828d53402d6e332ef05a2fe03063b359192571ba99fcd3b85074f46a72fd7e",
+			"index": "absent",
+			"head": "126d11c7c9e962687b3e8d23d29aae8f768595e4",
+			"refs": "963bd35187ef49f5be448663b34990c56c60383227d17715367ac1c3d14a460c"
+		},
+		"after": {
+			"status": "9b828d53402d6e332ef05a2fe03063b359192571ba99fcd3b85074f46a72fd7e",
+			"index": "absent",
+			"head": "126d11c7c9e962687b3e8d23d29aae8f768595e4",
+			"refs": "963bd35187ef49f5be448663b34990c56c60383227d17715367ac1c3d14a460c"
+		}
+	},
+	"sessions": [
+		{
+			"startedAt": "2026-11-22T18:24:36.198Z",
+			"seconds": 536,
+			"unitsLeftAtStart": 120,
+			"application": {
+				"root": "a frozen copy of the compiled output",
+				"revision": "5b6b0749c5a6b56e96b11822a43a2df4fdc96804",
+				"dirtyEntries": 0,
+				"frozenAt": "2026-11-22T12:44:02.703Z"
+			},
+			"estimate": {
+				"seconds": 8832,
+				"unmeasuredModels": [],
+				"units": 120
+			},
+			"conditionsAtStart": {
+				"at": "2026-11-22T18:24:36.198Z",
+				"loadAverage": [
+					2.6,
+					2.4,
+					2.21
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"conditionsAtEnd": {
+				"at": "2026-11-22T18:33:32.410Z",
+				"loadAverage": [
+					4.64,
+					3.73,
+					2.9
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"ended": "complete",
+			"evictions": [
+				{
+					"before": "qwen2.5-coder:7b",
+					"evicted": [],
+					"left": []
+				},
+				{
+					"before": "qwen2.5-coder:1.5b",
+					"evicted": [
+						"qwen2.5-coder:7b"
+					],
+					"left": []
+				},
+				{
+					"after": "the campaign",
+					"evicted": [
+						"qwen2.5-coder:1.5b"
+					],
+					"left": []
+				}
+			],
+			"notes": [
+				"worktree removed: true"
+			]
+		}
+	]
+}

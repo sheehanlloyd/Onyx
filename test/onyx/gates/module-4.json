@@ -1,0 +1,339 @@
+{
+	"module": 4,
+	"title": "Module 4: the harness lab",
+	"checks": [
+		{
+			"id": "R-49-pure",
+			"title": "L9 campaign planning: one model resident at a time, a killed campaign resumes at the next unfinished unit, a unit the runtime could not serve is counted apart from a failed attempt, a task that needed a command is blocked by policy, a work order is run whole or not at all, and a campaign's seed is refused by a packaged build",
+			"layer": "pure",
+			"regressions": [
+				"R-49"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxLab.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxLab"
+			]
+		},
+		{
+			"id": "R-49-node",
+			"title": "L9 tier S against the mock, through the launcher: killed mid-run and restarted, Ctrl+C within two seconds with no record of the unit in flight, an unservable model counted apart, one model resident, the repository's files, index, HEAD and refs unchanged",
+			"layer": "node",
+			"regressions": [
+				"R-49"
+			],
+			"files": [
+				"test/onyx/lab/run-lab.mts",
+				"test/onyx/checks/r49-lab-campaign.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r49-lab-campaign.test.mts"
+			],
+			"timeoutMs": 600000
+		},
+		{
+			"id": "R-49-app",
+			"title": "L9 tier A against the mock, in the application: the agent loop on a linked worktree stages an edit that the record holds, a command is denied by campaign policy and counted, a cancel during a task leaves no record and a later run resumes, the worktree is removed and the repository unchanged",
+			"layer": "e2e",
+			"regressions": [
+				"R-49"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/browser/lab/onyxLabCampaign.ts",
+				"test/onyx/checks/r49-lab-campaign-app.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r49-lab-campaign-app.test.mts"
+			],
+			"timeoutMs": 1800000
+		},
+		{
+			"id": "R-50-pure",
+			"title": "L10 tasks: only commits authored after the model was published are held out, a model with no date gives tasks labelled unknown, only accepted-and-committed requests become tasks and only with the opt-in, and the oracle is unavailable without a passed probe, the user's consent to this exact command, and runs left",
+			"layer": "pure",
+			"regressions": [
+				"R-50"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxLabTasks.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxLabTasks|OnyxRepoBench"
+			]
+		},
+		{
+			"id": "R-50-sandbox",
+			"title": "L10 the executable oracle's sandbox on this machine: the probe sees the network and an out-of-tree write denied and its own listener reached from outside; a verification script that tries both is blocked at both and a fail-to-pass check still runs; where no sandbox exists nothing is started",
+			"layer": "node",
+			"regressions": [
+				"R-50"
+			],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxOracle.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxOracle|OnyxCommandRunner"
+			]
+		},
+		{
+			"id": "R-50-node",
+			"title": "L10 through the lab's own scripts: a campaign under the network guard makes no outbound request and the guard is shown to refuse one; requests become tasks only with the opt-in; a task set holds ids and hashes and labels holdout",
+			"layer": "node",
+			"regressions": [
+				"R-50"
+			],
+			"files": [
+				"test/onyx/checks/r50-lab-tasks.test.mts",
+				"test/onyx/lab/network-guard.mts",
+				"test/onyx/lab/request-tasks.mts",
+				"test/onyx/lab/make-task-set.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r50-lab-tasks.test.mts"
+			],
+			"timeoutMs": 600000
+		},
+		{
+			"id": "R-51",
+			"title": "L11 the scorecard, the pure half: provenance, a datasheet for every model, every attempt and skip, a partial measurement labelled partial and not ranked, a sample below the minimum not ranked, the router's hit rate with its denominators, and the replay of accepted requests with counts (R-51 itself is six end-to-end checks: the measure command against the mock with two models, a cancel midway, and a router log with known picks, in the suite gate 1 runs)",
+			"layer": "pure, e2e",
+			"regressions": [
+				"R-51"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxScorecard.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxScorecard.test.ts",
+				"src/vs/workbench/contrib/onyx/browser/lab/onyxMeasureRepository.ts",
+				"test/onyx/run-e2e.mts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxScorecard"
+			]
+		},
+		{
+			"id": "R-52-injection",
+			"title": "L12 injection containment: a model that obeys text planted on every simulated surface causes no side effect the user did not approve, for each of five kinds of effect, and the corpus is shown to bite when a guard is removed",
+			"layer": "service",
+			"regressions": [
+				"R-52"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimInjection.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim R-52"
+			]
+		},
+		{
+			"id": "R-52-campaign",
+			"title": "L12 full campaign on this checkout: 50,000 seeded episodes, the scripted workflows and the injection corpus with no violation, then every mutant against the campaign's first 2,000 seeds, each reported as a violation (written under .build/, in a directory named as a results directory has to be; it is the gate's own run and not a dated result)",
+			"layer": "service",
+			"regressions": [
+				"R-52"
+			],
+			"files": [
+				"test/onyx/sim/write-assurance.mts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts"
+			],
+			"command": [
+				"node",
+				"test/onyx/sim/write-assurance.mts",
+				"--out",
+				".build/gate-assurance/0000-00-00-gate"
+			],
+			"timeoutMs": 3600000
+		},
+		{
+			"id": "R-53",
+			"title": "L13 attribution estimators on outcomes whose true values are known: main effects, pairwise interactions and Shapley values are recovered, the bootstrap interval covers the true value about as often as it says, and H-2 is decided by its registered thresholds",
+			"layer": "pure",
+			"regressions": [
+				"R-53"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxAttribution.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxAttribution.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxAttribution"
+			]
+		},
+		{
+			"id": "H-7-decision",
+			"title": "L13 the rankings decision on campaigns whose answer is known: supported only when the top model differs with a significant difference in each repository; a repository nobody solves has no ranking",
+			"layer": "node",
+			"regressions": [],
+			"files": [
+				"test/onyx/lab/analyze-rankings.mts",
+				"test/onyx/checks/h7-rankings.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/h7-rankings.test.mts"
+			]
+		},
+		{
+			"id": "L14-appliers",
+			"title": "L14 the three lab-only comparator appliers place what they are described to place, refuse what they should, are wrong where the study says they can be, and are named by no file under src/",
+			"layer": "node",
+			"regressions": [],
+			"files": [
+				"test/onyx/lab/appliers.mts",
+				"test/onyx/checks/l14-appliers.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/l14-appliers.test.mts"
+			]
+		},
+		{
+			"id": "R-54-pure",
+			"title": "L15 determinism measure: identical repetitions are 100% identical; a difference planted at a known turn is reported at that turn and attributed to the runtime or the harness by what differs first; H-6 is decided by its registered thresholds",
+			"layer": "pure",
+			"regressions": [
+				"R-54"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxDeterminism.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxDeterminism.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxDeterminism"
+			]
+		},
+		{
+			"id": "R-54-node",
+			"title": "L15 determinism measure on tier A campaigns against the mock, three repetitions a task: with the mock as it is every repetition is the same trajectory as the first; with a mock that answers differently every time at the third turn, every repetition diverges at turn 3, the runtime is named and the harness is not",
+			"layer": "node",
+			"regressions": [
+				"R-54"
+			],
+			"files": [
+				"test/onyx/lab/analyze-determinism.mts",
+				"test/onyx/checks/r54-determinism.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r54-determinism.test.mts"
+			],
+			"timeoutMs": 1800000
+		},
+		{
+			"id": "R-55-pure",
+			"title": "L16 calibration metrics: AUROC and expected calibration error match their known values on synthetic predictions, the interval of AUROC covers the known value about as often as it says and resamples by task, an estimator below the registered threshold gets no badge, and without a badge decision nothing is rendered for a hunk",
+			"layer": "pure",
+			"regressions": [
+				"R-55"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxCalibration.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxCalibration.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxCalibration"
+			]
+		},
+		{
+			"id": "R-55-node",
+			"title": "L16 the study's path against the mock: a tier S campaign that asks for log-probabilities keeps each token with its own, every hunk of the first seed's reply gets the agreement of the samples and the least token probability of its block, and with one class of hunk nothing is decided and no badge ships",
+			"layer": "node",
+			"regressions": [
+				"R-55"
+			],
+			"files": [
+				"test/onyx/lab/analyze-confidence.mts",
+				"test/onyx/checks/r55-confidence.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r55-confidence.test.mts"
+			],
+			"timeoutMs": 600000
+		},
+		{
+			"id": "R-56",
+			"title": "L17 eviction policies: a scripted 16-turn run in the simulation rig under each of the three policies, against a runtime that counts the prompt tokens it processes again: every request fits with its output cap under every policy (R-16), no invariant is violated, and block eviction processes fewer tokens again than oldest-first",
+			"layer": "service",
+			"regressions": [
+				"R-56",
+				"R-16"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxContextBudget.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxContextBudget.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxContextBudget"
+			]
+		},
+		{
+			"id": "L18-energy",
+			"title": "L18 the energy analysis on a campaign whose power is known: energy by model block from an accumulator read once a minute, energy per solved task, and the swap between the two rankings",
+			"layer": "node",
+			"regressions": [],
+			"files": [
+				"test/onyx/lab/analyze-energy.mts",
+				"test/onyx/checks/l18-energy.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/l18-energy.test.mts"
+			]
+		},
+		{
+			"id": "M4-evidence",
+			"title": "Module 4's committed evidence: one real-model campaign of each tier (L9), this repository's task set and the oracle's state (L10), the reference machine's scorecard (L11), the full campaign, the mutation score and the injection run (L12), one outcome for each hypothesis H-1 to H-10 with its manifest, results after their registration and its amendments, and the L7, badge, eviction and energy decisions in docs/SUPPORT.md",
+			"layer": "node",
+			"regressions": [
+				"R-50"
+			],
+			"files": [
+				"docs/research/results/2026-11-22-task-set/manifest.json",
+				"docs/research/results/2026-11-22-task-set/tasks.json",
+				"docs/research/results/2026-11-22-task-set/summary.json",
+				"docs/research/results/2026-11-22-task-set/trace-digests.json"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/module4-gate.test.mts"
+			],
+			"timeoutMs": 600000,
+			"scope": {
+				"item": "L10",
+				"when": "included"
+			}
+		}
+	]
+}

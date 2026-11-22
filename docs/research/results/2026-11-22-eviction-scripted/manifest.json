@@ -1,0 +1,133 @@
+{
+	"version": 1,
+	"name": "2026-11-22-eviction-scripted",
+	"createdAt": "2026-11-22T18:24:35.920Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 8
+	},
+	"harnessConfigurations": [
+		{
+			"name": "oldest-results-first",
+			"hash": "f121739b",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 8192,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "block-to-low-watermark",
+			"hash": "18ce3159",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "block-to-low-watermark",
+				"contextTokens": 8192,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "placeholder-results",
+			"hash": "6da865b6",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "placeholder-results",
+				"contextTokens": 8192,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		}
+	],
+	"taskSet": {
+		"name": "the scripted 16-turn transcript of test/onyx/lab/eviction-script.mts",
+		"hash": "23efe477d2492e01",
+		"count": 1
+	},
+	"repetitions": 3,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			2.6,
+			2.4,
+			2.21
+		],
+		"power": "AC Power, 100%, adapter 94 W"
+	},
+	"regenerate": [
+		{
+			"output": "traces/turns.jsonl",
+			"command": "node test/onyx/lab/eviction-script.mts --out docs/research/results/2026-11-22-eviction-scripted --base-url http://127.0.0.1:11500 --model qwen2.5-coder:7b --model qwen2.5-coder:1.5b --repetitions 3"
+		},
+		{
+			"output": "eviction.json, summary.json, outcome-H-9.json",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic"
+		},
+		{
+			"output": "probe.jsonl",
+			"command": "node test/onyx/lab/eviction-script.mts --probe --base-url http://127.0.0.1:11500 --model qwen2.5-coder:7b --model qwen2.5-coder:1.5b"
+		}
+	],
+	"hypotheses": [
+		"H-9"
+	],
+	"notes": "H-9, the scripted runs: a fixed 16-turn transcript sent to each pinned model three times under each of the three eviction policies, with the product's own planTurn deciding what is sent for a context of 8,192 tokens (PREREGISTRATION.md, Amendments 2 and 3). It is not a launcher campaign: eviction-script.mts talks to the runtime's native API, which is where the prompt-evaluation counts are. probe.jsonl is the probe made before it: the runtime reports the whole prompt as evaluated whether it was cached or not, so re-processed tokens are estimated from prompt-evaluation time, the fallback Amendment 3 recorded in advance. The machine and its load in this file are those of the agentic campaign's manifest, written 9 minutes before these runs started; the runs took 1,731 seconds. No estimate of that time was made from the datasheets; my estimate before they started was about 40 minutes."
+}

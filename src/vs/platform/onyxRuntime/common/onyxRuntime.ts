@@ -5,6 +5,7 @@
 
 import { IOnyxArchitectureMap } from './onyxArchitecture.js';
 import { Event } from '../../../base/common/event.js';
+import { IOnyxOracleProbe } from './onyxOracle.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
 
 export const IOnyxRuntimeService = createDecorator<IOnyxRuntimeService>('onyxRuntimeService');
@@ -188,6 +189,21 @@ export interface IOnyxLabHarnessRequest {
 	readonly problem?: string;
 }
 
+/**
+ * A campaign this process was started to run (L9): the work order its
+ * environment names, as text. Reading it decides nothing. Whether the
+ * campaign runs is the workbench's decision, and a packaged build refuses
+ * every one.
+ */
+export interface IOnyxLabCampaignRequest {
+	/** The work order as JSON text; undefined when it could not be read. Untrusted until checked. */
+	readonly order: string | undefined;
+	/** Why the order could not be read. */
+	readonly problem?: string;
+}
+
+export type OnyxLabCheckoutResult = { readonly ok: true; readonly head: string } | { readonly ok: false; readonly error: string };
+
 /** What decides which files a workspace index covers, beyond its built-in rules (C7). */
 export interface IOnyxIndexOptions extends Partial<IOnyxIndexLimits> {
 	/** Glob patterns, relative to the root, for files and folders to leave out: the workspace's `files.exclude` and `search.exclude`. */
@@ -285,6 +301,8 @@ export type IOnyxStreamEvent =
 /** One commit summarized for on-your-repo benchmark selection. */
 export interface IOnyxCommitCandidate {
 	readonly hash: string;
+	/** When the commit was authored, ISO 8601. */
+	readonly authoredAt?: string;
 	readonly subject: string;
 	readonly files: readonly string[];
 	readonly insertions: number;
@@ -333,8 +351,13 @@ export interface IOnyxCommandResult {
 	readonly refusal: OnyxCommandRefusal | undefined;
 }
 
-/** Why a command was not started: this platform has no tested way to run and end one in this release (DEC-02). */
-export type OnyxCommandRefusal = 'unsupported-platform';
+/**
+ * Why a command was not started. `unsupported-platform`: this platform has no tested way to run and end one in
+ * this release (DEC-02). `sandbox-unavailable`: the command was to run inside a sandbox and none can be started
+ * here; it is never run without one (L10, DEC-10). `not-a-worktree`: a verification command runs only in a
+ * linked worktree, never in a repository's own working tree.
+ */
+export type OnyxCommandRefusal = 'unsupported-platform' | 'sandbox-unavailable' | 'not-a-worktree';
 
 export interface IOnyxCommandOptions {
 	/**
@@ -441,6 +464,24 @@ export interface IOnyxRuntimeService {
 	/** A file's content at a revision (`git show rev:path`), or undefined when absent. */
 	gitShowFile(repoPath: string, revision: string, path: string): Promise<string | undefined>;
 
+	/** A commit's whole message, subject and body; undefined when the commit is not there. */
+	gitCommitMessage(repoPath: string, commit: string): Promise<string | undefined>;
+
+	/**
+	 * The commits after `sinceCommit`, oldest first, that changed `path`
+	 * (L10, tasks from requests). Undefined when `sinceCommit` is not an
+	 * ancestor of HEAD: the base of a request that was rebased away.
+	 */
+	gitCommitsTouching(repoPath: string, path: string, sinceCommit: string, maxCommits: number): Promise<readonly { readonly hash: string; readonly authoredAt: string }[] | undefined>;
+
+	/**
+	 * Asks a runtime to drop every model it holds in memory (L9, L11: one
+	 * model resident at a time while measuring). Resolves with what it held
+	 * and what was still held afterwards; undefined for a runtime that does
+	 * not say what it holds.
+	 */
+	evictLoadedModels(baseUrl: string): Promise<{ readonly evicted: readonly string[]; readonly left: readonly string[] } | undefined>;
+
 	/** What this machine can run — used to size model recommendations. */
 	getMachineProfile(): Promise<IOnyxMachineProfile>;
 
@@ -477,6 +518,23 @@ export interface IOnyxRuntimeService {
 	 * ordinary start.
 	 */
 	labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined>;
+
+	/** The campaign work order this process's environment names (L9); undefined on every ordinary start. */
+	labCampaignRequest(): Promise<IOnyxLabCampaignRequest | undefined>;
+
+	/**
+	 * Checks the campaign's worktree out at a revision (L9). It acts only on
+	 * the worktree the work order names, and only when that is a linked
+	 * worktree of a repository: never the repository's own working tree.
+	 */
+	labCheckout(revision: string): Promise<OnyxLabCheckoutResult>;
+
+	/**
+	 * Writes to the two files the work order names (L9): `record` appends one
+	 * line to the campaign's records, `status` replaces its status file.
+	 * Without a work order it does nothing.
+	 */
+	labWrite(kind: 'record' | 'status', text: string): Promise<void>;
 
 	/** Searches the workspace index; empty until {@link ensureWorkspaceIndex} has run. */
 	searchWorkspaceIndex(rootPath: string, persistPath: string, query: string, limit: number): Promise<readonly { path: string; score: number }[]>;
@@ -549,4 +607,15 @@ export interface IOnyxRuntimeService {
 
 	/** Kills a running command (its whole process group) started via {@link execCommand}. */
 	killCommand(operationId: string): Promise<void>;
+
+	/** Probes whether a sandbox that denies the network and writes outside a worktree can be established here (L10, DEC-10). */
+	oracleProbe(): Promise<IOnyxOracleProbe>;
+
+	/**
+	 * Runs a verification command inside the sandbox, in a linked worktree
+	 * (L10, DEC-10). Nothing is run outside the sandbox: where it cannot be
+	 * started, or the folder is not a linked worktree, the result is a
+	 * refusal. Whether the user agreed is the caller's to have established.
+	 */
+	oracleRun(worktree: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult>;
 }

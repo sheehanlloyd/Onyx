@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IOnyxLabHarnessRequest } from '../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { ONYX_EVICTION_POLICIES, OnyxEvictionPolicy } from './onyxContextBudget.js';
 import { toolResultBudget } from './onyxContextCompression.js';
 import { traceDigest } from './onyxTrace.js';
 import { IOnyxModelProfile, OnyxPromptStyle } from './onyxTypes.js';
@@ -65,7 +66,7 @@ export interface IOnyxHarnessConfig {
 
 export type OnyxToolCallProtocol = 'native' | 'repaired-text' | 'constrained-envelope';
 export type OnyxEditProtocol = 'search-replace' | 'constrained-anchors';
-export type OnyxEvictionPolicy = 'oldest-results-first';
+export type { OnyxEvictionPolicy };
 export type OnyxToolSlotPolicy = 'essentials-first';
 
 /** Below this share of well-formed tool calls a model's turns are constrained, when its runtime can enforce a schema. */
@@ -112,6 +113,14 @@ export interface IOnyxResolvedHarness {
 	readonly requested?: { readonly manifest: string; readonly name: string };
 	/** Why what was asked for was not applied. The configuration is then the default one. */
 	readonly refused?: string;
+	/** The seed and temperature a campaign set for the run (L9). Present only beside an applied lab configuration. */
+	readonly sampling?: IOnyxLabSampling;
+}
+
+/** What a campaign fixes about sampling for one run (L9): what a profile would otherwise decide. */
+export interface IOnyxLabSampling {
+	readonly seed?: number;
+	readonly temperature?: number;
 }
 
 const PROTOCOLS: readonly OnyxToolCallProtocol[] = ['native', 'repaired-text', 'constrained-envelope'];
@@ -172,8 +181,10 @@ function applyRequest(base: IOnyxHarnessConfig, requested: unknown): { readonly 
 				}
 				break;
 			case 'evictionPolicy':
-				if (value !== 'oldest-results-first') {
-					problems.push('evictionPolicy must be oldest-results-first: no other eviction policy exists yet');
+				if (typeof value === 'string' && (ONYX_EVICTION_POLICIES as readonly string[]).includes(value)) {
+					configuration = { ...configuration, evictionPolicy: value as OnyxEvictionPolicy };
+				} else {
+					problems.push(`evictionPolicy must be one of ${ONYX_EVICTION_POLICIES.join(', ')}`);
 				}
 				break;
 			case 'contextTokens':
@@ -234,7 +245,7 @@ export function harnessConfigHash(configuration: IOnyxHarnessConfig): string {
  * the run: the default configuration is used and the refusal is recorded
  * beside it.
  */
-export function resolveHarnessConfig(base: IOnyxHarnessConfig, request: IOnyxLabHarnessRequest | undefined, context: OnyxHarnessContext): IOnyxResolvedHarness {
+export function resolveHarnessConfig(base: IOnyxHarnessConfig, request: IOnyxLabHarnessRequest | undefined, context: OnyxHarnessContext, sampling?: IOnyxLabSampling): IOnyxResolvedHarness {
 	if (!request) {
 		return { configuration: base, hash: harnessConfigHash(base), source: 'default' };
 	}
@@ -250,5 +261,9 @@ export function resolveHarnessConfig(base: IOnyxHarnessConfig, request: IOnyxLab
 	if (applied.problems.length > 0) {
 		return refuse(applied.problems.join('; '));
 	}
-	return { configuration: applied.configuration, hash: harnessConfigHash(applied.configuration), source: 'lab', requested };
+	const validSampling = sampling && (sampling.seed === undefined || (Number.isInteger(sampling.seed) && sampling.seed >= 0)) && (sampling.temperature === undefined || (typeof sampling.temperature === 'number' && sampling.temperature >= 0 && sampling.temperature <= 2));
+	if (sampling && !validSampling) {
+		return refuse('the seed must be a whole number from 0 and the temperature a number from 0 to 2');
+	}
+	return { configuration: applied.configuration, hash: harnessConfigHash(applied.configuration), source: 'lab', requested, ...(sampling ? { sampling } : {}) };
 }

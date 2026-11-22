@@ -6,7 +6,7 @@
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { ChatMessageRole, IChatMessage } from '../../../chat/common/languageModels.js';
-import { effectiveContext, IOnyxBudgetedMessage, isContextOverflowError, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
+import { effectiveContext, IOnyxBudgetedMessage, isContextOverflowError, ONYX_EVICTED_RESULT_MARKER, ONYX_EVICTION_POLICIES, OnyxEvictionPolicy, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
 import { OnyxSimEpisode, OnyxSimModelTurn, SIM_FILES, SIM_TARGET_FILE } from './sim/onyxSimEpisode.js';
 import { allCheckers } from './sim/onyxSimInvariants.js';
 import { IOnyxSimResult } from './sim/onyxSimRig.js';
@@ -108,6 +108,60 @@ suite('OnyxContextBudget', () => {
 		}, {
 			smaller: { status: 'completed', overflows: 1, learned: true, laterRequestsFit: true, timelineSaysSo: 1, everyCommandRan: 5 },
 			hopeless: { status: 'failed', requests: 1, saysWhy: true },
+		});
+	});
+
+	test('R-56: a scripted 16-turn run under each eviction policy, against a runtime that counts the prompt tokens it has to process again: every request fits under every policy (R-16), and block eviction processes fewer tokens again than oldest-first', async function () {
+		this.timeout(120_000);
+		// A runtime that keeps the previous prompt evaluated re-processes what follows the longest prefix the next
+		// prompt shares with it. Characters over four, as the harness estimates.
+		const reprocessed = (texts: readonly string[]) => texts.map((prompt, index) => {
+			const previous = index === 0 ? '' : texts[index - 1];
+			let common = 0;
+			while (common < previous.length && common < prompt.length && previous[common] === prompt[common]) {
+				common++;
+			}
+			return Math.ceil((prompt.length - common) / 4);
+		});
+		const run = async (policy: OnyxEvictionPolicy) => {
+			const base = episode({ turns: [...Array.from({ length: 15 }, (_, index) => cat(index + 1)), DONE], runtimeContextTokens: WINDOW });
+			// Results of about 500 tokens: several fit the window at once, so that what a policy keeps is what differs.
+			const configuration = { toolCallProtocol: 'repaired-text', editProtocol: 'search-replace', promptStyle: 'full', toolResultChars: 2000, evictionPolicy: policy, contextTokens: WINDOW, turnCap: 16, verificationFeedback: true, readToolLineNumbering: true, toolSlotPolicy: 'essentials-first', maxTools: 8 };
+			const result = await runEpisode(base, allCheckers(), { labHarness: { request: { manifest: 'r56', name: policy, configuration }, packaged: false } });
+			const perTurn = reprocessed(result.requests.map(request => request.text));
+			return {
+				status: result.status,
+				requests: result.requests.length,
+				everyRequestFitsWithItsOutput: result.requests.every(request => request.promptTokens + (request.maxTokens ?? 0) <= WINDOW),
+				rejectedByTheRuntime: result.trace.includes('"fault":"contextOverflow"'),
+				// The checker that a run uses the product's own configuration fires by design here; every other one counts.
+				violations: result.violations.map(violation => violation.invariant).filter(invariant => invariant !== 'R-44/configuration-not-default'),
+				theNewestResultIsStillThere: result.requests.at(-1)?.text.includes('MARKER-15'),
+				markers: result.requests.at(-1)?.text.split(ONYX_EVICTED_RESULT_MARKER).length! - 1 > 0,
+				// The first request has nothing before it; it is the same under every policy and left out.
+				reprocessedAfterTheFirst: perTurn.slice(1).reduce((sum, tokens) => sum + tokens, 0),
+			};
+
+		};
+		const [oldest, block, placeholder] = [await run(ONYX_EVICTION_POLICIES[0]), await run(ONYX_EVICTION_POLICIES[1]), await run(ONYX_EVICTION_POLICIES[2])];
+		const sound = (markers: boolean) => ({ status: 'completed', requests: 16, everyRequestFitsWithItsOutput: true, rejectedByTheRuntime: false, violations: [], theNewestResultIsStillThere: true, markers });
+		const { reprocessedAfterTheFirst: oldestTokens, ...oldestRest } = oldest;
+		const { reprocessedAfterTheFirst: blockTokens, ...blockRest } = block;
+		const { reprocessedAfterTheFirst: placeholderTokens, ...placeholderRest } = placeholder;
+		assert.deepStrictEqual({
+			policies: ONYX_EVICTION_POLICIES,
+			oldest: oldestRest, block: blockRest, placeholder: placeholderRest,
+			// 32,499 tokens over turns 2 to 16 under oldest-first and 10,841 under block eviction when this was written.
+			blockAsAShareOfOldest: Math.round(blockTokens / oldestTokens * 10) / 10,
+			// Replacing the oldest result changes the prompt just as near its start as dropping it does, so on this
+			// script the placeholder policy saves nothing. That is measured here and not required to be otherwise:
+			// it is one of the three policies H-9 compares, and it is not adopted unless it wins there.
+			placeholderIsWithinATenthOfOldest: Math.abs(placeholderTokens - oldestTokens) <= oldestTokens / 10,
+		}, {
+			policies: ['oldest-results-first', 'block-to-low-watermark', 'placeholder-results'],
+			oldest: sound(false), block: sound(false), placeholder: sound(true),
+			blockAsAShareOfOldest: 0.3,
+			placeholderIsWithinATenthOfOldest: true,
 		});
 	});
 

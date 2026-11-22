@@ -38,6 +38,23 @@ export function resolveCommandShell(platform: NodeJS.Platform): OnyxCommandShell
 	}
 }
 
+/** Where the system's sandbox launcher is, on the platform that has one Onyx uses. */
+const SANDBOX_LAUNCHER = '/usr/bin/sandbox-exec';
+
+/**
+ * The shell, started inside a sandbox with the given profile (L10, DEC-10).
+ * Only macOS has a launcher Onyx uses; everywhere else there is no sandboxed
+ * shell, and a request for one starts nothing: a command that was to be
+ * sandboxed is never run without the sandbox.
+ */
+export function resolveSandboxedShell(platform: NodeJS.Platform, profile: string): OnyxCommandShell {
+	const shell = resolveCommandShell(platform);
+	if (platform !== 'darwin' || !shell.supported) {
+		return { supported: false };
+	}
+	return { supported: true, executable: SANDBOX_LAUNCHER, args: ['-p', profile, shell.executable, ...shell.args] };
+}
+
 export interface IOnyxCommandRequest {
 	readonly cwd: string;
 	/** The command line, handed to the shell byte for byte. */
@@ -45,6 +62,10 @@ export interface IOnyxCommandRequest {
 	readonly timeoutMs: number;
 	/** Pass the whole environment, including variables whose names look like secrets. */
 	readonly passEnvironment: boolean;
+	/** Run the command inside a sandbox with this profile. Where no sandbox exists, nothing is started. */
+	readonly sandbox?: { readonly profile: string };
+	/** Variables set for the command over the environment it would otherwise get. */
+	readonly environment?: Readonly<Record<string, string>>;
 }
 
 export interface IOnyxCommandProcess {
@@ -70,14 +91,16 @@ export class OnyxCommandRunner {
 	) { }
 
 	start(request: IOnyxCommandRequest, onOutput: OnyxCommandOutputListener): IOnyxCommandProcess {
-		const shell = resolveCommandShell(this._platform);
+		const shell = request.sandbox ? resolveSandboxedShell(this._platform, request.sandbox.profile) : resolveCommandShell(this._platform);
 		if (!shell.supported) {
-			const refused: IOnyxCommandResult = { exitCode: undefined, timedOut: false, killed: false, durationMs: 0, output: '', outputChars: 0, outputTruncated: false, withheldEnvironment: [], refusal: 'unsupported-platform' };
+			const refused: IOnyxCommandResult = { exitCode: undefined, timedOut: false, killed: false, durationMs: 0, output: '', outputChars: 0, outputTruncated: false, withheldEnvironment: [], refusal: request.sandbox && resolveCommandShell(this._platform).supported ? 'sandbox-unavailable' : 'unsupported-platform' };
 			return { result: Promise.resolve(refused), kill: () => { } };
 		}
 
 		const startedAt = Date.now();
-		const { environment, withheld } = commandEnvironment(this._environment, request.passEnvironment);
+		const scrubbed = commandEnvironment(this._environment, request.passEnvironment);
+		const withheld = scrubbed.withheld;
+		const environment = request.environment ? { ...scrubbed.environment, ...request.environment } : scrubbed.environment;
 		// Its own process group (detached), so that ending it reaches the whole
 		// tree and not only the shell that started it.
 		const child = this._spawn(shell.executable, [...shell.args, request.command], { cwd: request.cwd, env: environment, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });

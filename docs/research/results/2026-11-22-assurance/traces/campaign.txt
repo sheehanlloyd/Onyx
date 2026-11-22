@@ -1,0 +1,28 @@
+  ok   seeds 1 to 2000
+  ok   seeds 2001 to 4000
+  ok   seeds 4001 to 6000
+  ok   seeds 6001 to 8000
+  ok   seeds 8001 to 10000
+  ok   seeds 10001 to 12000
+  ok   seeds 12001 to 14000
+  ok   seeds 14001 to 16000
+  ok   seeds 16001 to 18000
+  ok   seeds 18001 to 20000
+  ok   seeds 20001 to 22000
+  ok   seeds 22001 to 24000
+  ok   seeds 24001 to 26000
+  ok   seeds 26001 to 28000
+  ok   seeds 28001 to 30000
+  ok   seeds 30001 to 32000
+  ok   seeds 32001 to 34000
+  ok   seeds 34001 to 36000
+  ok   seeds 36001 to 38000
+  ok   seeds 38001 to 40000
+  ok   seeds 40001 to 42000
+  ok   seeds 42001 to 44000
+  ok   seeds 44001 to 46000
+  ok   seeds 46001 to 48000
+  ok   seeds 48001 to 50000
+
+campaign: 50000 of 50000 episodes ran with no violation class outside the baseline table
+classes seen (all in the table): none

@@ -49,7 +49,15 @@ const KIND = process.env.ONYX_MOCK_KIND ?? 'ollama';
 const MODELS = [
 	{ id: 'mock-coder:7b', family: 'mock-coder', parameter_size: '7.6B', quantization_level: 'Q4_K_M', context_length: 16384 },
 	{ id: 'mock-coder:32b', family: 'mock-coder', parameter_size: '32.8B', quantization_level: 'Q4_K_M', context_length: 32768 },
+	// Listed only when asked for: a model the runtime has and cannot serve (L9, R-49).
+	...(process.env.ONYX_MOCK_UNSERVABLE ? [{ id: 'mock-unservable:1b', family: 'mock-coder', parameter_size: '1.0B', quantization_level: 'Q4_K_M', context_length: 16384 }] : []),
 ];
+
+/** Which models the mock holds "in memory": a chat request loads one, `keep_alive: 0` evicts it (L9: one model resident at a time). */
+const resident = new Set<string>();
+let maxResident = 0;
+/** A model the runtime lists and cannot serve, as a real one answers for a model that fails to load. */
+const UNSERVABLE = /^mock-unservable/;
 
 let lastCompletionRequest: unknown;
 let lastChatRequest: unknown;
@@ -123,8 +131,29 @@ const server = http.createServer((req, res) => {
 	if (req.method === 'POST' && url.pathname === '/api/pull') {
 		return readBody(req).then(body => streamPull(res, body));
 	}
+	if (req.method === 'GET' && url.pathname === '/api/ps') {
+		return json(res, { models: [...resident].map(name => ({ name, model: name, size: 1 })) });
+	}
+	if (req.method === 'POST' && url.pathname === '/api/generate') {
+		return readBody(req).then(body => {
+			if (body.keep_alive === 0) {
+				resident.delete(body.model);
+			}
+			json(res, { model: body.model, done: true, done_reason: 'unload' });
+		});
+	}
+	if (req.method === 'GET' && url.pathname === '/debug/resident') {
+		return json(res, { resident: [...resident], maxResident });
+	}
 	if (req.method === 'POST' && url.pathname === '/v1/chat/completions') {
-		return readBody(req).then(body => { lastChatRequest = body; recentChatRequests.push(body); if (recentChatRequests.length > 8) { recentChatRequests.shift(); } streamCompletion(res, body); });
+		return readBody(req).then(body => {
+			if (UNSERVABLE.test(String(body.model))) {
+				res.writeHead(404, { 'Content-Type': 'application/json' });
+				return res.end(JSON.stringify({ error: { message: `model '${body.model}' not found`, type: 'not_found_error' } }));
+			}
+			resident.add(String(body.model));
+			maxResident = Math.max(maxResident, resident.size);
+			lastChatRequest = body; recentChatRequests.push(body); if (recentChatRequests.length > 8) { recentChatRequests.shift(); } streamCompletion(res, body); });
 	}
 	if (req.method === 'POST' && url.pathname === '/v1/completions') {
 		return readBody(req).then(body => {
@@ -402,7 +431,10 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 		// real mid-stream window to interrupt.
 		const wordDelay = slow ? 200 : Number(process.env.ONYX_MOCK_WORD_DELAY_MS ?? 5);
 		for (const word of text.split(' ')) {
-			send(chunk({ content: word + ' ' }));
+			// With `logprobs` in the request, every piece comes with a log-probability (L16): the same one for the
+			// same piece, so that a test knows what the least of them is.
+			const piece = chunk({ content: word + ' ' });
+			send(body.logprobs ? { ...piece, choices: [{ ...piece.choices[0], logprobs: { content: [{ token: word + ' ', logprob: -((word.length % 5) + 1) / 10 }] } }] } : piece);
 			await sleep(wordDelay);
 		}
 		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
@@ -420,6 +452,12 @@ function answerFor(system: string, body: any, hasToolResult: boolean) {
 		// Inline edit: replace the selection's first non-empty line, so the
 		// E2E can assert a deterministic hunk.
 		const user = [...(body.messages ?? [])].reverse().find((m: any) => m.role === 'user')?.content ?? '';
+		// A lab task (L9): the file as it is and the change to make. The mock changes the first line that returns something.
+		const whole = /^File: .*\nCurrent content:\n([\s\S]*?)\n\nChange to make:/.exec(user)?.[1];
+		if (whole !== undefined) {
+			const line = whole.split('\n').find((candidate: string) => /return /.test(candidate)) ?? '';
+			return `<<<<<<< SEARCH\n${line}\n=======\n${line} // edited-by-mock\n>>>>>>> REPLACE`;
+		}
 		const selection = /Selected code:\n([\s\S]*?)\n\nInstruction:/.exec(user)?.[1] ?? '';
 		const firstLine = selection.split('\n').find((line: string) => line.trim().length > 0) ?? '';
 		return `<<<<<<< SEARCH\n${firstLine}\n=======\n${firstLine} // edited-by-mock\n>>>>>>> REPLACE`;
@@ -433,8 +471,13 @@ function answerFor(system: string, body: any, hasToolResult: boolean) {
 	if (/skeptical senior reviewer/.test(system)) {
 		return JSON.stringify({ findings: [{ file: 'src/report.ts', line: 9, severity: 'high', title: 'Unchecked index access', detail: 'lines[0] is read without a length check.' }] });
 	}
-	return `Hello from ${body.model}! ${hasToolResult ? 'Tool result received; task complete. ' : ''}Streaming ${body.tools?.length ?? 0} tools were offered. All inference is local.`;
+	// R-54: a runtime that is not deterministic at one known turn. With ONYX_MOCK_VARY_AFTER_TOOL_RESULTS=<n>, the
+	// answer to a request that carries exactly n tool results is different every time it is given.
+	const toolResults = (body.messages ?? []).filter((m: any) => m.role === 'tool').length;
+	const varied = process.env.ONYX_MOCK_VARY_AFTER_TOOL_RESULTS === String(toolResults) ? ` Variation ${++variation}.` : '';
+	return `Hello from ${body.model}! ${hasToolResult ? 'Tool result received; task complete. ' : ''}Streaming ${body.tools?.length ?? 0} tools were offered. All inference is local.${varied}`;
 }
+let variation = 0;
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 

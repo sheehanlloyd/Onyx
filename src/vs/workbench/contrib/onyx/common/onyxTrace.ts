@@ -89,12 +89,14 @@ export interface IOnyxTraceApproval {
 	readonly timeoutMs?: number | null;
 	readonly decision: string;
 	/**
-	 * Where the authority came from. Since B2 it is always the dialog: every
-	 * invocation asks. The other two values appear only in journals written
-	 * before B2, when a repository allowlist or a session grant could run a
-	 * command without one.
+	 * Where the authority came from. Since B2 it is the dialog: every
+	 * invocation asks. `workspace-allowlist` and `session` appear only in
+	 * journals written before B2, when a repository allowlist or a session
+	 * grant could run a command without one. `campaign-policy` is a denial,
+	 * never an approval: a lab campaign denies every command without asking
+	 * (L9, DEC-10).
 	 */
-	readonly source: 'dialog' | 'workspace-allowlist' | 'session';
+	readonly source: 'dialog' | 'workspace-allowlist' | 'session' | 'campaign-policy';
 }
 
 export interface IOnyxTraceAcceptance {
@@ -102,6 +104,12 @@ export interface IOnyxTraceAcceptance {
 	readonly path: string;
 	/** The id of the hunk as it was shown (B7), or `all` for a whole file. Journals written before B7 hold the hunk's index, a number. */
 	readonly hunk: string | number;
+	/**
+	 * Digests of the lines the accept added, one a non-empty line (L10). No
+	 * text: enough to find, later, the commit in which the accepted lines
+	 * first appear. Absent in journals written before L10.
+	 */
+	readonly added?: readonly string[];
 }
 
 /** FNV-1a over UTF-16 code units, hex. Stable across platforms; not a security digest. */

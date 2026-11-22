@@ -20,7 +20,7 @@ import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMe
 import { IOnyxStreamOutcome, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxWorkspaceAccessService, OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
-import { IOnyxBudgetedMessage, IOnyxTurnPlan } from '../../../common/onyxContextBudget.js';
+import { IOnyxBudgetedMessage, IOnyxTurnPlan, OnyxEvictionPolicy } from '../../../common/onyxContextBudget.js';
 import { OnyxEnvelopeAnswerStream } from '../../../common/onyxConstrainedToolCalls.js';
 import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
 import { IOnyxResolvedHarness } from '../../../common/onyxHarnessConfig.js';
@@ -239,9 +239,9 @@ class OnyxMutantNoOutputCapLoop extends OnyxAgentLoop {
 
 /** B13: nothing is dropped. Tool results pile up turn after turn and the prompt outgrows the window. */
 class OnyxMutantNoEvictionLoop extends OnyxAgentLoop {
-	protected override _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number): IOnyxTurnPlan {
-		const plan = super._planTurn(messages, schemaTokens, contextTokens);
-		return { ...plan, messages, evictedCalls: 0, evictedResults: 0, evictedHistory: 0, droppedWorkspaceContext: false, shrankNewestResults: false, fits: true };
+	protected override _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number, policy: OnyxEvictionPolicy): IOnyxTurnPlan {
+		const plan = super._planTurn(messages, schemaTokens, contextTokens, policy);
+		return { ...plan, messages, evictedCalls: 0, evictedResults: 0, replacedResults: 0, evictedHistory: 0, droppedWorkspaceContext: false, shrankNewestResults: false, fits: true };
 	}
 }
 
@@ -481,6 +481,56 @@ class OnyxMutantVerdictBeforeAcceptanceLoop extends OnyxAgentLoop {
 	}
 }
 
+/**
+ * The generic mutants (L12). Each takes away the guard one invariant's
+ * checker stands on, whatever defect once did so: they are not
+ * resurrections of an audited defect, and they exist so that every
+ * invariant has at least one mutant its checker is known to catch.
+ */
+
+/** I-01, generic: what is staged is applied at once. No accept, no review. */
+class OnyxMutantStageAppliesChangeSet extends OnyxChangeSetService {
+	override async stage(...args: Parameters<OnyxChangeSetService['stage']>): ReturnType<OnyxChangeSetService['stage']> {
+		const outcome = await super.stage(...args);
+		if (outcome.ok) {
+			await this.acceptFile(args[0]);
+		}
+		return outcome;
+	}
+}
+
+/** I-02, generic: every command is approved without anyone being asked. */
+class OnyxMutantApproveWithoutAskingTerminal extends OnyxTerminalService {
+	protected override async _authorize(_invocation: IOnyxCommandInvocation): Promise<OnyxTerminalDecision> {
+		return 'allow-once';
+	}
+}
+
+/** I-03, generic: a run is never given a terminal status. */
+class OnyxMutantNeverFinishesControlPlane extends OnyxControlPlaneService {
+	protected override _finish(_run: OnyxLiveRun, _status: OnyxTerminalRunStatus): void { }
+}
+
+/**
+ * I-07 on the write side, generic: a path is joined onto the folder as it is, parent segments and all, and
+ * where the file really is goes unasked. Both guards go: with the path check alone removed, the check for a
+ * location outside the workspace still refuses the edit, and nothing is staged.
+ */
+class OnyxMutantStageAnywhereChangeSet extends OnyxChangeSetService {
+	protected override _resolveUri(path: string): ReturnType<OnyxChangeSetService['_resolveUri']> {
+		const folder = this._workspaceService.getWorkspace().folders[0];
+		return path.startsWith('/') ? folder.uri.with({ path }) : folder.toResource(path);
+	}
+	protected override async _leavesWorkspace(): Promise<boolean> {
+		return false;
+	}
+}
+
+/** I-12, generic: tools are dispatched and the journal is not told. */
+class OnyxMutantUnjournaledDispatchLoop extends OnyxAgentLoop {
+	protected override _noteDispatch(_run: IOnyxRunHandle, _tool: string): void { }
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -519,6 +569,11 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'L4-inline-harness-record': { AgentLoop: OnyxMutantInlineHarnessRecordLoop },
 	'B3-uncontracted-tools': { AgentLoop: OnyxMutantUncontractedToolsLoop },
 	'B3-unconfirmed-memory': { MemoryTool: OnyxMutantUnconfirmedMemoryTool },
+	'G-I01-stage-applies': { ChangeSetService: OnyxMutantStageAppliesChangeSet },
+	'G-I02-approve-without-asking': { TerminalService: OnyxMutantApproveWithoutAskingTerminal },
+	'G-I03-never-finishes': { ControlPlaneService: OnyxMutantNeverFinishesControlPlane },
+	'G-I07-stage-anywhere': { ChangeSetService: OnyxMutantStageAnywhereChangeSet },
+	'G-I12-unjournaled-dispatch': { AgentLoop: OnyxMutantUnjournaledDispatchLoop },
 };
 
 /** The class name each mutant id resolves to, for the table's `resurrects` column. */

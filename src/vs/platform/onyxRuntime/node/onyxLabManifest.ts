@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IOnyxLabHarnessRequest } from '../common/onyxRuntime.js';
+import { IOnyxLabCampaignRequest, IOnyxLabHarnessRequest } from '../common/onyxRuntime.js';
 
 /** The variable that names a lab manifest for the process to read a harness configuration from. */
 export const ONYX_LAB_MANIFEST_VARIABLE = 'ONYX_LAB_MANIFEST';
@@ -58,4 +58,57 @@ export async function readLabHarnessRequest(environment: Readonly<Record<string,
 	}
 	// An entry with no `configuration` is the default one by another name: there is nothing to change.
 	return { manifest: name, name: entry.name, configuration: entry.configuration ?? {} };
+}
+
+/** The variable that names a campaign work order for the process to run (L9). */
+export const ONYX_LAB_CAMPAIGN_VARIABLE = 'ONYX_LAB_CAMPAIGN';
+
+/** A work order holds every unit of a campaign segment with its instruction; larger than this is not read. */
+const MAX_ORDER_CHARS = 64 * 1024 * 1024;
+
+/** Where a work order says the campaign works and writes. */
+export interface IOnyxLabCampaignPaths {
+	readonly worktree: string;
+	readonly recordsPath: string;
+	readonly statusPath: string;
+}
+
+/**
+ * The campaign this process was started to run (L9), read from the work
+ * order its environment names. Undefined when it names none, which is every
+ * ordinary start. An order that cannot be read is still a request, carrying
+ * the problem, so that the refusal is seen.
+ */
+export async function readLabCampaignRequest(environment: Readonly<Record<string, string | undefined>>, readFile: (path: string) => Promise<string>): Promise<IOnyxLabCampaignRequest | undefined> {
+	const orderPath = environment[ONYX_LAB_CAMPAIGN_VARIABLE];
+	if (!orderPath) {
+		return undefined;
+	}
+	let text: string;
+	try {
+		text = await readFile(orderPath);
+	} catch {
+		return { order: undefined, problem: `the work order named by ${ONYX_LAB_CAMPAIGN_VARIABLE} could not be read` };
+	}
+	if (text.length > MAX_ORDER_CHARS) {
+		return { order: undefined, problem: `the work order named by ${ONYX_LAB_CAMPAIGN_VARIABLE} is larger than a work order can be` };
+	}
+	return { order: text };
+}
+
+/** The paths a work order names, or undefined when it is not a work order. */
+export function labCampaignPaths(order: string | undefined): IOnyxLabCampaignPaths | undefined {
+	if (order === undefined) {
+		return undefined;
+	}
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(order);
+	} catch {
+		return undefined;
+	}
+	if (!isRecord(parsed) || typeof parsed.worktree !== 'string' || typeof parsed.recordsPath !== 'string' || typeof parsed.statusPath !== 'string') {
+		return undefined;
+	}
+	return { worktree: parsed.worktree, recordsPath: parsed.recordsPath, statusPath: parsed.statusPath };
 }

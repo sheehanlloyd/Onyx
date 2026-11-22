@@ -1,0 +1,14 @@
+{
+	"hypothesis": "H-10",
+	"statement": "Energy per solved task ranks models differently from tokens per second",
+	"outcome": "inconclusive",
+	"number": "0 of 3 models solved a task, so the rankings cannot be compared; energy an attempt: qwen2.5-coder:7b 508 J, qwen2.5-coder:1.5b 352 J, llama3.2:3b 870 J",
+	"thresholds": "Supported: at least one swap whose energy difference's interval excludes 0. Refuted: identical rankings. Inconclusive otherwise, and when fewer than two models solved a task. Unavailable on this hardware: no telemetry without elevated privileges (PREREGISTRATION.md, H-10 and its amendments).",
+	"decidedFrom": [
+		"energy.json",
+		"traces/power.jsonl",
+		"traces/records.jsonl",
+		"results.jsonl"
+	],
+	"regenerate": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2"
+}

@@ -17,7 +17,7 @@ import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePa
 import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
-import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudgetedKind, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
+import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudgetedKind, OnyxEvictionPolicy, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
 import { elideMiddle } from '../../common/onyxContextCompression.js';
 import { runtimeEnforcesSchema } from '../../common/onyxDatasheet.js';
 import { IOnyxResolvedHarness } from '../../common/onyxHarnessConfig.js';
@@ -171,7 +171,8 @@ export class OnyxAgentLoop {
 		}
 		// What the prompt builder and the slot policy are given: the model's profile, with the fields the
 		// configuration decides taken from the configuration.
-		const profile: IOnyxModelProfile = { ...modelProfile, promptStyle: configuration.promptStyle, contextLength: configuration.contextTokens, maxTools: configuration.maxTools };
+		// A campaign fixes the seed and the temperature of its runs (L9); nothing else sets them here.
+		const profile: IOnyxModelProfile = { ...modelProfile, promptStyle: configuration.promptStyle, contextLength: configuration.contextTokens, maxTools: configuration.maxTools, ...(harness.sampling?.seed !== undefined ? { seed: harness.sampling.seed } : {}), ...(harness.sampling?.temperature !== undefined ? { temperature: harness.sampling.temperature } : {}) };
 		const running = this._harnessConfigService.begin(request.requestId, configuration);
 		try {
 			return await this._runConfigured(request, progress, history, token, modelIdentifier, modelKey, metadata, profile, harness, run);
@@ -289,7 +290,7 @@ export class OnyxAgentLoop {
 
 			// Fit the turn before it is sent (B13, I-04): the schemas and the output cap are set aside, and
 			// what is left decides how much of the conversation goes.
-			const plan = this._planTurn(messages.map(message => ({ message, kind: kinds.get(message) ?? 'turn' })), schemaTokens, contextTokens);
+			const plan = this._planTurn(messages.map(message => ({ message, kind: kinds.get(message) ?? 'turn' })), schemaTokens, contextTokens, configuration.evictionPolicy);
 			if (!plan.fits) {
 				run.activity({ kind: 'note', label: 'The request does not fit the model\'s context', reason: `about ${plan.messageTokens + plan.schemaTokens} tokens of prompt and tool schemas against a context of ${contextTokens}, with nothing left to drop`, ok: false });
 				run.complete('failed');
@@ -300,8 +301,11 @@ export class OnyxAgentLoop {
 					},
 				};
 			}
-			if (plan.messages.length !== messages.length || plan.shrankNewestResults) {
+			if (plan.messages.length !== messages.length || plan.shrankNewestResults || plan.replacedResults > 0) {
 				messages.splice(0, messages.length, ...plan.messages.map(entry => entry.message));
+			}
+			if (plan.replacedResults > 0) {
+				run.activity({ kind: 'note', label: `Replaced the text of ${plan.replacedResults} earlier tool result${plan.replacedResults === 1 ? '' : 's'} with a marker to fit the context window`, reason: `oldest first; about ${plan.messageTokens} of ${plan.messageBudgetTokens} tokens for messages are in use` });
 			}
 			if (plan.evictedResults > 0) {
 				run.activity({ kind: 'note', label: `Evicted ${plan.evictedResults} earlier tool result${plan.evictedResults === 1 ? '' : 's'} to fit the context window`, reason: `${plan.evictedCalls} call${plan.evictedCalls === 1 ? '' : 's'}, oldest first; about ${plan.messageTokens} of ${plan.messageBudgetTokens} tokens for messages are in use` });
@@ -332,9 +336,11 @@ export class OnyxAgentLoop {
 			this._promptCacheService.notePrompt(request.sessionResource.toString(), messages);
 
 			const maxTokens = this._outputCap(plan);
+			// A campaign's seed and temperature go with the request (L9): the trace header records them as sent.
+			const sampling = { ...(harness.sampling?.seed !== undefined ? { seed: harness.sampling.seed } : {}), ...(harness.sampling?.temperature !== undefined ? { temperature: harness.sampling.temperature } : {}) };
 			const requestOptions = constrained
-				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema), maxTokens } }
-				: { tools, modelOptions: { maxTokens } };
+				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema), maxTokens, ...sampling } }
+				: { tools, modelOptions: { maxTokens, ...sampling } };
 			const requestDigest = digestValue(messages);
 			const traceToolCalls: IOnyxTraceToolCall[] = [];
 			const recordTurn = (responseText: string, finishReason: string | undefined, error: boolean, seedHonoured: boolean | undefined, ending?: OnyxStreamEnding) => run.record({
@@ -628,13 +634,18 @@ export class OnyxAgentLoop {
 	}
 
 	/** What may be sent this turn, and what had to go to make it fit. */
-	protected _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number): IOnyxTurnPlan {
-		return planTurn({ messages, contextTokens, schemaTokens, estimate: estimateMessageTokens });
+	protected _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number, policy: OnyxEvictionPolicy): IOnyxTurnPlan {
+		return planTurn({ messages, contextTokens, schemaTokens, estimate: estimateMessageTokens, policy });
 	}
 
 	/** The output cap sent with the request: the room the plan set aside for the reply. */
 	protected _outputCap(plan: IOnyxTurnPlan): number | undefined {
 		return plan.maxTokens;
+	}
+
+	/** Writes a tool dispatch into the run's journal, before the tool is invoked (I-12): every dispatch is on record, whatever becomes of the call. */
+	protected _noteDispatch(run: ReturnType<IOnyxControlPlaneService['beginRun']>, tool: string): void {
+		run.activity({ kind: 'toolCall', label: tool });
 	}
 
 	/** `truncated` or `stalled` when the stream's own account says the reply is incomplete; undefined otherwise. */
@@ -671,7 +682,7 @@ export class OnyxAgentLoop {
 			// Stopped (B10, I-05): the call is answered, never dispatched.
 			return { text: 'The run was stopped by the user before this was done. Nothing was run or changed.', ok: false };
 		}
-		run.activity({ kind: 'toolCall', label: toolUse.name });
+		this._noteDispatch(run, toolUse.name);
 		const parameters = typeof toolUse.parameters === 'object' && toolUse.parameters !== null ? toolUse.parameters : {};
 		if (this._needsApprovalPerCall(toolId)) {
 			// A network tool is not Onyx's to implement, so the gate stands here: one approval for this call,

@@ -1,0 +1,13 @@
+{
+	"hypothesis": "H-4",
+	"statement": "Constrained anchors lower the refusal rate relative to free-form SEARCH/REPLACE under exact-or-refuse, without raising the collateral-edit rate",
+	"outcome": "inconclusive",
+	"number": "55 edit calls in the two arms; 0 tasks with an edit call in both",
+	"reason": "no task had an edit call in both arms (55 edit calls in all): there is no pair to compare",
+	"thresholds": "PREREGISTRATION.md, H-4, with the sample of Amendment 2",
+	"decidedFrom": [
+		"attempts.jsonl",
+		"analysis.json"
+	],
+	"regenerate": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2"
+}

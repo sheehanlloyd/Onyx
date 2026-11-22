@@ -1,0 +1,13 @@
+{
+	"hypothesis": "H-1",
+	"statement": "The simulation campaign detects every resurrected defect in the mutation corpus",
+	"outcome": "supported",
+	"number": "mutation score 41 of 41; 50000 of 50000 campaign episodes with no violation",
+	"thresholds": "Supported: mutation score 100% and zero violations on the candidate harness. Refuted: a mutant survives without an equivalence argument after one round of closing the gap, or the candidate shows a violation. No inconclusive outcome (PREREGISTRATION.md, H-1).",
+	"decidedFrom": [
+		"summary.json",
+		"traces/campaign.txt",
+		"traces/mutation.json"
+	],
+	"regenerate": "node test/onyx/sim/write-assurance.mts --out docs/research/results/2026-11-22-assurance"
+}

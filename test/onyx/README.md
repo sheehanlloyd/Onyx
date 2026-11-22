@@ -108,7 +108,7 @@ node test/onyx/run-e2e.mts         # add --keep to inspect the throwaway profile
 It creates a throwaway git workspace and user-data dir, starts two mock
 runtimes (Ollama- and LM-Studio-flavored), launches Code OSS with remote
 debugging, completes onboarding, and then drives every user-facing flow,
-asserting on the run journal and the live DOM (66 checks):
+asserting on the run journal and the live DOM (72 checks):
 
 - the tool list a default run advertises on the 7B profile (the six essential
   tools and the two documented optional ones, R-36), Onyx's own `listDirectory`
@@ -146,6 +146,10 @@ asserting on the run journal and the live DOM (66 checks):
 - stopping a streaming run and resuming it as a new briefing-run
 - the refactor engine: model-suggested names, the rename staged for review
 - the repo benchmark journaling a run and opening its evidence document
+- **Measure Models for This Repository** (R-51): the estimate shown before it starts, every planned unit run
+  against each model, the saved scorecard with its provenance, datasheet sections and task counts, no ranking
+  below the minimum sample, the router's hit rate with its denominators, and a measurement stopped midway
+  labelled partial
 - speculative decoding measuring a baseline and explaining the runtime's own
   load-time flag — and never putting a draft on the wire
 - the architecture map rendering modules, timing and a model summary
@@ -271,6 +275,38 @@ product's own, run again on the same files, and what they return is among the ev
 then continues, with a scripted continuation or a live source. Two harness configurations run that way were
 served the same responses up to the cut. The result is labelled an *executed counterfactual*: one run under
 each arm, and no more is claimed for it than that.
+
+## Lab campaigns
+
+A campaign runs an experiment manifest against a runtime on this machine (L9). The manifest names the models, the seeds, the harness configurations and a task set; `test/onyx/lab/manifest.schema.json` describes it, and its `campaign` section says which tier to run and where the runtime is.
+
+```bash
+node test/onyx/lab/make-task-set.mts --out <dir>/tasks.json --count 40       # tasks from this repository's history: ids and hashes
+node test/onyx/lab/run-lab.mts docs/research/results/<date>-<name>/manifest.json
+node test/onyx/lab/run-lab.mts docs/research/results/<date>-<name>/manifest.json --rescore   # results from the records, nothing run
+```
+
+**Tier S** gives each model one request a task from plain Node: the file as it was and the commit's subject, answered with edit blocks. **Tier A** starts an isolated instance of the application (a profile of its own, no extensions) on a linked git worktree in the temporary directory and lets the engine inside it, `browser/lab/onyxLabCampaign.ts`, run each task through the real agent loop: a chat request in a session of its own, with the tools, the staging and the journal a user's request has. The work order reaches the application through the `ONYX_LAB_CAMPAIGN` environment variable, and a packaged build refuses one.
+
+Beside the manifest a campaign writes `traces/records.jsonl` (one line a finished unit: the reply, or for tier A the journal, every edit the run asked for and the file as it proposed it), `results.jsonl` and `summary.json` (the records scored, recomputed every time), and `campaign.json` (the estimate, the time taken, the machine's load and power at the start and the end, what was evicted, and the repository's state before and after).
+
+What a campaign keeps to:
+
+- **One model resident at a time.** Everything is evicted before a model's first unit, and the plan runs all of one model's units before the next model's.
+- **"Could not serve" is not a score.** A unit the runtime gave no answer for is recorded as that and is in no mean.
+- **No model-authored command is run** (DEC-10). The terminal tool stays in the tool list, every invocation is denied without a dialog and counted, and a run that asked for a command and proposed no edit is `blocked-by-policy`, not a failed attempt.
+- **It resumes.** A unit with a record is not run again. A killed launcher leaves its worktree and perhaps its application behind; the application stops on its own when the launcher's heartbeat goes stale, and the next start removes what was left.
+- **Ctrl+C cancels.** The unit in flight is stopped through the run's own cancellation (B10) and leaves no record.
+- **The repository is not touched.** Its `git status`, index file, HEAD and refs are compared before and after, and a difference is exit code 4. Nothing is ever accepted in the worktree: proposals are read and discarded.
+- **Every switch is named.** A harness configuration in a campaign's manifest should set each field it compares. One left to be derived follows the model's profile, which the application updates as it measures the model, so two units could run differently.
+
+**Tasks** (L10). `make-task-set.mts` writes a task set as commit ids and content hashes: commits the product's rule accepts, authored after the latest day one of the named models was published (`--model`, from the catalog), spread over the eligible history, optionally with the commits that also changed one test file (`--with-tests`) and read back from a pinned revision (`--rev`) so that the set can be built again. `describe-task-set.mts` checks a committed set against the repository and writes its counts. `request-tasks.mts` makes tasks of a workspace's accepted and committed requests, with that workspace's opt-in. A task's instruction is its commit's message, read when a campaign runs. `probe-oracle.mts` probes this machine for the sandbox the executable oracle needs, and `network-guard.mts`, loaded with `node --import`, refuses and records any connection a lab script makes that is not to this machine.
+
+A tier A campaign starts the application from this checkout's compiled output. A long campaign should not: a rebuild while it runs would change the harness between two of its units. `node test/onyx/lab/freeze-app.mts` copies the compiled output to `.build/campaign-root` (a copy-on-write clone, with the revision it was made from in `FROZEN.json`), and a campaign started with `ONYX_LAB_APP_ROOT` set to that folder runs the application from the copy and records that it did.
+
+A campaign compares the repository it reads from before and after, and cannot tell its own change from yours. To work in a repository while a campaign reads tasks from it, give the campaign a clone of its own: `git clone --local --bare . .build/onyx-lab-source.git`, then `--repo .build/onyx-lab-source.git`.
+
+`test/onyx/checks/r49-lab-campaign.test.mts` (tier S) and `r49-lab-campaign-app.test.mts` (tier A, opens a window) run campaigns against the mock on a disposable repository; `onyxLab.test.ts` has the pure rules. Real-model campaigns run one at a time, on a quiet machine, with a runtime started for them on a port of its own (`OLLAMA_HOST=127.0.0.1:11500 ollama serve`).
 
 ## Simulation rig
 

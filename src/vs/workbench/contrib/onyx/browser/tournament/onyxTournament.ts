@@ -22,6 +22,9 @@ import { runOneShot } from '../agent/onyxOneShot.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxKnownModel, IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 import { IOnyxProfileService } from '../profiles/onyxProfileService.js';
+import { IOnyxRouterLogService } from '../routing/onyxRouterLog.js';
+import { IOnyxRouterService } from '../routing/onyxRouterService.js';
+import { ChatMessageRole, IChatMessage } from '../../../chat/common/languageModels.js';
 
 /**
  * Tournament mode: one instruction, several local models, each candidate edit
@@ -44,6 +47,8 @@ export class OnyxTournament {
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
 		@IProgressService private readonly _progressService: IProgressService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IOnyxRouterService private readonly _routerService: IOnyxRouterService,
+		@IOnyxRouterLogService private readonly _routerLog: IOnyxRouterLogService,
 	) { }
 
 	async run(): Promise<void> {
@@ -245,6 +250,14 @@ export class OnyxTournament {
 			// The pick is an outcome signal: winners get better routing odds.
 			for (const candidate of usable) {
 				this._profileService.reportOutcome(candidate.modelKey, candidate === winner.candidate);
+			}
+			// And it is logged beside what the router would have picked among the same models (L11): the router's
+			// hit rate is counted from these, with their number.
+			const messages: IChatMessage[] = [{ role: ChatMessageRole.User, content: [{ type: 'text', value: instruction }] }];
+			const contenders = usable.flatMap(candidate => { const known = this._modelService.getKnownModel(candidate.modelKey); return known ? [known] : []; });
+			const routed = this._routerService.pickModel(messages, contenders);
+			if (routed) {
+				this._routerLog.noteTournament(this._routerService.classify(messages), routed.key, winner.candidate.modelKey);
 			}
 			this._notificationService.notify({ severity: Severity.Info, message: localize('onyx.tournament.applied', "Applied {0}'s edit to the working tree.", winner.candidate.modelKey) });
 		} catch (error) {

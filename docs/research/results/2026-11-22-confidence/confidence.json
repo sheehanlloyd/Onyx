@@ -1,0 +1,1516 @@
+{
+	"records": 600,
+	"units": 120,
+	"unitsWithoutAnAppliedFirstReply": 58,
+	"unitsWithoutEverySample": 0,
+	"hunksOfBlankLinesOnly": 8,
+	"hunksWithoutATokenProbability": 6,
+	"tasksNotInTheRepository": 0,
+	"labelledHunks": 120,
+	"correctHunks": 6,
+	"registeredMinimumOfLabelledHunks": 500,
+	"pooled": [
+		{
+			"estimator": "agreement",
+			"hunks": 120,
+			"correct": 6,
+			"incorrect": 114,
+			"auroc": {
+				"value": 0.506578947368421,
+				"low": 0.3835616438356164,
+				"high": 0.6867283950617284
+			},
+			"ece": 0.21499999999999966,
+			"reliability": [
+				{
+					"low": 0,
+					"high": 0.1,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				},
+				{
+					"low": 0.1,
+					"high": 0.2,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				},
+				{
+					"low": 0.2,
+					"high": 0.3,
+					"count": 103,
+					"meanEstimate": 0.1999999999999996,
+					"correctShare": 0.04854368932038835
+				},
+				{
+					"low": 0.3,
+					"high": 0.4,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				},
+				{
+					"low": 0.4,
+					"high": 0.5,
+					"count": 8,
+					"meanEstimate": 0.39999999999999997,
+					"correctShare": 0.125
+				},
+				{
+					"low": 0.5,
+					"high": 0.6,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				},
+				{
+					"low": 0.6,
+					"high": 0.7,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				},
+				{
+					"low": 0.7,
+					"high": 0.8,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				},
+				{
+					"low": 0.8,
+					"high": 0.9,
+					"count": 5,
+					"meanEstimate": 0.8,
+					"correctShare": 0
+				},
+				{
+					"low": 0.9,
+					"high": 1,
+					"count": 4,
+					"meanEstimate": 1,
+					"correctShare": 0
+				}
+			],
+			"decision": {
+				"outcome": "inconclusive",
+				"badge": false,
+				"reason": "6 correct and 114 incorrect hunks: fewer than 20 of one class"
+			}
+		},
+		{
+			"estimator": "token-probability",
+			"hunks": 114,
+			"correct": 6,
+			"incorrect": 108,
+			"auroc": {
+				"value": 0.5987654320987654,
+				"low": 0.2986111111111111,
+				"high": 0.8846153846153846
+			},
+			"ece": 0.09345961904756361,
+			"reliability": [
+				{
+					"low": 0,
+					"high": 0.1,
+					"count": 56,
+					"meanEstimate": 0.058717651457796,
+					"correctShare": 0.05357142857142857
+				},
+				{
+					"low": 0.1,
+					"high": 0.2,
+					"count": 31,
+					"meanEstimate": 0.13639162690833453,
+					"correctShare": 0
+				},
+				{
+					"low": 0.2,
+					"high": 0.3,
+					"count": 9,
+					"meanEstimate": 0.23998048042744813,
+					"correctShare": 0.1111111111111111
+				},
+				{
+					"low": 0.3,
+					"high": 0.4,
+					"count": 9,
+					"meanEstimate": 0.3435301724620347,
+					"correctShare": 0
+				},
+				{
+					"low": 0.4,
+					"high": 0.5,
+					"count": 9,
+					"meanEstimate": 0.43183019773577336,
+					"correctShare": 0.2222222222222222
+				},
+				{
+					"low": 0.5,
+					"high": 0.6,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				},
+				{
+					"low": 0.6,
+					"high": 0.7,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				},
+				{
+					"low": 0.7,
+					"high": 0.8,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				},
+				{
+					"low": 0.8,
+					"high": 0.9,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				},
+				{
+					"low": 0.9,
+					"high": 1,
+					"count": 0,
+					"meanEstimate": null,
+					"correctShare": null
+				}
+			],
+			"decision": {
+				"outcome": "inconclusive",
+				"badge": false,
+				"reason": "6 correct and 108 incorrect hunks: fewer than 20 of one class"
+			}
+		}
+	],
+	"byModel": [
+		{
+			"model": "qwen2.5-coder:7b",
+			"estimators": [
+				{
+					"estimator": "agreement",
+					"hunks": 68,
+					"correct": 5,
+					"incorrect": 63,
+					"auroc": {
+						"value": 0.5015873015873016,
+						"low": 0.3492063492063492,
+						"high": 0.7118055555555556
+					},
+					"ece": 0.21176470588235283,
+					"reliability": [
+						{
+							"low": 0,
+							"high": 0.1,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.1,
+							"high": 0.2,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.2,
+							"high": 0.3,
+							"count": 56,
+							"meanEstimate": 0.19999999999999987,
+							"correctShare": 0.07142857142857142
+						},
+						{
+							"low": 0.3,
+							"high": 0.4,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.4,
+							"high": 0.5,
+							"count": 5,
+							"meanEstimate": 0.4,
+							"correctShare": 0.2
+						},
+						{
+							"low": 0.5,
+							"high": 0.6,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.6,
+							"high": 0.7,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.7,
+							"high": 0.8,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.8,
+							"high": 0.9,
+							"count": 4,
+							"meanEstimate": 0.8,
+							"correctShare": 0
+						},
+						{
+							"low": 0.9,
+							"high": 1,
+							"count": 3,
+							"meanEstimate": 1,
+							"correctShare": 0
+						}
+					],
+					"decision": {
+						"outcome": "inconclusive",
+						"badge": false,
+						"reason": "5 correct and 63 incorrect hunks: fewer than 20 of one class"
+					}
+				},
+				{
+					"estimator": "token-probability",
+					"hunks": 62,
+					"correct": 5,
+					"incorrect": 57,
+					"auroc": {
+						"value": 0.5491228070175439,
+						"low": 0.17272727272727273,
+						"high": 0.9166666666666666
+					},
+					"ece": 0.156720655075776,
+					"reliability": [
+						{
+							"low": 0,
+							"high": 0.1,
+							"count": 12,
+							"meanEstimate": 0.07016275027373363,
+							"correctShare": 0.16666666666666666
+						},
+						{
+							"low": 0.1,
+							"high": 0.2,
+							"count": 26,
+							"meanEstimate": 0.13486819586546486,
+							"correctShare": 0
+						},
+						{
+							"low": 0.2,
+							"high": 0.3,
+							"count": 9,
+							"meanEstimate": 0.23998048042744813,
+							"correctShare": 0.1111111111111111
+						},
+						{
+							"low": 0.3,
+							"high": 0.4,
+							"count": 6,
+							"meanEstimate": 0.33429407033530606,
+							"correctShare": 0
+						},
+						{
+							"low": 0.4,
+							"high": 0.5,
+							"count": 9,
+							"meanEstimate": 0.43183019773577336,
+							"correctShare": 0.2222222222222222
+						},
+						{
+							"low": 0.5,
+							"high": 0.6,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.6,
+							"high": 0.7,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.7,
+							"high": 0.8,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.8,
+							"high": 0.9,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.9,
+							"high": 1,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						}
+					],
+					"decision": {
+						"outcome": "inconclusive",
+						"badge": false,
+						"reason": "5 correct and 57 incorrect hunks: fewer than 20 of one class"
+					}
+				}
+			]
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"estimators": [
+				{
+					"estimator": "agreement",
+					"hunks": 52,
+					"correct": 1,
+					"incorrect": 51,
+					"auroc": {
+						"value": 0.45098039215686275,
+						"low": 0.359375,
+						"high": 0.5
+					},
+					"ece": 0.2192307692307692,
+					"reliability": [
+						{
+							"low": 0,
+							"high": 0.1,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.1,
+							"high": 0.2,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.2,
+							"high": 0.3,
+							"count": 47,
+							"meanEstimate": 0.19999999999999998,
+							"correctShare": 0.02127659574468085
+						},
+						{
+							"low": 0.3,
+							"high": 0.4,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.4,
+							"high": 0.5,
+							"count": 3,
+							"meanEstimate": 0.4000000000000001,
+							"correctShare": 0
+						},
+						{
+							"low": 0.5,
+							"high": 0.6,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.6,
+							"high": 0.7,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.7,
+							"high": 0.8,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.8,
+							"high": 0.9,
+							"count": 1,
+							"meanEstimate": 0.8,
+							"correctShare": 0
+						},
+						{
+							"low": 0.9,
+							"high": 1,
+							"count": 1,
+							"meanEstimate": 1,
+							"correctShare": 0
+						}
+					],
+					"decision": {
+						"outcome": "inconclusive",
+						"badge": false,
+						"reason": "1 correct and 51 incorrect hunks: fewer than 20 of one class"
+					}
+				},
+				{
+					"estimator": "token-probability",
+					"hunks": 52,
+					"correct": 1,
+					"incorrect": 51,
+					"auroc": {
+						"value": 0.049019607843137254,
+						"low": 0.02976190476190476,
+						"high": 0.19230769230769232
+					},
+					"ece": 0.06257326827220254,
+					"reliability": [
+						{
+							"low": 0,
+							"high": 0.1,
+							"count": 44,
+							"meanEstimate": 0.05559626087163117,
+							"correctShare": 0.022727272727272728
+						},
+						{
+							"low": 0.1,
+							"high": 0.2,
+							"count": 5,
+							"meanEstimate": 0.14431346833125683,
+							"correctShare": 0
+						},
+						{
+							"low": 0.2,
+							"high": 0.3,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.3,
+							"high": 0.4,
+							"count": 3,
+							"meanEstimate": 0.3620023767154921,
+							"correctShare": 0
+						},
+						{
+							"low": 0.4,
+							"high": 0.5,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.5,
+							"high": 0.6,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.6,
+							"high": 0.7,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.7,
+							"high": 0.8,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.8,
+							"high": 0.9,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						},
+						{
+							"low": 0.9,
+							"high": 1,
+							"count": 0,
+							"meanEstimate": null,
+							"correctShare": null
+						}
+					],
+					"decision": {
+						"outcome": "inconclusive",
+						"badge": false,
+						"reason": "1 correct and 51 incorrect hunks: fewer than 20 of one class"
+					}
+				}
+			]
+		}
+	],
+	"hunks": [
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "cdc54c47aebd",
+			"correct": true,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.0806583981812303
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "0c6175c76bac",
+			"correct": false,
+			"agreement": 0.8,
+			"samples": 5
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "8db556f28e55",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11565200190091138
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "a1321b7630b8",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.13876334357090223
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "407c45e48c6e",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.22110183131299374
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "407c45e48c6e",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.22110183131299374
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "407c45e48c6e",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.22110183131299374
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "407c45e48c6e",
+			"correct": true,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.22110183131299374
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04083759951203665
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04083759951203665
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "44fd581c0d12",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.0919929523125865
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "44fd581c0d12",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.0919929523125865
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "44fd581c0d12",
+			"correct": true,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.0919929523125865
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "44fd581c0d12",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.0919929523125865
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "80fdba6cbc6e",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.18349753991766352
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "688be17ad210",
+			"correct": false,
+			"agreement": 1,
+			"samples": 5,
+			"tokenProbability": 0.08502281525292564
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "9f249ca6dd6a",
+			"correct": false,
+			"agreement": 0.4,
+			"samples": 5,
+			"tokenProbability": 0.26057175501024493
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "63e07943121c",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.13316310945360085
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6a7b8f196f09",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.11964695031826238
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "610ebdc1c9e5",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.18241817429120405
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "8a049102db5a",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "4f99130b1d67",
+			"correct": false,
+			"agreement": 0.8,
+			"samples": 5
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "b17f5e9ede1e",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.2538648293681966
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "26ecd15fef41",
+			"correct": false,
+			"agreement": 0.4,
+			"samples": 5,
+			"tokenProbability": 0.32877768988170586
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "26ecd15fef41",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.32877768988170586
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "26ecd15fef41",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.32877768988170586
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "26ecd15fef41",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.32877768988170586
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "26ecd15fef41",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.32877768988170586
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "8f3cef17ff6c",
+			"correct": false,
+			"agreement": 1,
+			"samples": 5,
+			"tokenProbability": 0.45612197352471645
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "8f3cef17ff6c",
+			"correct": false,
+			"agreement": 1,
+			"samples": 5,
+			"tokenProbability": 0.45612197352471645
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "8f3cef17ff6c",
+			"correct": false,
+			"agreement": 0.8,
+			"samples": 5,
+			"tokenProbability": 0.45612197352471645
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "d7c3e6f0766a",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.23551222176344075
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "ae4e9e60eedf",
+			"correct": false,
+			"agreement": 0.4,
+			"samples": 5
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "99f9c60511bd",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.07625703604621588
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6064ded0ea2b",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.16199111438841757
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6064ded0ea2b",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.16199111438841757
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6064ded0ea2b",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.16199111438841757
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6064ded0ea2b",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.16199111438841757
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "6064ded0ea2b",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.16199111438841757
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "818df99c9ba6",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04816894491477587
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "67cff8804e29",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.2715071386301383
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "00591427c0e0",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.43840131451714626
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "00591427c0e0",
+			"correct": true,
+			"agreement": 0.4,
+			"samples": 5,
+			"tokenProbability": 0.43840131451714626
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "87b4d2a2512e",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.13403302348502216
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "87b4d2a2512e",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.13403302348502216
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "0d5a0245e09d",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.2539610538230373
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "49050d59b1e4",
+			"correct": false,
+			"agreement": 0.8,
+			"samples": 5,
+			"tokenProbability": 0.43270433842722017
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "b8aaad0ef8e9",
+			"correct": true,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.40286629719543265
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "b8aaad0ef8e9",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.40286629719543265
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "b8aaad0ef8e9",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.40286629719543265
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "2347ccb6428f",
+			"correct": false,
+			"agreement": 0.4,
+			"samples": 5
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "ee0edb4ba0d3",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05521875243697951
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "a6fcaed97792",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.046980048178256864
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "244137ccc826",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.36187597260330695
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"task": "4e364a5c7b01",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "cdc54c47aebd",
+			"correct": false,
+			"agreement": 0.4,
+			"samples": 5,
+			"tokenProbability": 0.1714804122905554
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "cdc54c47aebd",
+			"correct": false,
+			"agreement": 0.4,
+			"samples": 5,
+			"tokenProbability": 0.1714804122905554
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "a1321b7630b8",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.08470257020000235
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "0febfb648726",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04541996328178328
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "df8bce5a3705",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04130003082599528
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "df8bce5a3705",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04130003082599528
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "df8bce5a3705",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04130003082599528
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "df8bce5a3705",
+			"correct": true,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04130003082599528
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "df8bce5a3705",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04130003082599528
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "df8bce5a3705",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.04130003082599528
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "983769904168",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05319942377017903
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "983769904168",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05319942377017903
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "983769904168",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05319942377017903
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "9f249ca6dd6a",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.10009001646473194
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "a76935c6b35b",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05553552969549262
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "a76935c6b35b",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05553552969549262
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "a76935c6b35b",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05553552969549262
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "a76935c6b35b",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05553552969549262
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "a76935c6b35b",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05553552969549262
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "610ebdc1c9e5",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.07901721698200959
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "4f99130b1d67",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.08832106416398743
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "8f3cef17ff6c",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.06015213895618049
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "d7c3e6f0766a",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.06898756012554379
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "c6a24316284e",
+			"correct": false,
+			"agreement": 1,
+			"samples": 5,
+			"tokenProbability": 0.3774826592585422
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "c6a24316284e",
+			"correct": false,
+			"agreement": 0.8,
+			"samples": 5,
+			"tokenProbability": 0.3774826592585422
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "818df99c9ba6",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.06613730937317619
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "49050d59b1e4",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.08542280848054619
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "b8aaad0ef8e9",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.33104181162939206
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "2347ccb6428f",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05926987987975823
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "2347ccb6428f",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.05926987987975823
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "589db9c80c2b",
+			"correct": false,
+			"agreement": 0.4,
+			"samples": 5,
+			"tokenProbability": 0.1704562084171854
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "a6fcaed97792",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.09743986883157897
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "a6fcaed97792",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.09743986883157897
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "a6fcaed97792",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.09743986883157897
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"task": "2daf886e2063",
+			"correct": false,
+			"agreement": 0.2,
+			"samples": 5,
+			"tokenProbability": 0.10806029219325597
+		}
+	]
+}

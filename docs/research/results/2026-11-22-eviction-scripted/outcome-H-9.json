@@ -1,0 +1,15 @@
+{
+	"hypothesis": "H-9",
+	"statement": "A cache-aware eviction policy re-processes fewer prompt tokens per turn than oldest-first at equal task success",
+	"outcome": "supported",
+	"number": "block-to-low-watermark: 0.42 of oldest-first's re-processed tokens [0.38, 0.47]; placeholder-results: 0.93 of oldest-first's re-processed tokens [0.90, 0.95]; agentic success oldest-results-first 0/40, block-to-low-watermark 0/40, placeholder-results 0/40",
+	"adopted": "block-to-low-watermark stays available as a harness option; the product's default is unchanged",
+	"thresholds": "Supported: the best cache-aware policy's ratio is at most 0.70 with an interval excluding 1.0, and its success rate is not lower by more than 2 points (interval). Refuted: every cache-aware policy's ratio interval includes or exceeds 1.0. Inconclusive otherwise (PREREGISTRATION.md, H-9, Amendments 2 and 3).",
+	"decidedFrom": [
+		"eviction.json",
+		"traces/turns.jsonl",
+		"../2026-11-22-eviction-agentic/results.jsonl",
+		"../2026-11-22-eviction-agentic/traces/records.jsonl"
+	],
+	"regenerate": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic"
+}

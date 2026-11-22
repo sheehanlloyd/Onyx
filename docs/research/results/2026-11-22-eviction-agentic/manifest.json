@@ -1,0 +1,138 @@
+{
+	"version": 1,
+	"name": "2026-11-22-eviction-agentic",
+	"createdAt": "2026-11-22T18:24:35.920Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 4096,
+		"responseFormat": true
+	},
+	"harnessConfigurations": [
+		{
+			"name": "oldest-results-first",
+			"hash": "f121739b",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 8192,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "block-to-low-watermark",
+			"hash": "18ce3159",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "block-to-low-watermark",
+				"contextTokens": 8192,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		},
+		{
+			"name": "placeholder-results",
+			"hash": "6da865b6",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "placeholder-results",
+				"contextTokens": 8192,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		}
+	],
+	"taskSet": {
+		"name": "the first 20 of H-2's 40 tasks (every third task of 2026-11-22-task-set)",
+		"hash": "4d5fd7c401a47d9b",
+		"count": 20
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			2.6,
+			2.4,
+			2.21
+		],
+		"power": "AC Power, 100%, adapter 94 W"
+	},
+	"regenerate": [
+		{
+			"output": "traces/records.jsonl, campaign.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-eviction-agentic/manifest.json"
+		},
+		{
+			"output": "results.jsonl, summary.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-eviction-agentic/manifest.json --rescore"
+		}
+	],
+	"campaign": {
+		"tier": "A",
+		"baseUrl": "http://127.0.0.1:11500/v1",
+		"tasks": "tasks.json",
+		"datasheets": "docs/research/results/2026-11-22-datasheets/summary.json",
+		"estimatedSeconds": 8832,
+		"unitTimeoutMs": 420000
+	},
+	"hypotheses": [
+		"H-9"
+	],
+	"notes": "H-9, the agentic runs: the three eviction policies on the first 20 of H-2's tasks with both pinned models, seed 1, temperature 0, at a context of 8,192 tokens so that eviction can happen (PREREGISTRATION.md, Amendment 3). My estimate before it started, from the determinism campaign on the same tasks: about 10 minutes."
+}
