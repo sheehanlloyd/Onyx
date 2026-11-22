@@ -1,0 +1,14 @@
+{
+	"hypothesis": "H-6",
+	"statement": "At temperature 0 with a fixed seed on one machine, at least 90% of multi-turn trajectories repeat exactly",
+	"outcome": "inconclusive",
+	"number": "146 of 160 repetitions identical to the first (91.3%, 95% interval 85.8% to 94.7%)",
+	"thresholds": "Supported: identical share at least 90% with a lower bound of at least 80%. Refuted: upper bound below 90%. Inconclusive otherwise (PREREGISTRATION.md, H-6 and its amendments).",
+	"invalidatedBy": "14 divergences that are the harness's doing",
+	"decidedFrom": [
+		"determinism.json",
+		"traces/records.jsonl",
+		"results.jsonl"
+	],
+	"regenerate": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism"
+}

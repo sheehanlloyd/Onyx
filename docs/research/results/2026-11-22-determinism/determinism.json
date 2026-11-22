@@ -1,0 +1,237 @@
+{
+	"records": 200,
+	"recordsTheRuntimeCouldNotServe": 0,
+	"units": 40,
+	"multiTurnRuns": 200,
+	"runs": 200,
+	"pooled": {
+		"comparisons": 160,
+		"identical": 146,
+		"identicalShare": {
+			"value": 0.9125,
+			"low": 0.858493682378104,
+			"high": 0.9471632066054043
+		}
+	},
+	"byModel": [
+		{
+			"group": "qwen2.5-coder:7b",
+			"units": 20,
+			"comparisons": 80,
+			"identical": 73,
+			"unitsAllIdentical": 17,
+			"firstDivergingTurn": [
+				7
+			],
+			"bySource": {
+				"runtime": 0,
+				"harness": 7,
+				"length": 0
+			},
+			"divergedWithADifferentOutcome": 0,
+			"seedNotKnownHonoured": 80,
+			"harnessDivergences": [
+				{
+					"key": "qwen2.5-coder:7b|product|0febfb648726|s1",
+					"repetition": 3,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:7b|product|0febfb648726|s1",
+					"repetition": 4,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:7b|product|0febfb648726|s1",
+					"repetition": 5,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:7b|product|64b788f8677f|s1",
+					"repetition": 4,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:7b|product|64b788f8677f|s1",
+					"repetition": 5,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:7b|product|bd2f91618ede|s1",
+					"repetition": 4,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:7b|product|bd2f91618ede|s1",
+					"repetition": 5,
+					"turn": 1,
+					"what": "request"
+				}
+			],
+			"identicalShare": {
+				"value": 0.9125,
+				"low": 0.8302320449152499,
+				"high": 0.9569679982179401
+			}
+		},
+		{
+			"group": "qwen2.5-coder:1.5b",
+			"units": 20,
+			"comparisons": 80,
+			"identical": 73,
+			"unitsAllIdentical": 18,
+			"firstDivergingTurn": [
+				7
+			],
+			"bySource": {
+				"runtime": 0,
+				"harness": 7,
+				"length": 0
+			},
+			"divergedWithADifferentOutcome": 0,
+			"seedNotKnownHonoured": 80,
+			"harnessDivergences": [
+				{
+					"key": "qwen2.5-coder:1.5b|product|816770a926c8|s1",
+					"repetition": 2,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:1.5b|product|816770a926c8|s1",
+					"repetition": 3,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:1.5b|product|816770a926c8|s1",
+					"repetition": 4,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:1.5b|product|816770a926c8|s1",
+					"repetition": 5,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:1.5b|product|a2b775052782|s1",
+					"repetition": 3,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:1.5b|product|a2b775052782|s1",
+					"repetition": 4,
+					"turn": 1,
+					"what": "request"
+				},
+				{
+					"key": "qwen2.5-coder:1.5b|product|a2b775052782|s1",
+					"repetition": 5,
+					"turn": 1,
+					"what": "request"
+				}
+			],
+			"identicalShare": {
+				"value": 0.9125,
+				"low": 0.8302320449152499,
+				"high": 0.9569679982179401
+			}
+		}
+	],
+	"harnessDivergences": [
+		{
+			"key": "qwen2.5-coder:7b|product|0febfb648726|s1",
+			"repetition": 3,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:7b|product|0febfb648726|s1",
+			"repetition": 4,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:7b|product|0febfb648726|s1",
+			"repetition": 5,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:7b|product|64b788f8677f|s1",
+			"repetition": 4,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:7b|product|64b788f8677f|s1",
+			"repetition": 5,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:7b|product|bd2f91618ede|s1",
+			"repetition": 4,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:7b|product|bd2f91618ede|s1",
+			"repetition": 5,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:1.5b|product|816770a926c8|s1",
+			"repetition": 2,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:1.5b|product|816770a926c8|s1",
+			"repetition": 3,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:1.5b|product|816770a926c8|s1",
+			"repetition": 4,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:1.5b|product|816770a926c8|s1",
+			"repetition": 5,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:1.5b|product|a2b775052782|s1",
+			"repetition": 3,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:1.5b|product|a2b775052782|s1",
+			"repetition": 4,
+			"turn": 1,
+			"what": "request"
+		},
+		{
+			"key": "qwen2.5-coder:1.5b|product|a2b775052782|s1",
+			"repetition": 5,
+			"turn": 1,
+			"what": "request"
+		}
+	],
+	"howItIsCounted": "A comparison is one repetition after the first against the first repetition of the same model, configuration, task and seed. The intervals are Wilson intervals on the comparisons, which are not independent within a task: unitsAllIdentical is the count that does not depend on that."
+}
