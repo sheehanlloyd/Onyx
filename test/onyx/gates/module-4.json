@@ -167,6 +167,24 @@
 			"timeoutMs": 3600000
 		},
 		{
+			"id": "R-56",
+			"title": "L17 eviction policies: a scripted 16-turn run in the simulation rig under each of the three policies, against a runtime that counts the prompt tokens it processes again: every request fits with its output cap under every policy (R-16), no invariant is violated, and block eviction processes fewer tokens again than oldest-first",
+			"layer": "service",
+			"regressions": [
+				"R-56",
+				"R-16"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxContextBudget.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxContextBudget.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxContextBudget"
+			]
+		},
+		{
 			"id": "R-54-pure",
 			"title": "L15 determinism measure: identical repetitions are 100% identical; a difference planted at a known turn is reported at that turn and attributed to the runtime or the harness by what differs first; H-6 is decided by its registered thresholds",
 			"layer": "pure",
