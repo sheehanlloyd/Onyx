@@ -1,0 +1,62 @@
+{
+	"records": 200,
+	"recordsTheRuntimeCouldNotServe": 0,
+	"units": 40,
+	"multiTurnRuns": 200,
+	"runs": 200,
+	"pooled": {
+		"comparisons": 160,
+		"identical": 160,
+		"identicalShare": {
+			"value": 1,
+			"low": 0.9765538048284949,
+			"high": 1
+		}
+	},
+	"byModel": [
+		{
+			"group": "qwen2.5-coder:7b",
+			"units": 20,
+			"comparisons": 80,
+			"identical": 80,
+			"unitsAllIdentical": 20,
+			"firstDivergingTurn": [],
+			"bySource": {
+				"runtime": 0,
+				"harness": 0,
+				"length": 0
+			},
+			"divergedWithADifferentOutcome": 0,
+			"seedNotKnownHonoured": 80,
+			"harnessDivergences": [],
+			"identicalShare": {
+				"value": 1,
+				"low": 0.9541818704644728,
+				"high": 0.9999999999999999
+			}
+		},
+		{
+			"group": "qwen2.5-coder:1.5b",
+			"units": 20,
+			"comparisons": 80,
+			"identical": 80,
+			"unitsAllIdentical": 20,
+			"firstDivergingTurn": [],
+			"bySource": {
+				"runtime": 0,
+				"harness": 0,
+				"length": 0
+			},
+			"divergedWithADifferentOutcome": 0,
+			"seedNotKnownHonoured": 80,
+			"harnessDivergences": [],
+			"identicalShare": {
+				"value": 1,
+				"low": 0.9541818704644728,
+				"high": 0.9999999999999999
+			}
+		}
+	],
+	"harnessDivergences": [],
+	"howItIsCounted": "A comparison is one repetition after the first against the first repetition of the same model, configuration, task and seed. The intervals are Wilson intervals on the comparisons, which are not independent within a task: unitsAllIdentical is the count that does not depend on that."
+}

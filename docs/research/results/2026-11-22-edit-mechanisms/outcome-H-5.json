@@ -1,0 +1,13 @@
+{
+	"hypothesis": "H-5",
+	"statement": "Edits whose anchor was not in the model's context that turn score lower than grounded edits",
+	"outcome": "refuted",
+	"number": "grounded 163 edits, mean score 0.021; ungrounded 36 edits, mean score 0.000; difference 0.021 [0.009, 0.034]",
+	"reason": "the registered minimum is 300 edits a class; Cliff's delta 0.08",
+	"thresholds": "PREREGISTRATION.md, H-5, with the sample of Amendment 2",
+	"decidedFrom": [
+		"attempts.jsonl",
+		"analysis.json"
+	],
+	"regenerate": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2"
+}
