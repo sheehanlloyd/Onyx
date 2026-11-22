@@ -468,8 +468,13 @@ function answerFor(system: string, body: any, hasToolResult: boolean) {
 	if (/skeptical senior reviewer/.test(system)) {
 		return JSON.stringify({ findings: [{ file: 'src/report.ts', line: 9, severity: 'high', title: 'Unchecked index access', detail: 'lines[0] is read without a length check.' }] });
 	}
-	return `Hello from ${body.model}! ${hasToolResult ? 'Tool result received; task complete. ' : ''}Streaming ${body.tools?.length ?? 0} tools were offered. All inference is local.`;
+	// R-54: a runtime that is not deterministic at one known turn. With ONYX_MOCK_VARY_AFTER_TOOL_RESULTS=<n>, the
+	// answer to a request that carries exactly n tool results is different every time it is given.
+	const toolResults = (body.messages ?? []).filter((m: any) => m.role === 'tool').length;
+	const varied = process.env.ONYX_MOCK_VARY_AFTER_TOOL_RESULTS === String(toolResults) ? ` Variation ${++variation}.` : '';
+	return `Hello from ${body.model}! ${hasToolResult ? 'Tool result received; task complete. ' : ''}Streaming ${body.tools?.length ?? 0} tools were offered. All inference is local.${varied}`;
 }
+let variation = 0;
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 

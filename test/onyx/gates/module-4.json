@@ -167,6 +167,41 @@
 			"timeoutMs": 3600000
 		},
 		{
+			"id": "R-54-pure",
+			"title": "L15 determinism measure: identical repetitions are 100% identical; a difference planted at a known turn is reported at that turn and attributed to the runtime or the harness by what differs first; H-6 is decided by its registered thresholds",
+			"layer": "pure",
+			"regressions": [
+				"R-54"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxDeterminism.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxDeterminism.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxDeterminism"
+			]
+		},
+		{
+			"id": "R-54-node",
+			"title": "L15 determinism measure on tier A campaigns against the mock, three repetitions a task: with the mock as it is every repetition is the same trajectory as the first; with a mock that answers differently every time at the third turn, every repetition diverges at turn 3, the runtime is named and the harness is not",
+			"layer": "node",
+			"regressions": [
+				"R-54"
+			],
+			"files": [
+				"test/onyx/lab/analyze-determinism.mts",
+				"test/onyx/checks/r54-determinism.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r54-determinism.test.mts"
+			],
+			"timeoutMs": 1800000
+		},
+		{
 			"id": "L14-appliers",
 			"title": "L14 the three lab-only comparator appliers place what they are described to place, refuse what they should, are wrong where the study says they can be, and are named by no file under src/",
 			"layer": "node",
