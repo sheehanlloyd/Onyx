@@ -1,7 +1,7 @@
 # Onyx plan state
 Plan version: v4.1
-Current module: 3      Status: in progress (resumed on the machine's 96 W charger). Fourteen of fifteen items are done and merged; the gate has not been run. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
-Revision: branch `module-3` at d8cdd4aee3a (the merge of L7) plus this file's commit; draft pull request sheehanlloyd/Onyx#4 into `main`, not merged, not marked ready
+Current module: 3      Status: in progress (resumed on the machine's 96 W charger). Fifteen of fifteen items are done and merged; the gate has not been run. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
+Revision: branch `module-3` at 9c177015764 (the merge of L8) plus this file's commit; draft pull request sheehanlloyd/Onyx#4 into `main`, not merged, not marked ready
 Isolated checkout: branch `module-3` in a work clone that was moved out of the cloud-synchronised Desktop folder on 2026-11-21 into a plain developer folder under the same account (clone directory `onyx-work`; packaged builds land beside it); the four audit documents are excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-11-20 the base was 36d38757a15 (August 2026)
@@ -25,8 +25,9 @@ Items done:
 | C10 | codex/c10-benign-dots → #4 | C10.md | R-30 |
 | L6 | codex/l6-edit-certificates → #4 | L6.md | R-46, one end-to-end check |
 | L7 | codex/l7-constrained-anchors → #4 | L7.md | R-47 |
-Items remaining, in order: L8, then the gate (`node test/onyx/run-module-gate.mts --module 3`). None of them is started: there is no branch and no uncommitted work for any of them.
-Power: the first six items were done on a 13 W adapter (100% to 55%) and the session stopped there; the owner connected the 96 W charger and work resumed at C1. The charger was disconnected during L7 (seen at 93% on battery, 2026-11-21 22:06); work continues under the rule of stopping below 30% on battery.
+| L8 | codex/l8-trace-replay → #4 | L8.md | R-48, R-48-corpus, a CI step |
+Items remaining: none. All fifteen are merged into `module-3`. The gate has not been run.
+Power: the first six items were done on a 13 W adapter (100% to 55%) and the session stopped there; the owner connected the 96 W charger and work resumed at C1. The charger was disconnected during L7 (seen at 93% on battery, 2026-11-21 22:06); work continues under the rule of stopping below 30% on battery. The 96 W charger was reconnected during L8 (85% and charging at 22:59).
 Scope dispositions:
   C9, C10, L7: included (docs/SUPPORT.md). L7 is included as an experimental protocol, off by default and reachable only as a lab arm; whether it becomes a default is L14's decision in Module 4.
   B15: LM Studio was not probed. It is installed on the reference machine, was not running, and was not started. Onyx asks LM Studio for nothing and budgets against the loaded context it reports. Step 1 of B15 is unfinished for LM Studio.
@@ -46,8 +47,9 @@ Rig corrections found in this module, each one a check that had been passing wit
   B7: a review that moved (after an accept or a rebase) was recorded as a new staging.
   B8: accept-all counted every staged file as accepted whether or not the accept was applied.
   B10: the stop step cancelled the chat request as well as pressing Stop, which hid the path the audit reported.
-Gate: NOT RUN. `test/onyx/gates/module-3.json` holds the checks for the six items done (R-61, R-07 to R-15, R-33, R-34, R-38, the evidence tables, the 20,000-episode campaign against the empty table, the mutants). R-21, R-22 and the service half of R-25 are in. R-29, R-30, R-46 and R-47 are in too. Still to add: R-48 with L8, and the end-to-end and packaged release checks.
+Gate: NOT RUN. `test/onyx/gates/module-3.json` holds the checks for the six items done (R-61, R-07 to R-15, R-33, R-34, R-38, the evidence tables, the 20,000-episode campaign against the empty table, the mutants). R-21, R-22 and the service half of R-25 are in. Every regression of the chapter has its check (R-48 with L8). The end-to-end and packaged release checks are Module 1's and run with the gate.
 Integration runs (local, node v24.22.3, pnpm 12.16.0, clean tree each time):
+  after L8, 9c177015764: self-checks 38 of 38; end-to-end "all 66 checks passed"; unit "346 passing, 3 pending"; 2,000 episodes "exceptions":0, no class seen; 36 mutants detected; 41 traces replayed
   after L7, d8cdd4aee3a: self-checks 37 of 37; end-to-end "all 66 checks passed"; unit "343 passing, 2 pending"; 2,000 episodes "exceptions":0, no class seen; 36 mutants detected
   after L6, 9342bfbd950: self-checks 37 of 37; end-to-end "all 66 checks passed" on the third run (the first failed on the new R-46 check, rightly; the second aborted at startup behind the first-run dialog, and the runner was hardened); unit "338 passing, 2 pending"; 2,000 episodes "exceptions":0, no class seen; 36 mutants detected
   after C10, 28a6c6725ea: self-checks 37 of 37; end-to-end "all 65 checks passed"; unit "333 passing, 2 pending"; 2,000 episodes "exceptions":0, no class seen; 35 mutants detected
@@ -69,7 +71,7 @@ Human actions waiting:
   None for power: the 96 W charger is connected. On the 13 W adapter the machine does not last a module.
   LM Studio: say whether a session may start it to finish B15's step 1 there, or whether "not probed, best effort" is the disposition.
 Notes for the next session:
-  Resume Module 3 at L8 on `module-3`. The rig's scenario and mutant tables cannot carry a harness configuration yet; L7 has no mutant for that reason.
+  All fifteen items are merged. What is left is the gate: the gate self-check, a packaged build of the final tree, `node test/onyx/run-module-gate.mts --module 3`, the Section 11 suite once more, and CI green twice.
   The work clone moved. Two links the build makes inside `node_modules` point at absolute paths; after any move, remove dangling ones (`find . -type l -lname '*<old location>*'`) before a packaged build.
   The rig's users now act after a run and its Stop is the button alone. A new check that "holds" should come with a test that its user steps ran (`OnyxSim the scripted user steps are carried out`).
 
