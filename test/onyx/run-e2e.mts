@@ -380,6 +380,9 @@ async function typeInEditor() {
  * a real `<input>`, so Playwright's fill works — unlike the Monaco chat input.
  */
 async function runCommand(label: string) {
+	// The first-run dialog can come up later than the two moments this runner waits for it at: on a loaded
+	// machine it has appeared a minute in. It is modal, so it is looked for before every command and prompt.
+	await dismissOnboarding(0);
 	pw('press', 'F1');
 	await sleep(800);
 	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ${JSON.stringify('>' + label)}); }`);
@@ -441,6 +444,7 @@ async function dismissOnboarding(waitMs: number): Promise<void> {
 }
 
 async function send(prompt: string) {
+	await dismissOnboarding(0);
 	const focusScript = path.join(repoRoot, '.agents', 'skills', 'launch', 'playwrightScripts', 'focus-chat-input.ts');
 	const paste = path.join(repoRoot, '.agents', 'skills', 'launch', 'scripts', 'monaco-paste.sh');
 	pw('run-code', `--filename=${focusScript}`);
