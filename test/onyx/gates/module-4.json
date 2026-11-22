@@ -202,6 +202,41 @@
 			"timeoutMs": 1800000
 		},
 		{
+			"id": "R-55-pure",
+			"title": "L16 calibration metrics: AUROC and expected calibration error match their known values on synthetic predictions, the interval of AUROC covers the known value about as often as it says and resamples by task, an estimator below the registered threshold gets no badge, and without a badge decision nothing is rendered for a hunk",
+			"layer": "pure",
+			"regressions": [
+				"R-55"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxCalibration.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxCalibration.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxCalibration"
+			]
+		},
+		{
+			"id": "R-55-node",
+			"title": "L16 the study's path against the mock: a tier S campaign that asks for log-probabilities keeps each token with its own, every hunk of the first seed's reply gets the agreement of the samples and the least token probability of its block, and with one class of hunk nothing is decided and no badge ships",
+			"layer": "node",
+			"regressions": [
+				"R-55"
+			],
+			"files": [
+				"test/onyx/lab/analyze-confidence.mts",
+				"test/onyx/checks/r55-confidence.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r55-confidence.test.mts"
+			],
+			"timeoutMs": 600000
+		},
+		{
 			"id": "L14-appliers",
 			"title": "L14 the three lab-only comparator appliers place what they are described to place, refuse what they should, are wrong where the study says they can be, and are named by no file under src/",
 			"layer": "node",
