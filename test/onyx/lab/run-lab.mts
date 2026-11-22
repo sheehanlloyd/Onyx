@@ -65,7 +65,7 @@ interface ILabTask { readonly id: string; readonly commit: string; readonly file
 interface ILabUnit { readonly id: string; readonly model: string; readonly configuration: string; readonly task: ILabTask; readonly seed: number; readonly repetition: number }
 interface ILabRecord { readonly unit: string; readonly model: string; readonly configuration: string; readonly task: string; readonly seed: number; readonly repetition: number; readonly tier: 'S' | 'A'; readonly outcome: string; readonly reply: string | null; readonly edits: readonly unknown[]; readonly events: readonly unknown[]; readonly requests: readonly unknown[]; readonly harnessHash: string | null; readonly deniedCommands: number; readonly durationMs: number; readonly finishReason?: string | null; readonly error?: string }
 interface ILabResult { readonly unit: string; readonly outcome: string; readonly score: number | null; readonly success: boolean | null }
-interface ICampaign { readonly tier: 'S' | 'A'; readonly baseUrl: string; readonly tasks: string; readonly unitTimeoutMs?: number; readonly maxBeforeChars?: number; readonly datasheets?: string }
+interface ICampaign { readonly tier: 'S' | 'A'; readonly baseUrl: string; readonly tasks?: string; readonly unitTimeoutMs?: number; readonly maxBeforeChars?: number; readonly datasheets?: string; readonly measure?: { readonly revision: string; readonly taskCount?: number; readonly datasheets?: boolean } }
 interface ILabModule {
 	planLabCampaign(spec: { tier: 'S' | 'A'; models: readonly string[]; configurations: readonly string[]; tasks: readonly ILabTask[]; seeds: readonly number[]; repetitions: number }): ILabUnit[];
 	remainingLabUnits(plan: readonly ILabUnit[], finished: ReadonlySet<string>): ILabUnit[];
@@ -154,7 +154,16 @@ if (path.basename(outDir) !== manifest.name) {
 	console.error(`run-lab: the manifest's directory is ${path.basename(outDir)} and its name is ${manifest.name}; they have to be the same`);
 	process.exit(2);
 }
-const tasksFile: { readonly tasks: readonly ILabTask[] } = JSON.parse(fs.readFileSync(path.resolve(outDir, campaign.tasks), 'utf8'));
+if (!campaign.measure && !campaign.tasks) {
+	console.error('run-lab: the campaign names no task set');
+	process.exit(2);
+}
+if (campaign.measure && (campaign.tier !== 'A' || !/^[0-9a-f]{7,40}$/.test(campaign.measure.revision))) {
+	console.error('run-lab: a measurement runs the command in the application (tier A), on a worktree at a commit named by its hash');
+	process.exit(2);
+}
+// A measurement has no task set of its own: the command selects its tasks, by the product's rule, when it runs.
+const tasksFile: { readonly tasks: readonly ILabTask[] } = campaign.tasks ? JSON.parse(fs.readFileSync(path.resolve(outDir, campaign.tasks), 'utf8')) : { tasks: [] };
 const wireModels = manifest.models.map(model => (model as { wireModel?: string }).wireModel ?? model.identifier.replace(/^[a-z]+:/, ''));
 const root = campaign.baseUrl.replace(/\/v1$/, '');
 
@@ -172,6 +181,8 @@ function appendRecord(record: ILabRecord): void {
 	fs.appendFileSync(recordsPath, `${existing && !existing.endsWith('\n') ? '\n' : ''}${JSON.stringify(record)}\n`);
 }
 
+/** What a measurement's scorecard says was planned and whether it ran whole; set when its results are read. */
+let measured: { readonly planned: number; readonly complete: boolean } | undefined;
 const plan = lab.planLabCampaign({ tier: campaign.tier, models: wireModels, configurations: manifest.harnessConfigurations.map(entry => entry.name), tasks: tasksFile.tasks, seeds: manifest.seeds, repetitions: manifest.repetitions });
 const instructions = new Map<string, string>();
 /** A task's instruction: the commit's message without its trailers (L10). Read from the repository, never committed. */
@@ -186,6 +197,21 @@ const instructionOf = (task: ILabTask): string => {
 
 /** Scores every record against its task and writes results.jsonl and summary.json. Everything in them comes from the records and the repository. */
 function writeResults(): { readonly results: ILabResult[]; readonly unscorable: number } {
+	if (campaign!.measure) {
+		// The command scored its own attempts; its scorecard is the record, and these two files are read out of it.
+		const cardPath = path.join(outDir, 'scorecard.json');
+		const card: { partial: boolean; plannedUnits: number; attempts: ILabResult[]; skips: unknown[]; tasks: object; heldOutAfter: string | null; ranking: object; estimateSeconds: number | null; tookSeconds: number } | undefined = fs.existsSync(cardPath) ? JSON.parse(fs.readFileSync(cardPath, 'utf8')) : undefined;
+		const attempts = card?.attempts ?? [];
+		fs.writeFileSync(path.join(outDir, 'results.jsonl'), attempts.map(attempt => JSON.stringify(attempt)).join('\n') + (attempts.length ? '\n' : ''));
+		fs.writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify({
+			campaign: manifest.name, command: 'Onyx: Measure Models for This Repository', plannedUnits: card?.plannedUnits ?? 0, finishedUnits: attempts.length, complete: !!card && !card.partial,
+			tasks: card?.tasks ?? null, heldOutAfter: card?.heldOutAfter ?? null, ranking: card?.ranking ?? null, estimateSeconds: card?.estimateSeconds ?? null, tookSeconds: card?.tookSeconds ?? null,
+			rows: lab.summarizeLabResults(attempts),
+		}, undefined, '\t') + '\n');
+		fs.writeFileSync(path.join(outDir, 'trace-digests.json'), JSON.stringify(Object.fromEntries(attempts.map(attempt => [attempt.unit, sha256(JSON.stringify(attempt))])), undefined, '\t') + '\n');
+		measured = card ? { planned: card.plannedUnits, complete: !card.partial } : undefined;
+		return { results: attempts, unscorable: 0 };
+	}
 	const results: ILabResult[] = [];
 	let unscorable = 0;
 	const byId = new Map(tasksFile.tasks.map(task => [task.id, task]));
@@ -388,6 +414,77 @@ function applicationLogTail(userDataDir: string): string | undefined {
 	}
 }
 
+/**
+ * Starts the application on a worktree with a work order, waits until the engine inside says it is done, has
+ * failed, or has stopped answering, and ends the application. One instance, one profile of its own.
+ */
+async function runApplication(workDir: string, worktree: string, heartbeatPath: string, index: number, order: { readonly unitTimeoutMs: number; readonly units: readonly object[]; readonly measure?: object }): Promise<{ readonly state: string; readonly reason: string | undefined; readonly exited: boolean; readonly userDataDir: string }> {
+	const statusPath = path.join(workDir, 'status.json');
+	const cancelPath = path.join(workDir, 'cancel');
+	const orderPath = path.join(workDir, 'order.json');
+	fs.rmSync(statusPath, { force: true });
+	fs.writeFileSync(orderPath, JSON.stringify({ worktree, recordsPath, statusPath, cancelPath, heartbeatPath, baseUrl: campaign!.baseUrl, ...order }));
+	// A profile of its own, with the campaign's endpoint added to the runtimes discovery probes. Discovery
+	// stays on: it is what identifies the runtime (its kind, its version, each model's digest). It probes
+	// this machine's well-known ports and nothing else, and every unit names its model by this endpoint.
+	const userDataDir = path.join(workDir, `user-data-${index}`);
+	fs.mkdirSync(path.join(userDataDir, 'User'), { recursive: true });
+	fs.writeFileSync(path.join(userDataDir, 'User', 'settings.json'), JSON.stringify({
+		'onyx.endpoints': [{ baseUrl: campaign!.baseUrl }], 'onyx.discovery.enabled': true, 'onyx.routing.mode': 'manual', 'onyx.autocomplete.enabled': false,
+		'onyx.review.background': false, 'onyx.verification.task': '', 'onyx.energy.policy': 'performance', 'git.enabled': false, 'git.autoRepositoryDetection': false, 'telemetry.telemetryLevel': 'off',
+		'extensions.autoUpdate': false, 'extensions.autoCheckUpdates': false, 'update.mode': 'none', 'workbench.enableExperiments': false, 'files.watcherExclude': { '**': true },
+	}, undefined, '\t'));
+	const child = spawn(path.join(appRoot, 'scripts', 'code.sh'), [
+		`--user-data-dir=${userDataDir}`, `--extensions-dir=${path.join(workDir, 'extensions')}`, '--disable-extensions',
+		...(process.platform === 'darwin' ? ['--use-mock-keychain'] : []), '--disable-workspace-trust', '--skip-release-notes', worktree,
+	], { cwd: appRoot, env: { ...process.env, VSCODE_SKIP_PRELAUNCH: '1', ONYX_LAB_CAMPAIGN: orderPath, GIT_LFS_SKIP_SMUDGE: '1' }, stdio: 'ignore', detached: true });
+	fs.writeFileSync(path.join(workDir, 'app.pid'), String(child.pid ?? 0));
+	let exited = false;
+	child.on('exit', () => { exited = true; });
+	onCancel = () => fs.writeFileSync(cancelPath, '');
+	let state = 'starting';
+	let reason: string | undefined;
+	let lastProgress = Date.now();
+	let lastDone = -1;
+	const startBudgetMs = 180_000;
+	try {
+		for (; ;) {
+			await sleep(500);
+			if (fs.existsSync(statusPath)) {
+				try {
+					const status: { state: string; done?: number; reason?: string } = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+					state = status.state;
+					reason = status.reason;
+					if ((status.done ?? 0) !== lastDone) {
+						lastDone = status.done ?? 0;
+						lastProgress = Date.now();
+					}
+				} catch {
+					// read while it was being written
+				}
+			}
+			if (state === 'done' || state === 'cancelled' || state === 'failed' || state === 'refused' || exited) {
+				break;
+			}
+			if (cancelled && Date.now() - lastProgress > 15_000) {
+				break;
+			}
+			if (state === 'starting' && Date.now() - lastProgress > startBudgetMs) {
+				reason = `the application did not start the campaign within ${startBudgetMs / 1000} seconds`;
+				break;
+			}
+			if (state === 'running' && Date.now() - lastProgress > order.unitTimeoutMs + 120_000) {
+				reason = 'no unit finished within the time one unit may take, and two minutes';
+				break;
+			}
+		}
+	} finally {
+		killGroup(child);
+		onCancel = undefined;
+	}
+	return { state, reason, exited, userDataDir };
+}
+
 async function runTierA(units: readonly ILabUnit[], evictions: object[], notes: string[]): Promise<void> {
 	// What a launcher that was killed left behind: its folder, its worktree and perhaps its application.
 	for (const entry of fs.readdirSync(os.tmpdir()).filter(name => name.startsWith('onyx-lab-'))) {
@@ -412,9 +509,35 @@ async function runTierA(units: readonly ILabUnit[], evictions: object[], notes: 
 	const heartbeatPath = path.join(workDir, 'heartbeat');
 	fs.writeFileSync(heartbeatPath, '');
 	const heartbeat = setInterval(() => fs.writeFileSync(heartbeatPath, String(Date.now())), 3000);
-	let child: ChildProcess | undefined;
+	const measure = campaign!.measure;
 	try {
-		git(repo, ['worktree', 'add', '--quiet', '--detach', worktree, `${units[0].task.commit}~1`]);
+		git(repo, ['worktree', 'add', '--quiet', '--detach', worktree, measure ? measure.revision : `${units[0].task.commit}~1`]);
+		if (measure) {
+			// The measure command itself, in the application, with its prompts answered in advance (L11).
+			evictions.push({ before: 'the measurement', ...(await evictAll() ?? { unknown: 'the runtime does not say what it holds' }) });
+			const { state, reason, exited, userDataDir } = await runApplication(workDir, worktree, heartbeatPath, 0, {
+				unitTimeoutMs: campaign!.unitTimeoutMs ?? 3_600_000, units: [],
+				measure: { modelIds: wireModels, datasheets: measure.datasheets !== false, ...(measure.taskCount ? { taskCount: measure.taskCount } : {}) },
+			});
+			if (cancelled) {
+				notes.push(`cancelled; the application's last word was "${state}"`);
+				return;
+			}
+			if (state !== 'done') {
+				const tail = applicationLogTail(userDataDir);
+				throw new Error(`the measurement did not finish: the application ${exited ? 'exited' : 'was stopped'} in state "${state}"${reason ? ` (${reason})` : ''}${tail ? `; its log ended: ${tail}` : ''}`);
+			}
+			// What the command saved into the worktree is the result: it is taken out before the worktree goes.
+			const saved = path.join(worktree, '.onyx', 'scorecards');
+			const newest = fs.existsSync(saved) ? fs.readdirSync(saved).sort().at(-1) : undefined;
+			if (!newest) {
+				throw new Error('the measurement finished and saved no scorecard');
+			}
+			for (const name of ['scorecard.md', 'scorecard.svg', 'scorecard.json']) {
+				fs.copyFileSync(path.join(saved, newest, name), path.join(outDir, name));
+			}
+			return;
+		}
 		const configurations = new Map(manifest.harnessConfigurations.map(entry => [entry.name, entry.configuration ?? {}]));
 		const models = [...new Set(units.map(unit => unit.model))];
 		for (const model of models) {
@@ -429,74 +552,14 @@ async function runTierA(units: readonly ILabUnit[], evictions: object[], notes: 
 					break;
 				}
 				evictions.push({ before: model, ...(await evictAll() ?? { unknown: 'the runtime does not say what it holds' }) });
-				const statusPath = path.join(workDir, 'status.json');
-				const cancelPath = path.join(workDir, 'cancel');
-				const orderPath = path.join(workDir, 'order.json');
-				fs.rmSync(statusPath, { force: true });
-				fs.writeFileSync(orderPath, JSON.stringify({
-					worktree, recordsPath, statusPath, cancelPath, heartbeatPath, baseUrl: campaign!.baseUrl, unitTimeoutMs: campaign!.unitTimeoutMs ?? 600_000,
+				const before = finished.size;
+				const { state, reason, exited, userDataDir } = await runApplication(workDir, worktree, heartbeatPath, evictions.length, {
+					unitTimeoutMs: campaign!.unitTimeoutMs ?? 600_000,
 					units: segment.map(unit => ({
 						id: unit.id, manifest: manifest.name, model: unit.model, configuration: { name: unit.configuration, configuration: configurations.get(unit.configuration) ?? {} }, task: unit.task,
 						seed: unit.seed, repetition: unit.repetition, temperature: manifest.sampling.temperature, instruction: lab.labAgentInstruction(unit.task.file, instructionOf(unit.task)),
 					})),
-				}));
-				// A profile of its own, with the campaign's endpoint added to the runtimes discovery probes. Discovery
-				// stays on: it is what identifies the runtime (its kind, its version, each model's digest). It probes
-				// this machine's well-known ports and nothing else, and every unit names its model by this endpoint.
-				const userDataDir = path.join(workDir, `user-data-${evictions.length}`);
-				fs.mkdirSync(path.join(userDataDir, 'User'), { recursive: true });
-				fs.writeFileSync(path.join(userDataDir, 'User', 'settings.json'), JSON.stringify({
-					'onyx.endpoints': [{ baseUrl: campaign!.baseUrl }], 'onyx.discovery.enabled': true, 'onyx.routing.mode': 'manual', 'onyx.autocomplete.enabled': false,
-					'onyx.review.background': false, 'onyx.verification.task': '', 'onyx.energy.policy': 'performance', 'git.enabled': false, 'git.autoRepositoryDetection': false, 'telemetry.telemetryLevel': 'off',
-					'extensions.autoUpdate': false, 'extensions.autoCheckUpdates': false, 'update.mode': 'none', 'workbench.enableExperiments': false, 'files.watcherExclude': { '**': true },
-				}, undefined, '\t'));
-				const before = finished.size;
-				child = spawn(path.join(appRoot, 'scripts', 'code.sh'), [
-					`--user-data-dir=${userDataDir}`, `--extensions-dir=${path.join(workDir, 'extensions')}`, '--disable-extensions',
-					...(process.platform === 'darwin' ? ['--use-mock-keychain'] : []), '--disable-workspace-trust', '--skip-release-notes', worktree,
-				], { cwd: appRoot, env: { ...process.env, VSCODE_SKIP_PRELAUNCH: '1', ONYX_LAB_CAMPAIGN: orderPath, GIT_LFS_SKIP_SMUDGE: '1' }, stdio: 'ignore', detached: true });
-				fs.writeFileSync(path.join(workDir, 'app.pid'), String(child.pid ?? 0));
-				let exited = false;
-				child.on('exit', () => { exited = true; });
-				onCancel = () => fs.writeFileSync(cancelPath, '');
-				let state = 'starting';
-				let reason: string | undefined;
-				let lastProgress = Date.now();
-				let lastDone = -1;
-				const startBudgetMs = 180_000;
-				for (; ;) {
-					await sleep(500);
-					if (fs.existsSync(statusPath)) {
-						try {
-							const status: { state: string; done?: number; reason?: string } = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
-							state = status.state;
-							reason = status.reason;
-							if ((status.done ?? 0) !== lastDone) {
-								lastDone = status.done ?? 0;
-								lastProgress = Date.now();
-							}
-						} catch {
-							// read while it was being written
-						}
-					}
-					if (state === 'done' || state === 'cancelled' || state === 'failed' || state === 'refused' || exited) {
-						break;
-					}
-					if (cancelled && Date.now() - lastProgress > 15_000) {
-						break;
-					}
-					if (state === 'starting' && Date.now() - lastProgress > startBudgetMs) {
-						reason = `the application did not start the campaign within ${startBudgetMs / 1000} seconds`;
-						break;
-					}
-					if (state === 'running' && Date.now() - lastProgress > (campaign!.unitTimeoutMs ?? 600_000) + 120_000) {
-						reason = 'no unit finished within the time one unit may take, and two minutes';
-						break;
-					}
-				}
-				killGroup(child);
-				child = undefined;
-				onCancel = undefined;
+				});
 				if (cancelled) {
 					notes.push(`cancelled; the application's last word was "${state}"`);
 					return;
@@ -523,9 +586,6 @@ async function runTierA(units: readonly ILabUnit[], evictions: object[], notes: 
 		}
 	} finally {
 		clearInterval(heartbeat);
-		if (child) {
-			killGroup(child);
-		}
 		try {
 			git(repo, ['worktree', 'remove', '--force', worktree]);
 		} catch {
@@ -571,7 +631,11 @@ const evictions: object[] = [];
 const notes: string[] = [];
 let failure: string | undefined;
 try {
-	if (remaining.length > 0) {
+	if (campaign.measure) {
+		if (!fs.existsSync(path.join(outDir, 'scorecard.json'))) {
+			await runTierA([], evictions, notes);
+		}
+	} else if (remaining.length > 0) {
 		if (campaign.tier === 'S') {
 			await runTierS(remaining, evictions);
 		} else {
@@ -587,17 +651,18 @@ const stateAfter = repositoryState();
 const unchanged = JSON.stringify(stateBefore) === JSON.stringify(stateAfter);
 const { results, unscorable } = writeResults();
 const seconds = Math.round((Date.now() - started) / 1000);
-const complete = results.length + unscorable === plan.length;
+const complete = campaign.measure ? measured?.complete === true : results.length + unscorable === plan.length;
+const planned = campaign.measure ? measured?.planned ?? 0 : plan.length;
 const session = { startedAt: startConditions.at, seconds, unitsLeftAtStart: remaining.length, ...(campaign.tier === 'A' ? { application: applicationProvenance() } : {}), estimate, conditionsAtStart: startConditions, conditionsAtEnd: conditions(), ended: failure ? `failed: ${failure}` : cancelled ? 'cancelled' : complete ? 'complete' : 'stopped before the end', evictions, notes };
 fs.writeFileSync(campaignPath, JSON.stringify({
-	campaign: manifest.name, tier: campaign.tier, plannedUnits: plan.length, finishedUnits: results.length, complete,
+	campaign: manifest.name, tier: campaign.tier, plannedUnits: planned, finishedUnits: results.length, complete,
 	machineSeconds: (previous.machineSeconds ?? 0) + seconds,
 	firstEstimate: previous.estimate ?? estimate,
 	repository: { unchanged, before: stateBefore, after: stateAfter },
 	sessions: [...(previous.sessions ?? []), session],
 }, undefined, '\t') + '\n');
 
-console.log(`${results.length} of ${plan.length} units have a result; this session took ${seconds} s (${(previous.machineSeconds ?? 0) + seconds} s in all)`);
+console.log(`${results.length} of ${planned} units have a result; this session took ${seconds} s (${(previous.machineSeconds ?? 0) + seconds} s in all)`);
 if (!unchanged) {
 	console.error('run-lab: THE REPOSITORY CHANGED DURING THE CAMPAIGN (files, index, HEAD or refs). See campaign.json.');
 	process.exit(4);

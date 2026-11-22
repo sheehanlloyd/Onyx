@@ -125,13 +125,17 @@ suite('OnyxLab', () => {
 			notJson: parseLabWorkOrder('{'),
 			unread: parseLabWorkOrder(undefined),
 			noWorktree: parseLabWorkOrder(JSON.stringify({ ...order, worktree: '' })),
-			aCommitThatIsNotAHash: parseLabWorkOrder(JSON.stringify({ ...order, units: [{ ...unit, task: { ...unit.task, commit: 'HEAD; rm -rf' } }] })),
+			aCommitThatIsNotAHash: parseLabWorkOrder(JSON.stringify({ ...order, units: [{ ...unit, task: { ...unit.task, commit: 'not a hash' } }] })),
+			aMeasurement: (() => { const result = parseLabWorkOrder(JSON.stringify({ ...order, units: [], measure: { modelIds: ['m'], taskCount: 12 } })); return result.ok && result.order.measure; })(),
+			aMeasurementOfNothing: parseLabWorkOrder(JSON.stringify({ ...order, units: [], measure: { modelIds: [] } })),
 		}, {
 			whole: 'Make this change to the file a.ts:\n\nFix the sum\n\nRead the file first, then propose the change with the editFile tool. Do not ask for more information.',
 			notJson: { ok: false, error: 'the work order is not JSON' },
 			unread: { ok: false, error: 'the work order could not be read' },
 			noWorktree: { ok: false, error: 'the work order has no worktree' },
 			aCommitThatIsNotAHash: { ok: false, error: 'the work order has a unit that is not whole' },
+			aMeasurement: { modelIds: ['m'], datasheets: true, taskCount: 12 },
+			aMeasurementOfNothing: { ok: false, error: 'the work order asks for a measurement that names no models' },
 		});
 	});
 

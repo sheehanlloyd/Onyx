@@ -267,6 +267,12 @@ export interface IOnyxLabWorkOrder {
 	readonly baseUrl: string;
 	readonly unitTimeoutMs: number;
 	readonly units: readonly IOnyxLabOrderUnit[];
+	/**
+	 * In place of units: run the product's own command, "Measure Models for
+	 * This Repository" (L11), on these models, with its prompts answered in
+	 * advance, and save its scorecard into the worktree.
+	 */
+	readonly measure?: { readonly modelIds: readonly string[]; readonly datasheets: boolean; readonly taskCount?: number };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -311,7 +317,15 @@ export function parseLabWorkOrder(text: string | undefined): { readonly ok: true
 			configuration: { name: configuration.name, configuration: configuration.configuration ?? {} }, task: { id: task.id, commit: task.commit, file: task.file },
 		});
 	}
-	return { ok: true, order: { worktree: String(parsed.worktree), recordsPath: String(parsed.recordsPath), statusPath: String(parsed.statusPath), cancelPath: String(parsed.cancelPath), heartbeatPath: String(parsed.heartbeatPath), baseUrl: String(parsed.baseUrl), unitTimeoutMs: parsed.unitTimeoutMs, units } };
+	let measure: IOnyxLabWorkOrder['measure'];
+	if (parsed.measure !== undefined) {
+		const asked = parsed.measure;
+		if (!isRecord(asked) || !Array.isArray(asked.modelIds) || asked.modelIds.length === 0 || !asked.modelIds.every(id => typeof id === 'string' && id.length > 0) || (asked.taskCount !== undefined && !(typeof asked.taskCount === 'number' && Number.isInteger(asked.taskCount) && asked.taskCount > 0))) {
+			return { ok: false, error: 'the work order asks for a measurement that names no models' };
+		}
+		measure = { modelIds: asked.modelIds.map(String), datasheets: asked.datasheets !== false, ...(typeof asked.taskCount === 'number' ? { taskCount: asked.taskCount } : {}) };
+	}
+	return { ok: true, order: { worktree: String(parsed.worktree), recordsPath: String(parsed.recordsPath), statusPath: String(parsed.statusPath), cancelPath: String(parsed.cancelPath), heartbeatPath: String(parsed.heartbeatPath), baseUrl: String(parsed.baseUrl), unitTimeoutMs: parsed.unitTimeoutMs, units, ...(measure ? { measure } : {}) } };
 }
 
 /**

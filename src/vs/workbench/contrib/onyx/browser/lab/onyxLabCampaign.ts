@@ -7,6 +7,8 @@ import { timeout } from '../../../../../base/common/async.js';
 import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
@@ -17,13 +19,14 @@ import { ILifecycleService } from '../../../../services/lifecycle/common/lifecyc
 import { IChatService } from '../../../chat/common/chatService/chatService.js';
 import { ChatAgentLocation } from '../../../chat/common/constants.js';
 import { ILanguageModelsService } from '../../../chat/common/languageModels.js';
-import { classifyLabUnit, IOnyxLabOrderUnit, IOnyxLabUnitRecord, parseLabWorkOrder } from '../../common/onyxLab.js';
+import { classifyLabUnit, IOnyxLabOrderUnit, IOnyxLabUnitRecord, IOnyxLabWorkOrder, parseLabWorkOrder } from '../../common/onyxLab.js';
 import { IOnyxRunEvent, ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { IOnyxHarnessConfigService } from '../agent/onyxHarnessConfigService.js';
 import { IOnyxChangeSetService, IOnyxStageAttempt } from '../changes/onyxChangeSetService.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { bm25PersistPath } from '../intelligence/onyxWorkspaceIndex.js';
 import { IOnyxModelService, IOnyxRequestMeasurement } from '../model/onyxLanguageModelProvider.js';
+import { IOnyxDatasheetService } from '../models/onyxDatasheetService.js';
 import { IOnyxTerminalService } from '../terminal/onyxTerminalTool.js';
 
 /** How often the engine looks for the launcher's request to stop. */
@@ -68,6 +71,8 @@ export class OnyxLabCampaignContribution extends Disposable implements IWorkbenc
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
 		@IOnyxTerminalService private readonly _terminalService: IOnyxTerminalService,
 		@IFileService private readonly _fileService: IFileService,
+		@ICommandService private readonly _commandService: ICommandService,
+		@IOnyxDatasheetService private readonly _datasheetService: IOnyxDatasheetService,
 		@ILifecycleService private readonly _lifecycleService: ILifecycleService,
 		@ILogService private readonly _logService: ILogService,
 	) {
@@ -98,6 +103,10 @@ export class OnyxLabCampaignContribution extends Disposable implements IWorkbenc
 		}
 		this._terminalService.setCampaignPolicy(true);
 		await status('running', { units: order.order.units.length });
+		if (order.order.measure) {
+			await this._measure(order.order.measure, order.order.baseUrl, status);
+			return;
+		}
 		const cancelUri = URI.file(order.order.cancelPath);
 		const heartbeatUri = URI.file(order.order.heartbeatPath);
 		const shouldStop = async (): Promise<boolean> => {
@@ -141,6 +150,37 @@ export class OnyxLabCampaignContribution extends Disposable implements IWorkbenc
 			await status('running', { units: order.order.units.length, done });
 		}
 		await status('done', { done });
+	}
+
+	/**
+	 * The product's own command on the reference machine (L11): each model's
+	 * datasheet first, measured here so that the scorecard carries it, then
+	 * "Measure Models for This Repository" with its prompts answered in
+	 * advance. Starting the campaign was the user's decision to run it.
+	 */
+	private async _measure(measure: NonNullable<IOnyxLabWorkOrder['measure']>, baseUrl: string, status: (state: string, detail?: Record<string, unknown>) => Promise<void>): Promise<void> {
+		let done = 0;
+		for (const id of measure.modelIds) {
+			const identifier = await this._modelIdentifier(id, baseUrl);
+			const known = identifier ? this._modelService.getKnownModel(identifier.slice(ONYX_VENDOR.length + 1)) : undefined;
+			if (!known) {
+				await status('failed', { reason: `the runtime at the campaign's address does not list ${id}` });
+				return;
+			}
+			if (measure.datasheets) {
+				// One model resident at a time, here too.
+				await this._runtimeService.evictLoadedModels(baseUrl).catch(() => undefined);
+				await this._datasheetService.measure({ modelKey: known.key, discovered: known.discovered, apiKey: known.apiKey }, CancellationToken.None);
+				await status('running', { done: ++done, step: `datasheet of ${id}` });
+			}
+		}
+		await this._runtimeService.evictLoadedModels(baseUrl).catch(() => undefined);
+		const scorecard = await this._commandService.executeCommand<{ readonly partial: boolean; readonly attempts: readonly unknown[] }>('onyx.measureRepository', { modelIds: measure.modelIds, confirmed: true, save: true, ...(measure.taskCount ? { taskCount: measure.taskCount } : {}) });
+		if (!scorecard) {
+			await status('failed', { reason: 'the command measured nothing: no model, or no task that fits' });
+			return;
+		}
+		await status('done', { done: ++done, attempts: scorecard.attempts.length, partial: scorecard.partial });
 	}
 
 	private async _modelIdentifier(model: string, baseUrl: string): Promise<string | undefined> {

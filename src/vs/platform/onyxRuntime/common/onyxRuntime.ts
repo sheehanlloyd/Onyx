@@ -464,6 +464,24 @@ export interface IOnyxRuntimeService {
 	/** A file's content at a revision (`git show rev:path`), or undefined when absent. */
 	gitShowFile(repoPath: string, revision: string, path: string): Promise<string | undefined>;
 
+	/** A commit's whole message, subject and body; undefined when the commit is not there. */
+	gitCommitMessage(repoPath: string, commit: string): Promise<string | undefined>;
+
+	/**
+	 * The commits after `sinceCommit`, oldest first, that changed `path`
+	 * (L10, tasks from requests). Undefined when `sinceCommit` is not an
+	 * ancestor of HEAD: the base of a request that was rebased away.
+	 */
+	gitCommitsTouching(repoPath: string, path: string, sinceCommit: string, maxCommits: number): Promise<readonly { readonly hash: string; readonly authoredAt: string }[] | undefined>;
+
+	/**
+	 * Asks a runtime to drop every model it holds in memory (L9, L11: one
+	 * model resident at a time while measuring). Resolves with what it held
+	 * and what was still held afterwards; undefined for a runtime that does
+	 * not say what it holds.
+	 */
+	evictLoadedModels(baseUrl: string): Promise<{ readonly evicted: readonly string[]; readonly left: readonly string[] } | undefined>;
+
 	/** What this machine can run — used to size model recommendations. */
 	getMachineProfile(): Promise<IOnyxMachineProfile>;
 
