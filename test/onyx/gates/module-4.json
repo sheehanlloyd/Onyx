@@ -144,7 +144,7 @@
 		},
 		{
 			"id": "R-52-campaign",
-			"title": "L12 full campaign on this checkout: 50,000 seeded episodes, the scripted workflows and the injection corpus with no violation, then every mutant against the campaign's first 2,000 seeds, each reported as a violation",
+			"title": "L12 full campaign on this checkout: 50,000 seeded episodes, the scripted workflows and the injection corpus with no violation, then every mutant against the campaign's first 2,000 seeds, each reported as a violation (written under .build/, in a directory named as a results directory has to be; it is the gate's own run and not a dated result)",
 			"layer": "service",
 			"regressions": [
 				"R-52"
@@ -157,7 +157,7 @@
 				"node",
 				"test/onyx/sim/write-assurance.mts",
 				"--out",
-				".build/gate-assurance"
+				".build/gate-assurance/0000-00-00-gate"
 			],
 			"timeoutMs": 3600000
 		},
