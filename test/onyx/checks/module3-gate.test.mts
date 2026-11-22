@@ -81,10 +81,38 @@ test('Module 3 gate: the baseline exception table is empty, and every defect thi
 	const baselineDir = path.join(repoRoot, 'test', 'onyx', 'sim', 'baseline');
 	const mutants = fs.readdirSync(path.join(repoRoot, 'test', 'onyx', 'sim', 'mutants')).map(name => name.replace(/\.json$/, ''));
 	// The items of this module that fixed a defect the simulation can see, each with at least one mutant.
-	const fixedHere = ['B6', 'B7', 'B8', 'B9', 'B10'];
+	// The others, and why they have none, each in its report: B15 (the rig's runtime is never asked for a
+	// context), C1 and C3 (a new surface and a new shape, no defect), C8 (the scorer is not on a run's path),
+	// C9 (a cost, which no invariant measures; R-29 is its regression), L7 (the tables cannot carry a lab
+	// configuration), L8 (it uses the mutants, as its deliberate change). L6 fixed no defect and has one.
+	const fixedHere = ['B6', 'B7', 'B8', 'B9', 'B10', 'C2', 'C10', 'L6'];
 	assert.deepStrictEqual({
 		exceptions: table.exceptions.length,
 		baselineScriptsLeft: fs.existsSync(baselineDir) ? fs.readdirSync(baselineDir) : [],
 		itemsWithoutAMutant: fixedHere.filter(item => !mutants.some(name => name.startsWith(`${item}-`))),
 	}, { exceptions: 0, baselineScriptsLeft: [], itemsWithoutAMutant: [] });
+});
+
+test('Module 3 gate: docs/SUPPORT.md records C9, C10 and L7 as included, and L7 as experimental', () => {
+	const support = fs.readFileSync(path.join(repoRoot, 'docs', 'SUPPORT.md'), 'utf8');
+	const state = (item: string) => new RegExp(`^\\| ${item} [^|]*\\| (?<state>planned|included|deferred) \\|`, 'm').exec(support)?.groups?.state;
+	assert.deepStrictEqual({
+		C9: state('C9'), C10: state('C10'), L7: state('L7'),
+		l7IsExperimental: /^\| L7 [^|]*\| included \|[^\n]*\*\*experimental\*\*[^\n]*off by default/m.test(support),
+	}, { C9: 'included', C10: 'included', L7: 'included', l7IsExperimental: true });
+});
+
+test('Module 3 gate: every item of the module has its completion report, and the end-to-end runner holds the checks the chapter names', () => {
+	const items = ['B15', 'B6', 'B7', 'B8', 'B9', 'B10', 'C1', 'C2', 'C3', 'C8', 'C9', 'C10', 'L6', 'L7', 'L8'];
+	const e2e = fs.readFileSync(path.join(repoRoot, 'test', 'onyx', 'run-e2e.mts'), 'utf8');
+	// One check of the runner for each regression the chapter's gate proves end to end. The runner itself is
+	// Module 1's `e2e` check, which every later gate runs.
+	const endToEnd: Record<string, string> = {
+		'R-15': 'R-15:', 'R-21': 'R-21: verification says', 'R-25': 'R-25: accepting one hunk from the editor', 'R-34': 'the inline edit is staged for review and nothing of it is in the file',
+		'C3': 'C3: one editFile call with two edits', 'R-46': 'R-46: each staged hunk shows what was checked',
+	};
+	assert.deepStrictEqual({
+		withoutAReport: items.filter(item => !fs.existsSync(path.join(repoRoot, 'docs', 'progress', `${item}.md`))),
+		notInTheRunner: Object.entries(endToEnd).filter(([, title]) => !e2e.includes(`check('${title}`) && !e2e.includes(`check("${title}`)).map(([id]) => id),
+	}, { withoutAReport: [], notInTheRunner: [] });
 });

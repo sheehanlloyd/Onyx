@@ -106,8 +106,49 @@ async function waitUntil(condition: () => boolean, timeoutMs = 20_000, stepMs = 
  */
 const playwrightCli = createRequire(import.meta.url).resolve('@playwright/cli/playwright-cli.js');
 
-function pw(...args: string[]) {
+/** How often the driver's session was found gone while the workbench was still there, and was attached again. */
+let sessionsLost = 0;
+
+/** Whether the workbench still answers on its debugging port. Synchronous: it is asked from inside `pw`. */
+function workbenchAnswers(): boolean {
+	try {
+		return execFileSync('curl', ['-s', '-m', '3', `http://127.0.0.1:${cdpPort}/json/version`], { encoding: 'utf8' }).includes('webSocketDebuggerUrl');
+	} catch {
+		return false;
+	}
+}
+
+function pwOnce(...args: string[]) {
 	return execFileSync(process.execPath, [playwrightCli, `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+/**
+ * One command of the driver. The driver keeps its attachment to the
+ * workbench in a process of its own, and that process has been seen to go
+ * away in the middle of a run while the workbench was untouched ("The
+ * browser … is not open"), three times on 2026-11-21 on a loaded machine and
+ * at a different step each time. When that happens and the workbench still
+ * answers on its debugging port, the driver is attached again and the
+ * command is sent once more; it is counted and printed, never silent. When
+ * the workbench does not answer, nothing is retried: that is a failure of
+ * the product or of the machine, and the run aborts saying which.
+ */
+function pw(...args: string[]) {
+	try {
+		return pwOnce(...args);
+	} catch (error) {
+		const output = String((error as { stdout?: unknown }).stdout ?? '');
+		if (args[0] === 'attach' || args[0] === 'close' || !/is not open, please run open first/.test(output)) {
+			throw error;
+		}
+		if (!workbenchAnswers()) {
+			throw new Error(`the driver's session is gone and the workbench no longer answers on :${cdpPort}: the application has exited or its main process is blocked`, { cause: error });
+		}
+		sessionsLost++;
+		console.error(`  note  the driver's session was gone while the workbench still answered on :${cdpPort}; attached again (${sessionsLost}) before: ${args[0]}`);
+		pwOnce('attach', `--cdp=http://127.0.0.1:${cdpPort}`);
+		return pwOnce(...args);
+	}
 }
 
 /**
@@ -1093,5 +1134,5 @@ try {
 
 console.log(failures.length
 	? `\n${failures.length} of ${checksRun} checks failed`
-	: `\nall ${checksRun} checks passed`);
+	: `\nall ${checksRun} checks passed${sessionsLost ? ` (the driver's session was lost and attached again ${sessionsLost} time${sessionsLost === 1 ? '' : 's'}; the workbench was not restarted)` : ''}`);
 process.exit(failures.length ? 1 : 0);
