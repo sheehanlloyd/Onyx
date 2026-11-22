@@ -1,0 +1,177 @@
+{
+	"repositories": [
+		{
+			"repository": "2026-11-22-rankings-onyx",
+			"taskSet": "every third task of this repository's task set (2026-11-22-task-set, hash fefa777b2d60e7fa): 40 of 120",
+			"tasks": 40,
+			"models": [
+				"llama3.2:3b",
+				"qwen2.5-coder:1.5b",
+				"qwen2.5-coder:7b"
+			],
+			"scores": [
+				{
+					"model": "llama3.2:3b",
+					"tasks": 40,
+					"attempted": 40,
+					"couldNotServe": 0,
+					"solved": 0,
+					"solvedShare": {
+						"value": 0,
+						"low": 0,
+						"high": 0.08762160119728664
+					},
+					"meanScore": 0.037250000000000005
+				},
+				{
+					"model": "qwen2.5-coder:1.5b",
+					"tasks": 40,
+					"attempted": 40,
+					"couldNotServe": 0,
+					"solved": 0,
+					"solvedShare": {
+						"value": 0,
+						"low": 0,
+						"high": 0.08762160119728664
+					},
+					"meanScore": 0.01675
+				},
+				{
+					"model": "qwen2.5-coder:7b",
+					"tasks": 40,
+					"attempted": 40,
+					"couldNotServe": 0,
+					"solved": 0,
+					"solvedShare": {
+						"value": 0,
+						"low": 0,
+						"high": 0.08762160119728664
+					},
+					"meanScore": 0.039999999999999994
+				}
+			],
+			"ranking": null,
+			"topRanked": null,
+			"pairs": [
+				{
+					"first": "llama3.2:3b",
+					"second": "qwen2.5-coder:1.5b",
+					"difference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"significant": false
+				},
+				{
+					"first": "llama3.2:3b",
+					"second": "qwen2.5-coder:7b",
+					"difference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"significant": false
+				},
+				{
+					"first": "qwen2.5-coder:1.5b",
+					"second": "qwen2.5-coder:7b",
+					"difference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"significant": false
+				}
+			]
+		},
+		{
+			"repository": "2026-11-22-rankings-brew",
+			"taskSet": "Homebrew/brew: 40 tasks held out for the three installed models",
+			"tasks": 40,
+			"models": [
+				"llama3.2:3b",
+				"qwen2.5-coder:1.5b",
+				"qwen2.5-coder:7b"
+			],
+			"scores": [
+				{
+					"model": "llama3.2:3b",
+					"tasks": 40,
+					"attempted": 40,
+					"couldNotServe": 0,
+					"solved": 0,
+					"solvedShare": {
+						"value": 0,
+						"low": 0,
+						"high": 0.08762160119728664
+					},
+					"meanScore": 0.06875
+				},
+				{
+					"model": "qwen2.5-coder:1.5b",
+					"tasks": 40,
+					"attempted": 40,
+					"couldNotServe": 0,
+					"solved": 0,
+					"solvedShare": {
+						"value": 0,
+						"low": 0,
+						"high": 0.08762160119728664
+					},
+					"meanScore": 0.02075
+				},
+				{
+					"model": "qwen2.5-coder:7b",
+					"tasks": 40,
+					"attempted": 40,
+					"couldNotServe": 0,
+					"solved": 0,
+					"solvedShare": {
+						"value": 0,
+						"low": 0,
+						"high": 0.08762160119728664
+					},
+					"meanScore": 0.14625000000000002
+				}
+			],
+			"ranking": null,
+			"topRanked": null,
+			"pairs": [
+				{
+					"first": "llama3.2:3b",
+					"second": "qwen2.5-coder:1.5b",
+					"difference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"significant": false
+				},
+				{
+					"first": "llama3.2:3b",
+					"second": "qwen2.5-coder:7b",
+					"difference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"significant": false
+				},
+				{
+					"first": "qwen2.5-coder:1.5b",
+					"second": "qwen2.5-coder:7b",
+					"difference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"significant": false
+				}
+			]
+		}
+	],
+	"comparisons": [],
+	"outcome": "inconclusive",
+	"why": "2 of 2 repositories have no ranking: no model solved a task there"
+}

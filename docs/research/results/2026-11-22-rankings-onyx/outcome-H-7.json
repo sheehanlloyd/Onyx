@@ -1,0 +1,14 @@
+{
+	"hypothesis": "H-7",
+	"statement": "Model rankings differ between repositories often enough to change which model a user should pick",
+	"outcome": "inconclusive",
+	"number": "tasks solved: 2026-11-22-rankings-onyx: llama3.2:3b 0/40, qwen2.5-coder:1.5b 0/40, qwen2.5-coder:7b 0/40; 2026-11-22-rankings-brew: llama3.2:3b 0/40, qwen2.5-coder:1.5b 0/40, qwen2.5-coder:7b 0/40",
+	"why": "2 of 2 repositories have no ranking: no model solved a task there",
+	"thresholds": "Supported: at least one pair of repositories whose top-ranked model differs, with the difference significant in each. Refuted: tau = 1 across all repositories and every pairwise interval excludes a swap, which needs at least three repositories. Inconclusive otherwise (PREREGISTRATION.md, H-7, Amendments 2 and 3).",
+	"decidedFrom": [
+		"rankings.json",
+		"../2026-11-22-rankings-onyx/results.jsonl",
+		"../2026-11-22-rankings-brew/results.jsonl"
+	],
+	"regenerate": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew"
+}
