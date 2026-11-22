@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IOnyxLabHarnessRequest } from '../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { ONYX_EVICTION_POLICIES, OnyxEvictionPolicy } from './onyxContextBudget.js';
 import { toolResultBudget } from './onyxContextCompression.js';
 import { traceDigest } from './onyxTrace.js';
 import { IOnyxModelProfile, OnyxPromptStyle } from './onyxTypes.js';
@@ -65,7 +66,7 @@ export interface IOnyxHarnessConfig {
 
 export type OnyxToolCallProtocol = 'native' | 'repaired-text' | 'constrained-envelope';
 export type OnyxEditProtocol = 'search-replace' | 'constrained-anchors';
-export type OnyxEvictionPolicy = 'oldest-results-first';
+export type { OnyxEvictionPolicy };
 export type OnyxToolSlotPolicy = 'essentials-first';
 
 /** Below this share of well-formed tool calls a model's turns are constrained, when its runtime can enforce a schema. */
@@ -180,8 +181,10 @@ function applyRequest(base: IOnyxHarnessConfig, requested: unknown): { readonly 
 				}
 				break;
 			case 'evictionPolicy':
-				if (value !== 'oldest-results-first') {
-					problems.push('evictionPolicy must be oldest-results-first: no other eviction policy exists yet');
+				if (typeof value === 'string' && (ONYX_EVICTION_POLICIES as readonly string[]).includes(value)) {
+					configuration = { ...configuration, evictionPolicy: value as OnyxEvictionPolicy };
+				} else {
+					problems.push(`evictionPolicy must be one of ${ONYX_EVICTION_POLICIES.join(', ')}`);
 				}
 				break;
 			case 'contextTokens':

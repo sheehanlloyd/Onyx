@@ -17,7 +17,7 @@ import { ChatMessageRole, IChatMessage, IChatMessagePart, IChatResponseToolUsePa
 import { IChatProgress } from '../../../chat/common/chatService/chatService.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../chat/common/participants/chatAgents.js';
 import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tools/languageModelToolsService.js';
-import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudgetedKind, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
+import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudgetedKind, OnyxEvictionPolicy, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
 import { elideMiddle } from '../../common/onyxContextCompression.js';
 import { runtimeEnforcesSchema } from '../../common/onyxDatasheet.js';
 import { IOnyxResolvedHarness } from '../../common/onyxHarnessConfig.js';
@@ -290,7 +290,7 @@ export class OnyxAgentLoop {
 
 			// Fit the turn before it is sent (B13, I-04): the schemas and the output cap are set aside, and
 			// what is left decides how much of the conversation goes.
-			const plan = this._planTurn(messages.map(message => ({ message, kind: kinds.get(message) ?? 'turn' })), schemaTokens, contextTokens);
+			const plan = this._planTurn(messages.map(message => ({ message, kind: kinds.get(message) ?? 'turn' })), schemaTokens, contextTokens, configuration.evictionPolicy);
 			if (!plan.fits) {
 				run.activity({ kind: 'note', label: 'The request does not fit the model\'s context', reason: `about ${plan.messageTokens + plan.schemaTokens} tokens of prompt and tool schemas against a context of ${contextTokens}, with nothing left to drop`, ok: false });
 				run.complete('failed');
@@ -301,8 +301,11 @@ export class OnyxAgentLoop {
 					},
 				};
 			}
-			if (plan.messages.length !== messages.length || plan.shrankNewestResults) {
+			if (plan.messages.length !== messages.length || plan.shrankNewestResults || plan.replacedResults > 0) {
 				messages.splice(0, messages.length, ...plan.messages.map(entry => entry.message));
+			}
+			if (plan.replacedResults > 0) {
+				run.activity({ kind: 'note', label: `Replaced the text of ${plan.replacedResults} earlier tool result${plan.replacedResults === 1 ? '' : 's'} with a marker to fit the context window`, reason: `oldest first; about ${plan.messageTokens} of ${plan.messageBudgetTokens} tokens for messages are in use` });
 			}
 			if (plan.evictedResults > 0) {
 				run.activity({ kind: 'note', label: `Evicted ${plan.evictedResults} earlier tool result${plan.evictedResults === 1 ? '' : 's'} to fit the context window`, reason: `${plan.evictedCalls} call${plan.evictedCalls === 1 ? '' : 's'}, oldest first; about ${plan.messageTokens} of ${plan.messageBudgetTokens} tokens for messages are in use` });
@@ -631,8 +634,8 @@ export class OnyxAgentLoop {
 	}
 
 	/** What may be sent this turn, and what had to go to make it fit. */
-	protected _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number): IOnyxTurnPlan {
-		return planTurn({ messages, contextTokens, schemaTokens, estimate: estimateMessageTokens });
+	protected _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number, policy: OnyxEvictionPolicy): IOnyxTurnPlan {
+		return planTurn({ messages, contextTokens, schemaTokens, estimate: estimateMessageTokens, policy });
 	}
 
 	/** The output cap sent with the request: the room the plan set aside for the reply. */

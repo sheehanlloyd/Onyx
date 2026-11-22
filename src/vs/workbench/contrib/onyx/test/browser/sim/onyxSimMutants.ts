@@ -20,7 +20,7 @@ import { OnyxMemoryToolContribution } from '../../../browser/intelligence/onyxMe
 import { IOnyxStreamOutcome, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
 import { IOnyxWorkspaceAccessService, OnyxResolvedWorkspacePath, OnyxWorkspaceAccessService } from '../../../browser/intelligence/onyxWorkspaceAccess.js';
 import { IOnyxExecutionRequest, OnyxTerminalService, OnyxWorkingDirectory } from '../../../browser/terminal/onyxTerminalTool.js';
-import { IOnyxBudgetedMessage, IOnyxTurnPlan } from '../../../common/onyxContextBudget.js';
+import { IOnyxBudgetedMessage, IOnyxTurnPlan, OnyxEvictionPolicy } from '../../../common/onyxContextBudget.js';
 import { OnyxEnvelopeAnswerStream } from '../../../common/onyxConstrainedToolCalls.js';
 import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
 import { IOnyxResolvedHarness } from '../../../common/onyxHarnessConfig.js';
@@ -239,9 +239,9 @@ class OnyxMutantNoOutputCapLoop extends OnyxAgentLoop {
 
 /** B13: nothing is dropped. Tool results pile up turn after turn and the prompt outgrows the window. */
 class OnyxMutantNoEvictionLoop extends OnyxAgentLoop {
-	protected override _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number): IOnyxTurnPlan {
-		const plan = super._planTurn(messages, schemaTokens, contextTokens);
-		return { ...plan, messages, evictedCalls: 0, evictedResults: 0, evictedHistory: 0, droppedWorkspaceContext: false, shrankNewestResults: false, fits: true };
+	protected override _planTurn(messages: readonly IOnyxBudgetedMessage[], schemaTokens: number, contextTokens: number, policy: OnyxEvictionPolicy): IOnyxTurnPlan {
+		const plan = super._planTurn(messages, schemaTokens, contextTokens, policy);
+		return { ...plan, messages, evictedCalls: 0, evictedResults: 0, replacedResults: 0, evictedHistory: 0, droppedWorkspaceContext: false, shrankNewestResults: false, fits: true };
 	}
 }
 
