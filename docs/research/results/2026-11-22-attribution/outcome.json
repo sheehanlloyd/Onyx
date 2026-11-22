@@ -1,0 +1,13 @@
+{
+	"hypothesis": "H-2",
+	"statement": "For models at or below 7B, tool-call protocol handling contributes more to task success than any other harness component, and the gap narrows with model size",
+	"outcome": "inconclusive",
+	"reason": "no configuration succeeded on any task for either model: every value is zero, which is a floor and not evidence of equal worth",
+	"number": "qwen2.5-coder:7b: protocol handling's Shapley value of task success 0.000 [0.000, 0.000]; qwen2.5-coder:1.5b: protocol handling's Shapley value of task success 0.000 [0.000, 0.000]",
+	"thresholds": "PREREGISTRATION.md, H-2, as Amendment 1 applies them to the primary game of each model",
+	"decidedFrom": [
+		"results.jsonl",
+		"analysis.json"
+	],
+	"regenerate": "node test/onyx/lab/analyze-attribution.mts docs/research/results/2026-11-22-attribution"
+}
