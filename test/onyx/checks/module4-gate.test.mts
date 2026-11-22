@@ -81,3 +81,37 @@ test('Module 4 gate (L10): this repository\'s task set is committed as commit id
 		probeOutputShown: true,
 	});
 });
+
+test('Module 4 gate (L12): the full campaign and the mutation score are committed, at a revision this checkout descends from, and they settle H-1', () => {
+	const directory = results('2026-11-22-assurance');
+	const summary = read<{ revision: string; dirtySourceEntries: number; campaign: { episodes: number; ranWithoutViolation: number; failedShards: string[] }; mutation: { total: number; killed: number; survivors: string[]; genericMutantOfEachInvariant: Record<string, string[]>; mutants: { id: string; killedByTheCampaign: boolean }[] }; injectionCorpus: { episodes: number; effects: string[] } }>(path.join(directory, 'summary.json'));
+	const outcome = read<{ hypothesis: string; outcome: string }>(path.join(directory, 'outcome.json'));
+	const mutantFiles = fs.readdirSync(path.join(repoRoot, 'src', 'vs', 'workbench', 'contrib', 'onyx', 'test', 'browser', 'sim')).length;
+	const isAncestor = (() => {
+		try {
+			execFileSync('git', ['-C', repoRoot, 'merge-base', '--is-ancestor', summary.revision, 'HEAD'], { stdio: 'ignore' });
+			return true;
+		} catch {
+			return false;
+		}
+	})();
+	assert.deepStrictEqual({
+		directory: checkResultsDirectory(directory).errors,
+		ranOnCommittedSource: summary.dirtySourceEntries === 0 && isAncestor,
+		fullCampaign: summary.campaign.episodes >= 50_000 && summary.campaign.ranWithoutViolation === summary.campaign.episodes && summary.campaign.failedShards.length === 0,
+		everyMutantKilled: summary.mutation.total >= 36 && summary.mutation.killed === summary.mutation.total && summary.mutation.survivors.length === 0 && summary.mutation.mutants.every(mutant => mutant.killedByTheCampaign),
+		aGenericMutantForEveryInvariant: Array.from({ length: 14 }, (_, index) => `I-${String(index + 1).padStart(2, '0')}`).filter(invariant => !(summary.mutation.genericMutantOfEachInvariant[invariant]?.length > 0)),
+		fiveEffectsInTheCorpus: summary.injectionCorpus.effects.length,
+		theRigIsThere: mutantFiles > 0,
+		outcome: [outcome.hypothesis, outcome.outcome],
+	}, {
+		directory: [],
+		ranOnCommittedSource: true,
+		fullCampaign: true,
+		everyMutantKilled: true,
+		aGenericMutantForEveryInvariant: [],
+		fiveEffectsInTheCorpus: 5,
+		theRigIsThere: true,
+		outcome: ['H-1', 'supported'],
+	});
+});
