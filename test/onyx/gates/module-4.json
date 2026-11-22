@@ -165,6 +165,25 @@
 				".build/gate-assurance"
 			],
 			"timeoutMs": 3600000
+		},
+		{
+			"id": "R-51",
+			"title": "L11 the scorecard, the pure half: provenance, a datasheet for every model, every attempt and skip, a partial measurement labelled partial and not ranked, a sample below the minimum not ranked, the router's hit rate with its denominators, and the replay of accepted requests with counts (R-51 itself is six end-to-end checks: the measure command against the mock with two models, a cancel midway, and a router log with known picks, in the suite gate 1 runs)",
+			"layer": "pure, e2e",
+			"regressions": [
+				"R-51"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/common/onyxScorecard.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxScorecard.test.ts",
+				"src/vs/workbench/contrib/onyx/browser/lab/onyxMeasureRepository.ts",
+				"test/onyx/run-e2e.mts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxScorecard"
+			]
 		}
 	]
 }
