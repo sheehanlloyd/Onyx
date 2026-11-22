@@ -36,6 +36,16 @@ export function modelPublishedAt(modelId: string): string | undefined {
 }
 
 /**
+ * What the notes rest on (L11). The three models that are installed on the
+ * reference machine were measured there on 2026-11-22
+ * (docs/research/results/2026-11-22-reference-measure): qwen2.5-coder:7b
+ * used the runtime's tool-call channel in 0 of 5 requests and its calls were
+ * readable as text in 5 of 5, which is why its note no longer says
+ * "reliable tool calls"; llama3.2:3b used the channel in 5 of 5 and removed
+ * 168 lines the author kept over 18 editing tasks. The notes of the 14B,
+ * 32B and GPT-OSS entries are not measurements: those models are not
+ * installed there.
+ *
  * A deliberately short, opinionated list. Onyx is not an app store: it should
  * name the few models that make the product good on a Mac and get out of the
  * way. Sizes are the runtime's default quantization.
@@ -61,7 +71,7 @@ export const ONYX_MODEL_CATALOG: readonly IOnyxCatalogModel[] = [
 		parameterB: 3,
 		downloadGb: 2.0,
 		quantization: 'Q4_K_M',
-		note: localize('onyx.catalog.llama32', "General chat and quick explanations when you do not need a coding specialist."),
+		note: localize('onyx.catalog.llama32', "General chat and quick explanations. It calls tools the way the runtime intends, and it is the weakest of the small models at editing existing code."),
 	},
 	{
 		id: 'qwen2.5-coder:7b',
@@ -72,7 +82,7 @@ export const ONYX_MODEL_CATALOG: readonly IOnyxCatalogModel[] = [
 		parameterB: 7,
 		downloadGb: 4.7,
 		quantization: 'Q4_K_M',
-		note: localize('onyx.catalog.qwen7', "The everyday agent model: reliable tool calls at a latency you can work with."),
+		note: localize('onyx.catalog.qwen7', "The everyday agent model for a 16 to 24 GB Mac. On Ollama it writes its tool calls as text, which Onyx reads. Measure it on your repository before you rely on its edits."),
 	},
 	{
 		id: 'qwen2.5-coder:14b',
