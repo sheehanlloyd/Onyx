@@ -86,7 +86,7 @@ export class OnyxEditToolContribution extends Disposable {
 		}
 		const { path, blocks } = parsed;
 		const runId = this._controlPlaneService.runs.get().find(run => run.requestId === invocation.chatRequestId)?.runId;
-		const outcome = await this._changeSetService.stage(path, blocks, runId);
+		const outcome = await this._changeSetService.stage(path, blocks, runId, { call: invocation.callId });
 		if (!outcome.ok) {
 			return { content: [{ kind: 'text', value: `Error: ${outcome.error}` }], toolResultError: true };
 		}

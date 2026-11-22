@@ -85,7 +85,7 @@ export interface IOnyxObservedStats {
 export interface IOnyxRunEvent {
 	/** Milliseconds since the run started. */
 	readonly t: number;
-	readonly kind: 'promptSnapshot' | 'firstToken' | 'toolCall' | 'toolResult' | 'turn' | 'outcome' | 'note' | 'trace' | 'traceTurn' | 'approval' | 'acceptance';
+	readonly kind: 'promptSnapshot' | 'firstToken' | 'toolCall' | 'toolResult' | 'turn' | 'outcome' | 'note' | 'trace' | 'traceTurn' | 'approval' | 'acceptance' | 'editCertificate' | 'editCertificateOutcome';
 	readonly data: unknown;
 }
 

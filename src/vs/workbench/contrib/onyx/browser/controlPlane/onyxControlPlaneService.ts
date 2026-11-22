@@ -9,6 +9,7 @@ import { Disposable, DisposableStore } from '../../../../../base/common/lifecycl
 import { derived, IObservable, ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+import { IOnyxTraceCertificate, IOnyxTraceCertificateOutcome } from '../../common/onyxEditCertificate.js';
 import { IOnyxTraceAcceptance, IOnyxTraceApproval, IOnyxTraceHeader, IOnyxTraceTurn } from '../../common/onyxTrace.js';
 import { describeNoteOrigin, IOnyxRunText, OnyxNoteOrigin } from '../../common/onyxMemoryOrigin.js';
 import { IOnyxBudgetSlice, IOnyxRunEvent, isTerminalRunStatus, ONYX_RUN_BUDGET, OnyxRunStatus, OnyxTaskKind, OnyxTerminalRunStatus } from '../../common/onyxTypes.js';
@@ -113,6 +114,8 @@ export interface IOnyxControlPlaneService {
 	 * that stream progress (the terminal tool's output) report through this.
 	 */
 	appendActivity(runId: string, entry: Omit<IOnyxActivityEntry, 'at'>): void;
+	/** Writes one record into a live run's journal on behalf of a service that does not own the run: an edit certificate (L6), what became of it. An acceptance usually comes after its run has ended; the record is still written, as an activity is. */
+	recordTrace(runId: string, data: IOnyxTraceCertificate | IOnyxTraceCertificateOutcome): void;
 	selectRun(runId: string | undefined): void;
 	updateCompute(state: Partial<IOnyxComputeState>): void;
 	/** The terminal service records every approval decision with its source (L3, I-02). */
@@ -269,6 +272,13 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 
 	getRun(runId: string): IOnyxLiveRun | undefined {
 		return this._liveRuns.get(runId);
+	}
+
+	recordTrace(runId: string, data: IOnyxTraceCertificate | IOnyxTraceCertificateOutcome): void {
+		const run = this._liveRuns.get(runId);
+		if (run) {
+			this._onDidRecordEvent.fire({ runId, event: { t: Date.now() - run.startedAt, kind: data.kind, data } });
+		}
 	}
 
 	appendActivity(runId: string, entry: Omit<IOnyxActivityEntry, 'at'>): void {

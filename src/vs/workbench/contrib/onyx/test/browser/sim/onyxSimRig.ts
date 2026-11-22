@@ -117,7 +117,7 @@ export interface IOnyxSimState {
 	/** Files whose buffer, after the whole proposal was accepted against its own base, is not the proposal. */
 	readonly acceptedBufferMismatches: readonly string[];
 	/** Staged proposals observed after each tool result: path, hunk count and the proposal's size. */
-	readonly stageEvents: readonly { readonly path: string; readonly hunks: number; readonly proposedChars: number; readonly proposedLines: number; readonly realLocation: string; readonly search: string | undefined; readonly blocks: readonly IOnyxEditBlock[]; readonly baseAtStage: string | undefined; readonly proposedBefore: string | undefined }[];
+	readonly stageEvents: readonly { readonly path: string; readonly hunks: number; readonly proposedChars: number; readonly proposedLines: number; readonly realLocation: string; readonly runId: string | undefined; readonly search: string | undefined; readonly blocks: readonly IOnyxEditBlock[]; readonly baseAtStage: string | undefined; readonly proposedBefore: string | undefined }[];
 	readonly profile: IOnyxModelProfile;
 	/** The most command output the terminal service held at once, in characters, over the whole episode. */
 	readonly peakRetainedOutputChars: number | undefined;
@@ -227,7 +227,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly typedTexts: string[] = [];
 	readonly acceptedHunks: { path: string; hunk: number | 'all'; newLines: readonly string[] }[] = [];
 	readonly acceptedBufferMismatches: string[] = [];
-	readonly stageEvents: { path: string; hunks: number; proposedChars: number; proposedLines: number; realLocation: string; search: string | undefined; blocks: readonly IOnyxEditBlock[]; baseAtStage: string | undefined; proposedBefore: string | undefined }[] = [];
+	readonly stageEvents: { path: string; hunks: number; proposedChars: number; proposedLines: number; realLocation: string; runId: string | undefined; search: string | undefined; blocks: readonly IOnyxEditBlock[]; baseAtStage: string | undefined; proposedBefore: string | undefined }[] = [];
 	private readonly _lastProposed = new Map<string, string>();
 	/** The generation of each file's staging at the last look: a new one is a new staging, the same one is a review that moved. */
 	private readonly _lastGeneration = new Map<string, number>();
@@ -734,7 +734,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			if (previous !== undefined && staged.hunks.length <= 0) {
 				continue;
 			}
-			this.stageEvents.push({ path: staged.proposal.path, hunks: staged.hunks.length, proposedChars: staged.proposal.proposed.length, proposedLines: staged.proposal.proposed.split('\n').length, realLocation: this._provider.realLocation(this._uri(staged.proposal.path).path), search, blocks, baseAtStage: staged.proposal.base, proposedBefore: previous });
+			this.stageEvents.push({ path: staged.proposal.path, hunks: staged.hunks.length, proposedChars: staged.proposal.proposed.length, proposedLines: staged.proposal.proposed.split('\n').length, realLocation: this._provider.realLocation(this._uri(staged.proposal.path).path), runId: staged.runId, search, blocks, baseAtStage: staged.proposal.base, proposedBefore: previous });
 			this.trace.record({ kind: 'stage', path: staged.proposal.path, hunks: staged.hunks.length, ok: true });
 		}
 		for (const path of [...this._lastProposed.keys()]) {

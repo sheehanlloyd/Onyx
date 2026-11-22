@@ -24,7 +24,8 @@ import {
 } from '../../common/onyxChangeSet.js';
 import { traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxChangeRisk } from '../../common/onyxChangeRisk.js';
-import { IOnyxEditBlock, IOnyxEditHunk } from '../../common/onyxInlineEdit.js';
+import { certificateForHunk, certifiedEdit, certifyEdit, IOnyxCertifiedEdit, IOnyxCertifyInput, IOnyxEditCertificate, IOnyxPromptEvidence } from '../../common/onyxEditCertificate.js';
+import { countOccurrences, IOnyxEditBlock, IOnyxEditHunk, placeEditBlock } from '../../common/onyxInlineEdit.js';
 import { decodeNumberedSearch, replacementCarriesNumbering } from '../../common/onyxReadTools.js';
 import { resolveWorkspacePath, workspacePathProblem } from '../../common/onyxWorkspacePaths.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
@@ -51,6 +52,16 @@ export interface IOnyxStagedFile {
 	readonly risk: IOnyxChangeRisk | undefined;
 	/** The run that most recently staged into this file, for the timeline link. */
 	readonly runId: string | undefined;
+	/** The edits the proposal was built from, each with its certificate (L6), oldest first. Empty for a proposal restored from before certificates were kept. */
+	readonly edits: readonly IOnyxCertifiedEdit[];
+}
+
+/** Where a staged edit came from, for its certificate (L6). */
+export interface IOnyxEditOrigin {
+	/** The id of the tool call that carried the edit. */
+	readonly call?: string;
+	/** For a whole proposal: an inline edit of the user's selection, or a whole-file result. */
+	readonly protocol?: 'inline' | 'whole-file';
 }
 
 export type OnyxStageOutcome =
@@ -83,13 +94,21 @@ export interface IOnyxChangeSetService {
 	/** Fires when an accept has changed a file: which proposal generation the accepted hunks belonged to, and the run that staged them. */
 	readonly onDidApply: Event<IOnyxAppliedEvent>;
 	/** Stages SEARCH/REPLACE blocks for a workspace-qualified path. Never edits the buffer. */
-	stage(path: string, blocks: readonly IOnyxEditBlock[], runId?: string): Promise<OnyxStageOutcome>;
+	stage(path: string, blocks: readonly IOnyxEditBlock[], runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome>;
+	/**
+	 * What a run's model is being sent in the turn that is starting, after
+	 * eviction (L6): the edits that turn stages are certified against it.
+	 * `undefined` when the run is over.
+	 */
+	setPromptEvidence(runId: string, evidence: IOnyxPromptEvidence | undefined): void;
+	/** The certificate of the edit a staged hunk came from, or undefined when none is on record for it. */
+	certificateFor(path: string, hunkId: string): IOnyxEditCertificate | undefined;
 	/**
 	 * Stages complete proposed content for a path (the refactor engine's entry:
 	 * language services compute whole-file results). Replaces any existing
 	 * proposal for the file. Never edits the buffer.
 	 */
-	stageProposal(path: string, proposedContent: string, runId?: string): Promise<OnyxStageOutcome>;
+	stageProposal(path: string, proposedContent: string, runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome>;
 	acceptFile(path: string): Promise<OnyxAcceptOutcome>;
 	rejectFile(path: string): void;
 	/**
@@ -138,6 +157,9 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	/** The last generation given out. Every staging of a file takes the next one. */
 	private _generation = 0;
 
+	/** What each live run's model was sent in its current turn (L6). */
+	private readonly _promptEvidence = new Map<string, IOnyxPromptEvidence>();
+
 	constructor(
 		@IWorkspaceContextService private readonly _workspaceService: IWorkspaceContextService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
@@ -156,7 +178,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		// A restored proposal is a new generation: no earlier review of it holds.
 		this._generation = this._storageService.getNumber(GENERATION_STORAGE_KEY, StorageScope.WORKSPACE, 0);
 		try {
-			const persisted: IOnyxProposedFile[] = JSON.parse(this._storageService.get(STAGED_STORAGE_KEY, StorageScope.WORKSPACE, '[]'));
+			const persisted: (IOnyxProposedFile & { edits?: readonly IOnyxCertifiedEdit[] })[] = JSON.parse(this._storageService.get(STAGED_STORAGE_KEY, StorageScope.WORKSPACE, '[]'));
 			if (Array.isArray(persisted) && persisted.length > 0) {
 				const restored: IOnyxStagedFile[] = [];
 				for (const proposal of persisted) {
@@ -169,7 +191,8 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 						this._notificationService.notify({ severity: Severity.Warning, message: localize('onyx.changes.restoreTooLarge', "A stored proposal for {0} was not restored: {1}. Your file was never changed by it.", proposal.path, opened.error) });
 						continue;
 					}
-					restored.push({ proposal: { ...proposal, stale: true }, hunks: opened.review.hunks, conflicts: [], generation: opened.review.generation, baseVersion: { versionId: undefined, contentHash: traceDigest(proposal.base) }, risk: undefined, runId: undefined });
+					const { edits, ...stored } = proposal;
+					restored.push({ edits: Array.isArray(edits) ? edits : [], proposal: { ...stored, stale: true }, hunks: opened.review.hunks, conflicts: [], generation: opened.review.generation, baseVersion: { versionId: undefined, contentHash: traceDigest(proposal.base) }, risk: undefined, runId: undefined });
 				}
 				this._filesObs.set(restored, undefined);
 			}
@@ -180,7 +203,8 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	}
 
 	private _persist(): void {
-		const proposals = this._filesObs.get().map(file => file.proposal);
+		// A proposal is stored with the certificates of its edits: they hold digests and counts, no text.
+		const proposals = this._filesObs.get().map(file => ({ ...file.proposal, edits: file.edits }));
 		this._storageService.store(GENERATION_STORAGE_KEY, this._generation, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		if (proposals.length === 0) {
 			this._storageService.remove(STAGED_STORAGE_KEY, StorageScope.WORKSPACE);
@@ -189,7 +213,41 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		}
 	}
 
-	async stage(path: string, blocks: readonly IOnyxEditBlock[], runId?: string): Promise<OnyxStageOutcome> {
+	setPromptEvidence(runId: string, evidence: IOnyxPromptEvidence | undefined): void {
+		if (evidence) {
+			this._promptEvidence.set(runId, evidence);
+		} else {
+			this._promptEvidence.delete(runId);
+		}
+	}
+
+	certificateFor(path: string, hunkId: string): IOnyxEditCertificate | undefined {
+		const staged = this._filesObs.get().find(file => file.proposal.path === path);
+		const hunk = staged?.hunks.find(candidate => candidate.id === hunkId);
+		return staged && hunk ? certificateForHunk(staged.edits, hunk) : undefined;
+	}
+
+	/** The certificate of one edit (L6). */
+	protected _certifyEdit(input: IOnyxCertifyInput): IOnyxEditCertificate {
+		return certifyEdit(input);
+	}
+
+	/**
+	 * Certifies the edits of one staging (L6) and writes each certificate
+	 * into the run's journal with the hunks it accounts for.
+	 */
+	private _certify(staged: IOnyxStagedFile, edits: readonly IOnyxCertifiedEdit[]): IOnyxStagedFile {
+		const certified: IOnyxStagedFile = { ...staged, edits: [...staged.edits, ...edits] };
+		if (staged.runId) {
+			for (const edit of edits) {
+				const hunks = certified.hunks.filter(hunk => certificateForHunk(certified.edits, hunk) === edit.certificate).map(hunk => hunk.id);
+				this._controlPlaneService.recordTrace(staged.runId, { kind: 'editCertificate', certificate: edit.certificate, seal: edit.seal, generation: certified.generation, hunks });
+			}
+		}
+		return certified;
+	}
+
+	async stage(path: string, blocks: readonly IOnyxEditBlock[], runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome> {
 		const uri = this._resolveUri(path);
 		if (!uri) {
 			return { ok: false, error: `Path "${path}" is not inside the workspace.` };
@@ -203,6 +261,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		// R-24: SEARCH text copied from a numbered readFile result is decoded
 		// only when it is provably that result (the exact text is tried
 		// first); anything shaped like one that is not the file is refused.
+		const sent = blocks;
 		const decoded = decodeNumberedBlocks(blocks, existing ? read?.content : current, existing?.proposal.proposed);
 		if (!decoded.ok) {
 			return { ok: false, error: decoded.error };
@@ -227,9 +286,23 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		const staged: IOnyxStagedFile = {
 			proposal: result.file, hunks: opened.review.hunks, conflicts: [], generation: opened.review.generation,
 			baseVersion: existing?.baseVersion ?? { versionId: read?.versionId, contentHash: traceDigest(result.file.base) },
-			risk: existing?.risk, runId: runId ?? existing?.runId,
+			risk: existing?.risk, runId: runId ?? existing?.runId, edits: existing?.edits ?? [],
 		};
-		this._upsert(staged);
+		// One certificate an edit (L6): what it was placed against, how often its quoted text was there, and
+		// whether the model had been shown that text in the turn that sent it.
+		const evidence = runId ? this._promptEvidence.get(runId) : undefined;
+		let placedAgainst = existing ? existing.proposal.proposed : current ?? '';
+		const edits = blocks.map((block, index) => {
+			const certificate = this._certifyEdit({
+				path, protocol: result.file.kind === 'create' && !existing ? 'new-file' : blocks.length > 1 ? 'multi-edit' : 'search-replace',
+				call: origin?.call ?? null, block: index, base: placedAgainst, baseVersionId: staged.baseVersion.versionId ?? null,
+				search: sent[index].search, matchCount: countOccurrences(placedAgainst, block.search), evidence,
+			});
+			const placed = placeEditBlock(placedAgainst, block);
+			placedAgainst = placed.ok ? placed.text : placedAgainst;
+			return certifiedEdit(certificate, certificate.anchor ? block.search : undefined, certificate.anchor ? block.replace : undefined);
+		});
+		this._upsert(this._certify(staged, edits));
 		this._scoreRisk(staged.proposal).catch(() => { /* risk stays unknown */ });
 		const summary = summarizeChangeSet([result.file]);
 		return {
@@ -248,7 +321,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		return proposeEdits(existing, path, currentContent, blocks);
 	}
 
-	async stageProposal(path: string, proposedContent: string, runId?: string): Promise<OnyxStageOutcome> {
+	async stageProposal(path: string, proposedContent: string, runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome> {
 		const uri = this._resolveUri(path);
 		if (!uri) {
 			return { ok: false, error: `Path "${path}" is not inside the workspace.` };
@@ -269,8 +342,10 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 			this._remove(path);
 			return { ok: true, summary: `No change for ${path}.` };
 		}
-		const staged: IOnyxStagedFile = { proposal, hunks: opened.review.hunks, conflicts: [], generation: opened.review.generation, baseVersion: { versionId: read?.versionId, contentHash: traceDigest(proposal.base) }, risk: undefined, runId };
-		this._upsert(staged);
+		const staged: IOnyxStagedFile = { proposal, hunks: opened.review.hunks, conflicts: [], generation: opened.review.generation, baseVersion: { versionId: read?.versionId, contentHash: traceDigest(proposal.base) }, risk: undefined, runId, edits: [] };
+		// The whole proposal is one edit without an anchor: the user's own selection, or a whole-file result (L6).
+		const certificate = certifyEdit({ path, protocol: read === undefined ? 'new-file' : origin?.protocol ?? 'whole-file', call: origin?.call ?? null, block: 0, base: proposal.base, baseVersionId: read?.versionId ?? null, search: undefined, matchCount: 0, evidence: runId ? this._promptEvidence.get(runId) : undefined });
+		this._upsert(this._certify(staged, [certifiedEdit(certificate, undefined, undefined)]));
 		this._scoreRisk(proposal).catch(() => { /* risk stays unknown */ });
 		const summary = summarizeChangeSet([proposal]);
 		return { ok: true, summary: `Staged ${path} (+${summary.addedLines} −${summary.removedLines}).` };

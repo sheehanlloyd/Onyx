@@ -107,7 +107,7 @@ export class OnyxInlineEditSession {
 		// The whole file as it would be: the text the request was made from, with the selected lines replaced.
 		const lines = this._baseText.split('\n');
 		const proposed = [...lines.slice(0, this._startLine - 1), ...newText.split('\n'), ...lines.slice(this._endLine)].join('\n');
-		const outcome = await this._changeSetService.stageProposal(this.path, proposed, runId);
+		const outcome = await this._changeSetService.stageProposal(this.path, proposed, runId, { protocol: 'inline' });
 		// Staging read the file itself. Whatever happened while it did, the request's own text is checked once more.
 		const staleAfter = this._staleness();
 		if (staleAfter) {

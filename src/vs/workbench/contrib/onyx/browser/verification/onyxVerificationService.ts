@@ -144,6 +144,10 @@ export class OnyxVerificationService extends Disposable implements IOnyxVerifica
 			// How much of the proposal is still staged is read when the result is published, not when the acceptance began.
 			result = { ...next, stagedHunksLeft: this._stagedHunksLeft(path) };
 			this._set(result);
+			if (runId && (announce || result.state === 'running')) {
+				// What became of the certified hunks (L6): the content after the acceptance, and where its verification stands.
+				this._controlPlaneService.recordTrace(runId, { kind: 'editCertificateOutcome', path, generation, appliedContentHash: result.contentHash, verification: result.state });
+			}
 			if (announce && runId) {
 				this._controlPlaneService.appendActivity(runId, { kind: 'note', label: describeVerification(result), ok: result.state === 'verified' ? true : result.state === 'new problems' ? false : undefined, location: { path, line: result.diff?.introduced[0]?.line ?? 1 } });
 			}

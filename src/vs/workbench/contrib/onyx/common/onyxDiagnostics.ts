@@ -178,6 +178,29 @@ export class OnyxDiagnosticsRedactor {
 				};
 			case 'acceptance':
 				return { kind: 'acceptance', path: this.content(data.path), hunk: typeof data.hunk === 'number' ? data.hunk : this.identifier(data.hunk) };
+			case 'editCertificate': {
+				// Digests, counts and names (L6). The path is content, like any path here.
+				const certificate = isObject(data.certificate) ? data.certificate : {};
+				const base = isObject(certificate.base) ? certificate.base : {};
+				const anchor = isObject(certificate.anchor) ? certificate.anchor : undefined;
+				const provenance = isObject(certificate.provenance) ? certificate.provenance : undefined;
+				return {
+					kind: 'editCertificate',
+					certificate: {
+						v: this._number(certificate.v), path: this.content(certificate.path), protocol: this.identifier(certificate.protocol),
+						turn: this._number(certificate.turn), call: this.identifier(certificate.call), block: this._number(certificate.block),
+						base: { contentHash: this.identifier(base.contentHash), versionId: this._number(base.versionId) },
+						anchor: anchor ? { digest: this.identifier(anchor.digest), lines: this._number(anchor.lines), matchCount: this._number(anchor.matchCount) } : null,
+						grounding: this.identifier(certificate.grounding),
+						provenance: provenance ? { segment: this._number(provenance.segment), source: this.identifier(provenance.source), ...(provenance.tool !== undefined ? { tool: this.identifier(provenance.tool) } : {}), holdsEveryLine: this._boolean(provenance.holdsEveryLine) } : null,
+					},
+					seal: this.identifier(data.seal),
+					generation: this._number(data.generation),
+					hunks: Array.isArray(data.hunks) ? data.hunks.map(hunk => this.identifier(hunk)) : [],
+				};
+			}
+			case 'editCertificateOutcome':
+				return { kind: 'editCertificateOutcome', path: this.content(data.path), generation: this._number(data.generation), appliedContentHash: this.identifier(data.appliedContentHash), verification: this.identifier(data.verification) };
 			case 'outcome':
 				return { status: this.identifier(data.status) };
 			default:
