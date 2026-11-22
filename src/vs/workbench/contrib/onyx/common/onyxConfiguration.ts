@@ -28,6 +28,7 @@ export const enum OnyxSettingId {
 	InferenceAllowLan = 'onyx.inference.allowLan',
 	IndexMaxFiles = 'onyx.index.maxFiles',
 	ContextRequestTokens = 'onyx.context.requestTokens',
+	LabRequestTasks = 'onyx.lab.requestTasks',
 }
 
 export interface IOnyxEndpointSetting {
@@ -186,6 +187,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			minimum: ONYX_INDEX_MAX_FILES.minimum,
 			maximum: ONYX_INDEX_MAX_FILES.maximum,
 			markdownDescription: localize('onyx.index.maxFiles', "The most files of one workspace folder that Onyx's content index holds. Files that `files.exclude`, `search.exclude` or the folder's `.gitignore` leave out are not indexed. When a folder has more files than this, source folders are indexed first and tests, documentation and examples last, and search results from the index say how much of the folder it holds. The index keeps roughly one and a half times the size of the indexed text in memory, and stops at 256 MB of text whatever this number is."),
+		},
+		[OnyxSettingId.LabRequestTasks]: {
+			type: 'boolean',
+			// Decided for one workspace at a time: it is that workspace's journal the tasks are made from.
+			scope: ConfigurationScope.RESOURCE,
+			default: false,
+			markdownDescription: localize('onyx.lab.requestTasks', "Let Onyx make benchmark tasks for this workspace out of your own requests. A request becomes a task when you accepted its proposal and the lines you accepted were later committed: the instruction is what you asked for, and the reference is the file at that commit. Off by default. The tasks are read from this workspace's run journal when a measurement runs, are used on this machine only, and nothing is uploaded."),
 		},
 		[OnyxSettingId.ContextRequestTokens]: {
 			type: 'integer',

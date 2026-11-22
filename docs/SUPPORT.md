@@ -710,6 +710,49 @@ requested and verified ("Context allocation", above).
 - **Datasheets are not in the diagnostics export**, and reasoning models remain unvalidated against a real
   model (C4): neither pinned model reasons.
 
+## The private benchmark: tasks from your history and your requests (L10)
+
+A measurement of models on a repository uses that repository's own tasks. Nothing of a task leaves the machine: a task set is commit ids and content hashes, and what a model is shown is read from the repository when the measurement runs (DEC-10).
+
+**Tasks from history, held out in time.** A commit is a task when it changed one source file by 3 to 80 lines and is not a merge, a revert or a mechanical commit. It counts as *held out* for a model only when it was authored after the day the model was published, with the whole of that day anywhere in the world taken as "not after": the model cannot have been trained on it. The catalog carries the publication day and the page that states it, for the models it dates:
+
+| Model | Published | Source |
+|---|---|---|
+| `qwen2.5-coder:1.5b`, `qwen2.5-coder:7b` | 2024-09-19 | The Qwen2.5 announcement, which names both sizes: `https://qwenlm.github.io/blog/qwen2.5/` |
+| `llama3.2:3b` | 2024-09-25 | The model card: `https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct` |
+| `gpt-oss:20b` | 2025-08-05 | The announcement: `https://openai.com/index/introducing-gpt-oss/` |
+
+The pages were read on 2026-11-22. The Qwen announcement is dated 2024-09-19 and lists the 1.5B and 7B coder models; it does not say in so many words that their weights were released that day, and no page was found that dates the 14B and 32B sizes, so the catalog leaves those undated. For a model with no date, and for a model the catalog does not know, tasks are labelled **holdout unknown** and reported apart: such a result may be measuring what the model memorised. When several models are measured together, the latest of their days decides, and one undated model makes the whole set unknown.
+
+**A model is not scored on a task it could not read.** A task's file is at most 12,000 characters before the change, and at most two fifths of the model's context at three characters a token.
+
+**Tasks from your own requests** (`onyx.lab.requestTasks`, off by default, decided for one workspace at a time). A request becomes a task when you accepted its proposal and the lines you accepted were later committed. The instruction is what you typed, the base is the commit the workspace was at, and the reference is the file at the first commit that holds the accepted lines. An acceptance records digests of the lines it added, never the lines, so that the commit can be found later. Requests with nothing accepted, with a base commit that is no longer reachable, or whose accepted lines were never committed are skipped and counted. Without the opt-in the journal is not read for this.
+
+**Counts before scores.** A result states how many tasks came from history and how many from requests, and how many are held out, not held out, or unknown. Below 10 scored tasks for a model it says there are not enough tasks to rank, and does not rank.
+
+**Scoring, tier 1: nothing is run.** The preservation-aware score of C8 (`changed-line-f1-preserving/2`), with the lines a reply removed that the author kept counted on their own.
+
+**Scoring, tier 2: your verification command, in a sandbox.** For a task whose commit also changed a test, the command you type is run on the file before the change and on the file a model proposed: the task is passed when it fails before and passes after. This executes code a model wrote, so all of the following hold or the tier is unavailable and scoring is tier 1:
+
+- The command is the one you typed. A dialog shows it byte for byte with the most times it will be run, says that model-written code will be executed, and nothing runs unless you agree. Another command, or one run more, is refused.
+- It runs inside the operating system's sandbox, in a disposable worktree: no network operation, and no write outside that worktree. Its temporary folder and home folder are pointed inside the worktree.
+- The sandbox was probed first on this machine: a connection to a listener the probe opens on the loopback interface is made once from outside the sandbox, as the control, and must fail from inside; a write outside the stand-in worktree must fail and leave no file; a write inside must succeed.
+- Only macOS has a sandbox Onyx uses (`sandbox-exec`, which Apple marks as deprecated and which is present on current macOS). On any other platform the oracle is unavailable, and a command that was to be sandboxed is never run without the sandbox.
+
+The probe on the reference machine, macOS 26.5.1, 2026-11-22 (`node test/onyx/lab/probe-oracle.mts`):
+
+```
+platform: darwin 25.5.0
+sandboxed-run: exit 0, observed true
+network-outside-sandbox: exit 0, observed true, said "1 connection(s) reached the probe's listener"
+network-inside-sandbox: exit 1, observed false
+write-outside-worktree: exit 1, observed false, said "touch: <scratch>/outside/escaped: Operation not permitted"
+write-inside-worktree: exit 0, observed true
+sandbox: established
+```
+
+What the sandbox is not: it denies the network and writes outside the worktree. It does not hide your files from the command, and it does not limit processor time or memory beyond the command's timeout.
+
 ## Command execution and its limits (B5)
 
 An approved command is started by one module, `src/vs/platform/onyxRuntime/node/onyxCommandRunner.ts`, and by
@@ -833,7 +876,7 @@ tested. The module gate runner reads this table (`| item | state |`).
 | C10 benign repeated-dot names | included | 3 | Not needed: included. A `..` segment is refused and a name that contains two dots is not, on the read side and the write side (R-30, every subcase). Traversal, absolute paths and symbolic links out of the workspace are refused on both sides whatever this row says |
 | D3 Check for Updates command | planned | 5 | Manual replacement, rollback and uninstall instructions always ship |
 | L7 constrained anchors | included | 3 | Not needed: included as an **experimental** protocol, off by default and reachable only as a lab arm of the harness configuration (R-47). Whether it ever becomes a default is L14's decision, in Module 4; until then the fallback is what ships: search and replace |
-| L10 executable oracle | planned | 4 | Tier 1 scoring only; this file shows the sandbox probe output |
+| L10 executable oracle | included | 4 | Not needed: included. The sandbox probe passes on the reference machine ("The private benchmark", below, has its output) and R-50's sandbox cases pass (`OnyxOracle`, `OnyxLabTasks`). Where the probe fails, or without the user's consent, scoring is tier 1 only and the result says so |
 | L16 confidence badge | planned | 4 | No badge, no claim; result published |
 | L17 eviction policy | planned | 4 | Oldest-first eviction stays; result published |
 | L18 energy | planned | 4 | "Unavailable on this hardware" with the probe output |

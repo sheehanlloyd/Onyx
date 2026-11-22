@@ -29,6 +29,8 @@
  * - Ctrl+C stops it: the unit in flight is cancelled and leaves no record;
  * - the repository it reads tasks from is not touched: its files, index, branches and HEAD are compared
  *   before and after, and tier A works in a linked worktree in the temporary directory, removed at the end.
+ *   The comparison cannot tell a campaign's change from anyone else's: to work in a repository while a
+ *   campaign reads from it, give the campaign a clone of its own (`git clone --local --bare`, `--repo`).
  *
  * `--rescore` runs nothing: it recomputes results.jsonl and summary.json from the records.
  * Exit codes: 0 complete, 1 failed, 2 usage, 3 stopped before the end, 4 the repository changed, 130 cancelled.
@@ -100,7 +102,9 @@ function gitShow(revision: string, file: string): string | undefined {
 function repositoryState(): { readonly status: string; readonly index: string; readonly head: string; readonly refs: string } {
 	const relativeOut = path.relative(repo, outDir);
 	const inside = relativeOut && !relativeOut.startsWith('..') && !path.isAbsolute(relativeOut);
-	const status = git(repo, ['status', '--porcelain=v1', '-z', '--', '.', ...(inside ? [`:(exclude)${relativeOut}`] : [])]);
+	// A bare repository has no working tree to have a status: its objects, HEAD and refs are what there is.
+	const bare = git(repo, ['rev-parse', '--is-bare-repository']).trim() === 'true';
+	const status = bare ? 'bare' : git(repo, ['status', '--porcelain=v1', '-z', '--', '.', ...(inside ? [`:(exclude)${relativeOut}`] : [])]);
 	const gitDir = git(repo, ['rev-parse', '--absolute-git-dir']).trim();
 	const indexPath = path.join(gitDir, 'index');
 	return {
@@ -142,6 +146,7 @@ const root = campaign.baseUrl.replace(/\/v1$/, '');
 
 const lab: ILabModule = await import(out('vs/workbench/contrib/onyx/common/onyxLab.js'));
 const bench: IBenchModule = await import(out('vs/workbench/contrib/onyx/common/onyxRepoBench.js'));
+const tasks: { taskInstruction(message: string): string } = await import(out('vs/workbench/contrib/onyx/common/onyxLabTasks.js'));
 
 const recordsPath = path.join(outDir, 'traces', 'records.jsonl');
 const campaignPath = path.join(outDir, 'campaign.json');
@@ -154,14 +159,15 @@ function appendRecord(record: ILabRecord): void {
 }
 
 const plan = lab.planLabCampaign({ tier: campaign.tier, models: wireModels, configurations: manifest.harnessConfigurations.map(entry => entry.name), tasks: tasksFile.tasks, seeds: manifest.seeds, repetitions: manifest.repetitions });
-const subjects = new Map<string, string>();
-const subjectOf = (task: ILabTask): string => {
-	let subject = subjects.get(task.commit);
-	if (subject === undefined) {
-		subject = git(repo, ['log', '-1', '--format=%s', task.commit]).trim();
-		subjects.set(task.commit, subject);
+const instructions = new Map<string, string>();
+/** A task's instruction: the commit's message without its trailers (L10). Read from the repository, never committed. */
+const instructionOf = (task: ILabTask): string => {
+	let instruction = instructions.get(task.commit);
+	if (instruction === undefined) {
+		instruction = tasks.taskInstruction(git(repo, ['log', '-1', '--format=%B', task.commit]));
+		instructions.set(task.commit, instruction);
 	}
-	return subject;
+	return instruction;
 };
 
 /** Scores every record against its task and writes results.jsonl and summary.json. Everything in them comes from the records and the repository. */
@@ -307,7 +313,7 @@ async function runTierS(units: readonly ILabUnit[], evictions: object[]): Promis
 			appendRecord({ ...base, outcome: 'could-not-serve', reply: null, requests: [], durationMs: Date.now() - started, error: before === undefined ? 'the file does not exist before the commit' : `the file is ${before.length} characters before the change, over the ${campaign!.maxBeforeChars ?? 12_000} a task may be` });
 			continue;
 		}
-		const messages = [{ role: 'system', content: bench.ONYX_BENCH_SYSTEM_PROMPT }, { role: 'user', content: bench.buildBenchPrompt({ file: unit.task.file, subject: subjectOf(unit.task) }, before) }];
+		const messages = [{ role: 'system', content: bench.ONYX_BENCH_SYSTEM_PROMPT }, { role: 'user', content: bench.buildBenchPrompt({ file: unit.task.file, subject: instructionOf(unit.task) }, before) }];
 		try {
 			let reply: IReply;
 			try {
@@ -401,7 +407,7 @@ async function runTierA(units: readonly ILabUnit[], evictions: object[], notes: 
 					worktree, recordsPath, statusPath, cancelPath, heartbeatPath, baseUrl: campaign!.baseUrl, unitTimeoutMs: campaign!.unitTimeoutMs ?? 600_000,
 					units: segment.map(unit => ({
 						id: unit.id, manifest: manifest.name, model: unit.model, configuration: { name: unit.configuration, configuration: configurations.get(unit.configuration) ?? {} }, task: unit.task,
-						seed: unit.seed, repetition: unit.repetition, temperature: manifest.sampling.temperature, instruction: lab.labAgentInstruction(unit.task.file, subjectOf(unit.task)),
+						seed: unit.seed, repetition: unit.repetition, temperature: manifest.sampling.temperature, instruction: lab.labAgentInstruction(unit.task.file, instructionOf(unit.task)),
 					})),
 				}));
 				// A profile of its own, with the campaign's endpoint added to the runtimes discovery probes. Discovery

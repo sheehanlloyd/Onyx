@@ -25,6 +25,7 @@ import {
 import { traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxChangeRisk } from '../../common/onyxChangeRisk.js';
 import { resolveAnchorEdit } from '../../common/onyxAnchorEdit.js';
+import { addedLineDigests } from '../../common/onyxLabTasks.js';
 import { anchorPairText, certificateForHunk, certifiedEdit, certifyEdit, groundAnchor, IOnyxCertifiedEdit, IOnyxCertifyInput, IOnyxEditCertificate, IOnyxPromptEvidence } from '../../common/onyxEditCertificate.js';
 import { countOccurrences, IOnyxEditBlock, IOnyxEditHunk, placeEditBlock } from '../../common/onyxInlineEdit.js';
 import { decodeNumberedSearch, replacementCarriesNumbering } from '../../common/onyxReadTools.js';
@@ -473,7 +474,8 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		try {
 			const outcome = await this._apply(staged, hunkId);
 			if (outcome.applied && staged.runId) {
-				this._controlPlaneService.recordAcceptance(staged.runId, { path: staged.proposal.path, hunk: hunkId ?? 'all' });
+				const accepted = hunkId === undefined ? staged.hunks : staged.hunks.filter(hunk => hunk.id === hunkId);
+				this._controlPlaneService.recordAcceptance(staged.runId, { path: staged.proposal.path, hunk: hunkId ?? 'all', added: addedLineDigests(accepted.flatMap(hunk => hunk.newLines)) });
 			}
 			return outcome;
 		} catch (error) {

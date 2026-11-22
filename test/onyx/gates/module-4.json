@@ -53,6 +53,82 @@
 				"test/onyx/checks/r49-lab-campaign-app.test.mts"
 			],
 			"timeoutMs": 1800000
+		},
+		{
+			"id": "R-50-pure",
+			"title": "L10 tasks: only commits authored after the model was published are held out, a model with no date gives tasks labelled unknown, only accepted-and-committed requests become tasks and only with the opt-in, and the oracle is unavailable without a passed probe, the user's consent to this exact command, and runs left",
+			"layer": "pure",
+			"regressions": [
+				"R-50"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxLabTasks.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxLabTasks|OnyxRepoBench"
+			]
+		},
+		{
+			"id": "R-50-sandbox",
+			"title": "L10 the executable oracle's sandbox on this machine: the probe sees the network and an out-of-tree write denied and its own listener reached from outside; a verification script that tries both is blocked at both and a fail-to-pass check still runs; where no sandbox exists nothing is started",
+			"layer": "node",
+			"regressions": [
+				"R-50"
+			],
+			"files": [
+				"src/vs/platform/onyxRuntime/test/node/onyxOracle.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxOracle|OnyxCommandRunner"
+			]
+		},
+		{
+			"id": "R-50-node",
+			"title": "L10 through the lab's own scripts: a campaign under the network guard makes no outbound request and the guard is shown to refuse one; requests become tasks only with the opt-in; a task set holds ids and hashes and labels holdout",
+			"layer": "node",
+			"regressions": [
+				"R-50"
+			],
+			"files": [
+				"test/onyx/checks/r50-lab-tasks.test.mts",
+				"test/onyx/lab/network-guard.mts",
+				"test/onyx/lab/request-tasks.mts",
+				"test/onyx/lab/make-task-set.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r50-lab-tasks.test.mts"
+			],
+			"timeoutMs": 600000
+		},
+		{
+			"id": "L10-task-set",
+			"title": "L10 this repository's task set is committed as commit ids and content hashes with its manifest, every hash matches the repository, and docs/SUPPORT.md records the executable oracle as included with the probe output",
+			"layer": "node",
+			"regressions": [
+				"R-50"
+			],
+			"files": [
+				"docs/research/results/2026-11-22-task-set/manifest.json",
+				"docs/research/results/2026-11-22-task-set/tasks.json",
+				"docs/research/results/2026-11-22-task-set/summary.json",
+				"docs/research/results/2026-11-22-task-set/trace-digests.json"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/module4-gate.test.mts"
+			],
+			"timeoutMs": 600000,
+			"scope": {
+				"item": "L10",
+				"when": "included"
+			}
 		}
 	]
 }

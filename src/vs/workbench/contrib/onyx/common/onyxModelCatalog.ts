@@ -20,6 +20,19 @@ export interface IOnyxCatalogModel {
 	readonly downloadGb: number;
 	readonly quantization: string;
 	readonly note: string;
+	/**
+	 * The day the model was published (ISO date), and the page that says
+	 * so (L10). A task from history counts as held out for the model only
+	 * when it was authored after this day. Absent: not known, and tasks
+	 * are reported as "holdout unknown".
+	 */
+	readonly publishedAt?: string;
+	readonly publishedSource?: string;
+}
+
+/** The publication day of a model by its runtime id, from the catalog; undefined for a model the catalog does not date. */
+export function modelPublishedAt(modelId: string): string | undefined {
+	return ONYX_MODEL_CATALOG.find(model => model.id === modelId)?.publishedAt;
 }
 
 /**
@@ -30,6 +43,8 @@ export interface IOnyxCatalogModel {
 export const ONYX_MODEL_CATALOG: readonly IOnyxCatalogModel[] = [
 	{
 		id: 'qwen2.5-coder:1.5b',
+		publishedAt: '2024-09-19',
+		publishedSource: 'https://qwenlm.github.io/blog/qwen2.5/',
 		label: 'Qwen2.5 Coder 1.5B',
 		role: 'autocomplete',
 		parameterB: 1.5,
@@ -39,6 +54,8 @@ export const ONYX_MODEL_CATALOG: readonly IOnyxCatalogModel[] = [
 	},
 	{
 		id: 'llama3.2:3b',
+		publishedAt: '2024-09-25',
+		publishedSource: 'https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct',
 		label: 'Llama 3.2 3B',
 		role: 'chat',
 		parameterB: 3,
@@ -48,6 +65,8 @@ export const ONYX_MODEL_CATALOG: readonly IOnyxCatalogModel[] = [
 	},
 	{
 		id: 'qwen2.5-coder:7b',
+		publishedAt: '2024-09-19',
+		publishedSource: 'https://qwenlm.github.io/blog/qwen2.5/',
 		label: 'Qwen2.5 Coder 7B',
 		role: 'agent',
 		parameterB: 7,
@@ -75,6 +94,8 @@ export const ONYX_MODEL_CATALOG: readonly IOnyxCatalogModel[] = [
 	},
 	{
 		id: 'gpt-oss:20b',
+		publishedAt: '2025-08-05',
+		publishedSource: 'https://openai.com/index/introducing-gpt-oss/',
 		label: 'GPT-OSS 20B',
 		role: 'agent',
 		parameterB: 20,

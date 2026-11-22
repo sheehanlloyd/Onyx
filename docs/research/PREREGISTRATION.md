@@ -151,5 +151,35 @@ a hypothesis whose data exists is frozen.*
 
 ## Amendments
 
-*None. An amendment is a dated entry here naming the hypothesis, the change and the reason, made before that
-hypothesis's campaign has produced data.*
+*An amendment is a dated entry here naming the hypothesis, the change and the reason, made before that hypothesis's campaign has produced data.*
+
+### Amendment 1, 2026-11-22: models, tasks, sampling, and the design of H-2
+
+Made at L10, before any campaign that tests a hypothesis. The commit that adds this section is an ancestor of every results commit of H-2 to H-10.
+
+**What existed when this was written.** Three things had been run, none of them a hypothesis's campaign. (1) L9's two engine campaigns, committed under `docs/research/results/2026-11-22-engine-tier-s/` and `2026-11-22-engine-tier-a/`: 24 single-turn units and 8 agent runs on eight commits. (2) and (3) Two pilots that are not committed: 16 agent runs with the instruction below on the same eight commits, and 48 agent runs on them under three values of the tool-call protocol. The eight commits are excluded from the task set. What the pilots showed is stated with each decision they informed, because a design choice made after looking at data has to say so.
+
+**A1.1 The models (Common rules, "Models").** The registration expected one pinned model at or below 7B and one above. The two models Module 2 pinned and measured are `qwen2.5-coder:7b` and `qwen2.5-coder:1.5b`: both are at or below 7B. No model above 7B is installed on the reference machine, and none is downloaded for this module. So: "the pinned models" are those two; where a hypothesis compares sizes, the larger is the 7B and the smaller the 1.5B; and no statement is made about models above 7B. `llama3.2:3b`, which is installed, is added for H-7 and H-10 only, which ask for a third model or for "any other installed model".
+
+**A1.2 The tasks (Common rules, "Tasks", "Correctness").** L10's task set is `docs/research/results/2026-11-22-task-set/tasks.json`: commits of this repository authored after 2025-01-01, which is later than the day any of the three models was published, selected by the product's rule and spread over the eligible history. A campaign names the subset it uses and that subset's hash. Three points the registration left open are fixed here:
+
+- *The instruction* is the commit's message, subject and body, without trailers, cut at 1,500 characters; a task names its one file. In an agent run the instruction ends "Read the file first, then propose the change with the editFile tool. Do not ask for more information." Reason, from the engine campaign and the first pilot: given only "In the file X, make this change: <subject>", the 7B model answered three of four tasks in prose without calling a tool, and the 1.5B model read the file and said the change was made. A campaign has no user to answer a question.
+- *A task succeeds* when the file as proposed has exactly the author's lines: the same lines as the author's file, compared trimmed and as a multiset, empty lines ignored (`labTaskSucceeded`). These tasks have one hunk-bearing file and no tests of their own that a campaign runs, so "every reference hunk is correct" is this comparison. The score of C8 (`changed-line-f1-preserving/2`) is reported beside it as a secondary measure and decides no outcome.
+- *A model is not given a task it cannot read*: a task's file is at most 12,000 characters before the change.
+
+**A1.3 Sampling and seeds (H-2, H-7, H-9, H-10).** Campaigns run at temperature 0 with one seed (1), not three. Reason: at temperature 0 the seed does not enter decoding, so three seeds are three repetitions, and they would triple machine time that the reference machine does not have: the agent-loop campaigns of this module are sized to about ten hours each or less. Whether repetitions at temperature 0 agree is H-6's question and is measured there with five repetitions. A hypothesis whose interval is too wide for a decision with one seed ends as inconclusive.
+
+**A1.4 H-2's design.** The registration allows at most five components and a documented fractional design. The design is a full factorial over three components, 12 configurations, on both pinned models and 40 tasks: 960 agent runs.
+
+| Component | Values | In the product |
+|---|---|---|
+| Tool-call protocol handling | `native` (off), `repaired-text`, `constrained-envelope` | `constrained-envelope` for both models: their datasheets show 0 of 5 calls on the tool channel and a runtime that enforces schemas |
+| Tool-result elision | 4,000 characters of a result (on), 16,000 (off: every task's file is returned whole) | 4,000 |
+| Read-tool line numbering | on, off | on |
+
+Every other switch is the same in all twelve and is named in the manifest (compact prompt, 8 turns, 8 tools, context 16,384, search-and-replace edits).
+
+- *Two components are left out, for a stated reason each.* Eviction has one policy until L17, and running without eviction breaks invariant I-04, which no lab configuration may do; L17 studies the policies. Verification feedback compares the workspace's problems before and after a run, and a campaign's instance of the application runs without extensions, so there are no problems to compare: the switch would change nothing, and measuring it would report a zero that means "not exercised".
+- *Protocol handling has three values, not two.* The hypothesis names "repair or constrained decoding", and the product has both. The second pilot, on the eight excluded commits, is why all three are kept: under `constrained-envelope` the 7B model read the file and then answered without editing in 8 of 8 runs, under `native` it made no recognised tool call in 8 of 8, and under `repaired-text` it called the edit tool 4 times in 8 runs, with 2 edits staged. The 1.5B model called the edit tool 11 times under `repaired-text` and once under `constrained-envelope`; none of its edits was staged. No run in either pilot reproduced the author's change. Collapsing to "on/off" would hide the difference the pilot points at.
+- *Analysis.* A component's Shapley value is computed over a two-valued game. For protocol handling the game is played twice: **primary**, `native` against the product's value for the model (`constrained-envelope`); **secondary**, `native` against `repaired-text`. The other two components keep their on and off as in the table. Each game has 8 coalitions; the value of a coalition is the success rate of its configuration over the 40 tasks; intervals are bootstrap intervals over tasks, 1,000 resamples. Main effects and pairwise interactions are reported for each game.
+- *Decision.* The thresholds are the registration's, applied to the **primary** game of each model: supported when protocol handling's Shapley value exceeds each other component's with intervals that do not overlap, for both models, and the margin to the runner-up is smaller for the 7B than for the 1.5B; refuted when another component's interval lies wholly above protocol handling's for either model, or the margin grows with size with intervals excluding equality; inconclusive otherwise. The secondary game is reported in full beside it and is labelled secondary wherever it appears. If no configuration succeeds on any task, every Shapley value is zero with a zero-width interval, and the outcome is inconclusive: that is a floor, not evidence of equal worth.

@@ -296,6 +296,10 @@ What a campaign keeps to:
 - **The repository is not touched.** Its `git status`, index file, HEAD and refs are compared before and after, and a difference is exit code 4. Nothing is ever accepted in the worktree: proposals are read and discarded.
 - **Every switch is named.** A harness configuration in a campaign's manifest should set each field it compares. One left to be derived follows the model's profile, which the application updates as it measures the model, so two units could run differently.
 
+**Tasks** (L10). `make-task-set.mts` writes a task set as commit ids and content hashes: commits the product's rule accepts, authored after the latest day one of the named models was published (`--model`, from the catalog), spread over the eligible history, optionally with the commits that also changed one test file (`--with-tests`) and read back from a pinned revision (`--rev`) so that the set can be built again. `describe-task-set.mts` checks a committed set against the repository and writes its counts. `request-tasks.mts` makes tasks of a workspace's accepted and committed requests, with that workspace's opt-in. A task's instruction is its commit's message, read when a campaign runs. `probe-oracle.mts` probes this machine for the sandbox the executable oracle needs, and `network-guard.mts`, loaded with `node --import`, refuses and records any connection a lab script makes that is not to this machine.
+
+A campaign compares the repository it reads from before and after, and cannot tell its own change from yours. To work in a repository while a campaign reads tasks from it, give the campaign a clone of its own: `git clone --local --bare . .build/onyx-lab-source.git`, then `--repo .build/onyx-lab-source.git`.
+
 `test/onyx/checks/r49-lab-campaign.test.mts` (tier S) and `r49-lab-campaign-app.test.mts` (tier A, opens a window) run campaigns against the mock on a disposable repository; `onyxLab.test.ts` has the pure rules. Real-model campaigns run one at a time, on a quiet machine, with a runtime started for them on a port of its own (`OLLAMA_HOST=127.0.0.1:11500 ollama serve`).
 
 ## Simulation rig

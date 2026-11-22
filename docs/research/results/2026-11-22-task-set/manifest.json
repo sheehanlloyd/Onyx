@@ -1,0 +1,91 @@
+{
+	"version": 1,
+	"name": "2026-11-22-task-set",
+	"createdAt": "2026-11-22T07:36:54Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:llama3.2:3b",
+			"digest": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1
+	],
+	"sampling": {
+		"temperature": 0
+	},
+	"harnessConfigurations": [
+		{
+			"name": "none-a-task-set-runs-nothing",
+			"hash": "00000000"
+		}
+	],
+	"taskSet": {
+		"name": "this repository's history, held out for the three installed models",
+		"hash": "fefa777b2d60e7fa",
+		"count": 120
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			2.95,
+			5.33,
+			7.66
+		]
+	},
+	"regenerate": [
+		{
+			"output": "tasks.json",
+			"command": "node test/onyx/lab/make-task-set.mts --out docs/research/results/2026-11-22-task-set/tasks.json --count 120 --scan 40000 --rev cc0916dc2a19f4397766c1b915de8ad335c30d6a --since 2025-01-01 --model qwen2.5-coder:7b --model qwen2.5-coder:1.5b --model llama3.2:3b --with-tests --exclude-tasks docs/research/results/2026-11-22-engine-tier-s/tasks.json --name \"this repository's history, held out for the three installed models\""
+		},
+		{
+			"output": "summary.json, trace-digests.json",
+			"command": "node test/onyx/lab/describe-task-set.mts docs/research/results/2026-11-22-task-set"
+		}
+	],
+	"notes": "L10: this repository's task set. No model was run to make it: the models listed are the ones whose publication days decide what is held out. The file holds commit ids and content hashes, never content."
+}

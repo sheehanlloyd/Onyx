@@ -15,6 +15,8 @@ import { OnyxArchitectureScanner } from './onyxArchitectureScanner.js';
 import { IOnyxCommandProcess, OnyxCommandRunner } from './onyxCommandRunner.js';
 import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
 import { labCampaignPaths, readLabCampaignRequest, readLabHarnessRequest } from './onyxLabManifest.js';
+import { probeOracleSandbox, runOracleCommand } from './onyxOracle.js';
+import { IOnyxOracleProbe } from '../common/onyxOracle.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
 import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
 import { contextAliasName, ONYX_CONTEXT_ALIAS_BOUNDS, parseContextAlias, sameOllamaModel } from '../common/onyxContextAlias.js';
@@ -342,13 +344,14 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	}
 
 	async gitCommitCandidates(repoPath: string, maxCommits: number): Promise<readonly IOnyxCommitCandidate[]> {
-		const raw = await this._git(repoPath, ['log', '--no-merges', '--numstat', '--pretty=format:@@%H|%s', '-n', String(clamp(maxCommits, 1, 500))], 4 * 1024 * 1024);
-		const candidates: { hash: string; subject: string; files: string[]; insertions: number; deletions: number }[] = [];
-		let current: { hash: string; subject: string; files: string[]; insertions: number; deletions: number } | undefined;
+		const raw = await this._git(repoPath, ['log', '--no-merges', '--numstat', '--pretty=format:@@%H|%aI|%s', '-n', String(clamp(maxCommits, 1, 500))], 4 * 1024 * 1024);
+		const candidates: { hash: string; authoredAt: string; subject: string; files: string[]; insertions: number; deletions: number }[] = [];
+		let current: { hash: string; authoredAt: string; subject: string; files: string[]; insertions: number; deletions: number } | undefined;
 		for (const line of raw.split('\n')) {
 			if (line.startsWith('@@')) {
 				const separator = line.indexOf('|');
-				current = { hash: line.slice(2, separator), subject: line.slice(separator + 1), files: [], insertions: 0, deletions: 0 };
+				const second = line.indexOf('|', separator + 1);
+				current = { hash: line.slice(2, separator), authoredAt: line.slice(separator + 1, second), subject: line.slice(second + 1), files: [], insertions: 0, deletions: 0 };
 				candidates.push(current);
 				continue;
 			}
@@ -1022,6 +1025,19 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		} finally {
 			this._runningCommands.delete(operationId);
 		}
+	}
+
+	async oracleProbe(): Promise<IOnyxOracleProbe> {
+		return probeOracleSandbox(this._commandRunner, process.platform, os.tmpdir());
+	}
+
+	async oracleRun(worktree: string, command: string, timeoutMs: number): Promise<IOnyxCommandResult> {
+		const gitDir = (await this._git(worktree, ['rev-parse', '--absolute-git-dir'])).trim();
+		const commonDir = (await this._git(worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir'])).trim();
+		if (!gitDir || !commonDir || gitDir === commonDir) {
+			return { exitCode: undefined, timedOut: false, killed: false, durationMs: 0, output: '', outputChars: 0, outputTruncated: false, withheldEnvironment: [], refusal: 'not-a-worktree' };
+		}
+		return runOracleCommand(this._commandRunner, worktree, command, timeoutMs);
 	}
 
 	async killCommand(operationId: string): Promise<void> {
