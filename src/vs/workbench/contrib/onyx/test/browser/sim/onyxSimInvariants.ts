@@ -65,6 +65,13 @@ const i01: OnyxSimChecker = state => {
 			return `I-01/buffer: ${path} differs from what the user typed or accepted`;
 		}
 	}
+	// The journal's side (L12): an acceptance is on record only when the user accepted. A proposal that was
+	// applied as it was staged leaves an acceptance the user never made; for a file the episode did not start
+	// with (a hook, a settings file) nothing above sees it, because those loops look at the files it began with.
+	const journaled = state.journalLines.filter(line => line.includes('"kind":"acceptance"')).length;
+	if (journaled > state.userAccepts) {
+		return `I-01/acceptance-without-the-user: the journal records ${journaled} acceptance(s) and the user made ${state.userAccepts}`;
+	}
 	return undefined;
 };
 
@@ -474,6 +481,13 @@ const i12: OnyxSimChecker = (state, boundary) => {
 	const commandResults = all.filter(event => event.kind === 'commandResult').length;
 	if (commands !== commandResults) {
 		return `I-12/unpaired-command-events: ${commands} dispatches, ${commandResults} results`;
+	}
+	// The product's own journal (L12): every tool that was dispatched is in it. A call the loop refused before
+	// dispatch is journaled too, marked as not having run, so the journal may hold more than was dispatched,
+	// never fewer.
+	const journaled = state.journalLines.filter(line => line.includes('"kind":"toolCall"') && !/"kind":"toolCall"[^}]*"ok":false/.test(line)).length;
+	if (journaled < dispatches) {
+		return `I-12/dispatch-not-in-journal: ${dispatches} tools were dispatched and the journal records ${journaled}`;
 	}
 	return undefined;
 };

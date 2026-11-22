@@ -34,6 +34,14 @@ export interface IOnyxHarnessConfigService {
 	 * `undefined` ends it.
 	 */
 	setLabOverride(override: { readonly request: IOnyxLabHarnessRequest; readonly sampling?: IOnyxLabSampling } | undefined): void;
+	/**
+	 * Whether a campaign is running in this window (L9, DEC-10). While it
+	 * is, nothing asks the user anything: what would need an approval that
+	 * only a person can give (a command, a network call, a note to
+	 * remember) is declined without a dialog, because nobody is there and a
+	 * dialog would hold the run until it timed out.
+	 */
+	campaignPolicy: boolean;
 }
 
 export class OnyxHarnessConfigService implements IOnyxHarnessConfigService {
@@ -44,6 +52,7 @@ export class OnyxHarnessConfigService implements IOnyxHarnessConfigService {
 	private _requested: Promise<IOnyxLabHarnessRequest | undefined> | undefined;
 	private readonly _running = new Map<string, IOnyxHarnessConfig>();
 	private _override: { readonly request: IOnyxLabHarnessRequest; readonly sampling?: IOnyxLabSampling } | undefined;
+	campaignPolicy = false;
 
 	constructor(
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,

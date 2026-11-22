@@ -1,0 +1,130 @@
+name: Onyx nightly assurance
+
+# The full simulation campaign (L12, R-52): 50,000 seeded episodes, the scripted
+# workflows and the injection corpus against every invariant checker, then
+# every mutant against the campaign's first 2,000 seeds. No model and no
+# runtime: the simulation rig only. Pull requests run the 2,000-episode smoke
+# in onyx-ci.yml; this is the size a module gate and a release candidate need.
+# The setup steps are those of onyx-ci.yml, kept the same on purpose.
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: onyx-nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  assurance:
+    name: Full simulation campaign and mutation score
+    # A fork has no reason to spend its minutes on this every night.
+    if: github.event_name == 'workflow_dispatch' || github.repository == 'sheehanlloyd/Onyx'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      NPM_ARCH: x64
+      VSCODE_ARCH: x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Only the bundled Copilot test fixtures are in LFS and nothing here reads them.
+          lfs: false
+          # The summary lists the shrunk scripts of earlier violations from the repository's history.
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup system services
+        run: |
+          set -e
+          # Chromium's namespace sandbox needs unprivileged user namespaces, which
+          # Ubuntu 24.04 restricts by default; the unit tests run in Electron.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          ./build/azure-pipelines/linux/apt-retry.sh sudo apt-get update
+          ./build/azure-pipelines/linux/apt-retry.sh sudo apt-get install -y pkg-config \
+            xvfb \
+            libgtk-3-0 \
+            libxkbfile-dev \
+            libkrb5-dev \
+            libsecret-1-dev \
+            libgbm1 \
+            rpm
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      # pnpm comes from corepack, which ships with Node 24 and reads the
+      # version from `packageManager` in package.json, so the pin lives in one
+      # place. build/npm/preinstall.ts refuses any other package manager or
+      # version.
+      - name: Setup pnpm
+        id: pnpm
+        run: |
+          corepack enable pnpm
+          echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+          echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+      # The cache holds pnpm's content-addressed store, never node_modules.
+      # The install below always runs, so its postinstall always runs too: a
+      # warm cache only spares the downloads and the native builds the store
+      # already holds. The npm workflow cached node_modules and skipped the
+      # install on a hit, which is why it needed a step to regenerate what
+      # postinstall writes outside node_modules (A7); that failure mode is
+      # gone, and so is the step. An older store is restored when the
+      # lockfiles change, and pnpm fetches only what it lacks.
+      - name: Cache pnpm store
+        id: cache-pnpm-store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm.outputs.store }}
+          key: onyx-pnpm-store-v1-${{ runner.os }}-${{ runner.arch }}-pnpm${{ steps.pnpm.outputs.version }}-${{ hashFiles('.nvmrc', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'build/pnpm-lock.yaml', 'build/pnpm-workspace.yaml', 'remote/pnpm-lock.yaml', 'remote/pnpm-workspace.yaml') }}
+          restore-keys: |
+            onyx-pnpm-store-v1-${{ runner.os }}-${{ runner.arch }}-pnpm${{ steps.pnpm.outputs.version }}-
+
+      # Frozen, always: an unfrozen install rewrites pnpm-lock.yaml in place
+      # and is refused by the release-age policy in pnpm-workspace.yaml (A9).
+      # `pnpm_config_frozen_lockfile` carries the setting into the installs
+      # that postinstall runs in build/ and remote/.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          pnpm_config_frozen_lockfile: 'true'
+          GIT_LFS_SKIP_SMUDGE: '1'
+          # The suites attach to the workbench's own Electron; nothing here
+          # uses the Chromium that @playwright/browser-chromium would fetch.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+          # @vscode/ripgrep downloads its binary through the GitHub releases
+          # API, which answers 403 to anonymous calls from a busy runner IP.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compile
+        run: pnpm run compile
+
+      # write-assurance.mts runs the campaign in shards of 2,000 seeds, one test
+      # process each, then the mutant test, and exits non-zero when an episode
+      # shows a violation or a mutant survives.
+      - name: Full campaign and every mutant
+        run: node test/onyx/sim/write-assurance.mts --out "$RUNNER_TEMP/onyx-assurance/$(date -u +%Y-%m-%d)-assurance"
+        env:
+          DISPLAY: ':10'
+
+      - name: Upload the campaign's results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: onyx-assurance
+          path: ${{ runner.temp }}/onyx-assurance
+          if-no-files-found: warn

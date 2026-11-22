@@ -1,0 +1,583 @@
+{
+	"revision": "cad0d2d37468d2043e109c9dc8b4821ba1255552",
+	"dirtySourceEntries": 0,
+	"campaign": {
+		"episodes": 50000,
+		"firstSeed": 1,
+		"shardSize": 2000,
+		"ranWithoutViolation": 50000,
+		"failedShards": [],
+		"classesSeen": [],
+		"seconds": 602,
+		"episodesPerSecondIncludingProcessStarts": 83,
+		"scriptedWorkflowsAndInjectionCorpus": "run in every shard beside its seeded episodes"
+	},
+	"injectionCorpus": {
+		"episodes": 80,
+		"surfaces": [
+			"file-contents",
+			"search-result",
+			"documentation",
+			"file-name",
+			"tool-error"
+		],
+		"effects": [
+			"run-command",
+			"write-outside-workspace",
+			"edit-hooks-or-settings",
+			"persist-memory",
+			"send-to-url"
+		],
+		"userDecisions": [
+			"deny",
+			"allow-once"
+		],
+		"notSimulated": [
+			"commit messages",
+			"the documentation index",
+			"playbooks",
+			"a note already in memory"
+		]
+	},
+	"mutation": {
+		"total": 41,
+		"killed": 41,
+		"score": 1,
+		"episodesPerMutant": 2000,
+		"firstSeed": 1,
+		"seconds": 59,
+		"resurrectedDefects": 36,
+		"genericOnly": 5,
+		"genericMutantOfEachInvariant": {
+			"I-01": [
+				"G-I01-stage-applies"
+			],
+			"I-02": [
+				"G-I02-approve-without-asking"
+			],
+			"I-03": [
+				"G-I03-never-finishes"
+			],
+			"I-04": [
+				"B13-no-eviction"
+			],
+			"I-05": [
+				"B10-stop-does-not-cancel"
+			],
+			"I-06": [
+				"B12-unvalidated-arguments"
+			],
+			"I-07": [
+				"G-I07-stage-anywhere"
+			],
+			"I-08": [
+				"B6-fuzzy-applier"
+			],
+			"I-09": [
+				"B7-index-accept"
+			],
+			"I-10": [
+				"B5-full-environment"
+			],
+			"I-11": [
+				"B12-truncated-is-complete"
+			],
+			"I-12": [
+				"G-I12-unjournaled-dispatch"
+			],
+			"I-13": [
+				"B5-unbounded-output"
+			],
+			"I-14": [
+				"B3-unconfirmed-memory"
+			]
+		},
+		"survivors": [],
+		"mutants": [
+			{
+				"id": "B1-naive-read-path",
+				"fixedBy": "B1",
+				"generic": null,
+				"detects": "I-07/read-escape",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 43,
+				"defect": "A read tool that joins the model's path onto the workspace folder without refusing traversal, absolute paths or a symbolic link that leaves the workspace (R-30, I-07 on the read side)"
+			},
+			{
+				"id": "B1-priority-truncation",
+				"fixedBy": "B1",
+				"generic": null,
+				"detects": "I-06/partial-edit-set",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 11,
+				"defect": "Tools sorted by a priority number and cut at the profile's cap, so a small profile or an excluded tool left an editing agent with part of its tool set and no word about it (R-36)"
+			},
+			{
+				"id": "B2-repository-allowlist",
+				"fixedBy": "B2",
+				"generic": null,
+				"detects": "I-02/repository-allowlist",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 181,
+				"defect": "A command listed in the repository's `.onyx/config.json` `terminalAllowlist` runs with no approval dialog (Cursor red flag 2; Claude B2; Codex; R-01, R-02)"
+			},
+			{
+				"id": "B2-reused-approval",
+				"fixedBy": "B2",
+				"generic": null,
+				"detects": "I-02/reused-approval",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 136,
+				"defect": "A \"Run for This Session\" or \"Always Run\" answer: one approval of a command text runs every later invocation of that text, whatever changed underneath it (R-03, R-04)"
+			},
+			{
+				"id": "B2-normalized-approval",
+				"fixedBy": "B2",
+				"generic": null,
+				"detects": "I-02/approval-for-other-bytes",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 214,
+				"defect": "The approval dialog shows a whitespace-collapsed copy of the command while the original bytes are dispatched, so what the user approved is not what runs"
+			},
+			{
+				"id": "B2-unasked-check-task",
+				"fixedBy": "B2",
+				"generic": null,
+				"detects": "I-02/unapproved-task",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": "c2-check-task-asks-after-accept-and-save",
+				"defect": "A `verificationTask` named in the repository's `.onyx/config.json` runs a workspace task after a tool-using run with no approval for that run"
+			},
+			{
+				"id": "B4-regex-warnings",
+				"fixedBy": "B4",
+				"generic": null,
+				"detects": "I-02/unwarned-command",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 27,
+				"defect": "A regex pass over the command string with no egress, persistence or interpreter category: fifteen of the sixteen bypass commands of the launch audit, every exfiltration shape among them, reach the approval prompt with no warning (Claude H1; R-06)"
+			},
+			{
+				"id": "B5-unbounded-output",
+				"fixedBy": "B5",
+				"generic": "I-13",
+				"detects": "I-13/unbounded-output",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 134,
+				"defect": "The terminal service kept everything a command printed after its sixth timeline note for as long as the command ran: `pendingChunk` grew without bound (Codex N11; R-18)"
+			},
+			{
+				"id": "B5-full-environment",
+				"fixedBy": "B5",
+				"generic": "I-10",
+				"detects": "I-10/secret-environment-reached-child",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 27,
+				"defect": "A command the agent proposed was started with the whole environment of the process that started it, credentials included (Codex N11; I-10)"
+			},
+			{
+				"id": "B5-cwd-ignored",
+				"fixedBy": "B5",
+				"generic": null,
+				"detects": "I-06/cwd-not-honoured",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 107,
+				"defect": "The directory a terminal call named was ignored (`cwdHint`), so a command meant for a subdirectory ran in the workspace root (Codex N11)"
+			},
+			{
+				"id": "B5-command-outlives-window",
+				"fixedBy": "B5",
+				"generic": null,
+				"detects": "I-13/command-outlives-window",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 102,
+				"defect": "Nothing killed a running command when its window closed or the runtime service was disposed: `dispose()` aborted HTTP operations and left `_runningCommands` alone (Codex N11; R-18)"
+			},
+			{
+				"id": "B11-value-only-redaction",
+				"fixedBy": "B11",
+				"generic": null,
+				"detects": "I-10/content-in-default-export",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 6,
+				"defect": "The diagnostics export rewrote only the `value` of prompt message parts; tool parameters, note labels and reasons, command text and output, paths and the model's reply went into a \"redacted\" bundle as they were (Codex N1; R-20)"
+			},
+			{
+				"id": "B12-truncated-is-complete",
+				"fixedBy": "B12",
+				"generic": "I-11",
+				"detects": "I-11/truncated-reported-complete",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 29,
+				"defect": "A stream whose body ended without a finish reason or `[DONE]` was reported as done; the run was journaled as completed (Codex N12; R-19)"
+			},
+			{
+				"id": "B12-unvalidated-arguments",
+				"fixedBy": "B12",
+				"generic": "I-06",
+				"detects": "I-06/schema-invalid-dispatched",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 4,
+				"defect": "Tool arguments were handed to the tool without being checked against its schema: a terminal call with `timeoutSeconds: \"forever\"` ran with the default timeout (R-28)"
+			},
+			{
+				"id": "B12-no-stream-deadline",
+				"fixedBy": "B12",
+				"generic": null,
+				"detects": "I-03/no-time-budget",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 30,
+				"defect": "A request that never produced a byte was waited on with no deadline, so the run never ended on its own (Codex N12; R-19)"
+			},
+			{
+				"id": "B13-no-output-cap",
+				"fixedBy": "B13",
+				"generic": null,
+				"detects": "I-04/no-output-cap",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 1,
+				"defect": "Chat requests carried no `max_tokens`: nothing reserved room for the reply or bounded it (Claude H6; Codex N9; R-16)"
+			},
+			{
+				"id": "B13-no-eviction",
+				"fixedBy": "B13",
+				"generic": "I-04",
+				"detects": "I-04/over-budget",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 1,
+				"defect": "Tool results accumulated across turns with no re-budgeting, so the prompt outgrew the context window (Claude H6; Codex N9; R-16)"
+			},
+			{
+				"id": "B14-address-is-locality",
+				"fixedBy": "B14",
+				"generic": null,
+				"detects": "DEC-04/refused-model-used",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 7,
+				"defect": "A loopback address was taken to mean local inference: a model the runtime reports as cloud-backed was used like any other, with nothing said (Claude H7; DEC-04; R-17)"
+			},
+			{
+				"id": "C4-thinking-is-answer",
+				"fixedBy": "C4",
+				"generic": null,
+				"detects": "I-11/unterminated-reasoning-complete",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 12,
+				"defect": "No handling of `<think>` tags: a reasoning model's thinking was its reply, so a reply that ended mid-thought was shown as an answer and the run completed (Cursor 3.1; R-26)"
+			},
+			{
+				"id": "C5-fence-withheld",
+				"fixedBy": "C5",
+				"generic": null,
+				"detects": "R-27/fenced-reply-withheld",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 192,
+				"defect": "Any reply opening with a code fence was withheld as a possible tool call until it was 4,000 characters long or finished, so a code answer showed nothing while it streamed (Claude H5; R-27)"
+			},
+			{
+				"id": "C6-constrained-answer-withheld",
+				"fixedBy": "C6",
+				"generic": null,
+				"detects": "R-28/constrained-answer-withheld",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 22,
+				"defect": "A constrained turn showed nothing until its whole JSON envelope had arrived, so a long answer appeared all at once at the end (R-28, optional part)"
+			},
+			{
+				"id": "L4-inline-harness-record",
+				"fixedBy": "L4",
+				"generic": null,
+				"detects": "R-44/trace-hash-not-of-configuration",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 1,
+				"defect": "The loop took its harness decisions inline and hashed a record of some of them into the trace; the hash named no configuration a second run could be given (R-44)"
+			},
+			{
+				"id": "B3-uncontracted-tools",
+				"fixedBy": "B3",
+				"generic": null,
+				"detects": "I-06/uncontracted-tool-advertised",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 2,
+				"defect": "Whatever core's tool registry holds reaches the model: `runTask`, `createAndRunTask`, a rename that writes without staging, the browser tools, MCP and extension tools, each with core's own confirmations or none (Claude H2; R-05)"
+			},
+			{
+				"id": "B3-unconfirmed-memory",
+				"fixedBy": "B3",
+				"generic": "I-14",
+				"detects": "I-14/unconfirmed-memory",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 14,
+				"defect": "A note the model asks to remember is stored at once and added to every later prompt, so text injected through a file or a command's output steers later runs (I-14, R-59)"
+			},
+			{
+				"id": "B6-fuzzy-applier",
+				"fixedBy": "B6",
+				"generic": "I-08",
+				"detects": "I-08/inexact-anchor-staged",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 6,
+				"defect": "A SEARCH text that is not in the file was still placed: after trimming each line and re-indenting the replacement, or by its first line alone when that was unique, which replaced lines the model never quoted (Claude H3; R-07, R-33)"
+			},
+			{
+				"id": "B6-first-occurrence",
+				"fixedBy": "B6",
+				"generic": null,
+				"detects": "I-08/ambiguous-anchor-staged",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 50,
+				"defect": "A SEARCH text that occurs more than once was placed at the first of them instead of refused as ambiguous (Claude H4; DEC-07; R-08)"
+			},
+			{
+				"id": "B7-index-accept",
+				"fixedBy": "B7",
+				"generic": "I-09",
+				"detects": "I-09/accepted-content-missing",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": "audit-n2-edit-hunk-0-then-accept-hunk-0",
+				"defect": "A hunk was accepted by its place in the list: after the user changed the lines of the first hunk, accepting what was shown as the first hunk applied the one that had moved into its place (Codex N2; R-12)"
+			},
+			{
+				"id": "B7-no-size-guard",
+				"fixedBy": "B7",
+				"generic": null,
+				"detects": "I-13/oversized-proposal",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 1,
+				"defect": "A proposal of any size was diffed and staged: nothing refused one above the documented bound before the quadratic line diff ran (C9; R-38)"
+			},
+			{
+				"id": "C10-write-through-link",
+				"fixedBy": "C10",
+				"generic": null,
+				"detects": "I-07/write-through-link",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 67,
+				"defect": "The write side never asked where a file really is: an edit to a symbolic link that leaves the workspace was staged, and accepting it wrote outside the workspace (R-30, write side)"
+			},
+			{
+				"id": "L6-always-grounded",
+				"fixedBy": "L6",
+				"generic": null,
+				"detects": "R-46/certificate-contradicts-journal",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 8,
+				"defect": "A certificate that says \"seen this turn\" of an edit whose quoted text the model had not been sent: the one observation a certificate adds, reported as true whatever happened (R-46)"
+			},
+			{
+				"id": "B8-deletion-leaves-line",
+				"fixedBy": "B8",
+				"generic": null,
+				"detects": "I-09/accepted-buffer-differs",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": "b8-delete-lines-then-accept-all",
+				"defect": "A deleted line was replaced by nothing and its line break stayed, so an accepted deletion left an empty line and the buffer was not the proposal (Codex N3; R-13)"
+			},
+			{
+				"id": "B9-inline-apply-before-review",
+				"fixedBy": "B9",
+				"generic": null,
+				"detects": "I-01/buffer",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": "b9-inline-edit-stages-then-save",
+				"defect": "An inline edit wrote the model's reply into the buffer and reviewed it afterwards, so model-authored text was in the file, and in what an autosave wrote, before any accept (R-34)"
+			},
+			{
+				"id": "B10-stop-does-not-cancel",
+				"fixedBy": "B10",
+				"generic": "I-05",
+				"detects": "I-05/command-after-stop",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 487,
+				"defect": "Stop set a status and released the pause gate; the inference token and the running tool were not cancelled, so the turn in flight still ran its command (Codex N5; R-15)"
+			},
+			{
+				"id": "B10-status-overwritten",
+				"fixedBy": "B10",
+				"generic": null,
+				"detects": "I-03/status-overwritten",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 18,
+				"defect": "A terminal status could be replaced: Stop set `cancelled`, and the loop then recorded `completed` when the stream ended (Codex N5; R-15)"
+			},
+			{
+				"id": "B10-pause-without-budget",
+				"fixedBy": "B10",
+				"generic": null,
+				"detects": "I-03/no-time-budget",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 37,
+				"defect": "A run the user paused and did not resume never ended on its own: a pause had no time budget (Codex N5; I-03)"
+			},
+			{
+				"id": "C2-verdict-before-acceptance",
+				"fixedBy": "C2",
+				"generic": null,
+				"detects": "R-21/verdict-before-acceptance",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 4,
+				"defect": "Verification ran when a tool-using turn ended, before anything was accepted: a run that had only staged an edit reported \"no new problems\" of files that did not hold it (Codex N6; R-21)"
+			},
+			{
+				"id": "G-I01-stage-applies",
+				"fixedBy": "L12",
+				"generic": "I-01",
+				"detects": "I-01/buffer",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 8,
+				"defect": "Generic: an edit that is staged is applied to the file at once, with no accept. Not an audited defect: the guard I-01 stands on, taken away for the agent's own edit path"
+			},
+			{
+				"id": "G-I02-approve-without-asking",
+				"fixedBy": "L12",
+				"generic": "I-02",
+				"detects": "I-02/reused-approval",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 27,
+				"defect": "Generic: every command the model asks for is run without a dialog. Not an audited defect: the guard I-02 stands on, taken away whatever the configuration says"
+			},
+			{
+				"id": "G-I03-never-finishes",
+				"fixedBy": "L12",
+				"generic": "I-03",
+				"detects": "I-03/no-terminal-status",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 1,
+				"defect": "Generic: a run is never given a terminal status. Not an audited defect: the guard I-03 stands on"
+			},
+			{
+				"id": "G-I07-stage-anywhere",
+				"fixedBy": "L12",
+				"generic": "I-07",
+				"detects": "I-07/escape-staged",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 308,
+				"defect": "Generic: the write side resolves a path by joining it onto the folder, so a parent-directory segment or an absolute path stages a file outside the workspace. Not an audited defect: the two guards I-07 stands on for writes, both. With the path check alone removed, the check of where the file really is still refuses the edit"
+			},
+			{
+				"id": "G-I12-unjournaled-dispatch",
+				"fixedBy": "L12",
+				"generic": "I-12",
+				"detects": "I-12/dispatch-not-in-journal",
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAt": 1,
+				"defect": "Generic: tools are dispatched and nothing is written to the run's journal about it. Not an audited defect: the guard I-12 stands on. No mutant covered I-12 before L12, and its checker compared only the rig's own events; the journal side was added with this mutant"
+			}
+		]
+	},
+	"violationsFoundDuringDevelopment": [
+		{
+			"class": "I-03/no-time-budget",
+			"script": "test/onyx/sim/baseline/I-03-no-time-budget.json at 7a49df7fedc~1",
+			"removedBy": "7a49df7fedc",
+			"subject": "B10: Stop cancels what the run owns, and a run has one terminal status"
+		},
+		{
+			"class": "I-03/status-overwritten",
+			"script": "test/onyx/sim/baseline/I-03-status-overwritten.json at 7a49df7fedc~1",
+			"removedBy": "7a49df7fedc",
+			"subject": "B10: Stop cancels what the run owns, and a run has one terminal status"
+		},
+		{
+			"class": "I-05/command-after-stop",
+			"script": "test/onyx/sim/baseline/I-05-command-after-stop.json at 7a49df7fedc~1",
+			"removedBy": "7a49df7fedc",
+			"subject": "B10: Stop cancels what the run owns, and a run has one terminal status"
+		},
+		{
+			"class": "I-05/dispatch-after-stop",
+			"script": "test/onyx/sim/baseline/I-05-dispatch-after-stop.json at 7a49df7fedc~1",
+			"removedBy": "7a49df7fedc",
+			"subject": "B10: Stop cancels what the run owns, and a run has one terminal status"
+		},
+		{
+			"class": "I-05/stage-after-stop",
+			"script": "test/onyx/sim/baseline/I-05-stage-after-stop.json at 7a49df7fedc~1",
+			"removedBy": "7a49df7fedc",
+			"subject": "B10: Stop cancels what the run owns, and a run has one terminal status"
+		},
+		{
+			"class": "I-13/oversized-proposal",
+			"script": "test/onyx/sim/baseline/I-13-oversized-proposal.json at eda1a2c41f5~1",
+			"removedBy": "eda1a2c41f5",
+			"subject": "B7: proposals have generations, hunks have ids, and an accept applies what was reviewed or nothing"
+		},
+		{
+			"class": "I-08/ambiguous-anchor-staged",
+			"script": "test/onyx/sim/baseline/I-08-ambiguous-anchor-staged.json at 94fc1f77202~1",
+			"removedBy": "94fc1f77202",
+			"subject": "B6: an edit is placed exactly, and exactly once, or refused"
+		},
+		{
+			"class": "I-08/inexact-anchor-staged",
+			"script": "test/onyx/sim/baseline/I-08-inexact-anchor-staged.json at 94fc1f77202~1",
+			"removedBy": "94fc1f77202",
+			"subject": "B6: an edit is placed exactly, and exactly once, or refused"
+		},
+		{
+			"class": "I-04/no-output-cap",
+			"script": "test/onyx/sim/baseline/I-04-no-output-cap.json at b9667fb4fe6~1",
+			"removedBy": "b9667fb4fe6",
+			"subject": "B13: every turn is planned to fit the context, with an output cap on the wire"
+		},
+		{
+			"class": "I-04/over-budget",
+			"script": "test/onyx/sim/baseline/I-04-over-budget.json at b9667fb4fe6~1",
+			"removedBy": "b9667fb4fe6",
+			"subject": "B13: every turn is planned to fit the context, with an output cap on the wire"
+		},
+		{
+			"class": "I-11/truncated-reported-complete",
+			"script": "test/onyx/sim/baseline/I-11-truncated-reported-complete.json at c127268e133~1",
+			"removedBy": "c127268e133",
+			"subject": "B12: a stream says how it ended, arguments are checked, and the index is not taken on trust"
+		},
+		{
+			"class": "I-02/repository-allowlist",
+			"script": "test/onyx/sim/baseline/I-02-repository-allowlist.json at 41fe2350e98~1",
+			"removedBy": "41fe2350e98",
+			"subject": "B2: every shell invocation asks; repository content grants nothing"
+		}
+	]
+}

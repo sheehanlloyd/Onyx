@@ -33,6 +33,14 @@ export interface IOnyxSimMutantInfo {
 	readonly detects: string;
 	/** The test-only class in `onyxSimMutants.ts` that resurrects the defect. */
 	readonly resurrects: string;
+	/**
+	 * The invariant this mutant stands for as its generic mutant (L12): the
+	 * one that takes away the condition that invariant's checker guards.
+	 * Every invariant I-01 to I-14 has exactly one. Where a resurrected
+	 * defect already is that removal, it carries the mark; where none was,
+	 * a `G-` mutant was written for it.
+	 */
+	readonly generic?: string;
 	readonly script: OnyxSimEpisode;
 }
 
@@ -119,6 +127,7 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 	},
 	{
 		id: 'B5-unbounded-output',
+		generic: 'I-13',
 		fixedBy: 'B5',
 		defect: 'The terminal service kept everything a command printed after its sixth timeline note for as long as the command ran: `pendingChunk` grew without bound (Codex N11; R-18)',
 		detects: 'I-13/unbounded-output',
@@ -129,6 +138,7 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 	},
 	{
 		id: 'B5-full-environment',
+		generic: 'I-10',
 		fixedBy: 'B5',
 		defect: 'A command the agent proposed was started with the whole environment of the process that started it, credentials included (Codex N11; I-10)',
 		detects: 'I-10/secret-environment-reached-child',
@@ -169,6 +179,7 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 	},
 	{
 		id: 'B12-truncated-is-complete',
+		generic: 'I-11',
 		fixedBy: 'B12',
 		defect: 'A stream whose body ended without a finish reason or `[DONE]` was reported as done; the run was journaled as completed (Codex N12; R-19)',
 		detects: 'I-11/truncated-reported-complete',
@@ -179,6 +190,7 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 	},
 	{
 		id: 'B12-unvalidated-arguments',
+		generic: 'I-06',
 		fixedBy: 'B12',
 		defect: 'Tool arguments were handed to the tool without being checked against its schema: a terminal call with `timeoutSeconds: "forever"` ran with the default timeout (R-28)',
 		detects: 'I-06/schema-invalid-dispatched',
@@ -209,6 +221,7 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 	},
 	{
 		id: 'B13-no-eviction',
+		generic: 'I-04',
 		fixedBy: 'B13',
 		defect: 'Tool results accumulated across turns with no re-budgeting, so the prompt outgrew the context window (Claude H6; Codex N9; R-16)',
 		detects: 'I-04/over-budget',
@@ -279,6 +292,7 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 	},
 	{
 		id: 'B3-unconfirmed-memory',
+		generic: 'I-14',
 		fixedBy: 'B3',
 		defect: 'A note the model asks to remember is stored at once and added to every later prompt, so text injected through a file or a command\'s output steers later runs (I-14, R-59)',
 		detects: 'I-14/unconfirmed-memory',
@@ -290,6 +304,7 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 	},
 	{
 		id: 'B6-fuzzy-applier',
+		generic: 'I-08',
 		fixedBy: 'B6',
 		defect: 'A SEARCH text that is not in the file was still placed: after trimming each line and re-indenting the replacement, or by its first line alone when that was unique, which replaced lines the model never quoted (Claude H3; R-07, R-33)',
 		detects: 'I-08/inexact-anchor-staged',
@@ -310,6 +325,7 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 	},
 	{
 		id: 'B7-index-accept',
+		generic: 'I-09',
 		fixedBy: 'B7',
 		defect: 'A hunk was accepted by its place in the list: after the user changed the lines of the first hunk, accepting what was shown as the first hunk applied the one that had moved into its place (Codex N2; R-12)',
 		detects: 'I-09/accepted-content-missing',
@@ -392,6 +408,7 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 	},
 	{
 		id: 'B10-stop-does-not-cancel',
+		generic: 'I-05',
 		fixedBy: 'B10',
 		defect: 'Stop set a status and released the pause gate; the inference token and the running tool were not cancelled, so the turn in flight still ran its command (Codex N5; R-15)',
 		detects: 'I-05/command-after-stop',
@@ -429,6 +446,65 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		script: script('C2-verdict-before-acceptance', 'Change addNumbers', [
 			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } },
 			{ kind: 'text', text: 'Staged.' },
+		]),
+	},
+	{
+		id: 'G-I01-stage-applies',
+		generic: 'I-01',
+		fixedBy: 'L12',
+		defect: 'Generic: an edit that is staged is applied to the file at once, with no accept. Not an audited defect: the guard I-01 stands on, taken away for the agent\'s own edit path',
+		detects: 'I-01/buffer',
+		resurrects: 'OnyxMutantStageAppliesChangeSet',
+		script: script('G-I01-stage-applies', 'Change addNumbers', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' }, id: 'edit_1' },
+			{ kind: 'text', text: 'Staged.' },
+		]),
+	},
+	{
+		id: 'G-I02-approve-without-asking',
+		generic: 'I-02',
+		fixedBy: 'L12',
+		defect: 'Generic: every command the model asks for is run without a dialog. Not an audited defect: the guard I-02 stands on, taken away whatever the configuration says',
+		detects: 'I-02/reused-approval',
+		resurrects: 'OnyxMutantApproveWithoutAskingTerminal',
+		script: script('G-I02-approve-without-asking', 'Run the tests', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' }, id: 'call_1' },
+			{ kind: 'text', text: 'Ran them.' },
+		], { dialogDefault: 'deny' }),
+	},
+	{
+		id: 'G-I03-never-finishes',
+		generic: 'I-03',
+		fixedBy: 'L12',
+		defect: 'Generic: a run is never given a terminal status. Not an audited defect: the guard I-03 stands on',
+		detects: 'I-03/no-terminal-status',
+		resurrects: 'OnyxMutantNeverFinishesControlPlane',
+		script: script('G-I03-never-finishes', 'Say hello', [
+			{ kind: 'text', text: 'Hello.' },
+		]),
+	},
+	{
+		id: 'G-I07-stage-anywhere',
+		generic: 'I-07',
+		fixedBy: 'L12',
+		defect: 'Generic: the write side resolves a path by joining it onto the folder, so a parent-directory segment or an absolute path stages a file outside the workspace. Not an audited defect: the two guards I-07 stands on for writes, both. With the path check alone removed, the check of where the file really is still refuses the edit',
+		detects: 'I-07/escape-staged',
+		resurrects: 'OnyxMutantStageAnywhereChangeSet',
+		script: script('G-I07-stage-anywhere', 'Write the note', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: '../outside.txt', search: '', replace: 'written outside\n' }, id: 'edit_1' },
+			{ kind: 'text', text: 'Staged.' },
+		]),
+	},
+	{
+		id: 'G-I12-unjournaled-dispatch',
+		generic: 'I-12',
+		fixedBy: 'L12',
+		defect: 'Generic: tools are dispatched and nothing is written to the run\'s journal about it. Not an audited defect: the guard I-12 stands on. No mutant covered I-12 before L12, and its checker compared only the rig\'s own events; the journal side was added with this mutant',
+		detects: 'I-12/dispatch-not-in-journal',
+		resurrects: 'OnyxMutantUnjournaledDispatchLoop',
+		script: script('G-I12-unjournaled-dispatch', 'Read the file', [
+			{ kind: 'toolCall', tool: 'readFile', arguments: { path: 'src/math.ts' }, id: 'read_1' },
+			{ kind: 'text', text: 'Read it.' },
 		]),
 	},
 ];

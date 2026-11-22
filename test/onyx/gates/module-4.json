@@ -131,6 +131,42 @@
 			}
 		},
 		{
+			"id": "R-52-injection",
+			"title": "L12 injection containment: a model that obeys text planted on every simulated surface causes no side effect the user did not approve, for each of five kinds of effect, and the corpus is shown to bite when a guard is removed",
+			"layer": "service",
+			"regressions": [
+				"R-52"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimInjection.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxSim R-52"
+			]
+		},
+		{
+			"id": "R-52-campaign",
+			"title": "L12 full campaign on this checkout: 50,000 seeded episodes, the scripted workflows and the injection corpus with no violation, then every mutant against the campaign's first 2,000 seeds, each reported as a violation",
+			"layer": "service",
+			"regressions": [
+				"R-52"
+			],
+			"files": [
+				"test/onyx/sim/write-assurance.mts",
+				"src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts"
+			],
+			"command": [
+				"node",
+				"test/onyx/sim/write-assurance.mts",
+				"--out",
+				".build/gate-assurance"
+			],
+			"timeoutMs": 3600000
+		},
+		{
 			"id": "R-51",
 			"title": "L11 the scorecard, the pure half: provenance, a datasheet for every model, every attempt and skip, a partial measurement labelled partial and not ranked, a sample below the minimum not ranked, the router's hit rate with its denominators, and the replay of accepted requests with counts (R-51 itself is six end-to-end checks: the measure command against the mock with two models, a cancel midway, and a router log with known picks, in the suite gate 1 runs)",
 			"layer": "pure, e2e",

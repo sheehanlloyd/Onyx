@@ -7,7 +7,7 @@
 		"workflow": "c10-a-name-with-two-dots-is-a-name",
 		"persona": "well-behaved"
 	},
-	"reason": "First recording (L8): the harness at the end of Module 3, with certificates, verification after acceptance and exact-or-refuse edits.",
+	"reason": "L12: the rig now records the disk state of a file a proposal creates, once it exists, so that a file written without an accept is seen; an accepted create therefore shows one more disk event",
 	"episode": {
 		"name": "workflow-c10-a-name-with-two-dots-is-a-name",
 		"seed": 0,
@@ -83,6 +83,7 @@
 		"{\"t\":1402,\"kind\":\"userAction\",\"action\":\"acceptAll\"}",
 		"{\"t\":1402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"editCertificateOutcome\",\"label\":\"\"}",
 		"{\"t\":1402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"acceptance\",\"label\":\"\"}",
+		"{\"t\":1402,\"kind\":\"disk\",\"path\":\"notes/v1..v2.md\",\"digest\":\"52e37ce6\",\"cause\":\"afterRun\"}",
 		"{\"t\":16402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"editCertificateOutcome\",\"label\":\"\"}",
 		"{\"t\":16402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"note\",\"label\":\"Verification: timed out — no fresh diagnostics for notes/v1..v2.md arrived, so nothing is known about what was accepted\"}",
 		"{\"t\":900400,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":2}"
@@ -103,7 +104,7 @@
 		"{\"t\":2,\"kind\":\"note\",\"data\":{\"kind\":\"note\",\"label\":\"Verification: not applied — notes/v1..v2.md has staged changes and none was accepted, so nothing was checked\",\"location\":{\"path\":\"notes/v1..v2.md\",\"line\":1},\"at\":402}}",
 		"{\"t\":2,\"kind\":\"outcome\",\"data\":{\"status\":\"completed\"}}",
 		"{\"t\":1002,\"kind\":\"editCertificateOutcome\",\"data\":{\"kind\":\"editCertificateOutcome\",\"path\":\"notes/v1..v2.md\",\"generation\":1,\"appliedContentHash\":null,\"verification\":\"running\"}}",
-		"{\"t\":1002,\"kind\":\"acceptance\",\"data\":{\"kind\":\"acceptance\",\"path\":\"notes/v1..v2.md\",\"hunk\":\"all\"}}",
+		"{\"t\":1002,\"kind\":\"acceptance\",\"data\":{\"kind\":\"acceptance\",\"path\":\"notes/v1..v2.md\",\"hunk\":\"all\",\"added\":[\"5711b748\"]}}",
 		"{\"t\":16002,\"kind\":\"editCertificateOutcome\",\"data\":{\"kind\":\"editCertificateOutcome\",\"path\":\"notes/v1..v2.md\",\"generation\":1,\"appliedContentHash\":null,\"verification\":\"timed out\"}}",
 		"{\"t\":16002,\"kind\":\"note\",\"data\":{\"kind\":\"note\",\"label\":\"Verification: timed out — no fresh diagnostics for notes/v1..v2.md arrived, so nothing is known about what was accepted\",\"location\":{\"path\":\"notes/v1..v2.md\",\"line\":1},\"at\":16402}}"
 	]
