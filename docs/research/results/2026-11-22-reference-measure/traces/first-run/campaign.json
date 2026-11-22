@@ -1,0 +1,83 @@
+{
+	"campaign": "2026-11-22-reference-measure",
+	"tier": "A",
+	"plannedUnits": 0,
+	"finishedUnits": 0,
+	"complete": false,
+	"machineSeconds": 1189,
+	"firstEstimate": {
+		"seconds": 7930,
+		"unmeasuredModels": [],
+		"units": 120
+	},
+	"repository": {
+		"unchanged": true,
+		"before": {
+			"status": "9b828d53402d6e332ef05a2fe03063b359192571ba99fcd3b85074f46a72fd7e",
+			"index": "absent",
+			"head": "126d11c7c9e962687b3e8d23d29aae8f768595e4",
+			"refs": "963bd35187ef49f5be448663b34990c56c60383227d17715367ac1c3d14a460c"
+		},
+		"after": {
+			"status": "9b828d53402d6e332ef05a2fe03063b359192571ba99fcd3b85074f46a72fd7e",
+			"index": "absent",
+			"head": "126d11c7c9e962687b3e8d23d29aae8f768595e4",
+			"refs": "963bd35187ef49f5be448663b34990c56c60383227d17715367ac1c3d14a460c"
+		}
+	},
+	"sessions": [
+		{
+			"startedAt": "2026-11-22T10:04:50.169Z",
+			"seconds": 1189,
+			"unitsLeftAtStart": 120,
+			"application": {
+				"root": "a frozen copy of the compiled output",
+				"revision": "6ed5331052b149562ed4ab06c95459032065855d",
+				"dirtyEntries": 0,
+				"frozenAt": "2026-11-22T09:56:40.279Z"
+			},
+			"estimate": {
+				"seconds": 7930,
+				"unmeasuredModels": [],
+				"units": 120
+			},
+			"conditionsAtStart": {
+				"at": "2026-11-22T10:04:50.169Z",
+				"loadAverage": [
+					11.88,
+					14.91,
+					11.48
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"conditionsAtEnd": {
+				"at": "2026-11-22T10:24:39.357Z",
+				"loadAverage": [
+					7.39,
+					7.3,
+					8
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"ended": "cancelled",
+			"evictions": [
+				{
+					"before": "the measurement",
+					"evicted": [],
+					"left": []
+				},
+				{
+					"after": "the campaign",
+					"evicted": [
+						"llama3.2:3b"
+					],
+					"left": []
+				}
+			],
+			"notes": [
+				"cancelled; the application's last word was \"running\"",
+				"worktree removed: true"
+			]
+		}
+	]
+}

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="308" viewBox="0 0 760 308" role="img" aria-label="Onyx scorecard">
+<style>.title{font:600 18px sans-serif;fill:#1f2328}.note{font:13px sans-serif;fill:#57606a}.label{font:13px monospace;fill:#1f2328}.value{font:12px sans-serif;fill:#1f2328}.provenance{font:11px monospace;fill:#57606a}.track{fill:#eaeef2}.bar{fill:#3b6fd4}.bg{fill:#ffffff}</style>
+<rect class="bg" width="760" height="308"/>
+<text x="24" y="34" class="title">Onyx scorecard</text>
+<text x="24" y="56" class="note">Ranked by mean score · mean score, 0 to 1: closeness to the author's change, not correctness</text>
+<text x="250" y="86" class="note">0</text><text x="542" y="86" class="note">1</text>
+<text x="24" y="112" class="label">qwen2.5-coder:7b</text><rect x="250" y="96" width="300" height="22" class="track"/><rect x="250" y="96" width="25" height="22" class="bar"/><text x="562" y="112" class="value">0.08 mean · 0 of 18 exact</text><text x="24" y="146" class="label">llama3.2:3b</text><rect x="250" y="130" width="300" height="22" class="track"/><rect x="250" y="130" width="4" height="22" class="bar"/><text x="562" y="146" class="value">0.01 mean · 0 of 18 exact</text><text x="24" y="180" class="label">qwen2.5-coder:1.5b</text><rect x="250" y="164" width="300" height="22" class="track"/><rect x="250" y="164" width="4" height="22" class="bar"/><text x="562" y="180" class="value">0.01 mean · 0 of 18 exact</text>
+<text x="24" y="222" class="provenance">18 tasks (18 held out, 0 holdout unknown) · 54 of 54 units</text><text x="24" y="240" class="provenance">worktree at 126d11c7c9e9 · Apple M4 Pro, 24 GiB</text><text x="24" y="258" class="provenance">qwen2.5-coder:7b dae161e27b0e · llama3.2:3b a80c4f17acd5 · qwen2.5-coder:1.5b d7372fd82851</text><text x="24" y="276" class="provenance">metric changed-line-f1-preserving/2 · temperature 0 · seed 1 · 2026-11-22T10:50:19.760Z</text>
+</svg>

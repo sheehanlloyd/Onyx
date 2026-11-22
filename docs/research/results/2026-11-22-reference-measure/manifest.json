@@ -1,0 +1,119 @@
+{
+	"version": 1,
+	"name": "2026-11-22-reference-measure",
+	"createdAt": "2026-11-22T10:29:27.004Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:llama3.2:3b",
+			"digest": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 4096,
+		"responseFormat": true
+	},
+	"harnessConfigurations": [
+		{
+			"name": "product",
+			"hash": "9801945d",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		}
+	],
+	"taskSet": {
+		"name": "every third task of this repository's task set (2026-11-22-task-set, hash fefa777b2d60e7fa): 40 of 120",
+		"hash": "b62b7b60d3bf7a38",
+		"count": 40
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			11.62,
+			9.95,
+			8.94
+		],
+		"power": "AC Power, 100%, adapter 94 W"
+	},
+	"regenerate": [
+		{
+			"output": "traces/records.jsonl, campaign.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-reference-measure/manifest.json"
+		},
+		{
+			"output": "results.jsonl, summary.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-reference-measure/manifest.json --rescore"
+		}
+	],
+	"campaign": {
+		"tier": "A",
+		"baseUrl": "http://127.0.0.1:11500/v1",
+		"tasks": "tasks.json",
+		"datasheets": "docs/research/results/2026-11-22-datasheets/summary.json",
+		"estimatedSeconds": 7930,
+		"unitTimeoutMs": 5400000,
+		"measure": {
+			"revision": "126d11c7c9e"
+		}
+	},
+	"hypotheses": [],
+	"notes": "L11: the product's own command, Onyx: Measure Models for This Repository, run on the reference machine through the launcher, with each model's datasheet measured in the same instance first. The task set copied beside this manifest is not what the command runs: it selects its own tasks by the product's rule at the revision named in campaign.measure."
+}
