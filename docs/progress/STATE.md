@@ -8,10 +8,14 @@ Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-
 Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; this machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
 
 ## Module 4
-Items done: none yet.
-Items remaining: L9, L10, L11, L12, L13, L14, L15, L16, L17, L18, in that order.
-Item in progress: L9 (campaign engine), on branch `codex/l9-campaign-engine`.
-Campaigns running: none.
+Items done:
+| Item | Branch → PR | Report | Gate check ids |
+|---|---|---|---|
+| L9 | codex/l9-campaign-engine → #5 | L9.md, docs/research/results/2026-11-22-engine-tier-s/, 2026-11-22-engine-tier-a/, 2026-11-22-datasheets/ | R-49-pure, R-49-node, R-49-app |
+Items remaining: L10, L11, L12, L13, L14, L15, L16, L17, L18, in that order.
+Item in progress: L10 (the private benchmark), on branch `codex/l10-private-benchmark`.
+Campaigns running: none. A private Ollama 0.33.0 is running on 127.0.0.1:11500 for this session's campaigns (started with `OLLAMA_CONTEXT_LENGTH=16384`); it is stopped at the end of the session.
+Machine time so far: datasheets 6 minutes; engine tier S 428 s (estimated about 6 minutes); engine tier A 106 s (estimated about 10 minutes).
 Gate: not run.
 
 ## Module 3
