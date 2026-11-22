@@ -94,6 +94,8 @@ interface IProvenance {
 	readonly dirty: boolean;
 	readonly command: readonly string[];
 	readonly machine: { readonly platform: string; readonly arch: string; readonly cpu: string; readonly memoryGiB: number; readonly osRelease: string; readonly nodeVersion: string };
+	/** The one-minute load average when the run began and when the report was last written. Throughput measured on a busy machine is lower, and this says how busy it was. */
+	readonly load: { atStart: number; atEnd: number; cores: number };
 	readonly runtimes: { name: string; version: string | null }[];
 	readonly models: { key: string; runtime: string; id: string; digest: string | null }[];
 	readonly parameters: Record<string, string | number | boolean | null>;
@@ -115,6 +117,7 @@ const provenance: IProvenance = {
 	// Flags only: a path given to --json-out or --module-root says where a checkout lives, not what was measured.
 	command: process.argv.slice(2).filter((argument, index, all) => argument.startsWith('--') || (/^\d+$/.test(argument) && all[index - 1]?.startsWith('--'))),
 	machine: { platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model ?? 'unknown', memoryGiB: Math.round(os.totalmem() / 2 ** 30), osRelease: os.release(), nodeVersion: process.version },
+	load: { atStart: Math.round(os.loadavg()[0] * 100) / 100, atEnd: 0, cores: os.cpus().length },
 	runtimes: [],
 	models: [],
 	parameters: {},
@@ -131,6 +134,7 @@ const benchFailures: { modelKey: string; commit: string; error: string }[] = [];
  * JSON for the models it finished — these runs take half an hour.
  */
 function writeReport() {
+	provenance.load.atEnd = Math.round(os.loadavg()[0] * 100) / 100;
 	if (jsonOut) {
 		fs.writeFileSync(jsonOut, JSON.stringify({ provenance, results, attempts: benchAttempts, failures: benchFailures, skipped, violations }, undefined, '\t'));
 	}
@@ -1353,6 +1357,7 @@ async function main() {
 		await benchmarkRealModels();
 	}
 
+	provenance.load.atEnd = Math.round(os.loadavg()[0] * 100) / 100;
 	const report = JSON.stringify({ provenance, results, attempts: benchAttempts, failures: benchFailures, skipped, violations }, undefined, '\t');
 	if (jsonOut) {
 		writeReport();

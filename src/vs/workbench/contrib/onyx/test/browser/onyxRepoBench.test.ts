@@ -83,17 +83,21 @@ suite('OnyxRepoBench', () => {
 			const exact = '<<<<<<< SEARCH\n  return a + b\n=======\n  return a + b;\n>>>>>>> REPLACE';
 			const alsoDeletes = exact + '\n<<<<<<< SEARCH\nexport const VERSION = 3;\n=======\n>>>>>>> REPLACE';
 			const alsoRewrites = exact + '\n<<<<<<< SEARCH\nexport const VERSION = 3;\n=======\nexport const VERSION = 4;\n>>>>>>> REPLACE';
+			const onlyDeletes = '<<<<<<< SEARCH\nexport const VERSION = 3;\n=======\n>>>>>>> REPLACE';
 			const alsoAdds = exact + '\n<<<<<<< SEARCH\nexport const VERSION = 3;\n=======\nexport const VERSION = 3;\nlog(add(1, 2));\n>>>>>>> REPLACE';
 			assert.deepStrictEqual({
 				exact: scoreBenchAttempt(file, author, exact),
 				alsoDeletes: scoreBenchAttempt(file, author, alsoDeletes),
 				alsoRewrites: scoreBenchAttempt(file, author, alsoRewrites),
+				onlyDeletes: scoreBenchAttempt(file, author, onlyDeletes),
 				// Adding too much is imprecise, and is not a loss of the author's code: no cap.
 				alsoAdds: scoreBenchAttempt(file, author, alsoAdds),
 			}, {
 				exact: { score: 1, reason: '100% of the author\'s changed lines reproduced, 100% of the model\'s on target', metric: ONYX_BENCH_METRIC },
 				alsoDeletes: { score: 0.5, reason: 'capped at 0.5: the reply removed 1 line the author kept ("export const VERSION = 3;"); before the cap 0.8 (100% of the author\'s changed lines reproduced, 67% of the model\'s on target)', metric: ONYX_BENCH_METRIC, preservation: { removedLinesTheAuthorKept: 1, scoreBeforeCap: 0.8 } },
 				alsoRewrites: { score: 0.5, reason: 'capped at 0.5: the reply removed 1 line the author kept ("export const VERSION = 3;"); before the cap 0.67 (100% of the author\'s changed lines reproduced, 50% of the model\'s on target)', metric: ONYX_BENCH_METRIC, preservation: { removedLinesTheAuthorKept: 1, scoreBeforeCap: 0.67 } },
+				// Nothing right and a kept line gone: the score was already under the cap, so the reason does not say "capped".
+				onlyDeletes: { score: 0, reason: '0% of the author\'s changed lines reproduced, 0% of the model\'s on target; the reply removed 1 line the author kept ("export const VERSION = 3;")', metric: ONYX_BENCH_METRIC, preservation: { removedLinesTheAuthorKept: 1, scoreBeforeCap: 0 } },
 				alsoAdds: { score: 0.8, reason: '100% of the author\'s changed lines reproduced, 67% of the model\'s on target', metric: ONYX_BENCH_METRIC },
 			});
 		});

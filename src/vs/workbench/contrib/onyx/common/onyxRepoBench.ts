@@ -176,9 +176,11 @@ export function scoreBenchAttempt(beforeContent: string, realAfterContent: strin
 	}
 	if (lost > 0) {
 		const shown = firstLost!.length > 60 ? `${firstLost!.slice(0, 60)}…` : firstLost!;
+		const removed = `the reply removed ${lost} line${lost === 1 ? '' : 's'} the author kept ("${shown}")`;
 		return {
 			score: Math.min(f1, ONYX_BENCH_PRESERVATION_CAP),
-			reason: `capped at ${ONYX_BENCH_PRESERVATION_CAP}: the reply removed ${lost} line${lost === 1 ? '' : 's'} the author kept ("${shown}"); before the cap ${f1} (${detail})`,
+			// "Capped" is said only when the cap lowered the score.
+			reason: f1 > ONYX_BENCH_PRESERVATION_CAP ? `capped at ${ONYX_BENCH_PRESERVATION_CAP}: ${removed}; before the cap ${f1} (${detail})` : `${detail}; ${removed}`,
 			metric: ONYX_BENCH_METRIC,
 			preservation: { removedLinesTheAuthorKept: lost, scoreBeforeCap: f1 },
 		};
