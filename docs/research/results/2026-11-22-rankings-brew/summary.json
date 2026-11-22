@@ -1,0 +1,43 @@
+{
+	"campaign": "2026-11-22-rankings-brew",
+	"tier": "S",
+	"plannedUnits": 120,
+	"finishedUnits": 120,
+	"complete": true,
+	"recordsWhoseTaskIsNotInTheRepository": 0,
+	"rows": [
+		{
+			"model": "llama3.2:3b",
+			"configuration": "none-single-turn",
+			"units": 40,
+			"attempted": 40,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0.069,
+			"deniedCommands": 0
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "none-single-turn",
+			"units": 40,
+			"attempted": 40,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0.021,
+			"deniedCommands": 0
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "none-single-turn",
+			"units": 40,
+			"attempted": 40,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0.146,
+			"deniedCommands": 0
+		}
+	]
+}
