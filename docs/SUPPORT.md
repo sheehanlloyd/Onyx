@@ -894,7 +894,7 @@ tested. The module gate runner reads this table (`| item | state |`).
 | L7 constrained anchors | included | 3 | Not needed: included as an **experimental** protocol, off by default and reachable only as a lab arm of the harness configuration (R-47). Whether it ever becomes a default is L14's decision, in Module 4; until then the fallback is what ships: search and replace |
 | L10 executable oracle | included | 4 | Not needed: included. The sandbox probe passes on the reference machine ("The private benchmark", below, has its output) and R-50's sandbox cases pass (`OnyxOracle`, `OnyxLabTasks`). Where the probe fails, or without the user's consent, scoring is tier 1 only and the result says so |
 | L16 confidence badge | planned | 4 | No badge, no claim; result published |
-| L17 eviction policy | planned | 4 | Oldest-first eviction stays; result published |
+| L17 eviction policy | included | 4 | The study is done. H-9 is supported on scripted runs (`docs/research/results/2026-11-22-eviction-scripted/`): evicting in blocks down to a low watermark re-processed 0.42 of the prompt tokens that oldest-first did. `block-to-low-watermark` is therefore a value of the harness configuration's eviction switch, for the lab. As the product's default, oldest-results-first stays: in 120 agent runs no policy evicted anything and no run succeeded, so there is no evidence about what block eviction does to task success, and the default is not changed without it |
 | L18 energy | planned | 4 | "Unavailable on this hardware" with the probe output |
 
 ## Decisions recorded here
