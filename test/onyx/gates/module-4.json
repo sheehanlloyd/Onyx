@@ -107,28 +107,23 @@
 			"timeoutMs": 600000
 		},
 		{
-			"id": "L10-task-set",
-			"title": "L10 this repository's task set is committed as commit ids and content hashes with its manifest, every hash matches the repository, and docs/SUPPORT.md records the executable oracle as included with the probe output",
-			"layer": "node",
+			"id": "R-51",
+			"title": "L11 the scorecard, the pure half: provenance, a datasheet for every model, every attempt and skip, a partial measurement labelled partial and not ranked, a sample below the minimum not ranked, the router's hit rate with its denominators, and the replay of accepted requests with counts (R-51 itself is six end-to-end checks: the measure command against the mock with two models, a cancel midway, and a router log with known picks, in the suite gate 1 runs)",
+			"layer": "pure, e2e",
 			"regressions": [
-				"R-50"
+				"R-51"
 			],
 			"files": [
-				"docs/research/results/2026-11-22-task-set/manifest.json",
-				"docs/research/results/2026-11-22-task-set/tasks.json",
-				"docs/research/results/2026-11-22-task-set/summary.json",
-				"docs/research/results/2026-11-22-task-set/trace-digests.json"
+				"src/vs/workbench/contrib/onyx/common/onyxScorecard.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxScorecard.test.ts",
+				"src/vs/workbench/contrib/onyx/browser/lab/onyxMeasureRepository.ts",
+				"test/onyx/run-e2e.mts"
 			],
 			"command": [
-				"node",
-				"--test",
-				"test/onyx/checks/module4-gate.test.mts"
-			],
-			"timeoutMs": 600000,
-			"scope": {
-				"item": "L10",
-				"when": "included"
-			}
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxScorecard"
+			]
 		},
 		{
 			"id": "R-52-injection",
@@ -167,21 +162,50 @@
 			"timeoutMs": 3600000
 		},
 		{
-			"id": "R-56",
-			"title": "L17 eviction policies: a scripted 16-turn run in the simulation rig under each of the three policies, against a runtime that counts the prompt tokens it processes again: every request fits with its output cap under every policy (R-16), no invariant is violated, and block eviction processes fewer tokens again than oldest-first",
-			"layer": "service",
+			"id": "R-53",
+			"title": "L13 attribution estimators on outcomes whose true values are known: main effects, pairwise interactions and Shapley values are recovered, the bootstrap interval covers the true value about as often as it says, and H-2 is decided by its registered thresholds",
+			"layer": "pure",
 			"regressions": [
-				"R-56",
-				"R-16"
+				"R-53"
 			],
 			"files": [
-				"src/vs/workbench/contrib/onyx/common/onyxContextBudget.ts",
-				"src/vs/workbench/contrib/onyx/test/browser/onyxContextBudget.test.ts"
+				"src/vs/workbench/contrib/onyx/common/onyxAttribution.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxAttribution.test.ts"
 			],
 			"command": [
 				"./scripts/test.sh",
 				"--grep",
-				"OnyxContextBudget"
+				"OnyxAttribution"
+			]
+		},
+		{
+			"id": "H-7-decision",
+			"title": "L13 the rankings decision on campaigns whose answer is known: supported only when the top model differs with a significant difference in each repository; a repository nobody solves has no ranking",
+			"layer": "node",
+			"regressions": [],
+			"files": [
+				"test/onyx/lab/analyze-rankings.mts",
+				"test/onyx/checks/h7-rankings.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/h7-rankings.test.mts"
+			]
+		},
+		{
+			"id": "L14-appliers",
+			"title": "L14 the three lab-only comparator appliers place what they are described to place, refuse what they should, are wrong where the study says they can be, and are named by no file under src/",
+			"layer": "node",
+			"regressions": [],
+			"files": [
+				"test/onyx/lab/appliers.mts",
+				"test/onyx/checks/l14-appliers.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/l14-appliers.test.mts"
 			]
 		},
 		{
@@ -255,70 +279,61 @@
 			"timeoutMs": 600000
 		},
 		{
-			"id": "L14-appliers",
-			"title": "L14 the three lab-only comparator appliers place what they are described to place, refuse what they should, are wrong where the study says they can be, and are named by no file under src/",
-			"layer": "node",
-			"regressions": [],
-			"files": [
-				"test/onyx/lab/appliers.mts",
-				"test/onyx/checks/l14-appliers.test.mts"
-			],
-			"command": [
-				"node",
-				"--test",
-				"test/onyx/checks/l14-appliers.test.mts"
-			]
-		},
-		{
-			"id": "R-53",
-			"title": "L13 attribution estimators on outcomes whose true values are known: main effects, pairwise interactions and Shapley values are recovered, the bootstrap interval covers the true value about as often as it says, and H-2 is decided by its registered thresholds",
-			"layer": "pure",
+			"id": "R-56",
+			"title": "L17 eviction policies: a scripted 16-turn run in the simulation rig under each of the three policies, against a runtime that counts the prompt tokens it processes again: every request fits with its output cap under every policy (R-16), no invariant is violated, and block eviction processes fewer tokens again than oldest-first",
+			"layer": "service",
 			"regressions": [
-				"R-53"
+				"R-56",
+				"R-16"
 			],
 			"files": [
-				"src/vs/workbench/contrib/onyx/common/onyxAttribution.ts",
-				"src/vs/workbench/contrib/onyx/test/browser/onyxAttribution.test.ts"
+				"src/vs/workbench/contrib/onyx/common/onyxContextBudget.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxContextBudget.test.ts"
 			],
 			"command": [
 				"./scripts/test.sh",
 				"--grep",
-				"OnyxAttribution"
+				"OnyxContextBudget"
 			]
 		},
 		{
-			"id": "H-7-decision",
-			"title": "L13 the rankings decision on campaigns whose answer is known: supported only when the top model differs with a significant difference in each repository; a repository nobody solves has no ranking",
+			"id": "L18-energy",
+			"title": "L18 the energy analysis on a campaign whose power is known: energy by model block from an accumulator read once a minute, energy per solved task, and the swap between the two rankings",
 			"layer": "node",
 			"regressions": [],
 			"files": [
-				"test/onyx/lab/analyze-rankings.mts",
-				"test/onyx/checks/h7-rankings.test.mts"
+				"test/onyx/lab/analyze-energy.mts",
+				"test/onyx/checks/l18-energy.test.mts"
 			],
 			"command": [
 				"node",
 				"--test",
-				"test/onyx/checks/h7-rankings.test.mts"
+				"test/onyx/checks/l18-energy.test.mts"
 			]
 		},
 		{
-			"id": "R-51",
-			"title": "L11 the scorecard, the pure half: provenance, a datasheet for every model, every attempt and skip, a partial measurement labelled partial and not ranked, a sample below the minimum not ranked, the router's hit rate with its denominators, and the replay of accepted requests with counts (R-51 itself is six end-to-end checks: the measure command against the mock with two models, a cancel midway, and a router log with known picks, in the suite gate 1 runs)",
-			"layer": "pure, e2e",
+			"id": "M4-evidence",
+			"title": "Module 4's committed evidence: one real-model campaign of each tier (L9), this repository's task set and the oracle's state (L10), the reference machine's scorecard (L11), the full campaign, the mutation score and the injection run (L12), one outcome for each hypothesis H-1 to H-10 with its manifest, results after their registration and its amendments, and the L7, badge, eviction and energy decisions in docs/SUPPORT.md",
+			"layer": "node",
 			"regressions": [
-				"R-51"
+				"R-50"
 			],
 			"files": [
-				"src/vs/workbench/contrib/onyx/common/onyxScorecard.ts",
-				"src/vs/workbench/contrib/onyx/test/browser/onyxScorecard.test.ts",
-				"src/vs/workbench/contrib/onyx/browser/lab/onyxMeasureRepository.ts",
-				"test/onyx/run-e2e.mts"
+				"docs/research/results/2026-11-22-task-set/manifest.json",
+				"docs/research/results/2026-11-22-task-set/tasks.json",
+				"docs/research/results/2026-11-22-task-set/summary.json",
+				"docs/research/results/2026-11-22-task-set/trace-digests.json"
 			],
 			"command": [
-				"./scripts/test.sh",
-				"--grep",
-				"OnyxScorecard"
-			]
+				"node",
+				"--test",
+				"test/onyx/checks/module4-gate.test.mts"
+			],
+			"timeoutMs": 600000,
+			"scope": {
+				"item": "L10",
+				"when": "included"
+			}
 		}
 	]
 }

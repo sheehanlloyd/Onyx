@@ -1,0 +1,38 @@
+{
+	"available": true,
+	"platform": "darwin",
+	"probedSeconds": 200,
+	"onExternalPower": true,
+	"refreshesSeen": 3,
+	"intervals": [
+		{
+			"wallSeconds": 33,
+			"samples": 59,
+			"meanWatts": 56.845,
+			"joules": 3354,
+			"joulesByTheOtherAccumulator": 3230
+		},
+		{
+			"wallSeconds": 60,
+			"samples": 60,
+			"meanWatts": 67.559,
+			"joules": 4054,
+			"joulesByTheOtherAccumulator": 3752
+		},
+		{
+			"wallSeconds": 60,
+			"samples": 59,
+			"meanWatts": 64.788,
+			"joules": 3823,
+			"joulesByTheOtherAccumulator": 3545
+		}
+	],
+	"voltageTimesCurrentAgainstPowerIn": [
+		1,
+		1.001,
+		0.999,
+		1
+	],
+	"units": "SystemLoad and SystemPowerIn in milliwatts; AccumulatedSystemLoad in milliwatt-seconds, one sample a second; AccumulatedSystemEnergyConsumed in microwatt-hours",
+	"accuracy": "Not established against an external meter. What is established is that the readings agree with each other: see voltageTimesCurrentAgainstPowerIn (1 is exact agreement) and the two energy columns of each interval."
+}
