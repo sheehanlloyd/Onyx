@@ -14,8 +14,10 @@ Items done:
 | L9 | codex/l9-campaign-engine → #5 | L9.md, docs/research/results/2026-11-22-engine-tier-s/, 2026-11-22-engine-tier-a/, 2026-11-22-datasheets/ | R-49-pure, R-49-node, R-49-app |
 | L10 | codex/l10-private-benchmark → #5 | L10.md, docs/research/results/2026-11-22-task-set/, PREREGISTRATION.md Amendment 1 | R-50-pure, R-50-sandbox, R-50-node, L10-task-set |
 | L11 | codex/l11-measure-models → #5 | L11.md, docs/research/results/2026-11-22-reference-measure/ | R-51 (pure half; six end-to-end checks) |
-Items remaining: L12, L13, L14, L15, L16, L17, L18, in that order. Each has a pushed branch with its code and checks, stacked in that order (`codex/l12-assurance` … `codex/l18-energy`); what each still lacks is its campaign's results, its analysis and its report.
-Item in progress: L12 and L13 (results committed on their branches; H-1 supported, H-2 inconclusive). Campaigns for H-3, H-4, H-6 and H-8 run one at a time from a queue; H-9 and H-10 are not started.
+| L12 | codex/l12-assurance → #5 | L12.md, docs/research/results/2026-11-22-assurance/ (H-1 supported), 2026-11-22-injection/, PREREGISTRATION.md Amendments 2 and 3 | R-52-injection, R-52-campaign, L10-task-set (the evidence checks) |
+| L13 | codex/l13-attribution → #5 | L13.md, docs/research/results/2026-11-22-attribution/ (H-2 inconclusive), 2026-11-22-rankings-onyx/ and -brew/ (H-7 inconclusive) | R-53, H-7-decision |
+Items remaining: L14, L15, L16, L17, L18, in that order. Each has a pushed branch with its code and checks, stacked in that order (`codex/l14-edits` … `codex/l18-energy`); what each still lacks is its campaign's results, its analysis and its report.
+Item in progress: L14. Campaigns for H-3, H-4, H-6 and H-8 run one at a time from a queue; H-9 and H-10 are not started.
 Campaigns: every campaign of this module runs from a frozen copy of the build under `.build/`, reads its tasks from a bare local clone, and writes `docs/research/results/2026-11-22-<name>/`, which is committed on its item's branch when the campaign has ended. A campaign that is interrupted is resumed with the command in its manifest's `regenerate`.
 L9 after its merge: two additions, both merged. A campaign's seed and temperature were recorded and not sent (found in L13's first records, fixed in b6ddfa66aa9, `docs/progress/L9.md`, Erratum; the engine's tier A campaign was run again). A campaign can run the application from a frozen copy of the build (79dda2b96e3).
 Scope dispositions so far:
