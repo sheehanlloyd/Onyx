@@ -9,6 +9,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { IOnyxStagedFile } from '../../browser/changes/onyxChangeSetService.js';
 import { onyxProposalUri } from '../../browser/changes/onyxProposalDiff.js';
+import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY, SIM_OUTSIDE_PATH } from './sim/onyxSimCanary.js';
 import { OnyxSimRig } from './sim/onyxSimRig.js';
 
 /**
@@ -305,6 +306,54 @@ suite('OnyxChangeSetService', () => {
 			afterOneBad: false,
 			shapes: { empty: false, both: false, neither: false, notAnEdit: false }, stagedByABadShape: 1,
 			single: true,
+		});
+	});
+
+	test('R-30, write side: traversal, an absolute path, a backslash and a symbolic link that leaves the workspace are refused by every way of staging, and nothing is written outside; a file name with two dots is staged, accepted and created (C10)', async () => {
+		const result = await withRig(async rig => {
+			await rig.linkDirectory('linked', '/outside/dir');
+			const refused: Record<string, string> = {};
+			for (const path of ['../secret.ts', 'src/../../secret.ts', '/outside/secret.txt', '~/secret.ts', 'C:\\secret.ts', 'src\\math.ts', 'src/.../x.ts', SIM_LINK_PATH, 'linked/new.ts', 'linked/deeper/new.ts']) {
+				const viaTool = await rig.invokeTool('editFile', { path, search: '', replace: 'written by the model\n' });
+				const viaEdit = await rig.changeSet.stage(path, [{ search: '', replace: 'written by the model\n' }]);
+				const viaProposal = await rig.changeSet.stageProposal(path, 'written by the model\n');
+				refused[path] = [viaTool.ok, viaEdit.ok, viaProposal.ok].join(',');
+			}
+			const nothingStaged = rig.changeSet.files.get().length;
+			// The link's own content is edited: the SEARCH text is there, and it is still refused.
+			const editThroughLink = await rig.changeSet.stage(SIM_LINK_PATH, [{ search: SIM_OUTSIDE_CANARY, replace: 'overwritten' }]);
+
+			// Benign names: an existing file and a new one.
+			const existing = await rig.invokeTool('editFile', { path: 'src/a..b.ts', search: 'export const dotted = 1;', replace: 'export const dotted = 2;' });
+			const created = await rig.invokeTool('editFile', { path: 'notes/v1..v2.md', search: '', replace: '# from v1 to v2\n' });
+			const accepted = [await rig.changeSet.acceptFile('src/a..b.ts'), await rig.changeSet.acceptFile('notes/v1..v2.md')];
+			return {
+				refused, nothingStaged, editThroughLink: editThroughLink.ok ? 'staged' : editThroughLink.error,
+				benign: { existing: existing.ok, created: created.ok, accepted, buffer: rig.buffer('src/a..b.ts'), disk: await rig.disk('notes/v1..v2.md') },
+				outside: { secret: await rig.diskAt(SIM_OUTSIDE_PATH), newFile: await rig.diskAt('/outside/dir/new.ts'), deeper: await rig.diskAt('/outside/dir/deeper/new.ts') },
+			};
+		}, { [PATH]: FILE, 'src/a..b.ts': 'export const dotted = 1;\n' });
+		assert.deepStrictEqual(result, {
+			refused: Object.fromEntries(['../secret.ts', 'src/../../secret.ts', '/outside/secret.txt', '~/secret.ts', 'C:\\secret.ts', 'src\\math.ts', 'src/.../x.ts', SIM_LINK_PATH, 'linked/new.ts', 'linked/deeper/new.ts'].map(path => [path, 'false,false,false'])),
+			nothingStaged: 0,
+			editThroughLink: `Edit refused for ${SIM_LINK_PATH}: it resolves to a location outside the workspace through a symbolic link. Nothing was staged.`,
+			benign: { existing: true, created: true, accepted: [{ applied: true }, { applied: true }], buffer: 'export const dotted = 2;\n', disk: '# from v1 to v2\n' },
+			outside: { secret: `${SIM_OUTSIDE_CANARY}\n`, newFile: undefined, deeper: undefined },
+		});
+	});
+
+	test('R-30, write side: a file that becomes a link out of the workspace while its proposal waits is not written through on accept', async () => {
+		const result = await withRig(async rig => {
+			await rig.changeSet.stage(PATH, [ADD]);
+			// Between the staging and the accept, the file is replaced by a link to a file outside.
+			rig.linkFile(PATH, SIM_OUTSIDE_PATH);
+			const outcome = await rig.changeSet.acceptFile(PATH);
+			return { outcome, outside: await rig.diskAt(SIM_OUTSIDE_PATH), stillStaged: staged(rig)?.hunks.length };
+		});
+		assert.deepStrictEqual(result, {
+			outcome: { applied: false, reason: 'failed', message: 'src/math.ts now resolves to a location outside the workspace through a symbolic link. Nothing was applied.' },
+			outside: `${SIM_OUTSIDE_CANARY}\n`,
+			stillStaged: 1,
 		});
 	});
 });

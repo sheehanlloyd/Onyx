@@ -725,12 +725,17 @@ export class OnyxSimFileSystemProvider extends InMemoryFileSystemProvider implem
 	}
 
 	async realpath(resource: URI): Promise<string> {
+		return this.realLocation(resource.path);
+	}
+
+	/** Where a path really is, links followed. The same answer `realpath` gives, for a check that cannot wait. */
+	realLocation(path: string): string {
 		for (const [link, target] of this._links) {
-			if (resource.path === link || resource.path.startsWith(`${link}/`)) {
-				return target + resource.path.slice(link.length);
+			if (path === link || path.startsWith(`${link}/`)) {
+				return target + path.slice(link.length);
 			}
 		}
-		return resource.path;
+		return path;
 	}
 
 	override async stat(resource: URI): Promise<IStat> {

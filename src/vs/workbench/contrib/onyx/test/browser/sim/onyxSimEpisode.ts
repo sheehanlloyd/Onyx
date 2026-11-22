@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SIM_LINK_PATH, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
+import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
 import { OnyxSimRandom } from './onyxSimRandom.js';
 
 /**
@@ -305,6 +305,8 @@ export function personaTurns(persona: OnyxSimPersonaKind, random: OnyxSimRandom)
 					readCall({ path: `..${SIM_OUTSIDE_PATH}` }),
 					readCall({ path: SIM_OUTSIDE_PATH }),
 					readCall({ path: SIM_LINK_PATH }),
+					// The write side of the same link (R-30, C10): an edit whose SEARCH text is really in the linked file.
+					{ kind: 'toolCall', tool: 'editFile', arguments: { path: SIM_LINK_PATH, search: SIM_OUTSIDE_CANARY, replace: 'overwritten by the model' } },
 					{ kind: 'toolCall', tool: 'listDirectory', arguments: { path: '../outside' } },
 					{ kind: 'toolCall', tool: 'grep', arguments: { pattern: 'CANARY', include: '../**' } },
 					{ kind: 'toolCall', tool: 'grep', arguments: { pattern: 'CANARY' } },

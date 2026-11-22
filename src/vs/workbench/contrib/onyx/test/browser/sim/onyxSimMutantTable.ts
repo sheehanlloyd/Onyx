@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { OnyxSimEpisode, SIM_FENCED_REPLY, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
 
 /**
@@ -338,6 +339,17 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		script: script('B7-no-size-guard', 'Fill the function', [
 			{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: 'y\n'.repeat(20_001) } },
 		], { persona: 'flooder', dialogDefault: 'deny' }),
+	},
+	{
+		id: 'C10-write-through-link',
+		fixedBy: 'C10',
+		defect: 'The write side never asked where a file really is: an edit to a symbolic link that leaves the workspace was staged, and accepting it wrote outside the workspace (R-30, write side)',
+		detects: 'I-07/write-through-link',
+		resurrects: 'OnyxMutantWriteThroughLinkChangeSet',
+		script: script('C10-write-through-link', 'Update the linked file', [
+			{ kind: 'toolCall', tool: 'editFile', arguments: { path: SIM_LINK_PATH, search: SIM_OUTSIDE_CANARY, replace: 'overwritten by the model' } },
+			{ kind: 'text', text: 'Done.' },
+		], { persona: 'schema-violator', dialogDefault: 'deny' }),
 	},
 	{
 		id: 'B8-deletion-leaves-line',

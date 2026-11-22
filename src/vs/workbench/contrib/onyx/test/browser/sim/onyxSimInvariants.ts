@@ -6,6 +6,7 @@
 import { isTerminalRunStatus } from '../../../common/onyxTypes.js';
 import { readEditArguments } from '../../../common/onyxChangeSet.js';
 import { decodeNumberedSearch } from '../../../common/onyxReadTools.js';
+import { workspacePathProblem } from '../../../common/onyxWorkspacePaths.js';
 import { harnessConfigHash, IOnyxHarnessConfig } from '../../../common/onyxHarnessConfig.js';
 import { admitTool, needsApprovalPerCall } from '../../../common/onyxToolContract.js';
 import { ONYX_ESSENTIAL_TOOLS } from '../../../common/onyxToolSlots.js';
@@ -331,8 +332,13 @@ const i06: OnyxSimChecker = state => {
 /** I-07: no tool reads or writes outside the workspace roots. */
 const i07: OnyxSimChecker = state => {
 	for (const stage of state.stageEvents) {
-		if (stage.path.startsWith('/') || stage.path.includes('..') || stage.path.includes('\\')) {
+		if (workspacePathProblem(stage.path)) {
 			return `I-07/escape-staged: ${stage.path} is outside the workspace`;
+		}
+		// Write side of the symbolic link (R-30): the file, or the directory a new file would be created in, is
+		// really somewhere else.
+		if (!stage.realLocation.startsWith('/ws/')) {
+			return `I-07/write-through-link: ${stage.path} was staged, and writing it would write ${stage.realLocation}, outside the workspace`;
 		}
 	}
 	for (const event of events(state)) {

@@ -680,9 +680,20 @@ by default, so dev and packaged runs use the same four tools.
 | `findFiles` | Workspace-relative paths matching a glob | 50 by default, 200 at most. The glob is matched against the search's results, so ignored files stay ignored |
 | `grep` | `path:line: text` for a literal string or a regular expression | 60 lines in total, 8 per file, 240 characters per line. `include` narrows the files searched and, like "files to include" in the Search view, also reaches a file that an ignore file names. When nothing matches, up to five files from the content index are listed and labelled as suggestions, not matches |
 
-Every read tool refuses an absolute path, a path containing `..`, a backslash, and a path that resolves outside
-the workspace folder through a symbolic link; searches do not follow symbolic links (R-30, I-07 on the read
-side). A file name that merely contains two dots (`a..b.ts`) is refused as well until C10 decides otherwise.
+Every read tool refuses an absolute path, a `..` segment, a backslash, and a path that resolves outside the
+workspace folder through a symbolic link; searches do not follow symbolic links (R-30, I-07 on the read
+side).
+
+**The same rule on the write side (R-30, C10).** `editFile`, inline edits and refactors all stage through
+Onyx Changes, and it refuses the same paths. It also asks where the file really is, twice: when a proposal is
+staged and again right before it is applied. A file that is a symbolic link out of the workspace is not
+edited, and a new file is not created inside a directory that is one; what decides for a file that does not
+exist yet is the nearest directory above it that does. Before C10 the write side never asked.
+
+**A file name that contains two dots is a name (C10).** `a..b.ts`, `notes/v1..v2.md` and `..config` are
+read, searched, edited and created like any other. What is refused is a path *segment* that is `..`, and
+with it a segment made only of dots and spaces (`...`, `.. `), which some file systems read as the parent
+directory or as nothing.
 
 An edit's SEARCH text that was copied with the `12| ` prefixes is decoded only when every line carries the
 prefix, the numbers run consecutively and each line equals that line of the file character for character; the
@@ -727,7 +738,7 @@ tested. The module gate runner reads this table (`| item | state |`).
 | C6 incremental constrained-answer streaming | included | 2 | Not needed: included. A constrained turn's answer is read out of its envelope and shown as it arrives (R-28's streaming case, `OnyxConstrainedStreaming`). The envelope schema is unchanged: per-tool `anyOf` schemas were not adopted, so no runtime subset had to be probed for them; what the pinned runtime enforces of a schema is measured by the datasheet (L5) |
 | C7 broader index coverage | included | 2 | Not needed: included. Source folders are indexed first, `files.exclude`, `search.exclude` and the root `.gitignore` are honoured, the cap is 20,000 files and 256 MB after measurement, and coverage is reported (`OnyxWorkspaceIndexer`, `OnyxIndexOptions`; "The content index: what it covers") |
 | C9 bounded line diff | included | 3 | Not needed: included. The line diff is a bounded Myers search in `common/onyxInlineEdit.ts` (R-29, measured on the reference machine and in plain Node). A size guard stays, at 20,000 lines a side and 1 MiB, and its test (R-38 as it stands with C9) with it |
-| C10 benign repeated-dot names | planned | 3 | Conservative filename refusal; traversal and symlink refusals stay mandatory |
+| C10 benign repeated-dot names | included | 3 | Not needed: included. A `..` segment is refused and a name that contains two dots is not, on the read side and the write side (R-30, every subcase). Traversal, absolute paths and symbolic links out of the workspace are refused on both sides whatever this row says |
 | D3 Check for Updates command | planned | 5 | Manual replacement, rollback and uninstall instructions always ship |
 | L7 constrained anchors as default | planned | 4 (L14 decides) | Opt-in experimental protocol or withdrawn with the negative result |
 | L10 executable oracle | planned | 4 | Tier 1 scoring only; this file shows the sandbox probe output |

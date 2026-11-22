@@ -236,6 +236,27 @@
 			]
 		},
 		{
+			"id": "R-30",
+			"title": "C10 and the write side of containment: traversal, an absolute path, a backslash, a dot-only segment and a symbolic link out of the workspace (the file itself, a new file in a linked directory, a file that becomes a link while its proposal waits) are refused by every way of staging and by accept; a file name that merely contains two dots is read, found, searched, staged, accepted and created",
+			"layer": "pure, service",
+			"regressions": [
+				"R-30"
+			],
+			"scope": {
+				"item": "C10",
+				"when": "included"
+			},
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxReadTools.test.ts",
+				"src/vs/workbench/contrib/onyx/test/browser/onyxChangeSetService.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"R-30"
+			]
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

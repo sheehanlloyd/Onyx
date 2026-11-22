@@ -26,8 +26,9 @@ import { traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxChangeRisk } from '../../common/onyxChangeRisk.js';
 import { IOnyxEditBlock, IOnyxEditHunk } from '../../common/onyxInlineEdit.js';
 import { decodeNumberedSearch, replacementCarriesNumbering } from '../../common/onyxReadTools.js';
-import { resolveWorkspacePath } from '../../common/onyxWorkspacePaths.js';
+import { resolveWorkspacePath, workspacePathProblem } from '../../common/onyxWorkspacePaths.js';
 import { OnyxChangeRiskCollector } from '../intelligence/onyxChangeRiskCollector.js';
+import { IOnyxWorkspaceAccessService } from '../intelligence/onyxWorkspaceAccess.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 
 export const IOnyxChangeSetService = createDecorator<IOnyxChangeSetService>('onyxChangeSetService');
@@ -146,6 +147,7 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		@IStorageService private readonly _storageService: IStorageService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
+		@IOnyxWorkspaceAccessService private readonly _workspaceAccessService: IOnyxWorkspaceAccessService,
 	) {
 		super();
 		// Staged edits survive a crash: restore them marked stale, so the next
@@ -191,6 +193,9 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		const uri = this._resolveUri(path);
 		if (!uri) {
 			return { ok: false, error: `Path "${path}" is not inside the workspace.` };
+		}
+		if (await this._leavesWorkspace(uri)) {
+			return { ok: false, error: `Edit refused for ${path}: it resolves to a location outside the workspace through a symbolic link. Nothing was staged.` };
 		}
 		const existing = this._filesObs.get().find(file => file.proposal.path === path);
 		const read = await this._readCurrent(uri);
@@ -247,6 +252,9 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		const uri = this._resolveUri(path);
 		if (!uri) {
 			return { ok: false, error: `Path "${path}" is not inside the workspace.` };
+		}
+		if (await this._leavesWorkspace(uri)) {
+			return { ok: false, error: `Proposal refused for ${path}: it resolves to a location outside the workspace through a symbolic link. Nothing was staged.` };
 		}
 		const read = await this._readCurrent(uri);
 		const proposal: IOnyxProposedFile = read === undefined
@@ -421,6 +429,10 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		if (!uri) {
 			return { applied: false, reason: 'failed', message: localize('onyx.changes.outside', "{0} is not inside the workspace.", path) };
 		}
+		// The file system may have changed since the proposal was staged: what would be written is checked now.
+		if (await this._leavesWorkspace(uri)) {
+			return { applied: false, reason: 'failed', message: localize('onyx.changes.leavesWorkspace', "{0} now resolves to a location outside the workspace through a symbolic link. Nothing was applied.", path) };
+		}
 		if (shown.proposal.kind === 'create') {
 			const content = hunkId === undefined || shown.hunks.length === 1 ? shown.proposal.proposed : applyHunkSelection('', shown.hunks, index => shown.hunks[index].id === hunkId);
 			this._onWillApply.fire({ path });
@@ -558,8 +570,14 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		return this._resolveUri(path);
 	}
 
+	/**
+	 * The file a proposal's path names, or undefined when the path may not
+	 * be used: the same rule as the read side (R-30). Absolute paths, a
+	 * parent-directory segment and backslashes are refused before anything
+	 * is resolved; a name that merely contains two dots is a name (C10).
+	 */
 	private _resolveUri(path: string): URI | undefined {
-		if (path.includes('..') || path.startsWith('/') || path.includes('\\')) {
+		if (!path || workspacePathProblem(path)) {
 			return undefined;
 		}
 		const resolved = resolveWorkspacePath(this._folderRefs(), path);
@@ -568,6 +586,16 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 		}
 		const folder = this._workspaceService.getWorkspace().folders.find(f => f.index === resolved.folderIndex);
 		return folder?.toResource(resolved.relativePath);
+	}
+
+	/**
+	 * Whether writing the file would leave the workspace through a symbolic
+	 * link (R-30, write side, I-07): the file is a link out, or it would be
+	 * created inside a directory that is one. Asked when a proposal is
+	 * staged and again right before it is applied.
+	 */
+	protected async _leavesWorkspace(uri: URI): Promise<boolean> {
+		return !await this._workspaceAccessService.isContainedForWrite(uri);
 	}
 
 	/**
