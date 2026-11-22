@@ -25,7 +25,31 @@ export const ONYX_CONTEXT_BUDGET = {
 	outputMaxTokens: 4096,
 	/** The least a tool result is cut down to before the request is called too large. */
 	minResultChars: 400,
+	/** `block-to-low-watermark`: once over the budget, earlier calls are dropped until the messages are this share of it. */
+	lowWatermarkShare: 0.6,
 } as const;
+
+/**
+ * What is dropped first when a turn does not fit (L17). Under every policy
+ * the rest of the order is the same and the budget is never exceeded.
+ *
+ * - `oldest-results-first`: whole earlier tool calls with their results,
+ *   oldest first, only as many as it takes. Once the budget is reached that
+ *   is one every turn or so, and each one changes the prompt near its start.
+ * - `block-to-low-watermark`: the same, but once over the budget it goes on
+ *   down to a share of it, so that the turns that follow add to a prefix
+ *   that does not change until the budget is reached again.
+ * - `placeholder-results`: the earlier calls stay and the text of their
+ *   results is replaced by a short marker, oldest first, only as many as it
+ *   takes; the prompt before the newest replaced result does not change.
+ *   When every earlier result is a marker and the turn still does not fit,
+ *   whole calls are dropped as under `oldest-results-first`.
+ */
+export type OnyxEvictionPolicy = 'oldest-results-first' | 'block-to-low-watermark' | 'placeholder-results';
+export const ONYX_EVICTION_POLICIES: readonly OnyxEvictionPolicy[] = ['oldest-results-first', 'block-to-low-watermark', 'placeholder-results'];
+
+/** What stands in for the text of a tool result under `placeholder-results`. */
+export const ONYX_EVICTED_RESULT_MARKER = '[This earlier result was removed to fit the context window. Call the tool again if it is needed.]';
 
 /** The three numbers known about a model's context, any of which may be missing (B13). */
 export interface IOnyxContextNumbers {
@@ -85,6 +109,8 @@ export interface IOnyxTurnPlan {
 	/** Whole tool calls dropped with their results, oldest first, and how many results that was. */
 	readonly evictedCalls: number;
 	readonly evictedResults: number;
+	/** Tool results whose text was replaced by the marker this turn (`placeholder-results`). */
+	readonly replacedResults: number;
 	readonly evictedHistory: number;
 	readonly droppedWorkspaceContext: boolean;
 	/** Whether the newest tool results had to be cut further to fit. */
@@ -127,6 +153,19 @@ function shrinkResults(message: IChatMessage, maxChars: number): IChatMessage {
 	};
 }
 
+/** The same message with every tool result's text replaced by the marker; `undefined` when it already is. */
+function replaceResults(message: IChatMessage): IChatMessage | undefined {
+	let changed = false;
+	const content = message.content.map(part => {
+		if (part.type !== 'tool_result' || (part.value.length === 1 && part.value[0].type === 'text' && part.value[0].value === ONYX_EVICTED_RESULT_MARKER)) {
+			return part;
+		}
+		changed = true;
+		return { ...part, value: [{ type: 'text' as const, value: ONYX_EVICTED_RESULT_MARKER }] };
+	});
+	return changed ? { ...message, content } : undefined;
+}
+
 /**
  * What to send this turn. Dropped, in this order, until the rest fits:
  * whole tool calls with their results, oldest first, keeping the newest;
@@ -134,7 +173,8 @@ function shrinkResults(message: IChatMessage, maxChars: number): IChatMessage {
  * then the newest results are cut further. If the system prompt and the
  * request still do not fit, the plan says so and nothing should be sent.
  */
-export function planTurn(input: { readonly messages: readonly IOnyxBudgetedMessage[]; readonly contextTokens: number; readonly schemaTokens: number; readonly estimate: (message: IChatMessage) => number }): IOnyxTurnPlan {
+export function planTurn(input: { readonly messages: readonly IOnyxBudgetedMessage[]; readonly contextTokens: number; readonly schemaTokens: number; readonly estimate: (message: IChatMessage) => number; readonly policy?: OnyxEvictionPolicy }): IOnyxTurnPlan {
+	const policy = input.policy ?? 'oldest-results-first';
 	const maxTokens = outputCapTokens(input.contextTokens);
 	const budget = Math.max(0, Math.floor(input.contextTokens * ONYX_CONTEXT_BUDGET.usableShare) - maxTokens - input.schemaTokens);
 	let kept = [...input.messages];
@@ -144,9 +184,26 @@ export function planTurn(input: { readonly messages: readonly IOnyxBudgetedMessa
 		kept = [...kept.slice(0, start), ...kept.slice(end)];
 	};
 
+	let replacedResults = 0;
+	if (policy === 'placeholder-results' && total > budget) {
+		const groups = toolGroups(kept);
+		for (const group of groups.slice(0, -1)) {
+			for (let index = group.start + 1; index < group.end && total > budget; index++) {
+				const replaced = replaceResults(kept[index].message);
+				if (replaced) {
+					total += input.estimate(replaced) - input.estimate(kept[index].message);
+					kept[index] = { ...kept[index], message: replaced };
+					replacedResults++;
+				}
+			}
+		}
+	}
+
 	let evictedCalls = 0;
 	let evictedResults = 0;
-	for (let groups = toolGroups(kept); total > budget && groups.length > 1; groups = toolGroups(kept)) {
+	// Over the budget is what starts it under every policy; how far it goes is the policy's.
+	const target = policy === 'block-to-low-watermark' && total > budget ? Math.floor(budget * ONYX_CONTEXT_BUDGET.lowWatermarkShare) : budget;
+	for (let groups = toolGroups(kept); total > target && groups.length > 1; groups = toolGroups(kept)) {
 		remove(groups[0].start, groups[0].end);
 		evictedCalls++;
 		evictedResults += groups[0].results;
@@ -197,6 +254,7 @@ export function planTurn(input: { readonly messages: readonly IOnyxBudgetedMessa
 		schemaTokens: input.schemaTokens,
 		evictedCalls,
 		evictedResults,
+		replacedResults,
 		evictedHistory,
 		droppedWorkspaceContext,
 		shrankNewestResults,
