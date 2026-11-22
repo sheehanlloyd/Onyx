@@ -41,7 +41,7 @@ const configurations = [
 	{ name: 'no-line-numbers', hash: '00000000', configuration: { toolCallProtocol: 'repaired-text', readToolLineNumbering: false } },
 ];
 
-interface IRecord { unit: string; model: string; configuration: string; task: string; outcome: string; reply: string | null; deniedCommands: number; harnessHash: string | null; edits: { ok: boolean; blocks: { search: string }[] }[]; events: { kind: string; data: { source?: string; decision?: string; seed?: { requested: number | null } } }[] }
+interface IRecord { unit: string; model: string; configuration: string; task: string; outcome: string; reply: string | null; deniedCommands: number; harnessHash: string | null; edits: { ok: boolean; blocks: { search: string }[] }[]; events: { kind: string; data: { source?: string; decision?: string; seed?: { requested: number | null; honoured: boolean | string } } }[] }
 
 test('R-49: a tier A campaign runs the agent loop on a worktree, denies and counts commands, tells an unservable model apart, and leaves the repository as it was', async () => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onyx-r49-app-'));
@@ -59,6 +59,8 @@ test('R-49: a tier A campaign runs the agent loop on a worktree, denies and coun
 		const edit = served.find(record => record.task === 't0' && record.configuration === 'default');
 		const command = served.find(record => record.task === 't1' && record.configuration === 'default');
 		const resident: { maxResident: number } = await mock.debug('/debug/resident') as never;
+		// What the runtime was sent, not what the trace says was sent: the last requests the mock received.
+		const wire: { seed?: number; temperature?: number }[] = await mock.debug('/debug/recent-chats') as never;
 		assert.deepStrictEqual({
 			exit: run.status,
 			units: records.length,
@@ -68,7 +70,9 @@ test('R-49: a tier A campaign runs the agent loop on a worktree, denies and coun
 			scores: Object.fromEntries(results.map(result => [result.unit, [result.score, result.success]])),
 			commandDeniedByPolicy: command?.events.filter(event => event.kind === 'approval').map(event => [event.data.decision, event.data.source]),
 			commandsCounted: command?.deniedCommands,
-			theSeedWasOnTheWire: edit?.events.filter(event => event.kind === 'traceTurn').every(event => event.data.seed?.requested === 7),
+			// The campaign's seed and temperature reached the runtime on every request, and the runtime's echo of the seed is in the trace.
+			samplingOnTheWire: [wire.length > 0, [...new Set(wire.map(body => `${body.seed}/${body.temperature}`))]],
+			theTraceSaysTheSeedWasHonoured: edit?.events.filter(event => event.kind === 'traceTurn').map(event => [event.data.seed?.requested, event.data.seed?.honoured]),
 			twoConfigurationsTwoHashes: new Set(served.map(record => record.harnessHash)).size,
 			complete: campaign.complete,
 			oneModelResident: resident.maxResident,
@@ -95,7 +99,9 @@ test('R-49: a tier A campaign runs the agent loop on a worktree, denies and coun
 			},
 			commandDeniedByPolicy: [['deny', 'campaign-policy']],
 			commandsCounted: 1,
-			theSeedWasOnTheWire: true,
+			samplingOnTheWire: [true, ['7/0']],
+			// Three turns: the read, the edit, and the answer that ends the run.
+			theTraceSaysTheSeedWasHonoured: [[7, true], [7, true], [7, true]],
 			twoConfigurationsTwoHashes: 2,
 			complete: true,
 			oneModelResident: 1,

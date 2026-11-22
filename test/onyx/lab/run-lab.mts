@@ -358,6 +358,22 @@ function killGroup(child: ChildProcess): void {
 	}
 }
 
+/** The end of the newest main-process and window logs of an instance, with the user's home directory taken out. */
+function applicationLogTail(userDataDir: string): string | undefined {
+	try {
+		const logs = path.join(userDataDir, 'logs');
+		const newest = fs.readdirSync(logs).sort().at(-1);
+		if (!newest) {
+			return undefined;
+		}
+		const files = (fs.readdirSync(path.join(logs, newest), { recursive: true, encoding: 'utf8' }) as string[]).filter(name => /(^|\/)(main|renderer)\.log$/.test(name));
+		const text = files.map(name => fs.readFileSync(path.join(logs, newest, name), 'utf8').trim().split('\n').slice(-4).join(' ⏎ ')).join(' ⏎ ');
+		return text.split(os.homedir()).join('~').replace(/\/(private\/)?var\/folders\/[^ ]*/g, '<temporary>').slice(-700) || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 async function runTierA(units: readonly ILabUnit[], evictions: object[], notes: string[]): Promise<void> {
 	// What a launcher that was killed left behind: its folder, its worktree and perhaps its application.
 	for (const entry of fs.readdirSync(os.tmpdir()).filter(name => name.startsWith('onyx-lab-'))) {
@@ -479,6 +495,11 @@ async function runTierA(units: readonly ILabUnit[], evictions: object[], notes: 
 					// The application went away, or stopped answering, with units left: say so and start it again.
 					stalls = progressed ? 0 : stalls + 1;
 					notes.push(`${new Date().toISOString()}: the application ${exited ? 'exited' : 'was stopped'} in state "${state}"${reason ? ` (${reason})` : ''} with units of ${model} left; ${stalls >= 3 ? 'giving up' : 'started again'}`);
+					// What the application's own log says, so that the next occurrence has more than a count behind it.
+					const tail = applicationLogTail(userDataDir);
+					if (tail) {
+						notes.push(`the application's log ended: ${tail}`);
+					}
 					console.log(`  ${notes[notes.length - 1]}`);
 					if (stalls >= 3) {
 						throw new Error(`the application ended three times without finishing a unit of ${model}`);

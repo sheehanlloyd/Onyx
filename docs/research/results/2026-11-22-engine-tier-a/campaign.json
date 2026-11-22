@@ -4,7 +4,7 @@
 	"plannedUnits": 8,
 	"finishedUnits": 8,
 	"complete": true,
-	"machineSeconds": 106,
+	"machineSeconds": 75,
 	"firstEstimate": {
 		"seconds": 589,
 		"unmeasuredModels": [],
@@ -13,22 +13,22 @@
 	"repository": {
 		"unchanged": true,
 		"before": {
-			"status": "ed7cb55bc581428a11fa2568da66892afd90e059d6d5d021722de3479ff77197",
-			"index": "496323a147d0931f62f79311cdcb28def1e2edafdb7c15b947be0c985b6b56d6",
-			"head": "514ed9f88a187095e95259fd7c3a3301d2f13e2a",
-			"refs": "521954d6588c7da3b775ad62147c42abcc86fbc02d82a040d1b3e5203e3c62ad"
+			"status": "9b828d53402d6e332ef05a2fe03063b359192571ba99fcd3b85074f46a72fd7e",
+			"index": "absent",
+			"head": "126d11c7c9e962687b3e8d23d29aae8f768595e4",
+			"refs": "963bd35187ef49f5be448663b34990c56c60383227d17715367ac1c3d14a460c"
 		},
 		"after": {
-			"status": "ed7cb55bc581428a11fa2568da66892afd90e059d6d5d021722de3479ff77197",
-			"index": "496323a147d0931f62f79311cdcb28def1e2edafdb7c15b947be0c985b6b56d6",
-			"head": "514ed9f88a187095e95259fd7c3a3301d2f13e2a",
-			"refs": "521954d6588c7da3b775ad62147c42abcc86fbc02d82a040d1b3e5203e3c62ad"
+			"status": "9b828d53402d6e332ef05a2fe03063b359192571ba99fcd3b85074f46a72fd7e",
+			"index": "absent",
+			"head": "126d11c7c9e962687b3e8d23d29aae8f768595e4",
+			"refs": "963bd35187ef49f5be448663b34990c56c60383227d17715367ac1c3d14a460c"
 		}
 	},
 	"sessions": [
 		{
-			"startedAt": "2026-11-22T06:51:53.425Z",
-			"seconds": 106,
+			"startedAt": "2026-11-22T08:09:11.734Z",
+			"seconds": 75,
 			"unitsLeftAtStart": 8,
 			"estimate": {
 				"seconds": 589,
@@ -36,20 +36,20 @@
 				"units": 8
 			},
 			"conditionsAtStart": {
-				"at": "2026-11-22T06:51:53.425Z",
+				"at": "2026-11-22T08:09:11.734Z",
 				"loadAverage": [
-					32.19,
-					31,
-					18.22
+					3.74,
+					3.65,
+					4.69
 				],
 				"power": "AC Power, 100%, adapter 94 W"
 			},
 			"conditionsAtEnd": {
-				"at": "2026-11-22T06:53:39.222Z",
+				"at": "2026-11-22T08:10:26.890Z",
 				"loadAverage": [
-					60.42,
-					39.89,
-					23.07
+					3.23,
+					3.53,
+					4.55
 				],
 				"power": "AC Power, 100%, adapter 94 W"
 			},

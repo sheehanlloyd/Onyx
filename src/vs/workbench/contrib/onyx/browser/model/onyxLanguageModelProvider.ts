@@ -524,8 +524,10 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				model: model.wireModel ?? model.discovered.id,
 				messages: toWireMessages(messages),
 				tools: tools.length ? toWireTools(tools.slice(0, model.profile.maxTools)) : undefined,
-				temperature: model.profile.temperature,
-				seed: model.profile.seed,
+				// What the request itself asks for comes first: a campaign fixes the seed and the temperature of its
+				// runs (L9), and the trace records what was sent. Otherwise the model's profile decides.
+				temperature: typeof options.modelOptions?.temperature === 'number' ? options.modelOptions.temperature : model.profile.temperature,
+				seed: typeof options.modelOptions?.seed === 'number' ? options.modelOptions.seed : model.profile.seed,
 				// The output cap the loop set aside room for (B13). A caller that sets none sends none.
 				maxTokens: typeof options.modelOptions?.maxTokens === 'number' && options.modelOptions.maxTokens > 0 ? options.modelOptions.maxTokens : undefined,
 				// Residency: ask Ollama to hold the weights between requests, so

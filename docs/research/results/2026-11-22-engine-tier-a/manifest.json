@@ -1,7 +1,7 @@
 {
 	"version": 1,
 	"name": "2026-11-22-engine-tier-a",
-	"createdAt": "2026-11-22T06:51:53.196Z",
+	"createdAt": "2026-11-22T08:09:11.610Z",
 	"models": [
 		{
 			"identifier": "ollama:qwen2.5-coder:7b",
@@ -73,9 +73,9 @@
 		"osVersion": "macOS 26.5.1",
 		"nodeVersion": "24.22.3",
 		"loadAverage": [
-			32.19,
-			31,
-			18.22
+			3.74,
+			3.65,
+			4.69
 		],
 		"power": "AC Power, 100%, adapter 94 W"
 	},
@@ -98,5 +98,5 @@
 		"unitTimeoutMs": 600000
 	},
 	"hypotheses": [],
-	"notes": "L9: the first real-model campaign of the engine, tier A: the agent loop inside the application on a linked worktree of this repository, both pinned models, four tasks, one configuration with every switch named. It shows that the engine runs; it is too small to rank anything. The machine was busy: see the load averages in campaign.json."
+	"notes": "L9: a real-model campaign of the engine, tier A: the agent loop inside the application on a linked worktree of this repository, both pinned models, four tasks, one configuration with every switch named. It shows that the engine runs; it is too small to rank anything. This is the second run of this campaign: the first, on the same day, recorded temperature 0 and seed 1 in its traces while the runtime was sent the profile's temperature 0.2 and no seed (docs/progress/L9.md, Erratum). It was discarded and this run replaces it. The machine was not idle: see the load averages in campaign.json."
 }
