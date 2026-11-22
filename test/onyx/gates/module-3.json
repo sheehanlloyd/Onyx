@@ -163,6 +163,39 @@
 			]
 		},
 		{
+			"id": "R-22",
+			"title": "C8 a benchmark that cannot be fooled by a deletion: a reply that reproduces the author's added lines and deletes or rewrites an unrelated line scores strictly below 1, capped, with the line named; added and removed lines are scored together; routing scores kept under another metric are dropped",
+			"layer": "pure",
+			"regressions": [
+				"R-22"
+			],
+			"files": [
+				"src/vs/workbench/contrib/onyx/test/browser/onyxRepoBench.test.ts"
+			],
+			"command": [
+				"./scripts/test.sh",
+				"--grep",
+				"OnyxRepoBench"
+			]
+		},
+		{
+			"id": "C8-chart-provenance",
+			"title": "C8 raw reports: make-charts refuses a report without its provenance block; every published chart names a report committed under docs/benchmarks with its commit, machine, runtime versions, model digests, parameters, attempts and skips; the README shows only such charts and links a raw report",
+			"layer": "node",
+			"regressions": [],
+			"files": [
+				"test/onyx/checks/r43-provenance.test.mts",
+				"test/onyx/checks/c8-published-charts.test.mts"
+			],
+			"command": [
+				"node",
+				"--test",
+				"test/onyx/checks/r43-provenance.test.mts",
+				"test/onyx/checks/c8-published-charts.test.mts"
+			],
+			"timeoutMs": 120000
+		},
+		{
 			"id": "module-3-tables",
 			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
 			"layer": "node",

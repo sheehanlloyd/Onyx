@@ -42,7 +42,46 @@ import { loadManifest } from './lab/manifest.mts';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 interface IResult { group: string; name: string; value: number; unit: string; detail?: string; model?: string }
-interface IReport { results: IResult[]; skipped?: string[] }
+interface IReportProvenance { commit?: unknown; machine?: unknown; runtimes?: unknown; models?: unknown; parameters?: unknown; generatedAt?: unknown }
+interface IReport { results: IResult[]; skipped?: string[]; provenance?: IReportProvenance; attempts?: unknown }
+
+/**
+ * What is missing from a report's provenance block (C8); empty when nothing
+ * is. A chart is drawn only from a report that says which commit, machine,
+ * runtimes, models and parameters produced it and carries every repository
+ * benchmark attempt and every skip.
+ */
+function provenanceProblems(report: IReport): string[] {
+	const problems: string[] = [];
+	const block = report.provenance;
+	if (typeof block !== 'object' || block === null) {
+		return ['no "provenance" block'];
+	}
+	if (typeof block.commit !== 'string' || !/^[0-9a-f]{40}$/.test(block.commit)) {
+		problems.push('provenance.commit is not a commit hash');
+	}
+	if (typeof block.generatedAt !== 'string') {
+		problems.push('provenance.generatedAt is missing');
+	}
+	if (typeof block.machine !== 'object' || block.machine === null) {
+		problems.push('provenance.machine is missing');
+	}
+	for (const list of ['runtimes', 'models'] as const) {
+		if (!Array.isArray(block[list])) {
+			problems.push(`provenance.${list} is not a list`);
+		}
+	}
+	if (typeof block.parameters !== 'object' || block.parameters === null) {
+		problems.push('provenance.parameters is missing');
+	}
+	if (!Array.isArray(report.attempts)) {
+		problems.push('"attempts" (every repository-benchmark attempt) is not a list');
+	}
+	if (!Array.isArray(report.skipped)) {
+		problems.push('"skipped" is not a list');
+	}
+	return problems;
+}
 
 /** `--flag value` pairs and the bare report paths. */
 function parseArguments(argv: readonly string[]): { readonly options: Map<string, string>; readonly reports: string[] } {
@@ -82,8 +121,16 @@ const merged = new Map<string, IResult>();
 /** Which report each row came from, so provenance can be printed rather than assumed. */
 const provenance = new Map<string, string>();
 const skippedAll: string[] = [];
+/** Each report with the commit it was measured at, for the comment every chart carries. */
+const reportCommits: string[] = [];
 for (const reportPath of reportPaths) {
 	const parsed = JSON.parse(fs.readFileSync(reportPath, 'utf8')) as IReport;
+	const problems = provenanceProblems(parsed);
+	if (problems.length) {
+		console.error(`make-charts: refusing to draw from ${path.basename(reportPath)}: ${problems.join('; ')} (C8: a chart is drawn only from a report that says where it came from; produce one with run-benchmarks.mts --json-out)`);
+		process.exit(2);
+	}
+	reportCommits.push(`${path.basename(reportPath)}@${String(parsed.provenance?.commit).slice(0, 11)}`);
 	for (const result of parsed.results) {
 		merged.set(result.name, result);
 		provenance.set(result.name, path.basename(reportPath));
@@ -173,7 +220,7 @@ function formatValue(value: number): string {
 }
 
 /** The provenance every chart carries: the manifest and the reports it was drawn from. */
-const provenanceComment = `<!-- provenance: manifest ${manifest.name}; models ${manifest.models.map(model => `${model.identifier}@${model.digest}`).join(', ')}; reports ${reportPaths.map(report => path.basename(report)).join(', ')} -->\n`;
+const provenanceComment = `<!-- provenance: manifest ${manifest.name}; models ${manifest.models.map(model => `${model.identifier}@${model.digest}`).join(', ')}; reports ${reportCommits.join(', ')} -->\n`;
 
 function write(name: string, svg: string) {
 	const target = path.join(outputDir, name);
@@ -191,7 +238,7 @@ write('chart-retrieval.svg', barChart({
 	suffix: '%',
 	max: 100,
 	bars: [
-		{ label: 'Onyx BM25 index', value: find('BM25 hit@5').value, caption: `correct file in the top 5 · ${find('median query latency').value} ms per query`, highlight: true },
+		{ label: 'Onyx BM25 index', value: find('BM25 hit@5').value, caption: `correct file in the top 5 · ${find('mean query latency').value} ms per query`, highlight: true },
 		{ label: 'Substring search', value: find('substring search hit@5').value, caption: 'what an agent without an index falls back to' },
 	],
 }));
@@ -386,7 +433,7 @@ if (benchModels.length) {
 	const kinds = [...new Set(results.filter(result => result.group === 'repobench' && !result.name.endsWith('— overall')).map(result => result.name.split('— ')[1]))];
 	write('chart-repobench.svg', groupedBarChart({
 		title: 'Which local model is better at what — on your repository',
-		subtitle: 'Real past commits replayed — F1 over changed lines against what the author actually wrote, where 1.0 is the author',
+		subtitle: 'Real past commits replayed — F1 over the lines added and removed, against the author\'s change; capped at 0.5 when a kept line is removed',
 		series: kinds,
 		suffix: '',
 		max: 1,

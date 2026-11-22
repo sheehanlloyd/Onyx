@@ -1,3 +1,4 @@
+<!-- provenance: manifest 2026-11-21-benchmarks; models ollama:qwen2.5-coder:7b@dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364, ollama:llama3.2:3b@a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72, ollama:qwen2.5-coder:1.5b@d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668; reports report.json@0eebedd1d8b -->
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="204" viewBox="0 0 720 204" role="img" aria-label="Surviving what small local models actually emit">
   <title>Surviving what small local models actually emit</title>
   <text x="0" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#57606a">Surviving what small local models actually emit</text>

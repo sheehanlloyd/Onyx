@@ -10,6 +10,7 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IOnyxDiscoveredModel } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { applyDatasheet } from '../../common/onyxDatasheet.js';
+import { benchRoutingDataForCurrentMetric, ONYX_BENCH_METRIC } from '../../common/onyxRepoBench.js';
 import { seedProfile } from '../../common/onyxSeedProfiles.js';
 import { IOnyxModelProfile, IOnyxObservedStats } from '../../common/onyxTypes.js';
 import { IOnyxRequestMeasurement } from '../model/onyxLanguageModelProvider.js';
@@ -73,6 +74,8 @@ interface IMutableStats {
 	/** Mean on-your-repo benchmark score per task kind, with its sample count. */
 	benchScores: Record<string, number>;
 	benchSamples: Record<string, number>;
+	/** The metric the bench scores were taken with (C8). Scores under another one are dropped when they are loaded. */
+	benchMetric: string;
 	observedContextTokens?: number;
 }
 
@@ -106,7 +109,7 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		// A model that has just been measured has another profile from that moment.
 		this._register(this._datasheetService.onDidChange(() => this._onDidChangeProfiles.fire()));
 		this._stats = new Map(Object.entries(this._storageService.getObject<Record<string, Partial<IMutableStats>>>(STATS_STORAGE_KEY, StorageScope.APPLICATION, {}))
-			.map(([key, stored]) => [key, { ...emptyStats(), ...stored }]));
+			.map(([key, stored]) => [key, { ...emptyStats(), ...stored, ...benchRoutingDataForCurrentMetric(stored) }]));
 		this._overrides = new Map(Object.entries(this._storageService.getObject<Record<string, Partial<IOnyxModelProfile>>>(OVERRIDES_STORAGE_KEY, StorageScope.APPLICATION, {})));
 		this._persistScheduler = this._register(new RunOnceScheduler(() => this._persist(), 5000));
 	}
@@ -252,7 +255,7 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 }
 
 function emptyStats(): IMutableStats {
-	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0, benchScores: {}, benchSamples: {} };
+	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0, benchScores: {}, benchSamples: {}, benchMetric: ONYX_BENCH_METRIC };
 }
 
 function ema(previous: number, sample: number): number {

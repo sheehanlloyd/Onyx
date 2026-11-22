@@ -81,13 +81,62 @@ function invariant(group: string, name: string, value: number, unit: string, exp
 }
 
 /**
+ * Where a report came from (C8): the commit and whether the tree was clean,
+ * the machine, the runtimes with their versions, the models with their
+ * digests, and the parameters. `make-charts.mts` refuses a report without
+ * it, and every published chart has its report committed under
+ * `docs/benchmarks/<date>/`.
+ */
+interface IProvenance {
+	readonly schema: 1;
+	readonly generatedAt: string;
+	readonly commit: string;
+	readonly dirty: boolean;
+	readonly command: readonly string[];
+	readonly machine: { readonly platform: string; readonly arch: string; readonly cpu: string; readonly memoryGiB: number; readonly osRelease: string; readonly nodeVersion: string };
+	/** The one-minute load average when the run began and when the report was last written. Throughput measured on a busy machine is lower, and this says how busy it was. */
+	readonly load: { atStart: number; atEnd: number; cores: number };
+	readonly runtimes: { name: string; version: string | null }[];
+	readonly models: { key: string; runtime: string; id: string; digest: string | null }[];
+	readonly parameters: Record<string, string | number | boolean | null>;
+}
+
+function git(...args: string[]): string {
+	try {
+		return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim();
+	} catch {
+		return '';
+	}
+}
+
+const provenance: IProvenance = {
+	schema: 1,
+	generatedAt: new Date().toISOString(),
+	commit: git('rev-parse', 'HEAD'),
+	dirty: git('status', '--porcelain', '--untracked-files=no').length > 0,
+	// Flags only: a path given to --json-out or --module-root says where a checkout lives, not what was measured.
+	command: process.argv.slice(2).filter((argument, index, all) => argument.startsWith('--') || (/^\d+$/.test(argument) && all[index - 1]?.startsWith('--'))),
+	machine: { platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model ?? 'unknown', memoryGiB: Math.round(os.totalmem() / 2 ** 30), osRelease: os.release(), nodeVersion: process.version },
+	load: { atStart: Math.round(os.loadavg()[0] * 100) / 100, atEnd: 0, cores: os.cpus().length },
+	runtimes: [],
+	models: [],
+	parameters: {},
+};
+
+/** Every repository-benchmark attempt of the run, with its task and its score, in the order they were made. */
+const benchAttempts: { modelKey: string; commit: string; subject: string; file: string; kind: string; score: number; reason: string; metric: string | null; removedLinesTheAuthorKept: number; finishReason: string | null; durationMs: number }[] = [];
+/** Tasks a model was given and the runtime could not serve. Not scores of zero. */
+const benchFailures: { modelKey: string; commit: string; error: string }[] = [];
+
+/**
  * Writes the machine-readable report as it stands. Called after every model so
  * that a run interrupted three quarters of the way through still yields usable
  * JSON for the models it finished — these runs take half an hour.
  */
 function writeReport() {
+	provenance.load.atEnd = Math.round(os.loadavg()[0] * 100) / 100;
 	if (jsonOut) {
-		fs.writeFileSync(jsonOut, JSON.stringify({ results, skipped, violations }, undefined, '\t'));
+		fs.writeFileSync(jsonOut, JSON.stringify({ provenance, results, attempts: benchAttempts, failures: benchFailures, skipped, violations }, undefined, '\t'));
 	}
 }
 
@@ -227,7 +276,7 @@ async function benchmarkRetrieval() {
 		}
 		record('retrieval', 'BM25 hit@5', (bm25Hits / queries.length) * 100, '%', `${bm25Hits}/${queries.length} natural-language queries${missed.length ? `; missed: ${missed.join(', ')}` : ''}`);
 		record('retrieval', 'substring search hit@5', (substringHits / queries.length) * 100, '%', `${substringHits}/${queries.length}`);
-		record('retrieval', 'median query latency', bm25TotalMs / queries.length, 'ms');
+		record('retrieval', 'mean query latency', bm25TotalMs / queries.length, 'ms', `mean over ${queries.length} queries`);
 		// Keep the tokenizer honest: a query the index cannot help with.
 		record('retrieval', 'tokens per query (mean)', queries.reduce((total, [query]) => total + tokenize(query).length, 0) / queries.length, 'tokens');
 	} finally {
@@ -524,7 +573,9 @@ async function discoverTargets(): Promise<IModelTarget[]> {
 	const targets: IModelTarget[] = [];
 
 	try {
-		const tags = await getJson(`${OLLAMA_ROOT}/api/tags`, 4000) as { models?: { name: string }[] };
+		const tags = await getJson(`${OLLAMA_ROOT}/api/tags`, 4000) as { models?: { name: string; digest?: string }[] };
+		const version = await getJson(`${OLLAMA_ROOT}/api/version`, 4000).catch(() => undefined) as { version?: string } | undefined;
+		provenance.runtimes.push({ name: 'ollama', version: version?.version ?? null });
 		for (const model of tags.models ?? []) {
 			// The mock runtime the E2E uses answers here too; its models are
 			// not real and would poison the numbers.
@@ -532,6 +583,7 @@ async function discoverTargets(): Promise<IModelTarget[]> {
 				continue;
 			}
 			targets.push({ runtime: 'ollama', baseUrl: `${OLLAMA_ROOT}/v1`, id: model.name, key: model.name });
+			provenance.models.push({ key: model.name, runtime: 'ollama', id: model.name, digest: model.digest ?? null });
 		}
 		if (!targets.length) {
 			note(`skipped: Ollama answered at ${OLLAMA_ROOT} but reports no real models`);
@@ -545,8 +597,11 @@ async function discoverTargets(): Promise<IModelTarget[]> {
 		// which entries are chat models and which are embeddings.
 		const native = await getJson(`${LMSTUDIO_ROOT}/api/v0/models`, 4000) as { data?: { id: string; type?: string }[] };
 		const chatModels = (native.data ?? []).filter(model => model.type === 'llm');
+		// LM Studio's API reports neither its own version nor a digest of a model's weights.
+		provenance.runtimes.push({ name: 'lmstudio', version: null });
 		for (const model of chatModels) {
 			targets.push({ runtime: 'lmstudio', baseUrl: `${LMSTUDIO_ROOT}/v1`, id: model.id, key: `${model.id} (LM Studio)` });
+			provenance.models.push({ key: `${model.id} (LM Studio)`, runtime: 'lmstudio', id: model.id, digest: null });
 		}
 		const embeddings = (native.data ?? []).length - chatModels.length;
 		if (embeddings > 0 && !asJson) {
@@ -991,7 +1046,7 @@ interface IBenchAttempt {
 /** One model's attempt at every bench fixture. Scores land in `results` via the caller. */
 async function measureRepoTasks(target: IModelTarget, fixtures: readonly IBenchFixture[], results: IBenchAttempt[], truncated: Map<string, number>, failed: Map<string, number>, modules: {
 	buildBenchPrompt: (task: unknown, before: string) => string;
-	scoreBenchAttempt: (before: string, after: string, reply: string) => { score: number; reason: string };
+	scoreBenchAttempt: (before: string, after: string, reply: string) => { score: number; reason: string; metric?: string; preservation?: { removedLinesTheAuthorKept: number } };
 	ONYX_BENCH_SYSTEM_PROMPT: string;
 }) {
 	{
@@ -1012,11 +1067,12 @@ async function measureRepoTasks(target: IModelTarget, fixtures: readonly IBenchF
 				if (result.finishReason === 'length') {
 					truncated.set(target.key, (truncated.get(target.key) ?? 0) + 1);
 				}
-				results.push({
-					modelKey: target.key,
-					task: fixture.task,
-					score: modules.scoreBenchAttempt(fixture.before, fixture.after, result.text),
-					durationMs: performance.now() - start,
+				const score = modules.scoreBenchAttempt(fixture.before, fixture.after, result.text);
+				results.push({ modelKey: target.key, task: fixture.task, score, durationMs: performance.now() - start });
+				benchAttempts.push({
+					modelKey: target.key, commit: fixture.task.hash, subject: fixture.task.subject, file: fixture.task.file, kind: fixture.task.kind,
+					score: score.score, reason: score.reason, metric: score.metric ?? null, removedLinesTheAuthorKept: score.preservation?.removedLinesTheAuthorKept ?? 0,
+					finishReason: result.finishReason ?? null, durationMs: Math.round(performance.now() - start),
 				});
 			} catch (error) {
 				// A task the runtime could not serve at all — usually a model
@@ -1024,6 +1080,7 @@ async function measureRepoTasks(target: IModelTarget, fixtures: readonly IBenchF
 				// be read as one: record it separately so the published number
 				// says how many tasks the model actually got to attempt.
 				failed.set(target.key, (failed.get(target.key) ?? 0) + 1);
+				benchFailures.push({ modelKey: target.key, commit: fixture.task.hash, error: (error as Error).message });
 				note(`${target.key}: bench task ${fixture.task.hash.slice(0, 7)} failed (${(error as Error).message})`);
 			}
 		}
@@ -1034,20 +1091,23 @@ async function measureRepoTasks(target: IModelTarget, fixtures: readonly IBenchF
 		return;
 	}
 	for (const aggregate of aggregateBenchResults!(own)) {
-		record('repobench', `${aggregate.modelKey} — ${aggregate.kind}`, aggregate.meanScore, 'F1', `${aggregate.taskCount} task${aggregate.taskCount === 1 ? '' : 's'}`, aggregate.modelKey);
+		record('repobench', `${aggregate.modelKey} — ${aggregate.kind}`, aggregate.meanScore, 'score', `${aggregate.taskCount} task${aggregate.taskCount === 1 ? '' : 's'}`, aggregate.modelKey);
 	}
 	const mean = own.reduce((total, result) => total + result.score.score, 0) / own.length;
 	const applied = own.filter(result => result.score.score > 0).length;
 	const cut = truncated.get(target.key) ?? 0;
 	const lost = failed.get(target.key) ?? 0;
+	const capped = benchAttempts.filter(attempt => attempt.modelKey === target.key && attempt.removedLinesTheAuthorKept > 0).length;
 	const detail = [
+		`mean of ${own.length}`,
 		`${applied}/${own.length} scored above zero`,
+		capped ? `${capped} capped for removing a line the author kept` : undefined,
 		cut ? `${cut} reply cut off at the token cap` : undefined,
 		// Carried into the chart caption: a model that never got to attempt a
 		// task must not look like a model that attempted it and failed.
 		lost ? `${lost} task${lost === 1 ? '' : 's'} the runtime could not serve` : undefined,
 	].filter(Boolean).join(', ');
-	record('repobench', `${target.key} — overall`, mean, 'F1', detail, target.key);
+	record('repobench', `${target.key} — overall`, mean, 'score', detail, target.key);
 }
 
 /** The `lms` CLI, wherever LM Studio put it — the only way to reload with a draft. */
@@ -1195,6 +1255,7 @@ async function benchmarkRealModels() {
 		import(out('vs/workbench/contrib/onyx/common/onyxSpeculative.js')),
 	]);
 	aggregateBenchResults = bench.aggregateBenchResults;
+	Object.assign(provenance.parameters, { benchMetric: bench.ONYX_BENCH_METRIC, benchPreservationCap: bench.ONYX_BENCH_PRESERVATION_CAP, benchTemperature: 0, benchMaxTokens: 4096 });
 
 	const fixtures = loadBenchFixtures(bench.selectBenchmarkCommits);
 	if (!fixtures.length) {
@@ -1277,6 +1338,7 @@ function benchmarkCoverage() {
 }
 
 async function main() {
+	Object.assign(provenance.parameters, { warmRounds: WARM_ROUNDS, benchTasks: BENCH_TASKS, toolTrials: TOOL_TRIALS, skipModels: process.argv.includes('--skip-models'), speculative: process.argv.includes('--speculative') });
 	if (!fs.existsSync(out('vs/platform/onyxRuntime/common/onyxBm25.js'))) {
 		throw new Error('run `pnpm run transpile-client` first — these benchmarks import from out/');
 	}
@@ -1295,7 +1357,8 @@ async function main() {
 		await benchmarkRealModels();
 	}
 
-	const report = JSON.stringify({ results, skipped, violations }, undefined, '\t');
+	provenance.load.atEnd = Math.round(os.loadavg()[0] * 100) / 100;
+	const report = JSON.stringify({ provenance, results, attempts: benchAttempts, failures: benchFailures, skipped, violations }, undefined, '\t');
 	if (jsonOut) {
 		writeReport();
 	}

@@ -6,7 +6,7 @@
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import {
-	aggregateBenchResults, buildBenchPrompt, classifyCommitTask, IOnyxBenchCommitCandidate, scoreBenchAttempt, selectBenchmarkCommits
+	aggregateBenchResults, benchRoutingDataForCurrentMetric, buildBenchPrompt, classifyCommitTask, IOnyxBenchCommitCandidate, ONYX_BENCH_METRIC, scoreBenchAttempt, selectBenchmarkCommits
 } from '../../common/onyxRepoBench.js';
 
 function commit(overrides: Partial<IOnyxBenchCommitCandidate>): IOnyxBenchCommitCandidate {
@@ -57,14 +57,15 @@ suite('OnyxRepoBench', () => {
 			assert.strictEqual(scoreBenchAttempt(before, realAfter, reply).score, 1);
 		});
 
-		test('a wrong edit scores low; prose scores zero with the reason named', () => {
+		test('a wrong edit of the right line scores a half, for the line it removed, and no more; prose scores zero with the reason named', () => {
 			const wrong = '<<<<<<< SEARCH\n  return a + b\n=======\n  return b - a;\n>>>>>>> REPLACE';
 			const prose = 'I think you should add a semicolon somewhere.';
 			assert.deepStrictEqual({
-				wrongLow: scoreBenchAttempt(before, realAfter, wrong).score < 0.5,
+				wrong: scoreBenchAttempt(before, realAfter, wrong).score,
 				prose: scoreBenchAttempt(before, realAfter, prose),
 			}, {
-				wrongLow: true,
+				// Since C8 removed lines count: the reply removed the line the author removed, and added the wrong one.
+				wrong: 0.5,
 				prose: { score: 0, reason: 'reply was prose, not an edit' },
 			});
 		});
@@ -74,6 +75,43 @@ suite('OnyxRepoBench', () => {
 			const deleted = ['keep();', 'keep2();'].join('\n');
 			const goodReply = '<<<<<<< SEARCH\nremove();\n=======\n>>>>>>> REPLACE';
 			assert.strictEqual(scoreBenchAttempt(withExtra, deleted, goodReply).score, 1);
+		});
+
+		test('R-22: a reply that reproduces the author\'s added lines and deletes an unrelated line scores strictly below 1, capped, with the line and the reason named', () => {
+			const file = ['import { log } from \'./log\';', 'function add(a, b) {', '  return a + b', '}', 'export const VERSION = 3;'].join('\n');
+			const author = file.replace('  return a + b', '  return a + b;');
+			const exact = '<<<<<<< SEARCH\n  return a + b\n=======\n  return a + b;\n>>>>>>> REPLACE';
+			const alsoDeletes = exact + '\n<<<<<<< SEARCH\nexport const VERSION = 3;\n=======\n>>>>>>> REPLACE';
+			const alsoRewrites = exact + '\n<<<<<<< SEARCH\nexport const VERSION = 3;\n=======\nexport const VERSION = 4;\n>>>>>>> REPLACE';
+			const onlyDeletes = '<<<<<<< SEARCH\nexport const VERSION = 3;\n=======\n>>>>>>> REPLACE';
+			const alsoAdds = exact + '\n<<<<<<< SEARCH\nexport const VERSION = 3;\n=======\nexport const VERSION = 3;\nlog(add(1, 2));\n>>>>>>> REPLACE';
+			assert.deepStrictEqual({
+				exact: scoreBenchAttempt(file, author, exact),
+				alsoDeletes: scoreBenchAttempt(file, author, alsoDeletes),
+				alsoRewrites: scoreBenchAttempt(file, author, alsoRewrites),
+				onlyDeletes: scoreBenchAttempt(file, author, onlyDeletes),
+				// Adding too much is imprecise, and is not a loss of the author's code: no cap.
+				alsoAdds: scoreBenchAttempt(file, author, alsoAdds),
+			}, {
+				exact: { score: 1, reason: '100% of the author\'s changed lines reproduced, 100% of the model\'s on target', metric: ONYX_BENCH_METRIC },
+				alsoDeletes: { score: 0.5, reason: 'capped at 0.5: the reply removed 1 line the author kept ("export const VERSION = 3;"); before the cap 0.8 (100% of the author\'s changed lines reproduced, 67% of the model\'s on target)', metric: ONYX_BENCH_METRIC, preservation: { removedLinesTheAuthorKept: 1, scoreBeforeCap: 0.8 } },
+				alsoRewrites: { score: 0.5, reason: 'capped at 0.5: the reply removed 1 line the author kept ("export const VERSION = 3;"); before the cap 0.67 (100% of the author\'s changed lines reproduced, 50% of the model\'s on target)', metric: ONYX_BENCH_METRIC, preservation: { removedLinesTheAuthorKept: 1, scoreBeforeCap: 0.67 } },
+				// Nothing right and a kept line gone: the score was already under the cap, so the reason does not say "capped".
+				onlyDeletes: { score: 0, reason: '0% of the author\'s changed lines reproduced, 0% of the model\'s on target; the reply removed 1 line the author kept ("export const VERSION = 3;")', metric: ONYX_BENCH_METRIC, preservation: { removedLinesTheAuthorKept: 1, scoreBeforeCap: 0 } },
+				alsoAdds: { score: 0.8, reason: '100% of the author\'s changed lines reproduced, 67% of the model\'s on target', metric: ONYX_BENCH_METRIC },
+			});
+		});
+	});
+
+	test('C8: routing data scored under another metric, or under none, is dropped when it is loaded; data under the current metric is kept', () => {
+		assert.deepStrictEqual({
+			unnamed: benchRoutingDataForCurrentMetric({ benchScores: { debug: 1 }, benchSamples: { debug: 4 } }),
+			older: benchRoutingDataForCurrentMetric({ benchScores: { debug: 1 }, benchSamples: { debug: 4 }, benchMetric: 'added-line-f1/1' }),
+			current: benchRoutingDataForCurrentMetric({ benchScores: { debug: 0.5 }, benchSamples: { debug: 2 }, benchMetric: ONYX_BENCH_METRIC }),
+		}, {
+			unnamed: { benchScores: {}, benchSamples: {}, benchMetric: ONYX_BENCH_METRIC },
+			older: { benchScores: {}, benchSamples: {}, benchMetric: ONYX_BENCH_METRIC },
+			current: { benchScores: { debug: 0.5 }, benchSamples: { debug: 2 }, benchMetric: ONYX_BENCH_METRIC },
 		});
 	});
 

@@ -15,7 +15,7 @@ import { IWorkspaceContextService } from '../../../../../platform/workspace/comm
 import { IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import {
-	aggregateBenchResults, buildBenchPrompt, IOnyxBenchResult, IOnyxBenchTask, ONYX_BENCH_SYSTEM_PROMPT, scoreBenchAttempt, selectBenchmarkCommits
+	aggregateBenchResults, buildBenchPrompt, IOnyxBenchResult, IOnyxBenchTask, ONYX_BENCH_METRIC, ONYX_BENCH_PRESERVATION_CAP, ONYX_BENCH_SYSTEM_PROMPT, scoreBenchAttempt, selectBenchmarkCommits
 } from '../../common/onyxRepoBench.js';
 import { ONYX_VENDOR } from '../../common/onyxTypes.js';
 import { runOneShot } from '../agent/onyxOneShot.js';
@@ -129,7 +129,8 @@ export class OnyxRepoBenchmark {
 							kind: 'note',
 							label: localize('onyx.bench.scored', "{0} scored {1} on \"{2}\"", pick.model.discovered.id, score.score.toFixed(2), task.subject.slice(0, 60)),
 							reason: score.reason,
-							ok: score.score >= 0.5,
+							// Above a half: a half is what a wrong edit of the right line gets, and what the preservation cap leaves.
+							ok: score.score > 0.5,
 							location: { path: task.file, line: 1 },
 						});
 						done++;
@@ -163,7 +164,9 @@ export class OnyxRepoBenchmark {
 		const lines: string[] = [
 			localize('onyx.bench.docTitle', "# Onyx repo benchmark — this repository's own commits"),
 			'',
-			localize('onyx.bench.docIntro', "Each task is a real past commit: the model saw the file before the change and the commit message, and its attempt is scored against what the author actually wrote (F1 over changed lines). Scores feed the router's per-task-kind signal."),
+			localize('onyx.bench.docIntro', "Each task is a real past commit: the model saw the file before the change and the commit message, and its attempt is scored against what the author actually wrote. The score is the F1 between the lines the model changed and the lines the author changed, added and removed together, and is capped at {0} when the model removed a line the author kept. It measures closeness to the author's change, not correctness. Scores feed the router's per-task-kind signal.", ONYX_BENCH_PRESERVATION_CAP),
+			'',
+			localize('onyx.bench.docMetric', "Metric: {0}", ONYX_BENCH_METRIC),
 			'',
 			'| model | task kind | mean score | tasks |',
 			'|---|---|---|---|',
