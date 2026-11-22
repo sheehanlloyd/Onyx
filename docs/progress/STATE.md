@@ -12,10 +12,17 @@ Items done:
 | Item | Branch → PR | Report | Gate check ids |
 |---|---|---|---|
 | L9 | codex/l9-campaign-engine → #5 | L9.md, docs/research/results/2026-11-22-engine-tier-s/, 2026-11-22-engine-tier-a/, 2026-11-22-datasheets/ | R-49-pure, R-49-node, R-49-app |
-Items remaining: L10, L11, L12, L13, L14, L15, L16, L17, L18, in that order.
-Item in progress: L10 (the private benchmark), on branch `codex/l10-private-benchmark`.
-Campaigns running: none. A private Ollama 0.33.0 is running on 127.0.0.1:11500 for this session's campaigns (started with `OLLAMA_CONTEXT_LENGTH=16384`); it is stopped at the end of the session.
-Machine time so far: datasheets 6 minutes; engine tier S 428 s (estimated about 6 minutes); engine tier A 106 s (estimated about 10 minutes).
+| L10 | codex/l10-private-benchmark → #5 | L10.md, docs/research/results/2026-11-22-task-set/, PREREGISTRATION.md Amendment 1 | R-50-pure, R-50-sandbox, R-50-node, L10-task-set |
+Items remaining: L11, L12, L13, L14, L15, L16, L17, L18, in that order.
+Item in progress: L11 (Measure Models for This Repository). L13's campaign is started as soon as L10 is merged, as the chapter says, and runs while L11 and L12 are written.
+Campaigns running: see "Campaign in flight" below when one is.
+Scope dispositions so far:
+  L10 executable oracle: included (docs/SUPPORT.md, with the sandbox probe output). No task of this repository's set was scored by execution: its tests need a build inside the worktree. Scores for this repository are tier 1.
+  L10 task source 2 (your own requests): implemented and tested; this repository's committed set has 0 such tasks (no opted-in journal with accepted proposals).
+  Pre-registration: Amendment 1 (2026-11-22), made before any hypothesis campaign: the pinned models are both at or below 7B; one seed at temperature 0; H-2 is a full factorial over three components with three protocol values.
+Runtime for this session's campaigns: a private Ollama 0.33.0 on 127.0.0.1:11500, started with `OLLAMA_CONTEXT_LENGTH=16384` (no alias on the runtime); stopped at the end of the session. Campaigns read tasks from a bare local clone under `.build/`, so that the working tree can be edited while one runs.
+Machine time so far: datasheets 6 minutes; engine tier S 428 s (estimated about 6 minutes); engine tier A 106 s (estimated about 10 minutes); two uncommitted pilots 301 s and 946 s.
+Machine condition: the reference machine has other applications open and about 7.5 GB of swap in use; the 7B model generates at 15 to 23 tokens a second against 49 measured idle on 2026-11-21. No throughput number from this session is an idle number.
 Gate: not run.
 
 ## Module 3
