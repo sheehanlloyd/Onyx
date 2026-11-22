@@ -659,7 +659,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 					const wasDirty = this._textFileService.isDirty(this._uri(this.episode.target));
 					await this._textFileService.save(this._uri(this.episode.target));
 					const saved = this.buffer(this.episode.target);
-					if (wasDirty && saved !== undefined) {
+					// What the user sanctioned on disk is what the save wrote. A save that did not go through
+					// (the file had changed on disk under a dirty buffer, and the editor does not overwrite it
+					// unasked) wrote nothing: the disk still holds what it held, which was sanctioned when it
+					// got there. Found by the 50,000-episode campaign at seeds 32218 and 46211 (L12).
+					if (wasDirty && saved !== undefined && await this.disk(this.episode.target) === saved) {
 						this.sanctionedDisk.set(this.episode.target, saved);
 					}
 				}
