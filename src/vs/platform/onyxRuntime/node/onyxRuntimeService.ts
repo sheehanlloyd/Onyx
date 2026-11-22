@@ -539,6 +539,10 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 		if (failure !== undefined) {
 			return { ok: false, error: failure };
 		}
+		// What was read from the history before the checkout is of another revision. Kept, it went into the
+		// prompts of the next task for up to a minute, and ran out between two repetitions of a unit (H-6).
+		this._gitRecentCache.clear();
+		this._gitGroupsCache.clear();
 		return { ok: true, head: (await this._git(paths.worktree, ['rev-parse', 'HEAD'])).trim() };
 	}
 
