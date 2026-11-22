@@ -142,7 +142,15 @@ test('Module 4 gate: every hypothesis H-1 to H-10 has one outcome committed with
 		hypothesesWithoutExactlyOneOutcome: Object.entries(byHypothesis).filter(([, found]) => found.length !== 1).map(([hypothesis, found]) => `${hypothesis}: ${found.length}`),
 		outcomesNotOfTheFour: outcomes.filter(outcome => !OUTCOMES.includes(outcome.outcome)).map(outcome => `${outcome.hypothesis}: ${outcome.outcome}`),
 		outcomesWithoutANumber: outcomes.filter(outcome => outcome.number.length === 0).map(outcome => outcome.hypothesis),
-		directoriesThatAreNotValidResults: [...new Set(outcomes.map(outcome => outcome.directory))].filter(directory => checkResultsDirectory(results(directory)).errors.length > 0),
+		// An outcome is beside its campaign's manifest, or in an analysis of several campaigns that names each of them.
+		directoriesThatAreNotValidResults: [...new Set(outcomes.map(outcome => outcome.directory))].filter(directory => {
+			if (fs.existsSync(path.join(results(directory), 'manifest.json'))) {
+				return checkResultsDirectory(results(directory)).errors.length > 0;
+			}
+			const sourcesFile = path.join(results(directory), 'sources.json');
+			const sources: string[] = fs.existsSync(sourcesFile) ? read<{ campaigns: string[] }>(sourcesFile).campaigns : [];
+			return sources.length === 0 || sources.some(source => checkResultsDirectory(results(source)).errors.length > 0);
+		}),
 		uncommitted: gitText('status', '--porcelain', '--', 'docs/research/results'),
 		unavailableWithoutAProbe: outcomes.filter(outcome => outcome.outcome === 'unavailable on this hardware' && !fs.readdirSync(results(outcome.directory)).some(name => /probe/.test(name))).map(outcome => outcome.hypothesis),
 	}, {
@@ -159,7 +167,8 @@ test('Module 4 gate: the pre-registration is an ancestor of every results commit
 	const registration = gitText('log', '--diff-filter=A', '--format=%H', '--', 'docs/research/PREREGISTRATION.md').split('\n').at(-1)!;
 	// The commit of each amendment, found by the heading it added.
 	const amendment = (number: number) => gitText('log', '--reverse', '--format=%H', '-S', `### Amendment ${number},`, '--', 'docs/research/PREREGISTRATION.md').split('\n')[0];
-	const firstCommitOf = (directory: string) => gitText('log', '--diff-filter=A', '--format=%H', '--', `docs/research/results/${directory}/manifest.json`).split('\n').at(-1)!;
+	// The first commit that put anything in the directory.
+	const firstCommitOf = (directory: string) => gitText('log', '--diff-filter=A', '--format=%H', '--', `docs/research/results/${directory}`).split('\n').at(-1)!;
 	const outcomes = outcomeFiles();
 	// Which amendment fixed the design each hypothesis's campaign ran under.
 	const designedBy: Record<string, number> = { 'H-2': 1, 'H-3': 2, 'H-4': 2, 'H-5': 2, 'H-6': 3, 'H-7': 3, 'H-8': 3, 'H-9': 3, 'H-10': 3 };
@@ -188,21 +197,26 @@ test('Module 4 gate: the pre-registration is an ancestor of every results commit
 	});
 });
 
-test('Module 4 gate: the L7 decision, the badge decision and the adopted eviction policy are recorded in docs/SUPPORT.md, and they are what the outcomes say', () => {
+test('Module 4 gate: the L7 decision, the badge decision, the eviction policy and the state of the energy study are recorded in docs/SUPPORT.md, and they are what the outcomes say', () => {
 	const support = fs.readFileSync(path.join(repoRoot, 'docs', 'SUPPORT.md'), 'utf8');
 	const outcomes = Object.fromEntries(outcomeFiles().map(outcome => [outcome.hypothesis, outcome.outcome]));
-	const state = (item: string) => new RegExp(`^\\| ${item} \\| (?<state>[^|]+) \\|`, 'm').exec(support)?.groups?.state.trim();
-	const l7 = state('L7 constrained anchors');
-	const badge = state('L16 hunk confidence badge');
-	const eviction = state('L17 eviction policy');
+	const row = (item: string) => new RegExp(`^\\| ${item} \\| (?<state>[^|]+) \\|(?<rest>.*)$`, 'm').exec(support)?.groups;
+	const l7 = row('L14 decision on constrained anchors \\(L7\\)');
+	const decision = /^(?<word>Default for supported models|Opt-in|Withdrawn)\./.exec(l7?.state.trim() ?? '')?.groups?.word;
+	const badge = row('L16 confidence badge');
+	const eviction = row('L17 eviction policy');
+	const energy = row('L18 energy');
 	assert.deepStrictEqual({
-		l7Recorded: ['default for supported models', 'opt-in', 'withdrawn'].includes(l7 ?? ''),
+		l7Recorded: decision !== undefined,
 		// Anchors become the default only if H-4 was supported.
-		l7FollowsH4: l7 !== 'default for supported models' || outcomes['H-4'] === 'supported',
-		badgeRecorded: ['shipped', 'not shipped'].includes(badge ?? ''),
-		badgeFollowsH8: badge !== 'shipped' || outcomes['H-8'] === 'supported',
-		evictionRecorded: ['oldest-results-first', 'block-to-low-watermark', 'placeholder-results'].includes(eviction ?? ''),
-	}, { l7Recorded: true, l7FollowsH4: true, badgeRecorded: true, badgeFollowsH8: true, evictionRecorded: true });
+		l7FollowsH4: decision !== 'Default for supported models' || outcomes['H-4'] === 'supported',
+		noRowIsStillPlanned: [badge?.state.trim(), eviction?.state.trim(), energy?.state.trim()].map(state => state === 'included' || state === 'deferred'),
+		// A badge is said to ship only if H-8 was supported; otherwise the row says that none does.
+		badgeFollowsH8: outcomes['H-8'] === 'supported' || /no badge ships/i.test(badge?.rest ?? ''),
+		// A policy other than oldest-first is said to be adopted only if H-9 was supported.
+		evictionFollowsH9: outcomes['H-9'] === 'supported' || /oldest-results-first stays/i.test(eviction?.rest ?? ''),
+		energyFollowsH10: outcomes['H-10'] !== 'unavailable on this hardware' || /unavailable on this hardware/i.test(energy?.rest ?? ''),
+	}, { l7Recorded: true, l7FollowsH4: true, noRowIsStillPlanned: [true, true, true], badgeFollowsH8: true, evictionFollowsH9: true, energyFollowsH10: true });
 });
 
 test('Module 4 gate (L11): the reference machine\'s measurement is committed with its scorecard, raw results and manifest', () => {
