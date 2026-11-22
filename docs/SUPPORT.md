@@ -893,7 +893,7 @@ tested. The module gate runner reads this table (`| item | state |`).
 | D3 Check for Updates command | planned | 5 | Manual replacement, rollback and uninstall instructions always ship |
 | L7 constrained anchors | included | 3 | Not needed: included as an **experimental** protocol, off by default and reachable only as a lab arm of the harness configuration (R-47). Whether it ever becomes a default is L14's decision, in Module 4; until then the fallback is what ships: search and replace |
 | L10 executable oracle | included | 4 | Not needed: included. The sandbox probe passes on the reference machine ("The private benchmark", below, has its output) and R-50's sandbox cases pass (`OnyxOracle`, `OnyxLabTasks`). Where the probe fails, or without the user's consent, scoring is tier 1 only and the result says so |
-| L16 confidence badge | planned | 4 | No badge, no claim; result published |
+| L16 confidence badge | included | 4 | The study is done and its result is that no badge ships: H-8 is inconclusive (`docs/research/results/2026-11-22-confidence/`: 120 labelled hunks, 6 of them correct, where the registration needs 20 of each class). The review pane shows no confidence for a hunk and makes no claim about one. The rule that decides it is in the product (`common/onyxCalibration.ts`, R-55): a line of confidence is rendered only for an estimator the study supported and found calibrated, and none is named |
 | L17 eviction policy | planned | 4 | Oldest-first eviction stays; result published |
 | L18 energy | planned | 4 | "Unavailable on this hardware" with the probe output |
 
