@@ -1,6 +1,6 @@
 # Onyx plan state
 Plan version: v4.2 in the owner's checkout since 2026-11-21 (the addition is to Module 5's D7). Module 3 was implemented from v4.1, and its chapter is the same in both.
-Current module: 4      Status: in progress (started 2026-11-22). Module 3: complete; gate passed on d6e161b50cf (2026-11-22, 68 checks of 68), merged into `main` as cc0916dc2a1 (sheehanlloyd/Onyx#4), push-to-main CI run 44992119167 green. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
+Current module: 4      Status: gate passed (2026-11-22, 87 checks of 87, on d88beede49f); the draft pull request is marked ready and waits for the owner to merge it. Module 3: complete; gate passed on d6e161b50cf (2026-11-22, 68 checks of 68), merged into `main` as cc0916dc2a1 (sheehanlloyd/Onyx#4), push-to-main CI run 44992119167 green. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
 Revision: branch `module-4`, cut from `main` at cc0916dc2a1; one draft pull request into `main`
 Isolated checkout: branch `module-3` in a work clone that was moved out of the cloud-synchronised Desktop folder on 2026-11-21 into a plain developer folder under the same account (clone directory `onyx-work`; packaged builds land beside it); the four audit documents are excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
@@ -12,22 +12,54 @@ Items done:
 | Item | Branch → PR | Report | Gate check ids |
 |---|---|---|---|
 | L9 | codex/l9-campaign-engine → #5 | L9.md, docs/research/results/2026-11-22-engine-tier-s/, 2026-11-22-engine-tier-a/, 2026-11-22-datasheets/ | R-49-pure, R-49-node, R-49-app |
-| L10 | codex/l10-private-benchmark → #5 | L10.md, docs/research/results/2026-11-22-task-set/, PREREGISTRATION.md Amendment 1 | R-50-pure, R-50-sandbox, R-50-node, L10-task-set |
-| L11 | codex/l11-measure-models → #5 | L11.md, docs/research/results/2026-11-22-reference-measure/ | R-51 (pure half; six end-to-end checks) |
-| L12 | codex/l12-assurance → #5 | L12.md, docs/research/results/2026-11-22-assurance/ (H-1 supported), 2026-11-22-injection/, PREREGISTRATION.md Amendments 2 and 3 | R-52-injection, R-52-campaign, L10-task-set (the evidence checks) |
-| L13 | codex/l13-attribution → #5 | L13.md, docs/research/results/2026-11-22-attribution/ (H-2 inconclusive), 2026-11-22-rankings-onyx/ and -brew/ (H-7 inconclusive) | R-53, H-7-decision |
-Items remaining: L14, L15, L16, L17, L18, in that order. Each has a pushed branch with its code and checks, stacked in that order (`codex/l14-edits` … `codex/l18-energy`); what each still lacks is its campaign's results, its analysis and its report.
-Item in progress: L14. Campaigns for H-3, H-4, H-6 and H-8 run one at a time from a queue; H-9 and H-10 are not started.
-Campaigns: every campaign of this module runs from a frozen copy of the build under `.build/`, reads its tasks from a bare local clone, and writes `docs/research/results/2026-11-22-<name>/`, which is committed on its item's branch when the campaign has ended. A campaign that is interrupted is resumed with the command in its manifest's `regenerate`.
-L9 after its merge: two additions, both merged. A campaign's seed and temperature were recorded and not sent (found in L13's first records, fixed in b6ddfa66aa9, `docs/progress/L9.md`, Erratum; the engine's tier A campaign was run again). A campaign can run the application from a frozen copy of the build (79dda2b96e3).
-Scope dispositions so far:
+| L10 | codex/l10-private-benchmark → #5 | L10.md, docs/research/results/2026-11-22-task-set/, PREREGISTRATION.md Amendment 1 | R-50-pure, R-50-sandbox, R-50-node, M4-evidence |
+| L11 | codex/l11-measure-models → #5 | L11.md, docs/research/results/2026-11-22-reference-measure/ | R-51 (pure half; six end-to-end checks), M4-evidence |
+| L12 | codex/l12-assurance → #5 | L12.md, docs/research/results/2026-11-22-assurance/, 2026-11-22-injection/, PREREGISTRATION.md Amendments 2 and 3 | R-52-injection, R-52-campaign, M4-evidence |
+| L13 | codex/l13-attribution → #5 | L13.md, docs/research/results/2026-11-22-attribution/, 2026-11-22-rankings-onyx/, 2026-11-22-rankings-brew/ | R-53, H-7-decision |
+| L14 | codex/l14-edits → #5 | L14.md, docs/research/results/2026-11-22-single-turn/, 2026-11-22-anchors/ (in no analysis), 2026-11-22-anchors-2/, 2026-11-22-edit-mechanisms/ | L14-appliers, M4-evidence |
+| L15 | codex/l15-determinism → #5 | L15.md, docs/research/results/2026-11-22-determinism/ (invalid, kept), 2026-11-22-determinism-2/, PREREGISTRATION.md Amendment 4 | R-54-pure, R-54-node |
+| L16 | codex/l16-calibration → #5 | L16.md, docs/research/results/2026-11-22-confidence/ | R-55-pure, R-55-node |
+| L17 | codex/l17-eviction → #5 | L17.md, docs/research/results/2026-11-22-eviction-scripted/, 2026-11-22-eviction-agentic/ | R-56 |
+| L18 | codex/l18-energy → #5 | L18.md, docs/research/results/2026-11-22-energy/ | L18-energy, M4-evidence |
+Also merged: codex/m4-ci-history (the CI jobs that run the evidence checks fetch the repository's history; without it those checks had failed in CI since L10).
+Items remaining: none.
+Hypotheses (each outcome file is under docs/research/results/, beside its manifest or, for H-3 to H-5, beside `sources.json` naming the campaigns it reads):
+| | Outcome | One number | Where |
+|---|---|---|---|
+| H-1 | supported | 41 of 41 mutants killed; 50,000 of 50,000 episodes with no violation (second run; the first printed two that were the rig's) | 2026-11-22-assurance |
+| H-2 | inconclusive | 0 of 960 agent runs reproduced a task: a floor | 2026-11-22-attribution |
+| H-3 | supported | the fuzzy applier places 28.7 points more blocks than exact-or-refuse [26.1, 31.3]; 53.8% of attempts end silently wrong under it | 2026-11-22-edit-mechanisms |
+| H-4 | inconclusive | 0 tasks with an edit call in both arms (55 edit calls) | 2026-11-22-edit-mechanisms |
+| H-5 | refuted | grounded edits score 0.021 higher [0.009, 0.034], under the registered 0.05 | 2026-11-22-edit-mechanisms |
+| H-6 | supported | 160 of 160 repetitions identical (second campaign; the first, 146 of 160, was invalidated by a harness defect it found) | 2026-11-22-determinism-2 |
+| H-7 | inconclusive | 0 of 40 tasks solved by any of three models in either of two repositories | 2026-11-22-rankings-onyx |
+| H-8 | inconclusive | 6 correct of 120 labelled hunks; 20 of each class were needed | 2026-11-22-confidence |
+| H-9 | supported | block eviction re-processes 0.42 of oldest-first's prompt tokens [0.38, 0.47], by an estimate from prompt-evaluation time; the success condition was met by nothing happening | 2026-11-22-eviction-scripted |
+| H-10 | inconclusive | no model solved a task; energy an attempt 352, 508 and 870 J | 2026-11-22-energy |
+Scope dispositions:
+  L7 constrained anchors: opt-in, by L14's decision (docs/SUPPORT.md, "Decisions recorded here"). Search and replace ships.
   L10 executable oracle: included (docs/SUPPORT.md, with the sandbox probe output). No task of this repository's set was scored by execution: its tests need a build inside the worktree. Scores for this repository are tier 1.
-  L10 task source 2 (your own requests): implemented and tested; this repository's committed set has 0 such tasks (no opted-in journal with accepted proposals).
-  Pre-registration: Amendment 1 (2026-11-22), made before any hypothesis campaign: the pinned models are both at or below 7B; one seed at temperature 0; H-2 is a full factorial over three components with three protocol values.
-Runtime for this session's campaigns: a private Ollama 0.33.0 on 127.0.0.1:11500, started with `OLLAMA_CONTEXT_LENGTH=16384` (no alias on the runtime); stopped at the end of the session. Campaigns read tasks from a bare local clone under `.build/`, so that the working tree can be edited while one runs.
-Machine time so far: datasheets 6 minutes; engine tier S 428 s (estimated about 6 minutes); engine tier A 106 s (estimated about 10 minutes); two uncommitted pilots 301 s and 946 s.
-Machine condition: the reference machine has other applications open and about 7.5 GB of swap in use; the 7B model generates at 15 to 23 tokens a second against 49 measured idle on 2026-11-21. No throughput number from this session is an idle number.
-Gate: not run.
+  L10 task source 2 (your own requests): implemented and tested; this repository's committed set has 0 such tasks.
+  L16 confidence badge: included as a study; no badge ships. L17 eviction policy: included; `block-to-low-watermark` is an option of the harness configuration and the product's default is unchanged. L18 energy: included; telemetry is readable on the reference laptop.
+  LM Studio: not started, not measured, in every item.
+Pre-registration: four amendments, each committed before the campaigns it governs. 1: models, tasks, sampling, H-2's design. 2: the designs of H-3 to H-10 on this machine. 3: what is counted in H-6 to H-10, the injection run, and two changes recorded in advance (H-9's estimate if the runtime does not report evaluated tokens, which it does not; H-9's agentic arm at 8,192 tokens). 4: H-6's first campaign is invalid; H-6 and H-4 are run again; H-2 and the injection run are not.
+Defects found by this module's campaigns, all fixed with a regression: a campaign's seed and temperature were recorded and not sent (L9.md, Erratum); no one-shot request carried an output cap, so the measure command never finished on one model (L11.md); the runtime service kept the list of recently committed files across a campaign's checkouts, so prompts named the previous task's files (L15.md). The third affected every agent-loop campaign before its fix; Amendment 4 and L15.md say which were run again.
+What the measurements say about the product, outside any hypothesis: under the product's own configuration neither pinned model proposed an edit in any of 320 agent runs on real tasks of this repository, and no model reproduced a real task of this repository or of Homebrew/brew exactly in any campaign of the module, single-turn or agentic: 0 of 3,182 attempts (each `summary.json`; L13.md, L11.md). The scorer can be satisfied: on the injection fixture's one-line tasks 3 of 92 runs succeeded.
+Runtime for the campaigns: a private Ollama 0.33.0 on 127.0.0.1:11500, started with `OLLAMA_CONTEXT_LENGTH=16384`, no alias created; stopped on 2026-11-22 when the last campaign ended. Nothing was downloaded. Campaigns read tasks from bare local clones under `.build/` (this repository; Homebrew/brew from the copy already installed), removed at the end of the session.
+Machine time (reference machine, seconds; estimate from the datasheets beside it): datasheets 360; engine tier S 428; engine tier A 106; attribution 6,630 (70,656); reference measure 1,257, after a first run stopped at 1,189; injection 282 (7,066); rankings 1,417 and 1,087 (1,674 each); single-turn 1,952 (3,752); anchors 1,291 and 1,322 (11,776 each); determinism 737 and 770 (14,720 each); confidence 4,081 (9,381); eviction agentic 536 (about 9,000) and scripted 1,731 (no datasheet estimate); energy 1,866 (3,013); the assurance campaign 602 for 50,000 episodes and 59 for the mutants. The datasheet estimate assumes an agent run uses its turns; most runs ended after one to three, so it was high by up to a factor of twenty.
+Machine condition: other applications were open and several gigabytes of swap were in use until the evening; each `campaign.json` has the load average. The only throughput numbers taken on a quiet machine are L18's (49.5, 160.3 and 91.7 tokens a second). Power was external at 94 W with the battery at 100% at every check.
+Baseline exceptions still open: none.
+Mutants added in this module (5; 41 in all): G-I01-stage-applies, G-I02-approve-without-asking, G-I03-never-finishes, G-I07-stage-anywhere, G-I12-unjournaled-dispatch (test/onyx/sim/mutants/).
+Gate: `ONYX_PACKAGED_APP=<the rebuilt Onyx.app> node test/onyx/run-module-gate.mts --module 4`, 2026-11-22T21:48Z, exit 0, "87 checks: 87 passed, 0 expected failure(s), 0 skipped, 0 blocking", "module 4 gate: PASSED", on d88beede49f with a clean tree and fresh output, the packaged application rebuilt from the same revision first; `docs/progress/gate-module-4.json`. It runs Modules 1 to 3 as well (23, 24 and 21 checks), which is also the Section 11 suite on that revision. The first run, on 091b9c67374, exited 1 with one blocking check, a gate entry of this module that named its output directory wrongly; `docs/progress/module-4-gate.md` has both runs.
+CI: Onyx CI and the packaged smoke on the pull request. Green on 091b9c67374 (runs 45065007651 and 45065007614), the first commit on which the evidence checks could read the history. The runs on later commits are named in the pull request and in the session's final report.
+Human actions waiting:
+  The owner reviews and merges sheehanlloyd/Onyx#5 into `main`; it is marked ready and was not merged by the session.
+  Decide whether the product should keep recommending the two pinned models for agent work as it does. This module's measurements say that under the product's own configuration neither proposes an edit on real tasks of this repository (L13.md); the catalog's wording for the 7B model was corrected only as far as its tool calls (L11.md).
+  LM Studio results remain not measured.
+Notes for the next session:
+  Module 5 starts from `main` after #5 is merged. The research report (L19) reads the outcome files under docs/research/results/ and the four amendments; three hypotheses are inconclusive at a floor of zero successes, and the report should say so before anything else about them.
+  The private Ollama of this session is stopped and its scratch clones are removed; a new campaign needs `ollama serve` on a free port with `OLLAMA_CONTEXT_LENGTH=16384`, a bare clone for `--repo`, and `freeze-app.mts` (L9.md).
+  The nightly assurance workflow runs only from the default branch: after the merge, dispatch it once by hand and read its result.
 
 ## Module 3
 Items done:

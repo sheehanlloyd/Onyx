@@ -1,15 +1,15 @@
 {
 	"mode": "baseline",
 	"app": "../VSCode-darwin-arm64/Onyx.app",
-	"ranAt": "2026-11-22T05:11:15.591Z",
+	"ranAt": "2026-11-22T21:18:58.760Z",
 	"observed": {
 		"product": {
 			"nameShort": "Onyx",
 			"version": "1.147.0",
-			"commit": "d6e161b50cf61e684d2b4fc0d765d38bab602462",
-			"date": "2026-11-21T23:58:38-05:00"
+			"commit": "d88beede49f74f82919fc2fc31654a01d43785d7",
+			"date": "2026-11-22T16:03:47-05:00"
 		},
-		"sourceRevision": "d6e161b50cf61e684d2b4fc0d765d38bab602462",
+		"sourceRevision": "d88beede49f74f82919fc2fc31654a01d43785d7",
 		"window": {
 			"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Onyx/1.147.0 Chrome/150.0.7871.250 Electron/43.8.9 Safari/537.36",
 			"title": "math.ts — ws"
@@ -31,7 +31,7 @@
 		{
 			"name": "the app bundle has a product.json with a commit",
 			"ok": true,
-			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.147.0\",\"commit\":\"d6e161b50cf61e684d2b4fc0d765d38bab602462\",\"date\":\"2026-11-21T23:58:38-05:00\"}",
+			"detail": "{\"nameShort\":\"Onyx\",\"version\":\"1.147.0\",\"commit\":\"d88beede49f74f82919fc2fc31654a01d43785d7\",\"date\":\"2026-11-22T16:03:47-05:00\"}",
 			"claim": "infrastructure"
 		},
 		{
@@ -54,7 +54,7 @@
 		{
 			"name": "the run journal lives in the throwaway profile",
 			"ok": true,
-			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-94VgXw/user-data/User/workspaceStorage/ab688aca1c155760302ac6918ab1209d/onyx/journal/runs",
+			"detail": "/var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-PPEu8g/user-data/User/workspaceStorage/5a6ac5d71bb456eca4d4560592df0c3e/onyx/journal/runs",
 			"claim": "infrastructure"
 		},
 		{
