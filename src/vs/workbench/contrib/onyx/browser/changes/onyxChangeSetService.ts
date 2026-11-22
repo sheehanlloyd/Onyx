@@ -298,9 +298,14 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 				call: origin?.call ?? null, block: index, base: placedAgainst, baseVersionId: staged.baseVersion.versionId ?? null,
 				search: sent[index].search, matchCount: countOccurrences(placedAgainst, block.search), evidence,
 			});
+			// What ties the edit to hunks is the whole lines it touched: a quote may begin in the middle of a line.
+			const at = placedAgainst.indexOf(block.search);
 			const placed = placeEditBlock(placedAgainst, block);
+			const touched = certificate.anchor && placed.ok && at >= 0
+				? { removed: wholeLines(placedAgainst, at, block.search.length), added: wholeLines(placed.text, at, block.replace.length) }
+				: undefined;
 			placedAgainst = placed.ok ? placed.text : placedAgainst;
-			return certifiedEdit(certificate, certificate.anchor ? block.search : undefined, certificate.anchor ? block.replace : undefined);
+			return certifiedEdit(certificate, touched?.removed, touched?.added);
 		});
 		this._upsert(this._certify(staged, edits));
 		this._scoreRisk(staged.proposal).catch(() => { /* risk stays unknown */ });
@@ -724,6 +729,13 @@ function decodeNumberedBlocks(blocks: readonly IOnyxEditBlock[], liveText: strin
 		out.push(block);
 	}
 	return { ok: true, blocks: out };
+}
+
+/** The lines of `text` that the span of `length` characters at `start` touches, whole. */
+function wholeLines(text: string, start: number, length: number): string {
+	const from = text.lastIndexOf('\n', start - 1) + 1;
+	const end = text.indexOf('\n', start + length);
+	return text.slice(from, end < 0 ? text.length : end);
 }
 
 /** The user-facing name of the review surface, shared by view, tool text and help. */

@@ -356,4 +356,27 @@ suite('OnyxChangeSetService', () => {
 			stillStaged: 1,
 		});
 	});
+
+	test('L6: a staged hunk has the certificate of the edit it came from, also when the quote began in the middle of a line, when two edits came in one call, and after a reload; a proposal without an anchor says which kind it is', async () => {
+		const result = await withRig(async rig => {
+			// Quoted without the leading tab, as small models often do.
+			await rig.invokeTool('editFile', { path: PATH, edits: [{ search: 'return a + b;', replace: 'return b + a; // first' }, { search: 'a - b', replace: 'b - a' }] });
+			const describe = (changeSet: typeof rig.changeSet) => (changeSet.files.get().find(file => file.proposal.path === PATH)?.hunks ?? []).map(hunk => {
+				const certificate = changeSet.certificateFor(PATH, hunk.id);
+				return certificate ? `${hunk.id}: ${certificate.protocol} block ${certificate.block}, found ${certificate.anchor?.matchCount}, ${certificate.grounding}` : `${hunk.id}: none`;
+			});
+			const staged = describe(rig.changeSet);
+			const reloaded = describe(rig.reloadChangeSet());
+			rig.changeSet.rejectFile(PATH);
+			await rig.changeSet.stageProposal(PATH, FILE.replace('a - b', 'b - a'));
+			const whole = rig.changeSet.files.get()[0];
+			return { staged, reloaded: reloaded.map(line => line.replace(/^g\d+/, 'gN')), whole: rig.changeSet.certificateFor(PATH, whole.hunks[0].id)?.protocol };
+		});
+		assert.deepStrictEqual(result, {
+			// Outside a run nothing is on record of what a model was sent.
+			staged: ['g1.h1: multi-edit block 0, found 1, unknown', 'g1.h2: multi-edit block 1, found 1, unknown'],
+			reloaded: ['gN.h1: multi-edit block 0, found 1, unknown', 'gN.h2: multi-edit block 1, found 1, unknown'],
+			whole: 'whole-file',
+		});
+	});
 });

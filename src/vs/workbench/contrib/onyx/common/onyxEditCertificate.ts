@@ -196,8 +196,9 @@ function lineDigests(text: string): string[] {
 	return text.split('\n').filter(line => line.trim().length > 0).map(traceDigest);
 }
 
-export function certifiedEdit(certificate: IOnyxEditCertificate, search: string | undefined, replace: string | undefined): IOnyxCertifiedEdit {
-	return { certificate, seal: sealCertificate(certificate), lines: search === undefined || replace === undefined ? null : { removed: lineDigests(search), added: lineDigests(replace) } };
+/** `removed` and `added` are the whole lines the edit took out and put in; both undefined for an edit that covers the whole proposal. */
+export function certifiedEdit(certificate: IOnyxEditCertificate, removed: string | undefined, added: string | undefined): IOnyxCertifiedEdit {
+	return { certificate, seal: sealCertificate(certificate), lines: removed === undefined || added === undefined ? null : { removed: lineDigests(removed), added: lineDigests(added) } };
 }
 
 /** The certificate of the edit a hunk came from, or undefined when no edit on record accounts for it. */
