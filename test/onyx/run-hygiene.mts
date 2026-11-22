@@ -81,6 +81,9 @@ const IDENTITY_FILES = ['product.json', 'extensions/theme-onyx/package.json', '.
 const URL_ALLOWLIST: readonly string[] = [
 	'https://github.com/sheehanlloyd/Onyx/', // the project (A3; D7 updates it if DEC-01 renames)
 	'https://github.com/sheehanlloyd/Onyx.git', // the theme extension's repository field
+	'https://github.com/sheehanlloyd/Onyx', // linkProtectionTrustedDomains: links into the project open without a prompt (D1)
+	'https://open-vsx.org', // the extension gallery and its trusted link domain (D1, Section 2: extensions come from Open VSX)
+	'https://open-vsx.org/vscode/', // the gallery's service, item, extension and resource endpoints (D1)
 	'https://github.com/microsoft/vscode/issues', // stock VS Code bugs go upstream (config.yml)
 	'https://github.com/microsoft/vscode-js-debug', // built-in debugger, from upstream product.json
 	'https://github.com/microsoft/vscode-js-debug-companion',
