@@ -96,6 +96,13 @@ export interface IOnyxTerminalService {
 	/** Asks for this one execution; resolves true only on an explicit Run Once. */
 	confirmExecution(request: IOnyxExecutionRequest): Promise<boolean>;
 	killAll(): void;
+	/**
+	 * Campaign policy (L9, DEC-10): while it is on, every execution this
+	 * service is asked for is denied without a dialog, and counted. A lab
+	 * campaign never runs a command a model wrote. Returns the count so far.
+	 */
+	setCampaignPolicy(denyEverything: boolean): void;
+	readonly campaignDenials: number;
 	/** Past decisions for this workspace, oldest first. Inspection only. */
 	approvalHistory(): readonly IOnyxApprovalRecord[];
 	/**
@@ -113,6 +120,13 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 	private readonly _runningObs: ISettableObservable<readonly IOnyxRunningCommand[]> = observableValue(this, []);
 	readonly running: IObservable<readonly IOnyxRunningCommand[]> = this._runningObs;
 	private _peakRetainedOutputChars = 0;
+	private _campaignPolicy = false;
+	private _campaignDenials = 0;
+	get campaignDenials(): number { return this._campaignDenials; }
+
+	setCampaignPolicy(denyEverything: boolean): void {
+		this._campaignPolicy = denyEverything;
+	}
 
 	constructor(
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
@@ -162,10 +176,15 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 		if (token.isCancellationRequested) {
 			return errorResult('The run was stopped by the user. Nothing was run.');
 		}
-		const decision = await this._authorize(invocation);
+		// A campaign never runs a model-authored command (DEC-10): denied without asking, and counted.
+		const byPolicy = this._campaignPolicy;
+		if (byPolicy) {
+			this._campaignDenials++;
+		}
+		const decision = byPolicy ? 'deny' : await this._authorize(invocation);
 		this._remember(invocation, decision);
 		if (runId) {
-			this._controlPlaneService.recordApproval(runId, { command: invocation.command, cwd: invocation.cwd, timeoutMs: invocation.timeoutMs, decision, source: 'dialog' });
+			this._controlPlaneService.recordApproval(runId, { command: invocation.command, cwd: invocation.cwd, timeoutMs: invocation.timeoutMs, decision, source: byPolicy ? 'campaign-policy' : 'dialog' });
 		}
 		if (decision !== 'allow-once') {
 			this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.denied', "Command denied by the user"), reason: label, ok: false });
@@ -229,6 +248,13 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 	}
 
 	async confirmExecution(request: IOnyxExecutionRequest): Promise<boolean> {
+		if (this._campaignPolicy) {
+			this._campaignDenials++;
+			if (request.runId) {
+				this._controlPlaneService.recordApproval(request.runId, { command: request.subject, cwd: null, timeoutMs: null, decision: 'deny', source: 'campaign-policy' });
+			}
+			return false;
+		}
 		const result = await this._dialogService.prompt<OnyxTerminalDecision>({
 			type: request.kind === 'network' ? Severity.Warning : Severity.Info,
 			message: request.kind === 'network'

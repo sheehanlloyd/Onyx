@@ -1,0 +1,63 @@
+{
+	"name": "history tasks for the L9 engine campaign, tier A (four of the eight)",
+	"hash": "437ad53c285b11fe",
+	"builtAt": "2026-11-22T06:43:55.401Z",
+	"head": "514ed9f88a187095e95259fd7c3a3301d2f13e2a",
+	"selection": {
+		"rule": "selectBenchmarkCommits (one changed file, 3 to 80 changed lines, no merge, revert, bump or wip), source files only",
+		"scannedCommits": 3000,
+		"since": "2025-01-01",
+		"until": null,
+		"maxBeforeChars": 12000,
+		"excludedPaths": [],
+		"eligible": 47,
+		"taken": 8,
+		"spread": "every 5th eligible commit, newest first"
+	},
+	"tasks": [
+		{
+			"id": "6f01f069942d",
+			"commit": "6f01f069942d22d5d0db23fc14f053aa48490f5e",
+			"file": "src/vs/sessions/contrib/chat/browser/media/sessionLinkAttachment.css",
+			"kind": "quick-edit",
+			"authoredAt": "2026-11-11T10:53:05+01:00",
+			"beforeHash": "b99752002006960f2b21bf351eb9ffb52ac5e30b2256ba1f38d8dc0eb5fe9165",
+			"afterHash": "e92f318f597a25f4dbe7f177a2dac423d7771329d72231a6932584dc33c40201",
+			"beforeChars": 1087,
+			"changedLines": 3
+		},
+		{
+			"id": "51eff2913ba2",
+			"commit": "51eff2913ba27b17fafe21a2a29bab1c572ffb18",
+			"file": "build/azure-pipelines/common/releaseBuild.ts",
+			"kind": "implement",
+			"authoredAt": "2026-11-10T12:55:23-08:00",
+			"beforeHash": "f0be2d970cdd3adda2c85e593e0d871a9064cbe98e851902da2e7025586250c9",
+			"afterHash": "adbed19fd22d0b738ee4d4d019c3a0019da00002d39aead6196f50e18f46a2bc",
+			"beforeChars": 2192,
+			"changedLines": 18
+		},
+		{
+			"id": "cd219525af5b",
+			"commit": "cd219525af5b7ff6aee577bb3cf3230a2716dfd1",
+			"file": "src/vs/editor/browser/viewParts/minimap/minimap.css",
+			"kind": "debug",
+			"authoredAt": "2026-11-08T19:55:08+03:00",
+			"beforeHash": "79f94e3f11190d44e553a3c2b1ed07d41c327da7dc0a883fb931d4fb42b667d2",
+			"afterHash": "a879e89967d307d744c7a301ed67d27bc00a453ff88af9e42f6586738b02ac08",
+			"beforeChars": 2140,
+			"changedLines": 6
+		},
+		{
+			"id": "52b3cc7c42b5",
+			"commit": "52b3cc7c42b5256ee65c25d5926e59ebd4c73c9e",
+			"file": "src/vs/editor/browser/viewParts/minimap/minimap.css",
+			"kind": "quick-edit",
+			"authoredAt": "2026-11-05T07:44:37+01:00",
+			"beforeHash": "eefcf323c75957e80fe6882d5d63186fb50769d4b1c4b61ae9fc8c6d944da54d",
+			"afterHash": "79f94e3f11190d44e553a3c2b1ed07d41c327da7dc0a883fb931d4fb42b667d2",
+			"beforeChars": 1921,
+			"changedLines": 6
+		}
+	]
+}

@@ -625,6 +625,10 @@ folders.
 **Limit.** With `readToolLineNumbering` off the tool's description still tells the model its lines are
 numbered. An experiment that uses that switch has to account for it.
 
+### Lab campaigns (L9)
+
+A development build started with `ONYX_LAB_CAMPAIGN` set to a work order runs that order's units through the agent loop and writes down what each run did (`test/onyx/README.md`, "Lab campaigns"). A packaged build refuses, as it refuses a lab configuration: it logs that a campaign was requested and runs nothing. What a campaign changes about a run, and nothing else: the harness configuration and the seed and temperature, per unit, in place of what the profile would decide; and every execution the terminal service is asked for is denied without a dialog and counted, with `campaign-policy` as its source in the journal. A campaign accepts nothing: proposals are read and discarded, so no file of the worktree it runs on is changed. It checks out commits only in the worktree its work order names, and only when that is a linked worktree: never a repository's own working tree.
+
 ## Model datasheets (L5)
 
 A model's profile used to be a guess from its size. A datasheet is what the model, on its runtime, was

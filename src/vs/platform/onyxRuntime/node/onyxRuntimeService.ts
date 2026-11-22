@@ -14,11 +14,11 @@ import { ILogService } from '../../log/common/log.js';
 import { OnyxArchitectureScanner } from './onyxArchitectureScanner.js';
 import { IOnyxCommandProcess, OnyxCommandRunner } from './onyxCommandRunner.js';
 import { OnyxDocsIndexer } from './onyxDocsIndexer.js';
-import { readLabHarnessRequest } from './onyxLabManifest.js';
+import { labCampaignPaths, readLabCampaignRequest, readLabHarnessRequest } from './onyxLabManifest.js';
 import { OnyxWorkspaceIndexer } from './onyxWorkspaceIndexer.js';
 import { IOnyxArchitectureMap } from '../common/onyxArchitecture.js';
 import { contextAliasName, ONYX_CONTEXT_ALIAS_BOUNDS, parseContextAlias, sameOllamaModel } from '../common/onyxContextAlias.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxLoadedModel, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxContextAliasResult, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexOptions, IOnyxIndexStats, IOnyxLabCampaignRequest, IOnyxLabHarnessRequest, IOnyxLoadedModel, OnyxLabCheckoutResult, ONYX_STREAM_DEADLINES, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPullProgress, IOnyxPowerState, IOnyxRuntimeService, IOnyxStreamEvent, OnyxContextAliasResult, OnyxDiffMode, OnyxRuntimeKind } from '../common/onyxRuntime.js';
 
 /** Base URLs probed even when the user configured nothing: the default ports of Ollama, LM Studio, llama.cpp server and vLLM. */
 const WELL_KNOWN_BASE_URLS: readonly { url: string; kind: OnyxRuntimeKind }[] = [
@@ -460,6 +460,50 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 
 	async labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined> {
 		return readLabHarnessRequest(process.env, path => fs.promises.readFile(path, 'utf8'));
+	}
+
+	private _labCampaign: Promise<IOnyxLabCampaignRequest | undefined> | undefined;
+
+	async labCampaignRequest(): Promise<IOnyxLabCampaignRequest | undefined> {
+		this._labCampaign ??= readLabCampaignRequest(process.env, path => fs.promises.readFile(path, 'utf8'));
+		return this._labCampaign;
+	}
+
+	async labCheckout(revision: string): Promise<OnyxLabCheckoutResult> {
+		const paths = labCampaignPaths((await this.labCampaignRequest())?.order);
+		if (!paths) {
+			return { ok: false, error: 'this process was not started with a campaign work order' };
+		}
+		if (!/^[0-9a-f]{7,40}(~1)?$/i.test(revision)) {
+			return { ok: false, error: 'a campaign checks out a commit by its hash, or that commit\'s parent' };
+		}
+		// A linked worktree keeps its own git directory under the repository's: the two differ. In a
+		// repository's own working tree they are the same, and that tree is never checked out by a campaign.
+		const gitDir = (await this._git(paths.worktree, ['rev-parse', '--absolute-git-dir'])).trim();
+		const commonDir = (await this._git(paths.worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir'])).trim();
+		if (!gitDir || !commonDir || gitDir === commonDir) {
+			return { ok: false, error: 'the campaign\'s folder is not a linked worktree; a campaign never checks out a repository\'s own working tree' };
+		}
+		const failure = await new Promise<string | undefined>(resolve => {
+			execFile('git', ['-C', paths.worktree, 'checkout', '--quiet', '--detach', revision], { timeout: 120_000, maxBuffer: 4 * 1024 * 1024, env: { ...process.env, GIT_LFS_SKIP_SMUDGE: '1' } },
+				err => resolve(err ? err.message.slice(0, 400) : undefined));
+		});
+		if (failure !== undefined) {
+			return { ok: false, error: failure };
+		}
+		return { ok: true, head: (await this._git(paths.worktree, ['rev-parse', 'HEAD'])).trim() };
+	}
+
+	async labWrite(kind: 'record' | 'status', text: string): Promise<void> {
+		const paths = labCampaignPaths((await this.labCampaignRequest())?.order);
+		if (!paths) {
+			return;
+		}
+		if (kind === 'record') {
+			await fs.promises.appendFile(paths.recordsPath, text.endsWith('\n') ? text : `${text}\n`);
+		} else {
+			await fs.promises.writeFile(paths.statusPath, text);
+		}
 	}
 
 	async configureWorkspaceIndex(rootPath: string, options: IOnyxIndexOptions): Promise<void> {

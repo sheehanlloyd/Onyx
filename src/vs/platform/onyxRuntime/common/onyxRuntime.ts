@@ -188,6 +188,21 @@ export interface IOnyxLabHarnessRequest {
 	readonly problem?: string;
 }
 
+/**
+ * A campaign this process was started to run (L9): the work order its
+ * environment names, as text. Reading it decides nothing. Whether the
+ * campaign runs is the workbench's decision, and a packaged build refuses
+ * every one.
+ */
+export interface IOnyxLabCampaignRequest {
+	/** The work order as JSON text; undefined when it could not be read. Untrusted until checked. */
+	readonly order: string | undefined;
+	/** Why the order could not be read. */
+	readonly problem?: string;
+}
+
+export type OnyxLabCheckoutResult = { readonly ok: true; readonly head: string } | { readonly ok: false; readonly error: string };
+
 /** What decides which files a workspace index covers, beyond its built-in rules (C7). */
 export interface IOnyxIndexOptions extends Partial<IOnyxIndexLimits> {
 	/** Glob patterns, relative to the root, for files and folders to leave out: the workspace's `files.exclude` and `search.exclude`. */
@@ -477,6 +492,23 @@ export interface IOnyxRuntimeService {
 	 * ordinary start.
 	 */
 	labHarnessRequest(): Promise<IOnyxLabHarnessRequest | undefined>;
+
+	/** The campaign work order this process's environment names (L9); undefined on every ordinary start. */
+	labCampaignRequest(): Promise<IOnyxLabCampaignRequest | undefined>;
+
+	/**
+	 * Checks the campaign's worktree out at a revision (L9). It acts only on
+	 * the worktree the work order names, and only when that is a linked
+	 * worktree of a repository: never the repository's own working tree.
+	 */
+	labCheckout(revision: string): Promise<OnyxLabCheckoutResult>;
+
+	/**
+	 * Writes to the two files the work order names (L9): `record` appends one
+	 * line to the campaign's records, `status` replaces its status file.
+	 * Without a work order it does nothing.
+	 */
+	labWrite(kind: 'record' | 'status', text: string): Promise<void>;
 
 	/** Searches the workspace index; empty until {@link ensureWorkspaceIndex} has run. */
 	searchWorkspaceIndex(rootPath: string, persistPath: string, query: string, limit: number): Promise<readonly { path: string; score: number }[]>;

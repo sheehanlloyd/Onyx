@@ -25,7 +25,7 @@ import {
 import { traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxChangeRisk } from '../../common/onyxChangeRisk.js';
 import { resolveAnchorEdit } from '../../common/onyxAnchorEdit.js';
-import { anchorPairText, certificateForHunk, certifiedEdit, certifyEdit, IOnyxCertifiedEdit, IOnyxCertifyInput, IOnyxEditCertificate, IOnyxPromptEvidence } from '../../common/onyxEditCertificate.js';
+import { anchorPairText, certificateForHunk, certifiedEdit, certifyEdit, groundAnchor, IOnyxCertifiedEdit, IOnyxCertifyInput, IOnyxEditCertificate, IOnyxPromptEvidence } from '../../common/onyxEditCertificate.js';
 import { countOccurrences, IOnyxEditBlock, IOnyxEditHunk, placeEditBlock } from '../../common/onyxInlineEdit.js';
 import { decodeNumberedSearch, replacementCarriesNumbering } from '../../common/onyxReadTools.js';
 import { resolveWorkspacePath, workspacePathProblem } from '../../common/onyxWorkspacePaths.js';
@@ -69,6 +69,22 @@ export type OnyxStageOutcome =
 	| { readonly ok: true; readonly summary: string }
 	| { readonly ok: false; readonly error: string };
 
+/** One call that asked to stage an edit: what it sent and what became of it. */
+export interface IOnyxStageAttempt {
+	readonly path: string;
+	readonly runId: string | undefined;
+	readonly call: string | undefined;
+	readonly protocol: 'search-replace' | 'constrained-anchors';
+	/** The blocks as the model sent them, before a numbered read is decoded. For an anchored edit: the two anchors as `search`. */
+	readonly blocks: readonly { readonly search: string; readonly replace: string }[];
+	readonly anchors?: { readonly start: string; readonly end: string };
+	readonly ok: boolean;
+	/** Why nothing was staged. */
+	readonly error?: string;
+	/** For each block, whether its quoted text was in what the model was shown this turn (L6). */
+	readonly grounding: readonly string[];
+}
+
 export interface IOnyxAppliedEvent {
 	readonly path: string;
 	readonly generation: number;
@@ -94,6 +110,8 @@ export interface IOnyxChangeSetService {
 	readonly onWillApply: Event<{ readonly path: string }>;
 	/** Fires when an accept has changed a file: which proposal generation the accepted hunks belonged to, and the run that staged them. */
 	readonly onDidApply: Event<IOnyxAppliedEvent>;
+	/** Fires for every edit a tool asked to stage, placed or refused, with the text as it was sent (L9: a campaign keeps every attempt). */
+	readonly onDidAttemptStage: Event<IOnyxStageAttempt>;
 	/** Stages SEARCH/REPLACE blocks for a workspace-qualified path. Never edits the buffer. */
 	stage(path: string, blocks: readonly IOnyxEditBlock[], runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome>;
 	/**
@@ -161,6 +179,9 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 
 	private readonly _onDidApply = this._register(new Emitter<IOnyxAppliedEvent>());
 	readonly onDidApply = this._onDidApply.event;
+
+	private readonly _onDidAttemptStage = this._register(new Emitter<IOnyxStageAttempt>());
+	readonly onDidAttemptStage = this._onDidAttemptStage.event;
 
 	/** The last generation given out. Every staging of a file takes the next one. */
 	private _generation = 0;
@@ -256,6 +277,16 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	}
 
 	async stage(path: string, blocks: readonly IOnyxEditBlock[], runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome> {
+		const evidence = runId ? this._promptEvidence.get(runId) : undefined;
+		const outcome = await this._stage(path, blocks, runId, origin);
+		this._onDidAttemptStage.fire({
+			path, runId, call: origin?.call, protocol: 'search-replace', blocks: blocks.map(block => ({ search: block.search, replace: block.replace })),
+			ok: outcome.ok, ...(outcome.ok ? {} : { error: outcome.error }), grounding: blocks.map(block => groundAnchor(block.search, evidence).grounding),
+		});
+		return outcome;
+	}
+
+	private async _stage(path: string, blocks: readonly IOnyxEditBlock[], runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome> {
 		const uri = this._resolveUri(path);
 		if (!uri) {
 			return { ok: false, error: `Path "${path}" is not inside the workspace.` };
@@ -335,6 +366,17 @@ export class OnyxChangeSetService extends Disposable implements IOnyxChangeSetSe
 	}
 
 	async stageAnchored(path: string, startAnchor: string, endAnchor: string, replace: string, runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome> {
+		const evidence = runId ? this._promptEvidence.get(runId) : undefined;
+		const outcome = await this._stageAnchored(path, startAnchor, endAnchor, replace, runId, origin);
+		const search = anchorPairText(startAnchor, endAnchor);
+		this._onDidAttemptStage.fire({
+			path, runId, call: origin?.call, protocol: 'constrained-anchors', blocks: [{ search, replace }], anchors: { start: startAnchor, end: endAnchor },
+			ok: outcome.ok, ...(outcome.ok ? {} : { error: outcome.error }), grounding: [groundAnchor(search, evidence).grounding],
+		});
+		return outcome;
+	}
+
+	private async _stageAnchored(path: string, startAnchor: string, endAnchor: string, replace: string, runId?: string, origin?: IOnyxEditOrigin): Promise<OnyxStageOutcome> {
 		const uri = this._resolveUri(path);
 		if (!uri) {
 			return { ok: false, error: `Path "${path}" is not inside the workspace.` };

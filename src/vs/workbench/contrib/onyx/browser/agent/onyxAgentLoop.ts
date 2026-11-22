@@ -171,7 +171,8 @@ export class OnyxAgentLoop {
 		}
 		// What the prompt builder and the slot policy are given: the model's profile, with the fields the
 		// configuration decides taken from the configuration.
-		const profile: IOnyxModelProfile = { ...modelProfile, promptStyle: configuration.promptStyle, contextLength: configuration.contextTokens, maxTools: configuration.maxTools };
+		// A campaign fixes the seed and the temperature of its runs (L9); nothing else sets them here.
+		const profile: IOnyxModelProfile = { ...modelProfile, promptStyle: configuration.promptStyle, contextLength: configuration.contextTokens, maxTools: configuration.maxTools, ...(harness.sampling?.seed !== undefined ? { seed: harness.sampling.seed } : {}), ...(harness.sampling?.temperature !== undefined ? { temperature: harness.sampling.temperature } : {}) };
 		const running = this._harnessConfigService.begin(request.requestId, configuration);
 		try {
 			return await this._runConfigured(request, progress, history, token, modelIdentifier, modelKey, metadata, profile, harness, run);

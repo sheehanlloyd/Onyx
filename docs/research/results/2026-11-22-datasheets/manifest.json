@@ -1,0 +1,86 @@
+{
+	"version": 1,
+	"name": "2026-11-22-datasheets",
+	"createdAt": "2026-11-22T06:37:33.396Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:llama3.2:3b",
+			"digest": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1000,
+		1001,
+		1002
+	],
+	"sampling": {
+		"temperature": 0.2,
+		"maxTokens": 200,
+		"responseFormat": false
+	},
+	"harnessConfigurations": [
+		{
+			"name": "none-probes-talk-to-the-runtime-directly",
+			"hash": "00000000"
+		}
+	],
+	"taskSet": {
+		"name": "datasheet probe suite, version 2 (the digest is of onyxDatasheetProbes.ts)",
+		"hash": "5e45e050",
+		"count": 126
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3"
+	},
+	"regenerate": [
+		{
+			"output": "summary.json",
+			"command": "node test/onyx/lab/measure-models.mts --base-url <the runtime's base URL> --model qwen2.5-coder:7b --model qwen2.5-coder:1.5b --model llama3.2:3b --out docs/research/results/2026-11-22-datasheets"
+		}
+	],
+	"notes": "Model datasheets (L5). Sampling differs by probe and is in each trace line: 0.2 for most, 0 for the context probe, 1 with a seed for the repeatability probe. The probes do not go through the agent loop, so no harness configuration applies. A run talks to a runtime on the machine it runs on and to nothing else."
+}

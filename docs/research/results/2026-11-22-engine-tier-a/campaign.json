@@ -1,0 +1,83 @@
+{
+	"campaign": "2026-11-22-engine-tier-a",
+	"tier": "A",
+	"plannedUnits": 8,
+	"finishedUnits": 8,
+	"complete": true,
+	"machineSeconds": 106,
+	"firstEstimate": {
+		"seconds": 589,
+		"unmeasuredModels": [],
+		"units": 8
+	},
+	"repository": {
+		"unchanged": true,
+		"before": {
+			"status": "ed7cb55bc581428a11fa2568da66892afd90e059d6d5d021722de3479ff77197",
+			"index": "496323a147d0931f62f79311cdcb28def1e2edafdb7c15b947be0c985b6b56d6",
+			"head": "514ed9f88a187095e95259fd7c3a3301d2f13e2a",
+			"refs": "521954d6588c7da3b775ad62147c42abcc86fbc02d82a040d1b3e5203e3c62ad"
+		},
+		"after": {
+			"status": "ed7cb55bc581428a11fa2568da66892afd90e059d6d5d021722de3479ff77197",
+			"index": "496323a147d0931f62f79311cdcb28def1e2edafdb7c15b947be0c985b6b56d6",
+			"head": "514ed9f88a187095e95259fd7c3a3301d2f13e2a",
+			"refs": "521954d6588c7da3b775ad62147c42abcc86fbc02d82a040d1b3e5203e3c62ad"
+		}
+	},
+	"sessions": [
+		{
+			"startedAt": "2026-11-22T06:51:53.425Z",
+			"seconds": 106,
+			"unitsLeftAtStart": 8,
+			"estimate": {
+				"seconds": 589,
+				"unmeasuredModels": [],
+				"units": 8
+			},
+			"conditionsAtStart": {
+				"at": "2026-11-22T06:51:53.425Z",
+				"loadAverage": [
+					32.19,
+					31,
+					18.22
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"conditionsAtEnd": {
+				"at": "2026-11-22T06:53:39.222Z",
+				"loadAverage": [
+					60.42,
+					39.89,
+					23.07
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"ended": "complete",
+			"evictions": [
+				{
+					"before": "qwen2.5-coder:7b",
+					"evicted": [],
+					"left": []
+				},
+				{
+					"before": "qwen2.5-coder:1.5b",
+					"evicted": [
+						"qwen2.5-coder:7b"
+					],
+					"left": []
+				},
+				{
+					"after": "the campaign",
+					"evicted": [
+						"qwen2.5-coder:1.5b"
+					],
+					"left": []
+				}
+			],
+			"notes": [
+				"worktree removed: true"
+			]
+		}
+	]
+}

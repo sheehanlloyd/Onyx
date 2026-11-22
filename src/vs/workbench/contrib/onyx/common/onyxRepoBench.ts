@@ -149,7 +149,16 @@ export function scoreBenchAttempt(beforeContent: string, realAfterContent: strin
 	} else {
 		return { score: 0, reason: 'reply was prose, not an edit' };
 	}
+	return scoreBenchProposal(beforeContent, realAfterContent, modelAfter);
+}
 
+/**
+ * Scores a file as a model proposed it against the author's actual result:
+ * the second half of `scoreBenchAttempt`, for a proposal that did not arrive
+ * as a reply to parse (an agent run stages its edits; the lab reads the
+ * staged file, L9).
+ */
+export function scoreBenchProposal(beforeContent: string, realAfterContent: string, modelAfter: string): IOnyxBenchScore {
 	const before = countLines(beforeContent);
 	const real = changedLines(before, countLines(realAfterContent));
 	const model = changedLines(before, countLines(modelAfter));

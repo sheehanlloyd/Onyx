@@ -49,7 +49,15 @@ const KIND = process.env.ONYX_MOCK_KIND ?? 'ollama';
 const MODELS = [
 	{ id: 'mock-coder:7b', family: 'mock-coder', parameter_size: '7.6B', quantization_level: 'Q4_K_M', context_length: 16384 },
 	{ id: 'mock-coder:32b', family: 'mock-coder', parameter_size: '32.8B', quantization_level: 'Q4_K_M', context_length: 32768 },
+	// Listed only when asked for: a model the runtime has and cannot serve (L9, R-49).
+	...(process.env.ONYX_MOCK_UNSERVABLE ? [{ id: 'mock-unservable:1b', family: 'mock-coder', parameter_size: '1.0B', quantization_level: 'Q4_K_M', context_length: 16384 }] : []),
 ];
+
+/** Which models the mock holds "in memory": a chat request loads one, `keep_alive: 0` evicts it (L9: one model resident at a time). */
+const resident = new Set<string>();
+let maxResident = 0;
+/** A model the runtime lists and cannot serve, as a real one answers for a model that fails to load. */
+const UNSERVABLE = /^mock-unservable/;
 
 let lastCompletionRequest: unknown;
 let lastChatRequest: unknown;
@@ -123,8 +131,29 @@ const server = http.createServer((req, res) => {
 	if (req.method === 'POST' && url.pathname === '/api/pull') {
 		return readBody(req).then(body => streamPull(res, body));
 	}
+	if (req.method === 'GET' && url.pathname === '/api/ps') {
+		return json(res, { models: [...resident].map(name => ({ name, model: name, size: 1 })) });
+	}
+	if (req.method === 'POST' && url.pathname === '/api/generate') {
+		return readBody(req).then(body => {
+			if (body.keep_alive === 0) {
+				resident.delete(body.model);
+			}
+			json(res, { model: body.model, done: true, done_reason: 'unload' });
+		});
+	}
+	if (req.method === 'GET' && url.pathname === '/debug/resident') {
+		return json(res, { resident: [...resident], maxResident });
+	}
 	if (req.method === 'POST' && url.pathname === '/v1/chat/completions') {
-		return readBody(req).then(body => { lastChatRequest = body; recentChatRequests.push(body); if (recentChatRequests.length > 8) { recentChatRequests.shift(); } streamCompletion(res, body); });
+		return readBody(req).then(body => {
+			if (UNSERVABLE.test(String(body.model))) {
+				res.writeHead(404, { 'Content-Type': 'application/json' });
+				return res.end(JSON.stringify({ error: { message: `model '${body.model}' not found`, type: 'not_found_error' } }));
+			}
+			resident.add(String(body.model));
+			maxResident = Math.max(maxResident, resident.size);
+			lastChatRequest = body; recentChatRequests.push(body); if (recentChatRequests.length > 8) { recentChatRequests.shift(); } streamCompletion(res, body); });
 	}
 	if (req.method === 'POST' && url.pathname === '/v1/completions') {
 		return readBody(req).then(body => {
@@ -420,6 +449,12 @@ function answerFor(system: string, body: any, hasToolResult: boolean) {
 		// Inline edit: replace the selection's first non-empty line, so the
 		// E2E can assert a deterministic hunk.
 		const user = [...(body.messages ?? [])].reverse().find((m: any) => m.role === 'user')?.content ?? '';
+		// A lab task (L9): the file as it is and the change to make. The mock changes the first line that returns something.
+		const whole = /^File: .*\nCurrent content:\n([\s\S]*?)\n\nChange to make:/.exec(user)?.[1];
+		if (whole !== undefined) {
+			const line = whole.split('\n').find((candidate: string) => /return /.test(candidate)) ?? '';
+			return `<<<<<<< SEARCH\n${line}\n=======\n${line} // edited-by-mock\n>>>>>>> REPLACE`;
+		}
 		const selection = /Selected code:\n([\s\S]*?)\n\nInstruction:/.exec(user)?.[1] ?? '';
 		const firstLine = selection.split('\n').find((line: string) => line.trim().length > 0) ?? '';
 		return `<<<<<<< SEARCH\n${firstLine}\n=======\n${firstLine} // edited-by-mock\n>>>>>>> REPLACE`;

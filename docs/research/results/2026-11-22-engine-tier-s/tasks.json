@@ -1,0 +1,107 @@
+{
+	"name": "history tasks for the L9 engine campaign",
+	"hash": "71c19fe36f8ee9f6",
+	"builtAt": "2026-11-22T06:43:55.401Z",
+	"head": "514ed9f88a187095e95259fd7c3a3301d2f13e2a",
+	"selection": {
+		"rule": "selectBenchmarkCommits (one changed file, 3 to 80 changed lines, no merge, revert, bump or wip), source files only",
+		"scannedCommits": 3000,
+		"since": "2025-01-01",
+		"until": null,
+		"maxBeforeChars": 12000,
+		"excludedPaths": [],
+		"eligible": 47,
+		"taken": 8,
+		"spread": "every 5th eligible commit, newest first"
+	},
+	"tasks": [
+		{
+			"id": "9eea8268780d",
+			"commit": "9eea8268780d3bd71b63d425f6f9e3904fe3fb88",
+			"file": "test/onyx/checks/module3-gate.test.mts",
+			"kind": "implement",
+			"authoredAt": "2026-11-21T23:11:04-05:00",
+			"beforeHash": "aed589ee567c8f5715f3ee9fd93c28726baefdbcacec01a6ed7c18c8664334f1",
+			"afterHash": "2833ed81b490045627ff1a17edb0d3c48122bd3524cbf614cad3583d5ac0fbaf",
+			"beforeChars": 5716,
+			"changedLines": 30
+		},
+		{
+			"id": "6f01f069942d",
+			"commit": "6f01f069942d22d5d0db23fc14f053aa48490f5e",
+			"file": "src/vs/sessions/contrib/chat/browser/media/sessionLinkAttachment.css",
+			"kind": "quick-edit",
+			"authoredAt": "2026-11-11T10:53:05+01:00",
+			"beforeHash": "b99752002006960f2b21bf351eb9ffb52ac5e30b2256ba1f38d8dc0eb5fe9165",
+			"afterHash": "e92f318f597a25f4dbe7f177a2dac423d7771329d72231a6932584dc33c40201",
+			"beforeChars": 1087,
+			"changedLines": 3
+		},
+		{
+			"id": "51eff2913ba2",
+			"commit": "51eff2913ba27b17fafe21a2a29bab1c572ffb18",
+			"file": "build/azure-pipelines/common/releaseBuild.ts",
+			"kind": "implement",
+			"authoredAt": "2026-11-10T12:55:23-08:00",
+			"beforeHash": "f0be2d970cdd3adda2c85e593e0d871a9064cbe98e851902da2e7025586250c9",
+			"afterHash": "adbed19fd22d0b738ee4d4d019c3a0019da00002d39aead6196f50e18f46a2bc",
+			"beforeChars": 2192,
+			"changedLines": 18
+		},
+		{
+			"id": "cd219525af5b",
+			"commit": "cd219525af5b7ff6aee577bb3cf3230a2716dfd1",
+			"file": "src/vs/editor/browser/viewParts/minimap/minimap.css",
+			"kind": "debug",
+			"authoredAt": "2026-11-08T19:55:08+03:00",
+			"beforeHash": "79f94e3f11190d44e553a3c2b1ed07d41c327da7dc0a883fb931d4fb42b667d2",
+			"afterHash": "a879e89967d307d744c7a301ed67d27bc00a453ff88af9e42f6586738b02ac08",
+			"beforeChars": 2140,
+			"changedLines": 6
+		},
+		{
+			"id": "52b3cc7c42b5",
+			"commit": "52b3cc7c42b5256ee65c25d5926e59ebd4c73c9e",
+			"file": "src/vs/editor/browser/viewParts/minimap/minimap.css",
+			"kind": "quick-edit",
+			"authoredAt": "2026-11-05T07:44:37+01:00",
+			"beforeHash": "eefcf323c75957e80fe6882d5d63186fb50769d4b1c4b61ae9fc8c6d944da54d",
+			"afterHash": "79f94e3f11190d44e553a3c2b1ed07d41c327da7dc0a883fb931d4fb42b667d2",
+			"beforeChars": 1921,
+			"changedLines": 6
+		},
+		{
+			"id": "59444e285e45",
+			"commit": "59444e285e45ad77615fa38323f0a3d4aaee79f9",
+			"file": "src/vs/workbench/contrib/chat/browser/promptSyntax/promptUrlHandler.ts",
+			"kind": "implement",
+			"authoredAt": "2026-11-03T11:48:33+01:00",
+			"beforeHash": "017b1df83e8fe482f1df321da216444e6cd8e2ca8c0e28234068ba1c34fa037d",
+			"afterHash": "09690bd557d3bd47c4ee37b1ea816b5fdc3d020c0d53bcb19542237cbdc1c159",
+			"beforeChars": 6976,
+			"changedLines": 15
+		},
+		{
+			"id": "700a617a4b59",
+			"commit": "700a617a4b59f8025d46ad3a3162570f0e301424",
+			"file": "src/vs/workbench/contrib/chat/browser/widget/input/editor/media/chatInlineAttachments.css",
+			"kind": "debug",
+			"authoredAt": "2026-10-30T12:02:01-07:00",
+			"beforeHash": "611252c123117c7b7abf7462e2670de88929ce6059bb6239d53a62a7982151f9",
+			"afterHash": "5dd1521df0089f02612760ed677f722ff6cec4c4b6576559591ac0e626976328",
+			"beforeChars": 4719,
+			"changedLines": 7
+		},
+		{
+			"id": "8444c4c10506",
+			"commit": "8444c4c1050669b581870078bbb20d4962e61b10",
+			"file": "src/vs/workbench/contrib/tasks/test/browser/taskTerminalStatus.test.ts",
+			"kind": "implement",
+			"authoredAt": "2026-10-23T16:08:57+02:00",
+			"beforeHash": "c69bf44fa88b922c013c4ac905e6d44bb46cfad59acba4d1eb56168619570581",
+			"afterHash": "b0234971184386c4b1b1c3b1c6472f0e7a9b5541d6c90f2a028824c918b3aa08",
+			"beforeChars": 8335,
+			"changedLines": 40
+		}
+	]
+}

@@ -8,7 +8,7 @@ import { IEnvironmentService } from '../../../../../platform/environment/common/
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IOnyxLabHarnessRequest, IOnyxRuntimeService } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
-import { deriveHarnessConfig, IOnyxHarnessConfig, IOnyxHarnessFacts, IOnyxResolvedHarness, resolveHarnessConfig } from '../../common/onyxHarnessConfig.js';
+import { deriveHarnessConfig, IOnyxHarnessConfig, IOnyxHarnessFacts, IOnyxLabSampling, IOnyxResolvedHarness, resolveHarnessConfig } from '../../common/onyxHarnessConfig.js';
 import { IOnyxModelProfile } from '../../common/onyxTypes.js';
 
 export const IOnyxHarnessConfigService = createDecorator<IOnyxHarnessConfigService>('onyxHarnessConfigService');
@@ -26,6 +26,14 @@ export interface IOnyxHarnessConfigService {
 	begin(requestId: string, configuration: IOnyxHarnessConfig): IDisposable;
 	/** The configuration of a running request. Undefined for a request that is not an Onyx agent run. */
 	forRequest(requestId: string | undefined): IOnyxHarnessConfig | undefined;
+	/**
+	 * What the campaign engine asks the next runs to use (L9), in place of
+	 * what the environment named: a campaign changes configuration between
+	 * units without restarting the window. It is a request like the
+	 * environment's, checked the same way, and a packaged build refuses it.
+	 * `undefined` ends it.
+	 */
+	setLabOverride(override: { readonly request: IOnyxLabHarnessRequest; readonly sampling?: IOnyxLabSampling } | undefined): void;
 }
 
 export class OnyxHarnessConfigService implements IOnyxHarnessConfigService {
@@ -35,6 +43,7 @@ export class OnyxHarnessConfigService implements IOnyxHarnessConfigService {
 	/** What this window's process was started with. It does not change, so it is asked for once. */
 	private _requested: Promise<IOnyxLabHarnessRequest | undefined> | undefined;
 	private readonly _running = new Map<string, IOnyxHarnessConfig>();
+	private _override: { readonly request: IOnyxLabHarnessRequest; readonly sampling?: IOnyxLabSampling } | undefined;
 
 	constructor(
 		@IOnyxRuntimeService private readonly _runtimeService: IOnyxRuntimeService,
@@ -44,7 +53,8 @@ export class OnyxHarnessConfigService implements IOnyxHarnessConfigService {
 
 	async resolve(profile: IOnyxModelProfile, facts: IOnyxHarnessFacts): Promise<IOnyxResolvedHarness> {
 		this._requested ??= this._readRequest();
-		const resolved = resolveHarnessConfig(deriveHarnessConfig(profile, facts), await this._requested, this._environmentService.isBuilt ? 'packaged' : 'development');
+		const override = this._override;
+		const resolved = resolveHarnessConfig(deriveHarnessConfig(profile, facts), override ? override.request : await this._requested, this._environmentService.isBuilt ? 'packaged' : 'development', override?.sampling);
 		if (resolved.refused) {
 			this._logService.warn(`[onyx] lab harness configuration ${resolved.requested?.name} was not applied: ${resolved.refused}`);
 		}
@@ -59,6 +69,10 @@ export class OnyxHarnessConfigService implements IOnyxHarnessConfigService {
 			this._logService.warn('[onyx] could not ask for a lab harness request', error);
 			return undefined;
 		}
+	}
+
+	setLabOverride(override: { readonly request: IOnyxLabHarnessRequest; readonly sampling?: IOnyxLabSampling } | undefined): void {
+		this._override = override;
 	}
 
 	begin(requestId: string, configuration: IOnyxHarnessConfig): IDisposable {
