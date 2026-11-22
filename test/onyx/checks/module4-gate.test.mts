@@ -171,8 +171,11 @@ test('Module 4 gate: the pre-registration is an ancestor of every results commit
 	const firstCommitOf = (directory: string) => gitText('log', '--diff-filter=A', '--format=%H', '--', `docs/research/results/${directory}`).split('\n').at(-1)!;
 	const outcomes = outcomeFiles();
 	// Which amendment fixed the design each hypothesis's campaign ran under.
-	// H-4's and H-6's deciding campaigns are the second ones, which Amendment 4 fixed.
-	const designedBy: Record<string, number> = { 'H-2': 1, 'H-3': 2, 'H-4': 4, 'H-5': 2, 'H-6': 4, 'H-7': 3, 'H-8': 3, 'H-9': 3, 'H-10': 3 };
+	// H-6's deciding campaign is the second one, which Amendment 4 fixed.
+	const designedBy: Record<string, number> = { 'H-2': 1, 'H-3': 2, 'H-4': 2, 'H-5': 2, 'H-6': 4, 'H-7': 3, 'H-8': 3, 'H-9': 3, 'H-10': 3 };
+	// H-4's second campaign was fixed by Amendment 4 too, but its analysis was committed on L14's branch and the
+	// amendment on L15's, so the one is not an ancestor of the other. What can be checked is which was committed first.
+	const committedAt = (commit: string) => Number(gitText('log', '-1', '--format=%ct', commit));
 	const late: string[] = [];
 	for (const outcome of outcomes) {
 		const commit = firstCommitOf(outcome.directory);
@@ -182,6 +185,9 @@ test('Module 4 gate: the pre-registration is an ancestor of every results commit
 		const needed = designedBy[outcome.hypothesis];
 		if (needed && !gitOk('merge-base', '--is-ancestor', amendment(needed), commit)) {
 			late.push(`${outcome.hypothesis}: ${outcome.directory} is not after Amendment ${needed}`);
+		}
+		if (outcome.hypothesis === 'H-4' && !(committedAt(amendment(4)) < committedAt(commit))) {
+			late.push(`H-4: ${outcome.directory} was not committed after Amendment 4`);
 		}
 	}
 	const text = fs.readFileSync(path.join(repoRoot, 'docs', 'research', 'PREREGISTRATION.md'), 'utf8');
