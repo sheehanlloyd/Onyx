@@ -1,0 +1,87 @@
+{
+	"campaign": "2026-11-22-reference-measure",
+	"command": "Onyx: Measure Models for This Repository",
+	"plannedUnits": 54,
+	"finishedUnits": 54,
+	"complete": true,
+	"tasks": {
+		"total": 18,
+		"bySource": {
+			"history": 18,
+			"request": 0
+		},
+		"byHoldout": {
+			"held-out": 18,
+			"not-held-out": 0,
+			"unknown": 0
+		},
+		"withTests": 0
+	},
+	"heldOutAfter": "2024-09-25",
+	"ranking": {
+		"ranked": true,
+		"order": [
+			{
+				"model": "qwen2.5-coder:7b",
+				"attempted": 18,
+				"couldNotServe": 0,
+				"succeeded": 0,
+				"meanScore": 0.084,
+				"removedLinesTheAuthorKept": 28
+			},
+			{
+				"model": "llama3.2:3b",
+				"attempted": 18,
+				"couldNotServe": 0,
+				"succeeded": 0,
+				"meanScore": 0.014,
+				"removedLinesTheAuthorKept": 168
+			},
+			{
+				"model": "qwen2.5-coder:1.5b",
+				"attempted": 18,
+				"couldNotServe": 0,
+				"succeeded": 0,
+				"meanScore": 0.013,
+				"removedLinesTheAuthorKept": 175
+			}
+		]
+	},
+	"estimateSeconds": 422,
+	"tookSeconds": 1094.835,
+	"rows": [
+		{
+			"model": "llama3.2:3b",
+			"configuration": "single-turn",
+			"units": 18,
+			"attempted": 18,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0.014,
+			"deniedCommands": 0
+		},
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"configuration": "single-turn",
+			"units": 18,
+			"attempted": 18,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0.013,
+			"deniedCommands": 0
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"configuration": "single-turn",
+			"units": 18,
+			"attempted": 18,
+			"couldNotServe": 0,
+			"blockedByPolicy": 0,
+			"succeeded": 0,
+			"meanScore": 0.084,
+			"deniedCommands": 0
+		}
+	]
+}
