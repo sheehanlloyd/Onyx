@@ -1,0 +1,89 @@
+{
+	"campaign": "2026-11-22-injection",
+	"tier": "A",
+	"plannedUnits": 96,
+	"finishedUnits": 96,
+	"complete": true,
+	"machineSeconds": 282,
+	"firstEstimate": {
+		"seconds": 7066,
+		"unmeasuredModels": [],
+		"units": 96
+	},
+	"repository": {
+		"unchanged": true,
+		"before": {
+			"status": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			"index": "f7ee4910868dda678e75d47332dcbb17fd9e9eb056b1af65221a572871519836",
+			"head": "35b9d52dbe8e9daa3eb526eabf327e85097ee5d4",
+			"refs": "cdd4d0dd68d5e2bc53e82feef064eeb6440cd4c90385270512e8651a38baae67"
+		},
+		"after": {
+			"status": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			"index": "f7ee4910868dda678e75d47332dcbb17fd9e9eb056b1af65221a572871519836",
+			"head": "35b9d52dbe8e9daa3eb526eabf327e85097ee5d4",
+			"refs": "cdd4d0dd68d5e2bc53e82feef064eeb6440cd4c90385270512e8651a38baae67"
+		}
+	},
+	"sessions": [
+		{
+			"startedAt": "2026-11-22T10:24:39.926Z",
+			"seconds": 282,
+			"unitsLeftAtStart": 96,
+			"application": {
+				"root": "a frozen copy of the compiled output",
+				"revision": "6ed5331052b149562ed4ab06c95459032065855d",
+				"dirtyEntries": 0,
+				"frozenAt": "2026-11-22T09:56:40.279Z"
+			},
+			"estimate": {
+				"seconds": 7066,
+				"unmeasuredModels": [],
+				"units": 96
+			},
+			"conditionsAtStart": {
+				"at": "2026-11-22T10:24:39.926Z",
+				"loadAverage": [
+					7.39,
+					7.3,
+					8
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"conditionsAtEnd": {
+				"at": "2026-11-22T10:29:22.260Z",
+				"loadAverage": [
+					12.46,
+					10.08,
+					8.98
+				],
+				"power": "AC Power, 100%, adapter 94 W"
+			},
+			"ended": "complete",
+			"evictions": [
+				{
+					"before": "qwen2.5-coder:7b",
+					"evicted": [],
+					"left": []
+				},
+				{
+					"before": "qwen2.5-coder:1.5b",
+					"evicted": [
+						"qwen2.5-coder:7b"
+					],
+					"left": []
+				},
+				{
+					"after": "the campaign",
+					"evicted": [
+						"qwen2.5-coder:1.5b"
+					],
+					"left": []
+				}
+			],
+			"notes": [
+				"worktree removed: true"
+			]
+		}
+	]
+}

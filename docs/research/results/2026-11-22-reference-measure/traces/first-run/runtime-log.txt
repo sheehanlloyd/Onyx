@@ -1,0 +1,4 @@
+slot launch_slot_: id  0 | task 21364 | processing task, is_child = 0
+slot   operator(): id  0 | task 21364 | new prompt, n_ctx_slot = 16384, n_keep = 4, task.n_tokens = 2674
+slot print_timing: id  0 | task 21364 | n_gen =  34174, tg =  64.92 t/s, tg_3s =  62.43 t/s
+slot      release: id  0 | task 21364 | stop processing: n_tokens = 12381, truncated = 1
