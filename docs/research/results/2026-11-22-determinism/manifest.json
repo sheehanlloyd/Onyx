@@ -1,0 +1,104 @@
+{
+	"version": 1,
+	"name": "2026-11-22-determinism",
+	"createdAt": "2026-11-22T12:26:15.207Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		1
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 4096,
+		"responseFormat": true
+	},
+	"harnessConfigurations": [
+		{
+			"name": "product",
+			"hash": "9801945d",
+			"configuration": {
+				"editProtocol": "search-replace",
+				"promptStyle": "compact",
+				"evictionPolicy": "oldest-results-first",
+				"contextTokens": 16384,
+				"turnCap": 8,
+				"verificationFeedback": true,
+				"toolSlotPolicy": "essentials-first",
+				"maxTools": 8,
+				"toolCallProtocol": "constrained-envelope",
+				"toolResultChars": 4000,
+				"readToolLineNumbering": true
+			}
+		}
+	],
+	"taskSet": {
+		"name": "the first 20 of H-2's 40 tasks (every third task of 2026-11-22-task-set)",
+		"hash": "4d5fd7c401a47d9b",
+		"count": 20
+	},
+	"repetitions": 5,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3",
+		"loadAverage": [
+			8.41,
+			6.37,
+			6.77
+		],
+		"power": "AC Power, 100%, adapter 94 W"
+	},
+	"regenerate": [
+		{
+			"output": "traces/records.jsonl, campaign.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-determinism/manifest.json"
+		},
+		{
+			"output": "results.jsonl, summary.json",
+			"command": "node test/onyx/lab/run-lab.mts docs/research/results/2026-11-22-determinism/manifest.json --rescore"
+		}
+	],
+	"campaign": {
+		"tier": "A",
+		"baseUrl": "http://127.0.0.1:11500/v1",
+		"tasks": "tasks.json",
+		"datasheets": "docs/research/results/2026-11-22-datasheets/summary.json",
+		"estimatedSeconds": 14720,
+		"unitTimeoutMs": 420000
+	},
+	"hypotheses": [
+		"H-6"
+	],
+	"notes": "H-6: both pinned models on the first 20 of H-2's tasks, five repetitions each, seed 1, temperature 0, the product's configuration for these models (PREREGISTRATION.md, Amendments 2 and 3). My estimate before it started: about 40 minutes."
+}
