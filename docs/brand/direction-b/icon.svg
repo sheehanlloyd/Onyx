@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+	<!-- Direction B, "Gauge": an instrument dial with one reading. The model is something you measure. -->
+	<defs>
+		<linearGradient id="b-body" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="#f8f5ee"/>
+			<stop offset="1" stop-color="#e4ded1"/>
+		</linearGradient>
+		<filter id="b-shadow" x="-10%" y="-10%" width="120%" height="124%">
+			<feGaussianBlur in="SourceAlpha" stdDeviation="14"/>
+			<feOffset dy="12"/>
+			<feComponentTransfer>
+				<feFuncA type="linear" slope="0.28"/>
+			</feComponentTransfer>
+			<feMerge>
+				<feMergeNode/>
+				<feMergeNode in="SourceGraphic"/>
+			</feMerge>
+		</filter>
+	</defs>
+	<rect x="100" y="100" width="824" height="824" rx="185" fill="url(#b-body)" filter="url(#b-shadow)"/>
+	<!-- dial: 240 degree arc, open at the bottom -->
+	<path d="M297.2 698 A248 248 0 1 1 726.8 698" fill="none" stroke="#1b1712" stroke-width="112" stroke-linecap="round"/>
+	<!-- reading: one needle -->
+	<path d="M512 574 L573.9 485.5" fill="none" stroke="#d8432b" stroke-width="92" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+	<!-- Direction A, "Hunk": one accepted change (solid) and one pending proposal (open), offset like a diff hunk. -->
+	<defs>
+		<linearGradient id="a-body" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="#f6bd4a"/>
+			<stop offset="1" stop-color="#e59c1d"/>
+		</linearGradient>
+		<filter id="a-shadow" x="-10%" y="-10%" width="120%" height="124%">
+			<feGaussianBlur in="SourceAlpha" stdDeviation="14"/>
+			<feOffset dy="12"/>
+			<feComponentTransfer>
+				<feFuncA type="linear" slope="0.28"/>
+			</feComponentTransfer>
+			<feMerge>
+				<feMergeNode/>
+				<feMergeNode in="SourceGraphic"/>
+			</feMerge>
+		</filter>
+	</defs>
+	<rect x="100" y="100" width="824" height="824" rx="185" fill="url(#a-body)" filter="url(#a-shadow)"/>
+	<!-- accepted: solid bar -->
+	<rect x="192" y="256" width="448" height="192" rx="48" fill="#1b1712"/>
+	<!-- pending: open bar, drawn as an inside stroke -->
+	<rect x="412" y="604" width="392" height="136" rx="20" fill="none" stroke="#1b1712" stroke-width="56"/>
+</svg>

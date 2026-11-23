@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+	<!-- Direction A glyph, single colour. Solid bar: accepted. Open bar: pending. -->
+	<rect x="1" y="2" width="10" height="5" rx="1.25" fill="currentColor"/>
+	<rect x="5.625" y="9.625" width="8.75" height="3.75" rx="0.625" fill="none" stroke="currentColor" stroke-width="1.25"/>
+</svg>

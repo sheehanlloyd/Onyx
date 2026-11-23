@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+	<!-- Direction C glyph, single colour. Solid half: kept. Faint half, slipped: refused. -->
+	<path d="M7.25 1.5 A6 6 0 0 0 7.25 13.5 Z" fill="currentColor"/>
+	<path d="M8.75 2.5 A6 6 0 0 1 8.75 14.5 Z" fill="currentColor" fill-opacity="0.45"/>
+</svg>

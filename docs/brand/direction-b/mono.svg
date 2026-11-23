@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+	<!-- Direction B glyph, single colour. Dial arc and one needle. -->
+	<path d="M3.237 12.25 A5.5 5.5 0 1 1 12.763 12.25" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+	<path d="M8 9.5 L9.38 7.53" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+</svg>
