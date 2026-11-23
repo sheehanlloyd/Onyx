@@ -94,6 +94,8 @@ Integration points consumed (imports only, never patched):
 
 ## Status
 
+> **This section is history.** It was written in August 2026 and calls things "done" and "shipped" that had run once in a development build. The current state, with evidence, is [ROADMAP.md](./ROADMAP.md) and [docs/progress/STATE.md](./docs/progress/STATE.md). Nothing has been released.
+
 ### Done (verified end-to-end in the running app)
 
 **At a glance**

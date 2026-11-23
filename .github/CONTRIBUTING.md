@@ -62,6 +62,19 @@ decision inside a view, it belongs in `common/` with a test.
 
 Run the gates. All of them pass on `main`; a PR that breaks one will not merge.
 
+The contribution check is the module gate: one command that runs every check of all five modules
+on fresh output and refuses to run on stale output. It needs a packaged build for its packaged
+checks; without one those are reported as skipped and the gate fails, which is the honest answer.
+
+```bash
+pnpm run gulp vscode-darwin-arm64-min
+ONYX_PACKAGED_APP=../VSCode-darwin-arm64/Onyx.app node test/onyx/run-module-gate.mts --module 5
+```
+
+A change that fixes a defect the simulation can see adds a mutant for it under
+`test/onyx/sim/mutants/`, so that the defect cannot come back unnoticed. For a quick loop while you
+work, these are the fast subset:
+
 ```bash
 pnpm run typecheck-client
 pnpm run valid-layers-check

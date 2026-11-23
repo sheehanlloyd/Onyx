@@ -55,6 +55,8 @@ const ONYX_SCOPE = [
 	'.github/README.md',
 	'README.md',
 	'ONYX.md',
+	'ROADMAP.md',
+	'CITATION.cff',
 	'LAUNCH.md',
 	'REBASE.md',
 	'NOTICE.md',
@@ -62,7 +64,7 @@ const ONYX_SCOPE = [
 	'product.json',
 ];
 
-const TEXT_EXTENSIONS = new Set(['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs', '.json', '.md', '.css', '.yml', '.yaml', '.html', '.svg', '.txt', '.sh', '.ps1', '.tmLanguage', '.plist']);
+const TEXT_EXTENSIONS = new Set(['.cff', '.ts', '.mts', '.cts', '.js', '.mjs', '.cjs', '.json', '.md', '.css', '.yml', '.yaml', '.html', '.svg', '.txt', '.sh', '.ps1', '.tmLanguage', '.plist']);
 
 /** Files that may quote the old identity or a developer path: the audits, the plan and test fixtures. */
 const STALE_STRING_EXEMPT = [

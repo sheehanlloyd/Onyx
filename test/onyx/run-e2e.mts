@@ -8,6 +8,11 @@
  *
  *   node test/onyx/run-e2e.mts [--keep]
  *
+ * By default it launches the build from sources. With `ONYX_E2E_APP` set to a
+ * packaged application bundle it drives that instead: the soak and the egress
+ * audit (D8) run the same suite on the release candidate. `ONYX_E2E_ARGS`
+ * adds launch arguments, separated by spaces (the audit's proxy).
+ *
  * Builds a throwaway workspace and profile, starts the mock runtime, launches
  * Code OSS with remote debugging, drives the chat surface with @playwright/cli
  * and asserts on the run journal Onyx writes per workspace. Exits non-zero on
@@ -30,6 +35,8 @@ const mockPort = Number(process.env.ONYX_MOCK_PORT ?? 11434);
 const lmStudioPort = Number(process.env.ONYX_MOCK_LMSTUDIO_PORT ?? 1234);
 const cdpPort = Number(process.env.ONYX_CDP_PORT ?? 9333);
 const session = `onyx-e2e-${process.pid}`;
+const packagedApp = process.env.ONYX_E2E_APP ? path.resolve(process.env.ONYX_E2E_APP) : undefined;
+const extraLaunchArgs = (process.env.ONYX_E2E_ARGS ?? '').split(' ').filter(Boolean);
 
 const runDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onyx-e2e-'));
 const workspace = path.join(runDir, 'ws');
@@ -533,11 +540,18 @@ async function main() {
 		throw new Error(`the LM Studio mock never answered on :${lmStudioPort}`);
 	}
 
-	children.push(spawn(path.join(repoRoot, 'scripts', 'code.sh'), [
+	const executable = packagedApp
+		? path.join(packagedApp, 'Contents', 'MacOS', fs.readdirSync(path.join(packagedApp, 'Contents', 'MacOS'))[0])
+		: path.join(repoRoot, 'scripts', 'code.sh');
+	if (packagedApp) {
+		console.log(`driving the packaged application: ${packagedApp}`);
+	}
+	children.push(spawn(executable, [
 		`--user-data-dir=${userDataDir}`,
 		`--extensions-dir=${extensionsDir}`,
 		`--remote-debugging-port=${cdpPort}`,
 		...isolationArgs,
+		...extraLaunchArgs,
 		'--disable-workspace-trust',
 		'--skip-release-notes',
 		workspace,

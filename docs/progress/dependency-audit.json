@@ -1,0 +1,449 @@
+{
+	"ranAt": "2026-11-22",
+	"command": "pnpm audit --prod --json",
+	"upstreamBase": "1.147.0 (8a14f0cc1b0)",
+	"dependenciesOnyxAdded": 0,
+	"counts": {
+		"info": 0,
+		"low": 9,
+		"moderate": 23,
+		"high": 14,
+		"critical": 1
+	},
+	"dependencies": 885,
+	"byWorkspace": {
+		"extensions__copilot": 22,
+		"extensions__microsoft-authentication": 1,
+		".": 13,
+		"extensions__emmet": 1,
+		"extensions__markdown-language-features": 5,
+		".vscode__extensions__vscode-pr-pinger": 2,
+		"test__sanity": 2,
+		"extensions__markdown-math": 1
+	},
+	"advisories": [
+		{
+			"module": "proxy-addr",
+			"severity": "critical",
+			"vulnerable": ">=1.1.0 <2.0.8",
+			"title": "proxy-addr vulnerable to IP spoofing via IPv4-mapped IPv6 trust subnet",
+			"advisory": "https://github.com/advisories/GHSA-jqcg-44mw-7w3h",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>express>proxy-addr",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "@azure/msal-node",
+			"severity": "high",
+			"vulnerable": ">=5.0.0-beta.0 <7.1.0",
+			"title": "MSAL Node authorization code flow may disclose parameters to an attacker-controlled endpoint",
+			"advisory": "https://github.com/advisories/GHSA-xcx6-jx8p-x3h5",
+			"firstPath": "extensions__microsoft-authentication>@azure/msal-node",
+			"workspace": "extensions__microsoft-authentication"
+		},
+		{
+			"module": "@modelcontextprotocol/sdk",
+			"severity": "high",
+			"vulnerable": ">=1.12.0 <1.31.0",
+			"title": "MCP TypeScript SDK: OAuth client could send credentials to an authorization server chosen by the MCP server",
+			"advisory": "https://github.com/advisories/GHSA-6qxp-vccf-f47h",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "@modelcontextprotocol/sdk",
+			"severity": "high",
+			"vulnerable": ">=1.24.0 <1.32.0",
+			"title": "MCP TypeScript SDK: Experimental tasks were not tied to the session that created them",
+			"advisory": "https://github.com/advisories/GHSA-22jm-h49p-29qw",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "@modelcontextprotocol/sdk",
+			"severity": "high",
+			"vulnerable": ">=1.3.0 <1.32.0",
+			"title": "MCP TypeScript SDK: One HTTP request within the default size limit could exhaust server memory during validation",
+			"advisory": "https://github.com/advisories/GHSA-46jr-4wx8-v453",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "@modelcontextprotocol/sdk",
+			"severity": "high",
+			"vulnerable": ">=1.10.0 <1.30.1",
+			"title": "MCP TypeScript SDK: HTTP server transports and handlers did not limit request body size or JSON-RPC batch length",
+			"advisory": "https://github.com/advisories/GHSA-f897-62hf-6gxq",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "body-parser",
+			"severity": "high",
+			"vulnerable": ">=2.0.0 <2.4.0",
+			"title": "body-parser vulnerable to Denial of Service via trailing bytes after a compressed request body",
+			"advisory": "https://github.com/advisories/GHSA-27r3-jxmh-p828",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>express>body-parser",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "follow-redirects",
+			"severity": "high",
+			"vulnerable": ">=1.16.0 <=1.16.1",
+			"title": "follow-redirects: Cross-realm sensitiveHeaders arrays are discarded and custom credentials can follow redirects",
+			"advisory": "https://github.com/advisories/GHSA-mrwp-f3q8-3g9p",
+			"firstPath": ".>@microsoft/dev-tunnels-connections>@microsoft/dev-tunnels-management>axios>follow-redirects",
+			"workspace": "."
+		},
+		{
+			"module": "image-size",
+			"severity": "high",
+			"vulnerable": ">=0.6.3 <=2.0.2",
+			"title": "image-size: ICNS parser allows denial of service through an infinite loop",
+			"advisory": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+			"firstPath": "extensions__emmet>image-size",
+			"workspace": "extensions__emmet"
+		},
+		{
+			"module": "markdown-it",
+			"severity": "high",
+			"vulnerable": ">=14.1.0 <14.3.3",
+			"title": "markdown-it: Quadratic-time rendering of a single multi-line link reference definition with default options (regression since 14.0)",
+			"advisory": "https://github.com/advisories/GHSA-gfr2-rv44-r23c",
+			"firstPath": "extensions__markdown-language-features>markdown-it",
+			"workspace": "extensions__markdown-language-features"
+		},
+		{
+			"module": "undici",
+			"severity": "high",
+			"vulnerable": ">=7.18.0 <7.30.1",
+			"title": "undici vulnerable to Denial of Service via unhandled error on excessive content-encodings",
+			"advisory": "https://github.com/advisories/GHSA-xjj6-f33q-929c",
+			"firstPath": ".>undici",
+			"workspace": "."
+		},
+		{
+			"module": "undici",
+			"severity": "high",
+			"vulnerable": ">=7.0.0 <7.30.1",
+			"title": "undici vulnerable to cache poisoning and cross-user disclosure via cross-origin redirects",
+			"advisory": "https://github.com/advisories/GHSA-4w7w-5xrc-9h26",
+			"firstPath": ".>undici",
+			"workspace": "."
+		},
+		{
+			"module": "undici",
+			"severity": "high",
+			"vulnerable": ">=7.0.0 <7.30.1",
+			"title": "undici vulnerable to TLS certificate validation bypass via dropped tls options in Agent",
+			"advisory": "https://github.com/advisories/GHSA-2m5v-pch6-74hx",
+			"firstPath": ".>undici",
+			"workspace": "."
+		},
+		{
+			"module": "undici",
+			"severity": "high",
+			"vulnerable": ">=7.0.0 <7.30.1",
+			"title": "undici vulnerable to Denial of Service via TLS 1.2 certificate-changing renegotiation",
+			"advisory": "https://github.com/advisories/GHSA-qrxm-fqhp-jwvm",
+			"firstPath": ".>undici",
+			"workspace": "."
+		},
+		{
+			"module": "zod",
+			"severity": "high",
+			"vulnerable": "<4.6.6",
+			"title": "Zod can exhaust memory while validating oversized constrained collections",
+			"advisory": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+			"firstPath": ".>@vscode/sandbox-runtime>zod",
+			"workspace": "."
+		},
+		{
+			"module": "@anthropic-ai/sdk",
+			"severity": "moderate",
+			"vulnerable": ">=0.79.0 <0.91.1",
+			"title": "Claude SDK for TypeScript has Insecure Default File Permissions in Local Filesystem Memory Tool",
+			"advisory": "https://github.com/advisories/GHSA-p7fg-763f-g4gf",
+			"firstPath": ".>@anthropic-ai/sdk",
+			"workspace": "."
+		},
+		{
+			"module": "@hono/node-server",
+			"severity": "moderate",
+			"vulnerable": ">=1.19.10 <2.1.3",
+			"title": "@hono/node-server: `serveStatic` decodes the request path a second time, leading to bypass of middleware on static paths",
+			"advisory": "https://github.com/advisories/GHSA-rmxm-3fg6-px4f",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>@hono/node-server",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "@hono/node-server",
+			"severity": "moderate",
+			"vulnerable": "<1.19.18",
+			"title": "@hono/node-server: Backslash in the request path is parsed as a path separator, bypassing path-based access control at a reverse proxy",
+			"advisory": "https://github.com/advisories/GHSA-jpvv-r467-5p4w",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>@hono/node-server",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "@modelcontextprotocol/sdk",
+			"severity": "moderate",
+			"vulnerable": ">=1.6.0 <1.32.0",
+			"title": "MCP TypeScript SDK: Server bearer authentication accepted tokens issued for another service",
+			"advisory": "https://github.com/advisories/GHSA-rvq5-wwqv-78pq",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "@modelcontextprotocol/sdk",
+			"severity": "moderate",
+			"vulnerable": "<1.32.0",
+			"title": "MCP TypeScript client SDK: HTTP client transports and OAuth requests followed cross-origin redirects and re-sent custom headers and request bodies",
+			"advisory": "https://github.com/advisories/GHSA-6prh-2h8m-c8cw",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "@octokit/request",
+			"severity": "moderate",
+			"vulnerable": ">=1.0.0 <8.4.1",
+			"title": "@octokit/request has a Regular Expression in fetchWrapper that Leads to ReDoS Vulnerability Due to Catastrophic Backtracking",
+			"advisory": "https://github.com/advisories/GHSA-rmvr-2pp2-xj38",
+			"firstPath": ".vscode__extensions__vscode-pr-pinger>@octokit/graphql>@octokit/request",
+			"workspace": ".vscode__extensions__vscode-pr-pinger"
+		},
+		{
+			"module": "@octokit/request-error",
+			"severity": "moderate",
+			"vulnerable": ">=1.0.0 <5.1.1",
+			"title": "@octokit/request-error has a Regular Expression in index that Leads to ReDoS Vulnerability Due to Catastrophic Backtracking",
+			"advisory": "https://github.com/advisories/GHSA-xx4v-prfh-6cgc",
+			"firstPath": ".vscode__extensions__vscode-pr-pinger>@octokit/graphql>@octokit/request>@octokit/request-error",
+			"workspace": ".vscode__extensions__vscode-pr-pinger"
+		},
+		{
+			"module": "@opentelemetry/core",
+			"severity": "moderate",
+			"vulnerable": "<2.8.0",
+			"title": "OpenTelemetry Core: Unbounded memory allocation in W3C Baggage propagation",
+			"advisory": "https://github.com/advisories/GHSA-8988-4f7v-96qf",
+			"firstPath": "extensions__copilot>applicationinsights>@opentelemetry/sdk-trace-base>@opentelemetry/resources>@opentelemetry/core",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "fast-uri",
+			"severity": "moderate",
+			"vulnerable": ">=3.0.0 <3.1.9",
+			"title": "fast-uri vulnerable to URI scheme spoofing via percent-encoded scheme decoding",
+			"advisory": "https://github.com/advisories/GHSA-w74x-v6f9-j3xg",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>ajv-formats>ajv>fast-uri",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "fast-uri",
+			"severity": "moderate",
+			"vulnerable": ">=3.1.3 <3.1.9",
+			"title": "fast-uri vulnerable to host confusion via unchecked WHATWG host canonicalization",
+			"advisory": "https://github.com/advisories/GHSA-wjr9-j795-jxcr",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>ajv-formats>ajv>fast-uri",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "glob",
+			"severity": "moderate",
+			"vulnerable": ">=9.0.0 <=14.0.1",
+			"title": "Glob: AbortSignal cancellation bypass allows post-timeout filesystem traversal",
+			"advisory": "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4",
+			"firstPath": "test__sanity>mocha-junit-reporter>mocha>glob",
+			"workspace": "test__sanity"
+		},
+		{
+			"module": "hono",
+			"severity": "moderate",
+			"vulnerable": "<4.13.16",
+			"title": "Hono: `mount()` and `app.mount()` can forward a path that bypasses middleware scoped inside the mount prefix",
+			"advisory": "https://github.com/advisories/GHSA-4m76-xfj5-7975",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>@hono/node-server>hono",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "hono",
+			"severity": "moderate",
+			"vulnerable": ">=4.1.4 <=4.13.15",
+			"title": "Hono: RegExpRouter skips wildcard middleware for some route sets and for paths with an encoded line terminator",
+			"advisory": "https://github.com/advisories/GHSA-h7mg-cq63-vhpq",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>@hono/node-server>hono",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "hono",
+			"severity": "moderate",
+			"vulnerable": "<4.13.16",
+			"title": "Hono: `csrf()` does not check requests sent by hyperlink auditing (`text/ping`)",
+			"advisory": "https://github.com/advisories/GHSA-46wx-v44x-9hh2",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>@hono/node-server>hono",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "hono",
+			"severity": "moderate",
+			"vulnerable": ">=4.5.1 <=4.13.15",
+			"title": "Hono: `validator('form')` skips validation for `multipart/form-data` requests with extra parameters",
+			"advisory": "https://github.com/advisories/GHSA-4h7h-rv7c-7m2v",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>@hono/node-server>hono",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "ip-address",
+			"severity": "moderate",
+			"vulnerable": "<=10.7.3",
+			"title": "ip-address: Address6 matches a zone identifier in quadratic time ahead of its length limit, allowing a single long string to stall the process",
+			"advisory": "https://github.com/advisories/GHSA-rxp7-6hxx-x8q5",
+			"firstPath": ".>@vscode/proxy-agent>socks-proxy-agent>socks>ip-address",
+			"workspace": "."
+		},
+		{
+			"module": "minimatch",
+			"severity": "moderate",
+			"vulnerable": ">=7.0.0 <11.0.1",
+			"title": "minimatch has potential denial of service via globparts amplification",
+			"advisory": "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+			"firstPath": "extensions__copilot>minimatch",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "qs",
+			"severity": "moderate",
+			"vulnerable": ">=6.7.0 <=6.16.0",
+			"title": "qs : qs.stringify with arrayFormat 'comma' throws an uncaught TypeError on array elements carrying a non-callable own toString (DoS)",
+			"advisory": "https://github.com/advisories/GHSA-6pq8-jhm2-2vcw",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>express>body-parser>qs",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "undici",
+			"severity": "moderate",
+			"vulnerable": ">=7.0.0 <7.30.1",
+			"title": "undici vulnerable to Denial of Service via unbounded memory in the EventSource parser",
+			"advisory": "https://github.com/advisories/GHSA-4qv8-2p9j-2685",
+			"firstPath": ".>undici",
+			"workspace": "."
+		},
+		{
+			"module": "undici",
+			"severity": "moderate",
+			"vulnerable": ">=7.15.0 <7.30.1",
+			"title": "undici vulnerable to Subresource Integrity bypass via non-lowercase algorithm tokens",
+			"advisory": "https://github.com/advisories/GHSA-f72v-6w45-q472",
+			"firstPath": ".>undici",
+			"workspace": "."
+		},
+		{
+			"module": "undici",
+			"severity": "moderate",
+			"vulnerable": ">=7.0.0 <7.30.1",
+			"title": "undici WebSocket client vulnerable to Denial of Service via unbounded automatic PONG buffering",
+			"advisory": "https://github.com/advisories/GHSA-9fm3-97px-rjf6",
+			"firstPath": ".>undici",
+			"workspace": "."
+		},
+		{
+			"module": "undici",
+			"severity": "moderate",
+			"vulnerable": ">=7.15.0 <7.30.1",
+			"title": "undici vulnerable to Denial of Service via unhandled exception in the decompress interceptor",
+			"advisory": "https://github.com/advisories/GHSA-55wc-3pg8-jfw6",
+			"firstPath": ".>undici",
+			"workspace": "."
+		},
+		{
+			"module": "uuid",
+			"severity": "moderate",
+			"vulnerable": "<11.1.1",
+			"title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+			"advisory": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+			"firstPath": ".>@microsoft/dev-tunnels-connections>uuid",
+			"workspace": "."
+		},
+		{
+			"module": "diff",
+			"severity": "low",
+			"vulnerable": ">=6.0.0 <8.0.3",
+			"title": "jsdiff has a Denial of Service vulnerability in parsePatch and applyPatch",
+			"advisory": "https://github.com/advisories/GHSA-73rr-hh4g-fpgx",
+			"firstPath": "test__sanity>mocha-junit-reporter>mocha>diff",
+			"workspace": "test__sanity"
+		},
+		{
+			"module": "dompurify",
+			"severity": "low",
+			"vulnerable": "<=3.4.16",
+			"title": "DOMPurify: SMIL attributeName=href guard is skipped when PARSER_MEDIA_TYPE is application/xhtml+xml",
+			"advisory": "https://github.com/advisories/GHSA-c6gr-qvv4-5v3f",
+			"firstPath": "extensions__markdown-language-features>dompurify",
+			"workspace": "extensions__markdown-language-features"
+		},
+		{
+			"module": "dompurify",
+			"severity": "low",
+			"vulnerable": ">=3.4.4 <=3.4.16",
+			"title": "DOMPurify SAFE_FOR_TEMPLATES bypass: split template expressions survive in attached shadow root content on DOM output modes",
+			"advisory": "https://github.com/advisories/GHSA-cg2g-xh64-v4q7",
+			"firstPath": "extensions__markdown-language-features>dompurify",
+			"workspace": "extensions__markdown-language-features"
+		},
+		{
+			"module": "dompurify",
+			"severity": "low",
+			"vulnerable": "<=3.4.16",
+			"title": "DOMPurify IN_PLACE: hook that removes a parent or sibling leaves the detached subtree's event handlers armed (incomplete fix for GHSA-p98j-92pf-mc4p)",
+			"advisory": "https://github.com/advisories/GHSA-mrv2-3pqr-j5jr",
+			"firstPath": "extensions__markdown-language-features>dompurify",
+			"workspace": "extensions__markdown-language-features"
+		},
+		{
+			"module": "fast-uri",
+			"severity": "low",
+			"vulnerable": ">=3.0.0 <3.1.9",
+			"title": "fast-uri vulnerable to improper path equivalence in relative reference normalization",
+			"advisory": "https://github.com/advisories/GHSA-xhq7-xmqj-769h",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>ajv-formats>ajv>fast-uri",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "fast-uri",
+			"severity": "low",
+			"vulnerable": ">=3.0.0 <3.1.9",
+			"title": "fast-uri vulnerable to scheme injection via an unescaped first-segment colon in suffix references",
+			"advisory": "https://github.com/advisories/GHSA-333x-w4r6-6crp",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>ajv-formats>ajv>fast-uri",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "hono",
+			"severity": "low",
+			"vulnerable": ">=3.12.0 <=4.13.15",
+			"title": "Hono: `css` helper does not escape a closing tag split between the template and an interpolated value, allowing HTML injection",
+			"advisory": "https://github.com/advisories/GHSA-3gg2-335m-rxc6",
+			"firstPath": "extensions__copilot>@modelcontextprotocol/sdk>@hono/node-server>hono",
+			"workspace": "extensions__copilot"
+		},
+		{
+			"module": "katex",
+			"severity": "low",
+			"vulnerable": ">=0.11.0 <0.18.2",
+			"title": "KaTeX: Existing prototype pollution can bypass trust restrictions",
+			"advisory": "https://github.com/advisories/GHSA-238p-pmpm-9mq7",
+			"firstPath": "extensions__markdown-math>@vscode/markdown-it-katex>katex",
+			"workspace": "extensions__markdown-math"
+		},
+		{
+			"module": "markdown-it",
+			"severity": "low",
+			"vulnerable": "<14.3.3",
+			"title": "markdown-it: Quadratic-time denial of service in inline HTML parsing with html enabled",
+			"advisory": "https://github.com/advisories/GHSA-vfgh-jcmw-g37q",
+			"firstPath": "extensions__markdown-language-features>markdown-it",
+			"workspace": "extensions__markdown-language-features"
+		}
+	]
+}

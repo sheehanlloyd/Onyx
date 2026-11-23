@@ -27,8 +27,19 @@ differences run in both directions.
 
 **What being local removes.** Onyx has no vendor account, no server-side prompt
 log, no retention policy to read, and no service of its own that your code is
-sent to. It makes no outbound network requests except to model runtime
-endpoints: the ones it discovers on `127.0.0.1` and the ones you configure.
+sent to. Its outbound requests are these and no others: to model runtime
+endpoints (the ones it discovers on `127.0.0.1` and the ones you configure); to
+open-vsx.org when you open the Extensions view, search it or install from it;
+and to api.github.com when you run `Onyx: Check for Updates`. Nothing is sent at
+startup or while the window is idle. That sentence is checked, not assumed:
+`docs/progress/production-readiness.md` has the capture and says what the
+method could not see.
+
+**Extensions are code you install.** They come from Open VSX over HTTPS. This
+build cannot verify an extension's signature (the verifier is not
+redistributable), there is no malicious-extension blocklist, and an extension
+runs with your permissions and can make its own network requests. Nothing in
+Onyx's approval or staging gates applies to an extension's own behaviour.
 
 **What that does and does not establish.** With the default settings, prompts go
 only to a runtime on this machine, and only for models that runtime identifies
