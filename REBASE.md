@@ -50,6 +50,8 @@ own behaviour depends on them.
 | `build/lib/i18n.resources.json` | `vs/workbench/contrib/onyx` entry (alphabetical, after meteredConnection) |
 | `resources/darwin/code.icns` | Replaced with the Onyx app icon (binary asset swap; on conflict take the Onyx side, or regenerate — the icon is a canvas-drawn faceted gem on a dark plate) |
 | `src/vs/workbench/services/themes/common/workbenchThemeService.ts` | Three value changes in `ThemeSettingDefaults`: `COLOR_THEME_DARK` = `'Onyx Dark'`, `COLOR_THEME_HC_DARK` = `'Onyx Dark High Contrast'`, `COLOR_THEME_HC_LIGHT` = `'Onyx Light High Contrast'` (the themes ship from `extensions/theme-onyx/`; extensions cannot override these APPLICATION-scoped defaults) |
+| `src/vs/platform/extensionManagement/node/extensionManagementService.ts` | One value in `downloadExtension`: an unset `extensions.verifySignature` means **off** (upstream: on). The gallery is Open VSX and the build does not ship `@vscode/vsce-sign`, so with the upstream default every install fails with "Signature verification was not executed" (D1). The check that found it: `node test/onyx/run-extension-smoke.mts` |
+| `product.json` | `extensionsGallery` (Open VSX) and `linkProtectionTrustedDomains` (D1). No `updateUrl`: the automatic updater stays off (D3) |
 | `README.md` | Replaced with the Onyx product README (docs-only; on conflict take the Onyx side) |
 | `.github/ISSUE_TEMPLATE/bug_report.md` | **Deleted** — replaced by `onyx_bug_report.yml`. On a modify/delete conflict, keep it deleted |
 | `.github/ISSUE_TEMPLATE/feature_request.md` | **Deleted** — replaced by `onyx_feature_request.yml`. On a modify/delete conflict, keep it deleted |
@@ -122,6 +124,14 @@ one. `src/vs/workbench/contrib/onyx/common/onyxConfiguration.ts` calls
 
 - `chat.titleBar.openInAgentsWindow.enabled: false` and `chat.agentsWindowBanner.enabled: false`
   (B3): the chrome that invites the user into the Agents window, which this product does not open.
+
+- `extensions.autoCheckUpdates: false`, `extensions.autoUpdate: false`,
+  `extensions.ignoreRecommendations: true` and `workbench.enableExperiments: false` (D1, D8):
+  the gallery is asked when the user opens the Extensions view, searches or installs, and not
+  on a timer or at startup. The egress audit (`docs/progress/production-readiness.md`) is the
+  check; a renamed setting shows there as a request to the gallery at idle.
+- `extensions.verifySignature: false` (D1): what the Settings editor shows matches the one-line
+  change in `extensionManagementService.ts` above.
 
 If a merge changes one of those setting ids, the override silently stops
 applying; the symptom is Copilot chrome reappearing on a fresh profile.

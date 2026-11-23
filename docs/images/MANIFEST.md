@@ -29,6 +29,7 @@ missing from this table or a row names a file that does not exist.
 | `onyx-compute.png` | dev | unknown | 2026-08-29 | Compute dashboard |
 | `onyx-control-plane.png` | dev | unknown | 2026-08-28 | Control plane during a review run |
 | `onyx-debug.png` | dev | unknown | 2026-08-30 | Explain This Failure at a breakpoint |
+| `onyx-extensions.png` | packaged (`run-extension-smoke.mts --screenshot`, build of 0a30cc099ba with the signature change of the next commit) | n/a | 2026-11-22 | The supported extension set installed from Open VSX and activated (D1, R-32); also shows the title bar's Experimental Alpha label |
 | `onyx-demo.gif` | dev | unknown (recorded against real local models) | 2026-08-29 | README demo |
 | `onyx-demo.mp4` | dev | unknown (recorded against real local models) | 2026-08-29 | Source recording of the demo |
 | `onyx-icon.png` | dev (generated) | n/a | 2026-08-27 | App icon render |

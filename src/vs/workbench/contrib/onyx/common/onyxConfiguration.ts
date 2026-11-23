@@ -91,6 +91,10 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		'extensions.autoCheckUpdates': false,
 		'extensions.autoUpdate': false,
 		'extensions.ignoreRecommendations': true,
+		// What the Settings editor shows matches what the installer does: this
+		// build cannot verify an extension's signature (see the note in
+		// extensionManagementService.ts). docs/SUPPORT.md says so to the user.
+		'extensions.verifySignature': false,
 		'workbench.enableExperiments': false,
 	},
 }]);
