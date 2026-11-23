@@ -1,0 +1,225 @@
+name: Onyx release
+
+# The release artifact (D2, D4, DEC-08): build the macOS Apple-silicon app,
+# sign every binary with the hardened runtime, notarize and staple the app,
+# build the disk image, sign, notarize and staple that, record the Gatekeeper
+# evidence (R-39), run the packaged smoke on the signed app, and attach the
+# disk image, its SHA-256, the evidence and the smoke report to a DRAFT
+# GitHub Release with notes from docs/release/NOTES-TEMPLATE.md.
+#
+# It runs only when someone dispatches it. It creates no tag: a draft release
+# names the tag it will create, and the tag exists only when the owner
+# publishes the draft (E4).
+#
+# It needs five repository secrets, and fails in its first job, naming the
+# missing ones, when any is absent:
+#   APPLE_DEVELOPER_ID_P12_BASE64   the Developer ID Application certificate and key, exported as .p12, base64
+#   APPLE_DEVELOPER_ID_P12_PASSWORD the password of that .p12
+#   APPLE_NOTARY_KEY_P8_BASE64      the App Store Connect API key (.p8), base64
+#   APPLE_NOTARY_KEY_ID             its key id
+#   APPLE_NOTARY_ISSUER_ID          its issuer id
+# docs/RELEASING.md says how each is made. Nothing here tells a user to bypass
+# Gatekeeper, and an artifact Gatekeeper does not accept is never uploaded.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The version to release, without the leading v (must equal ONYX_VERSION in the source, for example 0.1.0-alpha.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: onyx-release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Check the version and the signing secrets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: The requested version is the one the source builds
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          SOURCE=$(sed -n "s/^export const ONYX_VERSION = '\(.*\)';$/\1/p" src/vs/workbench/contrib/onyx/common/onyxUpdateCheck.ts)
+          echo "source builds: $SOURCE; requested: $REQUESTED"
+          if [ -z "$SOURCE" ] || [ "$SOURCE" != "$REQUESTED" ]; then
+            echo "::error::The requested version ($REQUESTED) is not ONYX_VERSION in the source ($SOURCE). Change one of them."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$REQUESTED" > /dev/null; then
+            echo "::error::Tag v$REQUESTED already exists. A released version is not rebuilt; bump ONYX_VERSION."
+            exit 1
+          fi
+
+      - name: The signing secrets exist
+        env:
+          P12: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+          NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "$P12" ] || missing="$missing APPLE_DEVELOPER_ID_P12_BASE64"
+          [ -n "$P12_PASSWORD" ] || missing="$missing APPLE_DEVELOPER_ID_P12_PASSWORD"
+          [ -n "$NOTARY_KEY" ] || missing="$missing APPLE_NOTARY_KEY_P8_BASE64"
+          [ -n "$NOTARY_KEY_ID" ] || missing="$missing APPLE_NOTARY_KEY_ID"
+          [ -n "$NOTARY_ISSUER" ] || missing="$missing APPLE_NOTARY_ISSUER_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing. A release cannot be signed or notarized without them, and an unsigned build is not published. See docs/RELEASING.md."
+            exit 1
+          fi
+          echo "all five signing secrets are present"
+
+  release:
+    name: Build, sign, notarize and draft the release (macOS, Apple silicon)
+    needs: preflight
+    runs-on: macos-15
+    timeout-minutes: 150
+    permissions:
+      contents: write
+    env:
+      NPM_ARCH: arm64
+      VSCODE_ARCH: arm64
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup pnpm
+        run: |
+          corepack enable pnpm
+          pnpm --version
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          pnpm_config_frozen_lockfile: 'true'
+          GIT_LFS_SKIP_SMUDGE: '1'
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the packaged app
+        run: pnpm run gulp vscode-darwin-arm64-min
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find the built application
+        id: app
+        run: |
+          set -euo pipefail
+          NAME=$(node -p "require('./product.json').nameLong")
+          APP="$(cd .. && pwd)/VSCode-darwin-arm64/$NAME.app"
+          test -d "$APP"
+          echo "path=$APP" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      # A keychain that exists for this job only. The certificate never touches
+      # the runner's login keychain, and the keychain is deleted at the end
+      # whether or not the job succeeded.
+      - name: Import the Developer ID certificate into a temporary keychain
+        id: keychain
+        env:
+          P12: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/onyx-release.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          rm -f "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -1)
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::The .p12 holds no \"Developer ID Application\" identity. An Apple Development or Mac App Distribution certificate cannot sign a direct download."
+            exit 1
+          fi
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+
+      - name: Write the notary key
+        env:
+          NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "$NOTARY_KEY" | base64 --decode > "$RUNNER_TEMP/notary-key.p8"
+          chmod 600 "$RUNNER_TEMP/notary-key.p8"
+
+      - name: Sign, notarize, staple, build the disk image, record the Gatekeeper evidence
+        env:
+          CODESIGN_IDENTITY: ${{ steps.keychain.outputs.identity }}
+          ONYX_NOTARY_KEY: ${{ runner.temp }}/notary-key.p8
+          ONYX_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          ONYX_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: node build/darwin/onyx-release.ts --app "${{ steps.app.outputs.path }}" --out release-out
+
+      # The smoke runs on the application that was signed and stapled: the one
+      # inside the disk image is a copy of it made after stapling.
+      - name: Transpile for the contract check
+        run: pnpm run transpile-client
+
+      - name: Packaged smoke, release mode, on the signed application (must pass)
+        run: node test/onyx/run-packaged-smoke.mts --app "${{ steps.app.outputs.path }}" --mode release --json-out release-out/packaged-smoke-release.json
+
+      - name: Named extension set from Open VSX on the signed application (R-32, must pass)
+        run: node test/onyx/run-extension-smoke.mts --app "${{ steps.app.outputs.path }}" --json-out release-out/extension-smoke.json
+
+      - name: Release notes from the template
+        run: node test/onyx/release/make-release-notes.mts --version "$VERSION" --evidence release-out/gatekeeper-evidence.json --smoke release-out/packaged-smoke-release.json --extensions release-out/extension-smoke.json --out release-out/RELEASE-NOTES.md
+
+      - name: Upload the artifact set (kept whether or not the draft is created)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: onyx-release-${{ inputs.version }}
+          path: release-out/
+          if-no-files-found: warn
+          retention-days: 30
+
+      # Draft, and a pre-release while the version carries a pre-release part.
+      # `--target` records the commit; the tag is created when the owner publishes.
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          PRERELEASE=""
+          case "$VERSION" in *-*) PRERELEASE="--prerelease" ;; esac
+          gh release create "v$VERSION" \
+            --draft $PRERELEASE \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.app.outputs.name }} $VERSION" \
+            --notes-file release-out/RELEASE-NOTES.md \
+            release-out/*.dmg release-out/*.dmg.sha256 release-out/gatekeeper-evidence.json release-out/packaged-smoke-release.json release-out/extension-smoke.json
+
+      - name: Delete the temporary keychain and the notary key
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/onyx-release.keychain-db" || true
+          rm -f "$RUNNER_TEMP/notary-key.p8" "$RUNNER_TEMP/certificate.p12"

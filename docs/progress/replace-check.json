@@ -1,0 +1,48 @@
+{
+	"ranAt": "2026-11-23T00:13:29.852Z",
+	"original": "0a30cc099bae537e4c2a938b3781c95f17947edf",
+	"replacement": "0a30cc099bae537e4c2a938b3781c95f17947edf",
+	"sameBuild": true,
+	"preservedFiles": 8,
+	"runJournals": 6,
+	"checks": [
+		{
+			"name": "an agent run in the installed application left settings and a journal",
+			"ok": true,
+			"detail": "kept /var/folders/6v/wp8qqsf12x52mmd1d15q45dc0000gn/T/onyx-packaged-ZZhGnP ⏎  ⏎ release mode: all 26 checks passed"
+		},
+		{
+			"name": "the data to preserve exists: a settings file and at least one run journal",
+			"ok": true,
+			"detail": "8 files, 6 run journals"
+		},
+		{
+			"name": "update: the replacement application opens a window on the existing data",
+			"ok": true
+		},
+		{
+			"name": "update: the settings file and every journal file are byte for byte what they were",
+			"ok": true,
+			"detail": ""
+		},
+		{
+			"name": "rollback: the earlier application opens a window on the same data",
+			"ok": true
+		},
+		{
+			"name": "rollback: the settings file and every journal file are byte for byte what they were",
+			"ok": true,
+			"detail": ""
+		},
+		{
+			"name": "uninstall: deleting the application leaves settings and journals where they were",
+			"ok": true,
+			"detail": ""
+		},
+		{
+			"name": "uninstall: removing the data folders removes the data and leaves the workspace alone",
+			"ok": true
+		}
+	],
+	"passed": true
+}

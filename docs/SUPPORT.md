@@ -13,12 +13,56 @@ Two different things live in this file, and they are kept apart on purpose:
 | Dimension | Supported in the alpha | Best effort, documented as untested |
 |---|---|---|
 | OS and hardware | macOS 14 or later, Apple silicon, 16 GB or more | Intel Macs, 8 GB |
-| Runtime | Ollama, one pinned version (recorded here before the candidate is cut) | LM Studio, llama.cpp server, vLLM, any other OpenAI-compatible server |
-| Models | `qwen2.5-coder:7b` for the agent and `qwen2.5-coder:1.5b` for autocomplete, pinned by digest before the candidate | Everything else in the catalog |
-| Workflow | Read → propose → review in a diff editor → accept or reject per hunk → verify; inline edit; commit message; review; measure models for this repository | Tournament, architecture map, speculative measurement, idle review, constrained anchors (until L14 decides) |
+| Runtime | Ollama 0.33.0 | LM Studio, llama.cpp server, vLLM, any other OpenAI-compatible server |
+| Models | `qwen2.5-coder:7b` for the agent and `qwen2.5-coder:1.5b` for autocomplete, at the digests below | Everything else in the catalog |
+| Workflow | Read → propose → review in a diff editor → accept or reject per hunk → verify; inline edit; commit message; review; measure models for this repository | Tournament, architecture map, speculative measurement, idle review, constrained anchors (opt-in, by L14's decision) |
 | Extensions | A named set installed from Open VSX and smoke-tested (D1) | Anything else on Open VSX |
 
-Pinned runtime version and model digests: **not yet recorded** (Module 5, D4).
+Pinned runtime: Ollama 0.33.0. Pinned model digests, as the runtime reports them
+(`docs/research/results/2026-11-22-datasheets/`):
+
+| Model | Digest |
+|---|---|
+| `qwen2.5-coder:7b` | `dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364` |
+| `qwen2.5-coder:1.5b` | `d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668` |
+
+"Supported" means tested, not recommended without reservation. Module 4 measured both pinned
+models on real tasks of this repository under the product's own configuration: neither proposed
+an edit in 320 agent runs (`docs/progress/L13.md`). The harness around them is what the alpha's
+tests cover. Whether the product should keep recommending these two models for agent work is an
+open question for the owner (`docs/progress/STATE.md`).
+
+## Extensions from Open VSX (D1)
+
+The gallery is open-vsx.org. The supported set, installed through the packaged application and
+activated on 2026-11-22 (`node test/onyx/run-extension-smoke.mts`, R-32; result in
+`docs/progress/extension-smoke.json`, screenshot `docs/images/onyx-extensions.png`):
+
+| Extension | Open VSX id | Version served that day | Installed | Activated |
+|---|---|---|---|---|
+| Python | `ms-python.python` | 2026.10.0 | yes | yes |
+| ESLint | `dbaeumer.vscode-eslint` | 3.0.34 | yes | yes |
+| Prettier | `esbenp.prettier-vscode` | 12.4.0 | yes | yes |
+| GitLens | `eamodio.gitlens` | 19.6.1 | yes | yes |
+
+Python brings two dependencies with it, `ms-python.debugpy` 2026.6.0 and
+`ms-python.vscode-python-envs` 1.44.0. Versions are whatever the gallery serves; nothing is pinned.
+
+Failure recorded: the first attempt failed for all four with "Signature verification was not
+executed". Upstream verifies an extension's signature with a module that is licensed for
+Microsoft's products and is not in this build. **Onyx therefore does not verify extension
+signatures**: `extensions.verifySignature` is off by default and cannot usefully be turned on.
+A package is fetched over HTTPS from open-vsx.org and nothing else about it is checked. Install
+extensions you would install anyway.
+
+What the gallery is asked, and when: when you open the Extensions view, search, or install. Not
+at startup and not on a timer: `extensions.autoCheckUpdates`, `extensions.autoUpdate` and
+recommendations are off by default (`docs/progress/production-readiness.md` has the capture). There
+is no malicious-extension blocklist: the gallery entry has no control URL, because the only
+published one is served from a third host and would be fetched in the background.
+
+Activation only was checked. Whether each extension's features work (a Python debug session, an
+ESLint fix, a Prettier format, GitLens blame) was not tested.
 
 ## Target alpha contract: tools
 
@@ -890,7 +934,7 @@ tested. The module gate runner reads this table (`| item | state |`).
 | C7 broader index coverage | included | 2 | Not needed: included. Source folders are indexed first, `files.exclude`, `search.exclude` and the root `.gitignore` are honoured, the cap is 20,000 files and 256 MB after measurement, and coverage is reported (`OnyxWorkspaceIndexer`, `OnyxIndexOptions`; "The content index: what it covers") |
 | C9 bounded line diff | included | 3 | Not needed: included. The line diff is a bounded Myers search in `common/onyxInlineEdit.ts` (R-29, measured on the reference machine and in plain Node). A size guard stays, at 20,000 lines a side and 1 MiB, and its test (R-38 as it stands with C9) with it |
 | C10 benign repeated-dot names | included | 3 | Not needed: included. A `..` segment is refused and a name that contains two dots is not, on the read side and the write side (R-30, every subcase). Traversal, absolute paths and symbolic links out of the workspace are refused on both sides whatever this row says |
-| D3 Check for Updates command | planned | 5 | Manual replacement, rollback and uninstall instructions always ship |
+| D3 Check for Updates command | included | 5 | Not needed: included. `Onyx: Check for Updates` reads the project's public release list once, when invoked, and reports a newer release, no newer release, or that it could not tell; it downloads and installs nothing (`OnyxUpdateCheck`: newer, not newer, no releases, network failure, rate limit, unreadable answer, a link outside the repository). No automatic updater: `product.json` has no `updateUrl`. Manual replacement, rollback and uninstall are in `docs/UPDATING.md` and are exercised by `test/onyx/run-replace-check.mts` |
 | L7 constrained anchors | included | 3 | Not needed: included as an **experimental** protocol, off by default and reachable only as a lab arm of the harness configuration (R-47). L14 decided, in Module 4, that it stays opt-in ("Decisions recorded here", below); the fallback is what ships: search and replace |
 | L10 executable oracle | included | 4 | Not needed: included. The sandbox probe passes on the reference machine ("The private benchmark", below, has its output) and R-50's sandbox cases pass (`OnyxOracle`, `OnyxLabTasks`). Where the probe fails, or without the user's consent, scoring is tier 1 only and the result says so |
 | L16 confidence badge | included | 4 | The study is done and its result is that no badge ships: H-8 is inconclusive (`docs/research/results/2026-11-22-confidence/`: 120 labelled hunks, 6 of them correct, where the registration needs 20 of each class). The review pane shows no confidence for a hunk and makes no claim about one. The rule that decides it is in the product (`common/onyxCalibration.ts`, R-55): a line of confidence is rendered only for an estimator the study supported and found calibrated, and none is named |
