@@ -1,0 +1,76 @@
+{
+	"version": 1,
+	"name": "2026-11-22-lmstudio-context",
+	"createdAt": "2026-11-23T00:10:03.890Z",
+	"models": [
+		{
+			"identifier": "lmstudio:qwen2.5-coder-7b-instruct",
+			"digest": "sha256:60e05f2100071479f596b964f89f510f057ce397ea22f2833a0cfe029bfc2463",
+			"runtime": {
+				"name": "lmstudio",
+				"version": "0.4.23"
+			},
+			"context": {
+				"requestedTokens": 16384,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": "load-time"
+			}
+		},
+		{
+			"identifier": "lmstudio:qwen2.5-coder-1.5b-instruct",
+			"digest": "sha256:29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104",
+			"runtime": {
+				"name": "lmstudio",
+				"version": "0.4.23"
+			},
+			"context": {
+				"requestedTokens": 16384,
+				"reportedTokens": 16384,
+				"verifiedTokens": 16384,
+				"mechanism": "load-time"
+			}
+		}
+	],
+	"seeds": [
+		1000,
+		1001,
+		1002
+	],
+	"sampling": {
+		"temperature": 0.2,
+		"maxTokens": 200,
+		"responseFormat": false
+	},
+	"harnessConfigurations": [
+		{
+			"name": "none-probes-talk-to-the-runtime-directly",
+			"hash": "00000000"
+		}
+	],
+	"taskSet": {
+		"name": "datasheet probe suite, version 2 (the digest is of onyxDatasheetProbes.ts)",
+		"hash": "5e45e050",
+		"count": 84
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"osVersion": "macOS 26.5.1",
+		"nodeVersion": "24.22.3"
+	},
+	"regenerate": [
+		{
+			"output": "mechanisms-<model>.json",
+			"command": "node test/onyx/lab/probe-context-mechanisms-lmstudio.mts --base-url <LM Studio base URL> --model <key> --out docs/research/results/2026-11-22-lmstudio-context/mechanisms-<key>.json"
+		},
+		{
+			"output": "summary.json",
+			"command": "node test/onyx/lab/measure-models.mts --base-url <LM Studio base URL> --model qwen2.5-coder-7b-instruct --model qwen2.5-coder-1.5b-instruct --digest qwen2.5-coder-7b-instruct=<sha256 of its GGUF> --digest qwen2.5-coder-1.5b-instruct=<sha256> --runtime-version 0.4.23 --out <dir>, once with nothing loaded and once after loading both at 16,384 tokens with POST /api/v1/models/load; summary.json here holds both"
+		}
+	],
+	"notes": "B15 on LM Studio 0.4.23, on a private loopback port. LM Studio reports no digest; each model is named by the SHA-256 of the GGUF file it loads, which is the same file as Ollama's weight layer. The models context in this manifest is the 16,384-token run: requested at load time through the REST endpoint (the measurement wrapper did that, not measure-models), reported 16,384, verified by the canary. At the on-demand default LM Studio reports nothing before the model is loaded, and the canary found the cut between 6,989 and 8,736 tokens (it loads at 8,192). Speed figures in the datasheets were taken on a heavily loaded machine (load average 10 to 32, another session building) and are not throughput measurements. Models were loaded and unloaded; no setting was changed and nothing was downloaded."
+}

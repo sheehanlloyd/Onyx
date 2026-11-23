@@ -597,11 +597,14 @@ async function discoverTargets(): Promise<IModelTarget[]> {
 		// which entries are chat models and which are embeddings.
 		const native = await getJson(`${LMSTUDIO_ROOT}/api/v0/models`, 4000) as { data?: { id: string; type?: string }[] };
 		const chatModels = (native.data ?? []).filter(model => model.type === 'llm');
-		// LM Studio's API reports neither its own version nor a digest of a model's weights.
-		provenance.runtimes.push({ name: 'lmstudio', version: null });
+		// LM Studio's API reports neither its own version nor a digest of a model's weights. The digest is taken
+		// of the weights file itself, which `lms ls --json` names; the version is the one the app last recorded.
+		const files = lmStudioModelFiles();
+		provenance.runtimes.push({ name: 'lmstudio', version: lmStudioVersion() });
 		for (const model of chatModels) {
 			targets.push({ runtime: 'lmstudio', baseUrl: `${LMSTUDIO_ROOT}/v1`, id: model.id, key: `${model.id} (LM Studio)` });
-			provenance.models.push({ key: `${model.id} (LM Studio)`, runtime: 'lmstudio', id: model.id, digest: null });
+			const file = files.get(model.id);
+			provenance.models.push({ key: `${model.id} (LM Studio)`, runtime: 'lmstudio', id: model.id, digest: file ? await sha256OfFile(file) : null });
 		}
 		const embeddings = (native.data ?? []).length - chatModels.length;
 		if (embeddings > 0 && !asJson) {
@@ -760,7 +763,7 @@ async function unloadModel(target: IModelTarget): Promise<boolean> {
 		}
 	}
 	// LM Studio has no unload over HTTP; only its CLI can evict a model.
-	for (const binary of ['lms', '/Applications/LM Studio.app/Contents/Resources/app/.webpack/lms']) {
+	for (const binary of ['lms', path.join(os.homedir(), '.lmstudio', 'bin', 'lms'), '/Applications/LM Studio.app/Contents/Resources/app/.webpack/lms']) {
 		try {
 			execFileSync(binary, ['unload', target.id], { stdio: 'ignore', timeout: 30_000 });
 			// LM Studio tears the inference engine down asynchronously; a
@@ -1111,6 +1114,47 @@ async function measureRepoTasks(target: IModelTarget, fixtures: readonly IBenchF
 }
 
 /** The `lms` CLI, wherever LM Studio put it — the only way to reload with a draft. */
+/** The weights file of each model LM Studio lists, by its key, from `lms ls --json`. Empty when `lms` is not there. */
+function lmStudioModelFiles(): Map<string, string> {
+	const binary = lmsBinary();
+	const found = new Map<string, string>();
+	if (!binary) {
+		return found;
+	}
+	try {
+		const listed = JSON.parse(execFileSync(binary, ['ls', '--json'], { encoding: 'utf8', timeout: 30_000 })) as { modelKey?: string; path?: string }[];
+		const root = path.join(os.homedir(), '.lmstudio', 'models');
+		for (const entry of listed) {
+			const file = entry.path ? path.join(root, entry.path) : undefined;
+			if (entry.modelKey && file && fs.existsSync(file)) {
+				found.set(entry.modelKey, file);
+			}
+		}
+	} catch {
+		// no list, no digests: they stay null and the report says nothing it does not know
+	}
+	return found;
+}
+
+async function sha256OfFile(file: string): Promise<string> {
+	const { createHash } = await import('node:crypto');
+	const hash = createHash('sha256');
+	for await (const chunk of fs.createReadStream(file)) {
+		hash.update(chunk as Buffer);
+	}
+	return hash.digest('hex');
+}
+
+/** The version LM Studio last recorded for itself; null when it is not there to read. */
+function lmStudioVersion(): string | null {
+	try {
+		const recorded = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.lmstudio', '.internal', 'historical-version-info.json'), 'utf8')) as { lastRecordedAppVersion?: unknown };
+		return typeof recorded.lastRecordedAppVersion === 'string' ? recorded.lastRecordedAppVersion : null;
+	} catch {
+		return null;
+	}
+}
+
 function lmsBinary(): string | undefined {
 	for (const binary of ['lms', '/Applications/LM Studio.app/Contents/Resources/app/.webpack/lms']) {
 		try {

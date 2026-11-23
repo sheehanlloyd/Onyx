@@ -1,0 +1,137 @@
+{
+	"what": "B15, step 1, for LM Studio: each way of asking for a context of 12288 tokens, and what the server reports it loaded afterwards.",
+	"model": "qwen2.5-coder-1.5b-instruct",
+	"asked": 12288,
+	"runtime": {
+		"name": "lmstudio",
+		"version": null
+	},
+	"trainedContext": 32768,
+	"defaultContext": 8192,
+	"ways": [
+		{
+			"way": "just-in-time load, no request",
+			"how": "a plain /v1/chat/completions request for a model that is not loaded",
+			"status": 200,
+			"readBack": {
+				"native": 8192,
+				"rest": 8192,
+				"instances": 1
+			},
+			"honoured": false
+		},
+		{
+			"way": "per request (context_length), cold",
+			"how": "/v1/chat/completions with {\"context_length\":12288}, model not loaded",
+			"status": 200,
+			"readBack": {
+				"native": 8192,
+				"rest": 8192,
+				"instances": 1
+			},
+			"honoured": false
+		},
+		{
+			"way": "per request (context_length), loaded",
+			"how": "the same request again, model loaded",
+			"status": 200,
+			"readBack": {
+				"native": 8192,
+				"rest": 8192,
+				"instances": 1
+			},
+			"honoured": false
+		},
+		{
+			"way": "per request (num_ctx), cold",
+			"how": "/v1/chat/completions with {\"num_ctx\":12288}, model not loaded",
+			"status": 200,
+			"readBack": {
+				"native": 8192,
+				"rest": 8192,
+				"instances": 1
+			},
+			"honoured": false
+		},
+		{
+			"way": "per request (num_ctx), loaded",
+			"how": "the same request again, model loaded",
+			"status": 200,
+			"readBack": {
+				"native": 8192,
+				"rest": 8192,
+				"instances": 1
+			},
+			"honoured": false
+		},
+		{
+			"way": "per request (options.num_ctx), cold",
+			"how": "/v1/chat/completions with {\"options\":{\"num_ctx\":12288}}, model not loaded",
+			"status": 200,
+			"readBack": {
+				"native": 8192,
+				"rest": 8192,
+				"instances": 1
+			},
+			"honoured": false
+		},
+		{
+			"way": "per request (options.num_ctx), loaded",
+			"how": "the same request again, model loaded",
+			"status": 200,
+			"readBack": {
+				"native": 8192,
+				"rest": 8192,
+				"instances": 1
+			},
+			"honoured": false
+		},
+		{
+			"way": "load time, `lms load --context-length`",
+			"how": "lms load qwen2.5-coder-1.5b-instruct --context-length 12288 --yes",
+			"status": "exit 0",
+			"readBack": {
+				"native": 12288,
+				"rest": 12288,
+				"instances": 1
+			},
+			"honoured": true
+		},
+		{
+			"way": "  then a plain request",
+			"how": "a plain /v1/chat/completions request while that instance is loaded",
+			"status": 200,
+			"readBack": {
+				"native": 12288,
+				"rest": 12288,
+				"instances": 1
+			},
+			"honoured": true,
+			"note": "instances counts loaded copies of the model"
+		},
+		{
+			"way": "load time, REST /api/v1/models/load",
+			"how": "POST /api/v1/models/load {\"model\",\"context_length\":12288}",
+			"status": 200,
+			"readBack": {
+				"native": 12288,
+				"rest": 12288,
+				"instances": 1
+			},
+			"honoured": true
+		}
+	],
+	"notTried": [
+		{
+			"way": "per-model default load settings",
+			"why": "they are the owner's settings in LM Studio, kept in its own configuration; changing them changes every later load of the model, by any program. Not a way Onyx should use, and not tried"
+		}
+	],
+	"loadedBefore": 0,
+	"loadedAfter": 0,
+	"machine": {
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"loadAverage": 15.37
+	}
+}
