@@ -211,7 +211,7 @@ async function main(): Promise<number> {
 		await unload(model);
 		const cold = await generate(model);
 		const warm = [await generate(model), await generate(model), await generate(model)];
-		const residentMb = megabytes(Math.max(0, ...processes(command => /ollama.*runner|ollama_llama_server/.test(command)).map(entry => entry.rssKb)));
+		const residentMb = megabytes(Math.max(0, ...processes(command => /ollama.*(?:runner|llama-server)|ollama_llama_server/.test(command)).map(entry => entry.rssKb)));
 		models[model] = {
 			digest,
 			coldFirstTokenMs: cold.firstTokenMs,
@@ -282,6 +282,7 @@ async function main(): Promise<number> {
 		pw('run-code', `--filename=${path.join(repoRoot, '.agents', 'skills', 'launch', 'playwrightScripts', 'focus-chat-input.ts')}`);
 		execFileSync(path.join(repoRoot, '.agents', 'skills', 'launch', 'scripts', 'monaco-paste.sh'), ['--session', session, 'Read src/math.ts and add a multiplyNumbers function next to addNumbers.'], { cwd: repoRoot, encoding: 'utf8' });
 		pw('press', 'Enter');
+		const baselineMb = megabytes(processes(mine).reduce((sum, entry) => sum + entry.rssKb, 0));
 		const began = performance.now();
 		let peakTotalKb = 0;
 		let peakRendererKb = 0;
@@ -301,7 +302,7 @@ async function main(): Promise<number> {
 			const own = processes(mine);
 			peakTotalKb = Math.max(peakTotalKb, own.reduce((sum, entry) => sum + entry.rssKb, 0));
 			peakRendererKb = Math.max(peakRendererKb, ...own.filter(entry => entry.command.includes('--type=renderer')).map(entry => entry.rssKb));
-			peakModelKb = Math.max(peakModelKb, ...processes(command => /ollama.*runner|ollama_llama_server/.test(command)).map(entry => entry.rssKb));
+			peakModelKb = Math.max(peakModelKb, ...processes(command => /ollama.*(?:runner|llama-server)|ollama_llama_server/.test(command)).map(entry => entry.rssKb));
 			const index = journalIndex();
 			const runs = Array.isArray(index) ? index : index?.runs ?? [];
 			if (runs.length) {
@@ -313,7 +314,16 @@ async function main(): Promise<number> {
 			await sleep(1000);
 		}
 		const staged = await evaluate('document.querySelectorAll(".onyx-change-file-path").length');
-		run = { prompt: 'Read src/math.ts and add a multiplyNumbers function next to addNumbers.', seconds: Math.round((performance.now() - began) / 1000), endedAs: status, filesWithAProposal: staged ?? 'unknown', applicationPeakMb: megabytes(peakTotalKb), rendererPeakMb: megabytes(peakRendererKb), runtimeModelProcessPeakMb: megabytes(peakModelKb) };
+		// The model the router chose for the run, from the run's own journal.
+		const storage = path.join(profile, 'user-data', 'User', 'workspaceStorage');
+		let model = 'unknown';
+		for (const id of fs.existsSync(storage) ? fs.readdirSync(storage) : []) {
+			const runs = path.join(storage, id, 'onyx', 'journal', 'runs');
+			for (const file of fs.existsSync(runs) ? fs.readdirSync(runs) : []) {
+				model = /"model(?:Key|Id)?"\s*:\s*"(?<model>[^"]+)"/.exec(fs.readFileSync(path.join(runs, file), 'utf8'))?.groups?.model ?? model;
+			}
+		}
+		run = { prompt: 'Read src/math.ts and add a multiplyNumbers function next to addNumbers.', model, applicationMbBefore: baselineMb, seconds: Math.round((performance.now() - began) / 1000), endedAs: status, filesWithAProposal: staged ?? 'unknown', applicationPeakMb: megabytes(peakTotalKb), rendererPeakMb: megabytes(peakRendererKb), runtimeModelProcessPeakMb: megabytes(peakModelKb) };
 		console.log(`  a run: ${JSON.stringify(run)}`);
 		try {
 			pw('close');

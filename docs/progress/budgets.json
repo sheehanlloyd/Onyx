@@ -1,0 +1,153 @@
+{
+	"ranAt": "2026-11-24T17:05:36.215Z",
+	"product": {
+		"nameShort": "Onyx",
+		"commit": "4eb52add73f4178dd2994f3a8b719095b5956287"
+	},
+	"machine": {
+		"model": "Mac16,8",
+		"chip": "Apple M4 Pro",
+		"memoryGb": 24,
+		"macOS": "26.5.1"
+	},
+	"runtime": {
+		"address": "a private Ollama on a loopback port",
+		"version": "0.33.0"
+	},
+	"conditions": {
+		"before": {
+			"onMains": true,
+			"adapterWatts": 94,
+			"batteryPercent": 100,
+			"loadAverage": [
+				3.63,
+				5.84,
+				5.09
+			],
+			"swap": "total = 5120.00M  used = 4191.69M  free = 928.31M  (encrypted)"
+		},
+		"after": {
+			"onMains": true,
+			"adapterWatts": 94,
+			"batteryPercent": 100,
+			"loadAverage": [
+				4.61,
+				4.12,
+				4.46
+			],
+			"swap": "total = 7168.00M  used = 6296.25M  free = 871.75M  (encrypted)"
+		},
+		"busy": false,
+		"otherApplicationsOpen": "yes: the owner's applications were not closed; the load average above is what they cost"
+	},
+	"models": {
+		"qwen2.5-coder:7b": {
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"coldFirstTokenMs": 2729,
+			"coldLoadMs": 2572,
+			"warmFirstTokenMs": {
+				"median": 23,
+				"best": 23,
+				"rounds": [
+					24,
+					23,
+					23
+				]
+			},
+			"tokensPerSecond": {
+				"median": 51.1,
+				"best": 51.2,
+				"rounds": [
+					51.1,
+					51.1,
+					51.2
+				]
+			},
+			"tokensGenerated": [
+				84,
+				84,
+				84
+			],
+			"runtimeModelProcessMb": 5020
+		},
+		"qwen2.5-coder:1.5b": {
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"coldFirstTokenMs": 837,
+			"coldLoadMs": 793,
+			"warmFirstTokenMs": {
+				"median": 9,
+				"best": 8,
+				"rounds": [
+					10,
+					9,
+					8
+				]
+			},
+			"tokensPerSecond": {
+				"median": 168.7,
+				"best": 168.8,
+				"rounds": [
+					168.2,
+					168.7,
+					168.8
+				]
+			},
+			"tokensGenerated": [
+				133,
+				133,
+				133
+			],
+			"runtimeModelProcessMb": 1482
+		}
+	},
+	"coldStartMs": {
+		"runs": [
+			1508,
+			969,
+			959,
+			1065,
+			1086
+		],
+		"median": 1065,
+		"min": 959,
+		"max": 1508,
+		"note": "each on a fresh profile; the application's files were already in the disk cache, so this is not a start after a reboot"
+	},
+	"idle": {
+		"seconds": 120,
+		"cpuPercentOfOneCore": {
+			"mean": 5,
+			"max": 118.1
+		},
+		"allProcessesMb": {
+			"median": 1372.5,
+			"max": 1373
+		},
+		"rendererMb": {
+			"median": 635,
+			"max": 635
+		},
+		"processes": 8
+	},
+	"agentRun": {
+		"prompt": "Read src/math.ts and add a multiplyNumbers function next to addNumbers.",
+		"model": "onyx:127.0.0.1:11500/qwen2.5-coder:7b",
+		"applicationMbBefore": 654,
+		"seconds": 8,
+		"endedAs": "completed",
+		"filesWithAProposal": 0,
+		"applicationPeakMb": 770,
+		"rendererPeakMb": 311,
+		"runtimeModelProcessPeakMb": 5562
+	},
+	"passed": true,
+	"sleepCheck": {
+		"window": [
+			"2026-11-24T16:59:19Z",
+			"2026-11-24T17:05:36Z"
+		],
+		"method": "pmset -g log",
+		"result": "none in the window; the last wake before it was 16:56:35Z"
+	},
+	"caveat": "Resident memory (RSS) of the application's processes, summed; it moved from 1,373 MB at idle to 654 MB seconds later, before the agent run, with no process count change recorded. Read the memory figures as a range on this machine, not a bound."
+}
