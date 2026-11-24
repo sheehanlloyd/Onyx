@@ -64,6 +64,22 @@ published one is served from a third host and would be fetched in the background
 Activation only was checked. Whether each extension's features work (a Python debug session, an
 ESLint fix, a Prettier format, GitLens blame) was not tested.
 
+## Measured budgets (D8)
+
+Measurements on the reference machine (Apple M4 Pro, 24 GB, macOS 26.5.1), on the packaged build of
+`4eb52add73f`, 2026-11-24, on mains, with the owner's other applications open. They are what happened
+there, not promises; on another Mac they will differ. Source and method:
+`docs/progress/production-readiness.md`, raw: `docs/progress/budgets.json`.
+
+| | Measured |
+|---|---|
+| Start to a usable window | median 1,065 ms (5 starts, 959 to 1,508) |
+| Idle CPU, all processes | mean 5% of one core over two minutes |
+| Idle memory, all processes (resident) | 650 to 1,370 MB |
+| `qwen2.5-coder:7b`: first token cold, tokens a second | 2,729 ms (most of it loading the model), 51.1 |
+| `qwen2.5-coder:1.5b`: first token cold, tokens a second | 837 ms, 168.7 |
+| Model memory in the runtime | 7B about 5.0 GB, 1.5B about 1.5 GB |
+
 ## Target alpha contract: tools
 
 The agent's tool set in a supported edit-capable run (B1, B3, DEC-03):

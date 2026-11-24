@@ -1,11 +1,31 @@
 # Onyx plan state
-Plan version: v4.2 in the owner's checkout since 2026-11-21 (the addition is to Module 5's D7). Module 3 was implemented from v4.1, and its chapter is the same in both.
-Current module: 4      Status: gate passed (2026-11-22, 87 checks of 87, on d88beede49f); the draft pull request is marked ready and waits for the owner to merge it. Module 3: complete; gate passed on d6e161b50cf (2026-11-22, 68 checks of 68), merged into `main` as cc0916dc2a1 (sheehanlloyd/Onyx#4), push-to-main CI run 44992119167 green. Module 2: complete; gate passed on 719cfd5ba4d (2026-11-21), merged into `main` as 7fda8b457b5 (sheehanlloyd/Onyx#3), push-to-main CI run 44941090686 green.
-Revision: branch `module-4`, cut from `main` at cc0916dc2a1; one draft pull request into `main`
-Isolated checkout: branch `module-3` in a work clone that was moved out of the cloud-synchronised Desktop folder on 2026-11-21 into a plain developer folder under the same account (clone directory `onyx-work`; packaged builds land beside it); the four audit documents are excluded there via `.git/info/exclude` and never committed
-Pre-registration commit: 5f98a0ca2c7 (adds `docs/research/PREREGISTRATION.md`; merged as efbd077fd53; an ancestor of this revision and of `main`)
-Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc. Until 2026-11-20 the base was 36d38757a15 (August 2026)
-Toolchain: Node 24.22.1 pinned in `.nvmrc` (CI ran 24.22.1; this machine ran 24.22.3, a newer 24.x, which the preinstall check accepts); pnpm 12.16.0 from corepack, pinned by `packageManager`; lint is oxlint running the `eslint.config.js` rules
+Plan version: v4.2 in the owner's checkout (unchanged since 2026-11-22). Module 5 was implemented from it.
+Current module: 5      Status: **everything an agent can do is done; the gate is blocked on the owner by design** (below). Modules 1 to 4: complete; Module 4 merged as 78718eb281f (sheehanlloyd/Onyx#5).
+Revision: branch `module-5`, cut from `main` at 78718eb281f, `main` merged in again at d4b97cab187 (sheehanlloyd/Onyx#7, LM Studio measurements); one pull request into `main`, sheehanlloyd/Onyx#6
+Isolated checkout: the work clone `onyx-work` in a plain developer folder; packaged builds beside it; the four private planning documents excluded there via `.git/info/exclude` and never committed
+Pre-registration commit: 5f98a0ca2c7 (an ancestor of this revision and of `main`)
+Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc
+Toolchain: Node 24.22.1 pinned in `.nvmrc` (this machine ran 24.22.3); pnpm 12.16.0 from corepack; lint is oxlint running the `eslint.config.js` rules
+
+## Waiting on the owner (in this order)
+
+1. **Pick the product name.** `docs/naming/README.md`: 16 candidates researched on 2026-11-22, four survive (dubitant, lydstone, tentamen, stetit), none of 4 or 5 letters. Preliminary research, not legal clearance; trademark registers could not be queried. Keeping "Onyx" is a valid answer and makes D7 not applicable. Record it in `docs/progress/owner-decisions.json`.
+2. **Pick the logo direction.** `docs/brand/README.md`: three original directions (A Hunk, B Gauge, C Split), with renders at 16 to 1024 px and a written similarity check. Nothing is wired in. Record it in `owner-decisions.json`. Then the rename and the icon swap follow `docs/naming/RENAME-PROCEDURE.md` and `docs/brand/README.md`, before the signed candidate is built.
+3. **Answer the pinned-model question.** Should the product keep recommending `qwen2.5-coder:7b` and `:1.5b` for agent work? Under the product's own configuration neither got an edit as far as staging in 320 agent runs (in 18 the edit call was rejected), and on 2026-11-24 the packaged build's 7B ended an agent request in 8 to 10 s with no proposal and failed an inline edit. The product's own model library stars the 14B and a 20B model for a 24 GB Mac. Record it in `owner-decisions.json`.
+4. **Decide on the inherited dependency advisories** (`docs/progress/production-readiness.md`): high-severity advisories in shipped upstream packages (undici, including a TLS certificate-validation advisory; zod; follow-redirects; image-size; markdown-it; msal-node). Move to a newer upstream release, override versions, or accept them in writing (DEC-05). Until then "zero open P1" is not claimed.
+5. **Apple Developer enrolment and the signing secrets.** Enrol; create a Developer ID Application certificate and an App Store Connect API key; store the five repository secrets named in `docs/RELEASING.md`; dispatch "Onyx release" once; commit its `gatekeeper-evidence.json` as `docs/progress/gatekeeper-evidence.json`. R-39 cannot pass before this. Expect the first signed dispatch to need a fix: that path has never run.
+6. **Screenshots.** Re-capture the eight README images still from August 2026 and record the 15-second GIF, on the signed release candidate (`docs/images/MANIFEST.md` lists them).
+7. **The clean-install run.** Carry out `docs/RUNBOOK-clean-install.md` on the signed candidate with a fresh macOS user account and commit the record.
+8. **The pilot.** Recruit and run it with the kit in `docs/pilot/` (draft recruitment text included; nobody was contacted); scorecards from three machines; then E2 fixes what it finds.
+9. **Approve the public wording** (DEC-09): the README, `docs/research/REPORT.md` and `docs/launch/`. No novelty wording is used anywhere. Decide whether the positioning sentence "treats the model as an untrusted, measurable component" stays before the Measurement gate's three-machine scorecards exist. A VoiceOver pass by a person would also belong here.
+10. **Repository description and topics**, naming the research artifacts.
+11. **The rename itself**: the repository rename (redirects), the domain and the organisation, if a new name was picked.
+12. **Tag and publish** `v0.1.0-alpha.1` by publishing the draft release, last, when every box of Section 12 is checked. Then post the launch drafts.
+
+Also for the owner, not blocking: review and merge sheehanlloyd/Onyx#6. The nightly assurance workflow was dispatched from `main` once on 2026-11-22 as Module 4 asked: run 45083489213, green.
+
+## Module 5
+MODULE5_SECTION
 
 ## Module 4
 Items done:
