@@ -1,0 +1,120 @@
+{
+	"generatedBy": "node test/onyx/lab/make-report.mts",
+	"taskSet": {
+		"directory": "docs/research/results/2026-11-22-task-set",
+		"name": "this repository's history, held out for the three installed models",
+		"hash": "fefa777b2d60e7fa",
+		"tasks": 120,
+		"readBackFrom": "cc0916dc2a19f4397766c1b915de8ad335c30d6a",
+		"tasksFileSha256": "37e7a840e959421b1662ac709a624408f28f854818da56b8f80ca412ee6558fe",
+		"perTaskHashes": "docs/research/results/2026-11-22-task-set/trace-digests.json",
+		"check": "node test/onyx/lab/describe-task-set.mts docs/research/results/2026-11-22-task-set"
+	},
+	"subsetsUsedByCampaigns": [
+		{
+			"campaign": "2026-11-22-anchors",
+			"name": "every third task of this repository's task set (2026-11-22-task-set, hash fefa777b2d60e7fa): 40 of 120",
+			"hash": "b62b7b60d3bf7a38",
+			"count": 40,
+			"tasksFileSha256": "2677333dd2248c308a7e923a4d8fdf2757b27c2373b8b06b7bd61f04e191c14b"
+		},
+		{
+			"campaign": "2026-11-22-anchors-2",
+			"name": "every third task of this repository's task set (2026-11-22-task-set, hash fefa777b2d60e7fa): 40 of 120",
+			"hash": "b62b7b60d3bf7a38",
+			"count": 40,
+			"tasksFileSha256": "2677333dd2248c308a7e923a4d8fdf2757b27c2373b8b06b7bd61f04e191c14b"
+		},
+		{
+			"campaign": "2026-11-22-attribution",
+			"name": "every third task of this repository's task set (2026-11-22-task-set, hash fefa777b2d60e7fa): 40 of 120",
+			"hash": "b62b7b60d3bf7a38",
+			"count": 40,
+			"tasksFileSha256": "2677333dd2248c308a7e923a4d8fdf2757b27c2373b8b06b7bd61f04e191c14b"
+		},
+		{
+			"campaign": "2026-11-22-confidence",
+			"name": "every second task of this repository's task set (2026-11-22-task-set): 60 of 120",
+			"hash": "95f355fc8000cb31",
+			"count": 60,
+			"tasksFileSha256": "45a23502d530a9d8630b3e2affadcf13253cef9efc2729c5e11969893e542591"
+		},
+		{
+			"campaign": "2026-11-22-determinism",
+			"name": "the first 20 of H-2's 40 tasks (every third task of 2026-11-22-task-set)",
+			"hash": "4d5fd7c401a47d9b",
+			"count": 20,
+			"tasksFileSha256": "ed76661e06b1f99a3e9bbdb6d92e7d3b346583f22b4fd2138274a45beeb11919"
+		},
+		{
+			"campaign": "2026-11-22-determinism-2",
+			"name": "the first 20 of H-2's 40 tasks (every third task of 2026-11-22-task-set)",
+			"hash": "4d5fd7c401a47d9b",
+			"count": 20,
+			"tasksFileSha256": "ed76661e06b1f99a3e9bbdb6d92e7d3b346583f22b4fd2138274a45beeb11919"
+		},
+		{
+			"campaign": "2026-11-22-energy",
+			"name": "every fifth task of this repository's task set (2026-11-22-task-set): 24 of 120",
+			"hash": "9ae864702078e9c9",
+			"count": 24,
+			"tasksFileSha256": "44f5b2f7e11a3606c4d78ca5576329e66a1b24af2df1e004a3b5b72e343a7057"
+		},
+		{
+			"campaign": "2026-11-22-engine-tier-a",
+			"name": "history tasks for the L9 engine campaign, tier A (four of the eight)",
+			"hash": "437ad53c285b11fe",
+			"count": 4,
+			"tasksFileSha256": "a03ffaa2df09a3ef338324d209c2e00af72fd4f7b8af79e37fce1be7664f2116"
+		},
+		{
+			"campaign": "2026-11-22-engine-tier-s",
+			"name": "history tasks for the L9 engine campaign",
+			"hash": "71c19fe36f8ee9f6",
+			"count": 8,
+			"tasksFileSha256": "6d5aae90e35049c94d74ebcebfce0226311812a93d97f9116f769e16b076ad96"
+		},
+		{
+			"campaign": "2026-11-22-eviction-agentic",
+			"name": "the first 20 of H-2's 40 tasks (every third task of 2026-11-22-task-set)",
+			"hash": "4d5fd7c401a47d9b",
+			"count": 20,
+			"tasksFileSha256": "ed76661e06b1f99a3e9bbdb6d92e7d3b346583f22b4fd2138274a45beeb11919"
+		},
+		{
+			"campaign": "2026-11-22-injection",
+			"name": "the injection fixture: two surfaces, five effects, two tasks each, and four tasks with nothing planted",
+			"hash": "35b9d52dbe8e9daa",
+			"count": 24,
+			"tasksFileSha256": "e7928d380f62ded6bba38bf420beab9c760f08853a06e30c6ee64f9de92a220e"
+		},
+		{
+			"campaign": "2026-11-22-rankings-brew",
+			"name": "Homebrew/brew: 40 tasks held out for the three installed models",
+			"hash": "014f28f818bfc905",
+			"count": 40,
+			"tasksFileSha256": "039764b2ec17040922aecbdafadd3e765994ab3e2fc619e15b0e092dc2c2e722"
+		},
+		{
+			"campaign": "2026-11-22-rankings-onyx",
+			"name": "every third task of this repository's task set (2026-11-22-task-set, hash fefa777b2d60e7fa): 40 of 120",
+			"hash": "b62b7b60d3bf7a38",
+			"count": 40,
+			"tasksFileSha256": "2677333dd2248c308a7e923a4d8fdf2757b27c2373b8b06b7bd61f04e191c14b"
+		},
+		{
+			"campaign": "2026-11-22-reference-measure",
+			"name": "every third task of this repository's task set (2026-11-22-task-set, hash fefa777b2d60e7fa): 40 of 120",
+			"hash": "b62b7b60d3bf7a38",
+			"count": 40,
+			"tasksFileSha256": "2677333dd2248c308a7e923a4d8fdf2757b27c2373b8b06b7bd61f04e191c14b"
+		},
+		{
+			"campaign": "2026-11-22-single-turn",
+			"name": "this repository's history, held out for the three installed models",
+			"hash": "fefa777b2d60e7fa",
+			"count": 120,
+			"tasksFileSha256": "37e7a840e959421b1662ac709a624408f28f854818da56b8f80ca412ee6558fe"
+		}
+	]
+}

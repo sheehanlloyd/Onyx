@@ -14,11 +14,11 @@ So an edit is a proposal until you accept it, per hunk, and it is placed only wh
 → docs/research/results/2026-11-22-edit-mechanisms/
 
 **4.**
-Every shell command asks, every time. There is no "always allow", and nothing a repository contains can grant it. The harness has a written contract of fourteen invariants and a simulator that attacks them: 50,000 of 50,000 seeded episodes without a violation, and 41 of 41 planted defects caught.
+Every shell command asks, every time. There is no "always allow", and nothing a repository contains can grant it. The harness has a written contract of fourteen invariants and a simulator that attacks them: 50,000 of 50,000 seeded episodes without a violation, and 41 of 41 test-only mutants caught (36 of them my own fixed defects put back).
 → docs/research/results/2026-11-22-assurance/
 
 **5.**
-The unflattering part, in full. Under the product's own settings, neither of the two models I ship it tested with proposed an edit in 320 agent runs on real tasks. Of ten hypotheses I registered in advance, four are supported, one is refuted and five are inconclusive, mostly because nothing succeeded often enough to compare.
+The unflattering part, in full. Under the product's own settings, neither of the two models I ship it tested with got an edit as far as staging in 320 agent runs on real tasks (in 18 the edit call was malformed and rejected). Of ten hypotheses I registered in advance, four are supported, one is refuted and five are inconclusive, mostly because nothing succeeded often enough to compare.
 → docs/progress/L13.md
 
 **6.**

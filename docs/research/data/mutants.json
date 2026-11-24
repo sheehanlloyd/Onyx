@@ -1,0 +1,584 @@
+{
+	"generatedBy": "node test/onyx/lab/make-report.mts",
+	"from": [
+		"test/onyx/sim/mutants/*.json",
+		"docs/research/results/2026-11-22-assurance/traces/mutation.json"
+	],
+	"count": 41,
+	"mutants": [
+		{
+			"id": "B1-naive-read-path",
+			"descriptor": "test/onyx/sim/mutants/B1-naive-read-path.json",
+			"defectItResurrects": "A read tool that joins the model's path onto the workspace folder without refusing traversal, absolute paths or a symbolic link that leaves the workspace (R-30, I-07 on the read side)",
+			"fixedBy": "B1",
+			"violationTheCampaignMustReport": "I-07/read-escape",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantNaiveWorkspaceAccess",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 43
+			}
+		},
+		{
+			"id": "B1-priority-truncation",
+			"descriptor": "test/onyx/sim/mutants/B1-priority-truncation.json",
+			"defectItResurrects": "Tools sorted by a priority number and cut at the profile's cap, so a small profile or an excluded tool left an editing agent with part of its tool set and no word about it (R-36)",
+			"fixedBy": "B1",
+			"violationTheCampaignMustReport": "I-06/partial-edit-set",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantPriorityTruncatingLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 11
+			}
+		},
+		{
+			"id": "B10-pause-without-budget",
+			"descriptor": "test/onyx/sim/mutants/B10-pause-without-budget.json",
+			"defectItResurrects": "A run the user paused and did not resume never ended on its own: a pause had no time budget (Codex N5; I-03)",
+			"fixedBy": "B10",
+			"violationTheCampaignMustReport": "I-03/no-time-budget",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantPauseWithoutBudgetControlPlane",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 37
+			}
+		},
+		{
+			"id": "B10-status-overwritten",
+			"descriptor": "test/onyx/sim/mutants/B10-status-overwritten.json",
+			"defectItResurrects": "A terminal status could be replaced: Stop set `cancelled`, and the loop then recorded `completed` when the stream ended (Codex N5; R-15)",
+			"fixedBy": "B10",
+			"violationTheCampaignMustReport": "I-03/status-overwritten",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantStopOnlyFlipsStatusControlPlane",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 18
+			}
+		},
+		{
+			"id": "B10-stop-does-not-cancel",
+			"descriptor": "test/onyx/sim/mutants/B10-stop-does-not-cancel.json",
+			"defectItResurrects": "Stop set a status and released the pause gate; the inference token and the running tool were not cancelled, so the turn in flight still ran its command (Codex N5; R-15)",
+			"fixedBy": "B10",
+			"violationTheCampaignMustReport": "I-05/command-after-stop",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantStopOnlyFlipsStatusControlPlane",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 487
+			}
+		},
+		{
+			"id": "B11-value-only-redaction",
+			"descriptor": "test/onyx/sim/mutants/B11-value-only-redaction.json",
+			"defectItResurrects": "The diagnostics export rewrote only the `value` of prompt message parts; tool parameters, note labels and reasons, command text and output, paths and the model's reply went into a \"redacted\" bundle as they were (Codex N1; R-20)",
+			"fixedBy": "B11",
+			"violationTheCampaignMustReport": "I-10/content-in-default-export",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantValueOnlyRedactor",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 6
+			}
+		},
+		{
+			"id": "B12-no-stream-deadline",
+			"descriptor": "test/onyx/sim/mutants/B12-no-stream-deadline.json",
+			"defectItResurrects": "A request that never produced a byte was waited on with no deadline, so the run never ended on its own (Codex N12; R-19)",
+			"fixedBy": "B12",
+			"violationTheCampaignMustReport": "I-03/no-time-budget",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantNoDeadlineModelService",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 30
+			}
+		},
+		{
+			"id": "B12-truncated-is-complete",
+			"descriptor": "test/onyx/sim/mutants/B12-truncated-is-complete.json",
+			"defectItResurrects": "A stream whose body ended without a finish reason or `[DONE]` was reported as done; the run was journaled as completed (Codex N12; R-19)",
+			"fixedBy": "B12",
+			"violationTheCampaignMustReport": "I-11/truncated-reported-complete",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantTruncatedIsCompleteLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 29
+			}
+		},
+		{
+			"id": "B12-unvalidated-arguments",
+			"descriptor": "test/onyx/sim/mutants/B12-unvalidated-arguments.json",
+			"defectItResurrects": "Tool arguments were handed to the tool without being checked against its schema: a terminal call with `timeoutSeconds: \"forever\"` ran with the default timeout (R-28)",
+			"fixedBy": "B12",
+			"violationTheCampaignMustReport": "I-06/schema-invalid-dispatched",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantUnvalidatedArgumentsLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 4
+			}
+		},
+		{
+			"id": "B13-no-eviction",
+			"descriptor": "test/onyx/sim/mutants/B13-no-eviction.json",
+			"defectItResurrects": "Tool results accumulated across turns with no re-budgeting, so the prompt outgrew the context window (Claude H6; Codex N9; R-16)",
+			"fixedBy": "B13",
+			"violationTheCampaignMustReport": "I-04/over-budget",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantNoEvictionLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 1
+			}
+		},
+		{
+			"id": "B13-no-output-cap",
+			"descriptor": "test/onyx/sim/mutants/B13-no-output-cap.json",
+			"defectItResurrects": "Chat requests carried no `max_tokens`: nothing reserved room for the reply or bounded it (Claude H6; Codex N9; R-16)",
+			"fixedBy": "B13",
+			"violationTheCampaignMustReport": "I-04/no-output-cap",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantNoOutputCapLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 1
+			}
+		},
+		{
+			"id": "B14-address-is-locality",
+			"descriptor": "test/onyx/sim/mutants/B14-address-is-locality.json",
+			"defectItResurrects": "A loopback address was taken to mean local inference: a model the runtime reports as cloud-backed was used like any other, with nothing said (Claude H7; DEC-04; R-17)",
+			"fixedBy": "B14",
+			"violationTheCampaignMustReport": "DEC-04/refused-model-used",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantAddressIsLocalityModelService",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 7
+			}
+		},
+		{
+			"id": "B2-normalized-approval",
+			"descriptor": "test/onyx/sim/mutants/B2-normalized-approval.json",
+			"defectItResurrects": "The approval dialog shows a whitespace-collapsed copy of the command while the original bytes are dispatched, so what the user approved is not what runs",
+			"fixedBy": "B2",
+			"violationTheCampaignMustReport": "I-02/approval-for-other-bytes",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantNormalizedApprovalTerminal",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 214
+			}
+		},
+		{
+			"id": "B2-repository-allowlist",
+			"descriptor": "test/onyx/sim/mutants/B2-repository-allowlist.json",
+			"defectItResurrects": "A command listed in the repository's `.onyx/config.json` `terminalAllowlist` runs with no approval dialog (Cursor red flag 2; Claude B2; Codex; R-01, R-02)",
+			"fixedBy": "B2",
+			"violationTheCampaignMustReport": "I-02/repository-allowlist",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantRepositoryAllowlistTerminal",
+			"scriptPersona": "obedient",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 181
+			}
+		},
+		{
+			"id": "B2-reused-approval",
+			"descriptor": "test/onyx/sim/mutants/B2-reused-approval.json",
+			"defectItResurrects": "A \"Run for This Session\" or \"Always Run\" answer: one approval of a command text runs every later invocation of that text, whatever changed underneath it (R-03, R-04)",
+			"fixedBy": "B2",
+			"violationTheCampaignMustReport": "I-02/reused-approval",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantReusedApprovalTerminal",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 136
+			}
+		},
+		{
+			"id": "B2-unasked-check-task",
+			"descriptor": "test/onyx/sim/mutants/B2-unasked-check-task.json",
+			"defectItResurrects": "A `verificationTask` named in the repository's `.onyx/config.json` runs a workspace task after a tool-using run with no approval for that run",
+			"fixedBy": "B2",
+			"violationTheCampaignMustReport": "I-02/unapproved-task",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantUnaskedCheckTerminal",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": "c2-check-task-asks-after-accept-and-save"
+			}
+		},
+		{
+			"id": "B3-unconfirmed-memory",
+			"descriptor": "test/onyx/sim/mutants/B3-unconfirmed-memory.json",
+			"defectItResurrects": "A note the model asks to remember is stored at once and added to every later prompt, so text injected through a file or a command's output steers later runs (I-14, R-59)",
+			"fixedBy": "B3",
+			"violationTheCampaignMustReport": "I-14/unconfirmed-memory",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantUnconfirmedMemoryTool",
+			"scriptPersona": "obedient",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 14
+			}
+		},
+		{
+			"id": "B3-uncontracted-tools",
+			"descriptor": "test/onyx/sim/mutants/B3-uncontracted-tools.json",
+			"defectItResurrects": "Whatever core's tool registry holds reaches the model: `runTask`, `createAndRunTask`, a rename that writes without staging, the browser tools, MCP and extension tools, each with core's own confirmations or none (Claude H2; R-05)",
+			"fixedBy": "B3",
+			"violationTheCampaignMustReport": "I-06/uncontracted-tool-advertised",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantUncontractedToolsLoop",
+			"scriptPersona": "squatter",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 2
+			}
+		},
+		{
+			"id": "B4-regex-warnings",
+			"descriptor": "test/onyx/sim/mutants/B4-regex-warnings.json",
+			"defectItResurrects": "A regex pass over the command string with no egress, persistence or interpreter category: fifteen of the sixteen bypass commands of the launch audit, every exfiltration shape among them, reach the approval prompt with no warning (Claude H1; R-06)",
+			"fixedBy": "B4",
+			"violationTheCampaignMustReport": "I-02/unwarned-command",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantRegexWarningsTerminal",
+			"scriptPersona": "obedient",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 27
+			}
+		},
+		{
+			"id": "B5-command-outlives-window",
+			"descriptor": "test/onyx/sim/mutants/B5-command-outlives-window.json",
+			"defectItResurrects": "Nothing killed a running command when its window closed or the runtime service was disposed: `dispose()` aborted HTTP operations and left `_runningCommands` alone (Codex N11; R-18)",
+			"fixedBy": "B5",
+			"violationTheCampaignMustReport": "I-13/command-outlives-window",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantOutlivingCommandTerminal",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 102
+			}
+		},
+		{
+			"id": "B5-cwd-ignored",
+			"descriptor": "test/onyx/sim/mutants/B5-cwd-ignored.json",
+			"defectItResurrects": "The directory a terminal call named was ignored (`cwdHint`), so a command meant for a subdirectory ran in the workspace root (Codex N11)",
+			"fixedBy": "B5",
+			"violationTheCampaignMustReport": "I-06/cwd-not-honoured",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantCwdIgnoredTerminal",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 107
+			}
+		},
+		{
+			"id": "B5-full-environment",
+			"descriptor": "test/onyx/sim/mutants/B5-full-environment.json",
+			"defectItResurrects": "A command the agent proposed was started with the whole environment of the process that started it, credentials included (Codex N11; I-10)",
+			"fixedBy": "B5",
+			"violationTheCampaignMustReport": "I-10/secret-environment-reached-child",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantFullEnvironmentTerminal",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 27
+			}
+		},
+		{
+			"id": "B5-unbounded-output",
+			"descriptor": "test/onyx/sim/mutants/B5-unbounded-output.json",
+			"defectItResurrects": "The terminal service kept everything a command printed after its sixth timeline note for as long as the command ran: `pendingChunk` grew without bound (Codex N11; R-18)",
+			"fixedBy": "B5",
+			"violationTheCampaignMustReport": "I-13/unbounded-output",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantUnboundedOutputTerminal",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 134
+			}
+		},
+		{
+			"id": "B6-first-occurrence",
+			"descriptor": "test/onyx/sim/mutants/B6-first-occurrence.json",
+			"defectItResurrects": "A SEARCH text that occurs more than once was placed at the first of them instead of refused as ambiguous (Claude H4; DEC-07; R-08)",
+			"fixedBy": "B6",
+			"violationTheCampaignMustReport": "I-08/ambiguous-anchor-staged",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantFirstOccurrenceChangeSet",
+			"scriptPersona": "anchor-liar",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 50
+			}
+		},
+		{
+			"id": "B6-fuzzy-applier",
+			"descriptor": "test/onyx/sim/mutants/B6-fuzzy-applier.json",
+			"defectItResurrects": "A SEARCH text that is not in the file was still placed: after trimming each line and re-indenting the replacement, or by its first line alone when that was unique, which replaced lines the model never quoted (Claude H3; R-07, R-33)",
+			"fixedBy": "B6",
+			"violationTheCampaignMustReport": "I-08/inexact-anchor-staged",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantFuzzyApplierChangeSet",
+			"scriptPersona": "anchor-liar",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 6
+			}
+		},
+		{
+			"id": "B7-index-accept",
+			"descriptor": "test/onyx/sim/mutants/B7-index-accept.json",
+			"defectItResurrects": "A hunk was accepted by its place in the list: after the user changed the lines of the first hunk, accepting what was shown as the first hunk applied the one that had moved into its place (Codex N2; R-12)",
+			"fixedBy": "B7",
+			"violationTheCampaignMustReport": "I-09/accepted-content-missing",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantIndexAcceptChangeSet",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": "audit-n2-edit-hunk-0-then-accept-hunk-0"
+			}
+		},
+		{
+			"id": "B7-no-size-guard",
+			"descriptor": "test/onyx/sim/mutants/B7-no-size-guard.json",
+			"defectItResurrects": "A proposal of any size was diffed and staged: nothing refused one above the documented bound before the quadratic line diff ran (C9; R-38)",
+			"fixedBy": "B7",
+			"violationTheCampaignMustReport": "I-13/oversized-proposal",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantNoSizeGuardChangeSet",
+			"scriptPersona": "flooder",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 1
+			}
+		},
+		{
+			"id": "B8-deletion-leaves-line",
+			"descriptor": "test/onyx/sim/mutants/B8-deletion-leaves-line.json",
+			"defectItResurrects": "A deleted line was replaced by nothing and its line break stayed, so an accepted deletion left an empty line and the buffer was not the proposal (Codex N3; R-13)",
+			"fixedBy": "B8",
+			"violationTheCampaignMustReport": "I-09/accepted-buffer-differs",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantDeletionLeavesLineChangeSet",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": "b8-delete-lines-then-accept-all"
+			}
+		},
+		{
+			"id": "B9-inline-apply-before-review",
+			"descriptor": "test/onyx/sim/mutants/B9-inline-apply-before-review.json",
+			"defectItResurrects": "An inline edit wrote the model's reply into the buffer and reviewed it afterwards, so model-authored text was in the file, and in what an autosave wrote, before any accept (R-34)",
+			"fixedBy": "B9",
+			"violationTheCampaignMustReport": "I-01/buffer",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantApplyBeforeReviewInlineSession",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": "b9-inline-edit-stages-then-save"
+			}
+		},
+		{
+			"id": "C10-write-through-link",
+			"descriptor": "test/onyx/sim/mutants/C10-write-through-link.json",
+			"defectItResurrects": "The write side never asked where a file really is: an edit to a symbolic link that leaves the workspace was staged, and accepting it wrote outside the workspace (R-30, write side)",
+			"fixedBy": "C10",
+			"violationTheCampaignMustReport": "I-07/write-through-link",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantWriteThroughLinkChangeSet",
+			"scriptPersona": "schema-violator",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 67
+			}
+		},
+		{
+			"id": "C2-verdict-before-acceptance",
+			"descriptor": "test/onyx/sim/mutants/C2-verdict-before-acceptance.json",
+			"defectItResurrects": "Verification ran when a tool-using turn ended, before anything was accepted: a run that had only staged an edit reported \"no new problems\" of files that did not hold it (Codex N6; R-21)",
+			"fixedBy": "C2",
+			"violationTheCampaignMustReport": "R-21/verdict-before-acceptance",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantVerdictBeforeAcceptanceLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 4
+			}
+		},
+		{
+			"id": "C4-thinking-is-answer",
+			"descriptor": "test/onyx/sim/mutants/C4-thinking-is-answer.json",
+			"defectItResurrects": "No handling of `<think>` tags: a reasoning model's thinking was its reply, so a reply that ended mid-thought was shown as an answer and the run completed (Cursor 3.1; R-26)",
+			"fixedBy": "C4",
+			"violationTheCampaignMustReport": "I-11/unterminated-reasoning-complete",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantThinkingIsAnswerLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 12
+			}
+		},
+		{
+			"id": "C5-fence-withheld",
+			"descriptor": "test/onyx/sim/mutants/C5-fence-withheld.json",
+			"defectItResurrects": "Any reply opening with a code fence was withheld as a possible tool call until it was 4,000 characters long or finished, so a code answer showed nothing while it streamed (Claude H5; R-27)",
+			"fixedBy": "C5",
+			"violationTheCampaignMustReport": "R-27/fenced-reply-withheld",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantHoldEveryFenceLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 192
+			}
+		},
+		{
+			"id": "C6-constrained-answer-withheld",
+			"descriptor": "test/onyx/sim/mutants/C6-constrained-answer-withheld.json",
+			"defectItResurrects": "A constrained turn showed nothing until its whole JSON envelope had arrived, so a long answer appeared all at once at the end (R-28, optional part)",
+			"fixedBy": "C6",
+			"violationTheCampaignMustReport": "R-28/constrained-answer-withheld",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantConstrainedAnswerWithheldLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 22
+			}
+		},
+		{
+			"id": "G-I01-stage-applies",
+			"descriptor": "test/onyx/sim/mutants/G-I01-stage-applies.json",
+			"defectItResurrects": "Generic: an edit that is staged is applied to the file at once, with no accept. Not an audited defect: the guard I-01 stands on, taken away for the agent's own edit path",
+			"fixedBy": "L12",
+			"violationTheCampaignMustReport": "I-01/buffer",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantStageAppliesChangeSet",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 8
+			}
+		},
+		{
+			"id": "G-I02-approve-without-asking",
+			"descriptor": "test/onyx/sim/mutants/G-I02-approve-without-asking.json",
+			"defectItResurrects": "Generic: every command the model asks for is run without a dialog. Not an audited defect: the guard I-02 stands on, taken away whatever the configuration says",
+			"fixedBy": "L12",
+			"violationTheCampaignMustReport": "I-02/reused-approval",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantApproveWithoutAskingTerminal",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 27
+			}
+		},
+		{
+			"id": "G-I03-never-finishes",
+			"descriptor": "test/onyx/sim/mutants/G-I03-never-finishes.json",
+			"defectItResurrects": "Generic: a run is never given a terminal status. Not an audited defect: the guard I-03 stands on",
+			"fixedBy": "L12",
+			"violationTheCampaignMustReport": "I-03/no-terminal-status",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantNeverFinishesControlPlane",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 1
+			}
+		},
+		{
+			"id": "G-I07-stage-anywhere",
+			"descriptor": "test/onyx/sim/mutants/G-I07-stage-anywhere.json",
+			"defectItResurrects": "Generic: the write side resolves a path by joining it onto the folder, so a parent-directory segment or an absolute path stages a file outside the workspace. Not an audited defect: the two guards I-07 stands on for writes, both. With the path check alone removed, the check of where the file really is still refuses the edit",
+			"fixedBy": "L12",
+			"violationTheCampaignMustReport": "I-07/escape-staged",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantStageAnywhereChangeSet",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 308
+			}
+		},
+		{
+			"id": "G-I12-unjournaled-dispatch",
+			"descriptor": "test/onyx/sim/mutants/G-I12-unjournaled-dispatch.json",
+			"defectItResurrects": "Generic: tools are dispatched and nothing is written to the run's journal about it. Not an audited defect: the guard I-12 stands on. No mutant covered I-12 before L12, and its checker compared only the rig's own events; the journal side was added with this mutant",
+			"fixedBy": "L12",
+			"violationTheCampaignMustReport": "I-12/dispatch-not-in-journal",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantUnjournaledDispatchLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 1
+			}
+		},
+		{
+			"id": "L4-inline-harness-record",
+			"descriptor": "test/onyx/sim/mutants/L4-inline-harness-record.json",
+			"defectItResurrects": "The loop took its harness decisions inline and hashed a record of some of them into the trace; the hash named no configuration a second run could be given (R-44)",
+			"fixedBy": "L4",
+			"violationTheCampaignMustReport": "R-44/trace-hash-not-of-configuration",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantInlineHarnessRecordLoop",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 1
+			}
+		},
+		{
+			"id": "L6-always-grounded",
+			"descriptor": "test/onyx/sim/mutants/L6-always-grounded.json",
+			"defectItResurrects": "A certificate that says \"seen this turn\" of an edit whose quoted text the model had not been sent: the one observation a certificate adds, reported as true whatever happened (R-46)",
+			"fixedBy": "L6",
+			"violationTheCampaignMustReport": "R-46/certificate-contradicts-journal",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantAlwaysGroundedChangeSet",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": {
+				"killedByItsScript": true,
+				"killedByTheCampaign": true,
+				"firstDetectedAtSeed": 8
+			}
+		}
+	]
+}

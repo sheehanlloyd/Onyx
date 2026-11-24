@@ -28,7 +28,7 @@ Pinned runtime: Ollama 0.33.0. Pinned model digests, as the runtime reports them
 
 "Supported" means tested, not recommended without reservation. Module 4 measured both pinned
 models on real tasks of this repository under the product's own configuration: neither proposed
-an edit in 320 agent runs (`docs/progress/L13.md`). The harness around them is what the alpha's
+an edit that reached staging in 320 agent runs; in 18 of them the 1.5B model's edit call was rejected for its arguments (`docs/progress/L13.md`). The harness around them is what the alpha's
 tests cover. Whether the product should keep recommending these two models for agent work is an
 open question for the owner (`docs/progress/STATE.md`).
 

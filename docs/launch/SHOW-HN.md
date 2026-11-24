@@ -10,7 +10,7 @@ Not posted. Post only after the signed release is published and the links resolv
 
 Onyx is a fork of Code - OSS (the open-source base of VS Code) for Apple-silicon Macs that runs coding models locally through Ollama. I built it on the premise that a small local model is an untrusted component, and then I measured the result. The headline measurement is not flattering, so I will lead with it:
 
-On tasks taken from real commits of two repositories, no model reproduced a task exactly in any campaign: 0 of 3,182 attempts, across three models of 7B and under. Under the product's own configuration, the two models it is tested with did not propose an edit in 320 agent runs. You can regenerate those numbers from the committed raw data:
+On tasks taken from real commits of two repositories, no model reproduced a task exactly in any campaign: 0 of 3,182 attempts, across three models of 7B and under. Under the product's own configuration, the two models it is tested with did not get an edit as far as staging in 320 agent runs (in 18, the edit call was rejected for malformed arguments). You can regenerate those numbers from the committed raw data:
 
     node test/onyx/lab/make-report.mts --check
 
@@ -18,7 +18,7 @@ What the editor does guarantee is narrower, and it is the part I can stand behin
 
 - A model's edit is a proposal until you accept it, per hunk, and is placed only where its quoted text matches your file exactly and once. I compared that with a fuzzy applier on the same model output: the fuzzy one placed 28.7 points more edits, and 53.8% of attempts under it ended silently wrong.
 - Every shell command asks, every time. No "always allow"; nothing in a repository can grant it.
-- The agent loop has a written contract of fourteen invariants and a deterministic simulator with an adversarial model, a user who edits mid-run and a faulty environment. 50,000 of 50,000 seeded episodes ran without a violation, and each of 41 defects I had fixed, put back as a test-only mutant, was detected.
+- The agent loop has a written contract of fourteen invariants and a deterministic simulator with an adversarial model, a user who edits mid-run and a faulty environment. 50,000 of 50,000 seeded episodes ran without a violation, and each of 41 test-only mutants (36 of them defects I had fixed, put back) was detected.
 - With temperature 0 and a fixed seed, 160 of 160 repeated agent runs on Ollama were identical. The first run of that study got 146 of 160, and the cause was a defect in my harness that the study found.
 
 Ten hypotheses were registered before their data existed. Four are supported, one is refuted, five are inconclusive, mostly at a floor of zero successes. The report gives each the same space: docs/research/REPORT.md. Related work, read at its source and dated, is in docs/research/RELATED.md; close prior work exists for each technique, and what is here is a setting and a set of replications, not an invention.

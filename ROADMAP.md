@@ -24,7 +24,7 @@ Not released. There is no download. `v0.1.0-alpha.1` is defined in [docs/SUPPORT
 
 ## What the measurements say about usefulness
 
-The safety machinery is tested. The usefulness of the two pinned models as agents is not established, and the evidence so far is against it: under the product's own configuration neither proposed an edit in 320 agent runs on real tasks of this repository, and no model reproduced a real task exactly in 3,182 attempts across every campaign. Whether the product should keep recommending these two models for agent work is an open decision. Single-turn features (inline edit, commit message, autocomplete, review) do not depend on an agent loop and were not the subject of those campaigns.
+The safety machinery is tested. The usefulness of the two pinned models as agents is not established, and the evidence so far is against it: under the product's own configuration neither got an edit as far as staging in 320 agent runs (in 18 the edit call was rejected for its arguments) on real tasks of this repository, and no model reproduced a real task exactly in 3,182 attempts across every campaign. Whether the product should keep recommending these two models for agent work is an open decision. Single-turn features (inline edit, commit message, autocomplete, review) do not depend on an agent loop and were not the subject of those campaigns.
 
 ## After the alpha, in order
 

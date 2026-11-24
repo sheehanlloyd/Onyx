@@ -1,0 +1,163 @@
+{
+	"generatedBy": "node test/onyx/lab/make-report.mts",
+	"from": [
+		"docs/research/results/2026-11-22-assurance/summary.json (violationsFoundDuringDevelopment)",
+		"the scripts themselves, read from history for their seeds",
+		"docs/research/results/2026-11-22-assurance/NOTES.md"
+	],
+	"note": "Nothing is copied here. A shrunk script of a violation the unmodified harness committed was removed from test/onyx/sim/baseline/ by the commit that fixed its class, so each is named at the revision before that commit. The second list is seeds at which a campaign printed a violation that was judged an error of the rig's own bookkeeping: no shrunk script was committed for those, and the documents named say how to reproduce the trace.",
+	"shrunkScriptsOfHarnessViolations": [
+		{
+			"seed": 0,
+			"violationClass": "I-04/over-budget",
+			"script": "test/onyx/sim/baseline/I-04-over-budget.json",
+			"atRevision": "b9667fb4fe6~1",
+			"show": "git show b9667fb4fe6~1:test/onyx/sim/baseline/I-04-over-budget.json",
+			"persona": "well-behaved",
+			"removedBy": "b9667fb4fe6",
+			"fixedIn": "B13: every turn is planned to fit the context, with an output cap on the wire"
+		},
+		{
+			"seed": 1,
+			"violationClass": "I-04/no-output-cap",
+			"script": "test/onyx/sim/baseline/I-04-no-output-cap.json",
+			"atRevision": "b9667fb4fe6~1",
+			"show": "git show b9667fb4fe6~1:test/onyx/sim/baseline/I-04-no-output-cap.json",
+			"persona": "flooder",
+			"removedBy": "b9667fb4fe6",
+			"fixedIn": "B13: every turn is planned to fit the context, with an output cap on the wire"
+		},
+		{
+			"seed": 1,
+			"violationClass": "I-13/oversized-proposal",
+			"script": "test/onyx/sim/baseline/I-13-oversized-proposal.json",
+			"atRevision": "eda1a2c41f5~1",
+			"show": "git show eda1a2c41f5~1:test/onyx/sim/baseline/I-13-oversized-proposal.json",
+			"persona": "flooder",
+			"removedBy": "eda1a2c41f5",
+			"fixedIn": "B7: proposals have generations, hunks have ids, and an accept applies what was reviewed or nothing"
+		},
+		{
+			"seed": 6,
+			"violationClass": "I-08/inexact-anchor-staged",
+			"script": "test/onyx/sim/baseline/I-08-inexact-anchor-staged.json",
+			"atRevision": "94fc1f77202~1",
+			"show": "git show 94fc1f77202~1:test/onyx/sim/baseline/I-08-inexact-anchor-staged.json",
+			"persona": "anchor-liar",
+			"removedBy": "94fc1f77202",
+			"fixedIn": "B6: an edit is placed exactly, and exactly once, or refused"
+		},
+		{
+			"seed": 12,
+			"violationClass": "I-11/truncated-reported-complete",
+			"script": "test/onyx/sim/baseline/I-11-truncated-reported-complete.json",
+			"atRevision": "c127268e133~1",
+			"show": "git show c127268e133~1:test/onyx/sim/baseline/I-11-truncated-reported-complete.json",
+			"persona": "truncating",
+			"removedBy": "c127268e133",
+			"fixedIn": "B12: a stream says how it ended, arguments are checked, and the index is not taken on trust"
+		},
+		{
+			"seed": 28,
+			"violationClass": "I-02/repository-allowlist",
+			"script": "test/onyx/sim/baseline/I-02-repository-allowlist.json",
+			"atRevision": "41fe2350e98~1",
+			"show": "git show 41fe2350e98~1:test/onyx/sim/baseline/I-02-repository-allowlist.json",
+			"persona": "obedient",
+			"removedBy": "41fe2350e98",
+			"fixedIn": "B2: every shell invocation asks; repository content grants nothing"
+		},
+		{
+			"seed": 28,
+			"violationClass": "I-03/no-time-budget",
+			"script": "test/onyx/sim/baseline/I-03-no-time-budget.json",
+			"atRevision": "7a49df7fedc~1",
+			"show": "git show 7a49df7fedc~1:test/onyx/sim/baseline/I-03-no-time-budget.json",
+			"persona": "obedient",
+			"removedBy": "7a49df7fedc",
+			"fixedIn": "B10: Stop cancels what the run owns, and a run has one terminal status"
+		},
+		{
+			"seed": 30,
+			"violationClass": "I-03/status-overwritten",
+			"script": "test/onyx/sim/baseline/I-03-status-overwritten.json",
+			"atRevision": "7a49df7fedc~1",
+			"show": "git show 7a49df7fedc~1:test/onyx/sim/baseline/I-03-status-overwritten.json",
+			"persona": "well-behaved",
+			"removedBy": "7a49df7fedc",
+			"fixedIn": "B10: Stop cancels what the run owns, and a run has one terminal status"
+		},
+		{
+			"seed": 50,
+			"violationClass": "I-08/ambiguous-anchor-staged",
+			"script": "test/onyx/sim/baseline/I-08-ambiguous-anchor-staged.json",
+			"atRevision": "94fc1f77202~1",
+			"show": "git show 94fc1f77202~1:test/onyx/sim/baseline/I-08-ambiguous-anchor-staged.json",
+			"persona": "anchor-liar",
+			"removedBy": "94fc1f77202",
+			"fixedIn": "B6: an edit is placed exactly, and exactly once, or refused"
+		},
+		{
+			"seed": 68,
+			"violationClass": "I-05/stage-after-stop",
+			"script": "test/onyx/sim/baseline/I-05-stage-after-stop.json",
+			"atRevision": "7a49df7fedc~1",
+			"show": "git show 7a49df7fedc~1:test/onyx/sim/baseline/I-05-stage-after-stop.json",
+			"persona": "looping",
+			"removedBy": "7a49df7fedc",
+			"fixedIn": "B10: Stop cancels what the run owns, and a run has one terminal status"
+		},
+		{
+			"seed": 172,
+			"violationClass": "I-05/command-after-stop",
+			"script": "test/onyx/sim/baseline/I-05-command-after-stop.json",
+			"atRevision": "7a49df7fedc~1",
+			"show": "git show 7a49df7fedc~1:test/onyx/sim/baseline/I-05-command-after-stop.json",
+			"persona": "well-behaved",
+			"removedBy": "7a49df7fedc",
+			"fixedIn": "B10: Stop cancels what the run owns, and a run has one terminal status"
+		},
+		{
+			"seed": 5545,
+			"violationClass": "I-05/dispatch-after-stop",
+			"script": "test/onyx/sim/baseline/I-05-dispatch-after-stop.json",
+			"atRevision": "7a49df7fedc~1",
+			"show": "git show 7a49df7fedc~1:test/onyx/sim/baseline/I-05-dispatch-after-stop.json",
+			"persona": "squatter",
+			"removedBy": "7a49df7fedc",
+			"fixedIn": "B10: Stop cancels what the run owns, and a run has one terminal status"
+		}
+	],
+	"seedsAtWhichTheRigWasWrong": [
+		{
+			"seed": 3019,
+			"campaign": "Module 3's gate, 20,000 episodes",
+			"account": "docs/progress/module-3-gate.md",
+			"trace": null
+		},
+		{
+			"seed": 3631,
+			"campaign": "Module 3's gate, 20,000 episodes",
+			"account": "docs/progress/module-3-gate.md",
+			"trace": null
+		},
+		{
+			"seed": 3809,
+			"campaign": "Module 3's gate, 20,000 episodes",
+			"account": "docs/progress/module-3-gate.md",
+			"trace": null
+		},
+		{
+			"seed": 32218,
+			"campaign": "the first run of the 50,000-episode campaign",
+			"account": "docs/research/results/2026-11-22-assurance/NOTES.md",
+			"trace": "docs/research/results/2026-11-22-assurance/traces/first-run/campaign.txt"
+		},
+		{
+			"seed": 46211,
+			"campaign": "the first run of the 50,000-episode campaign",
+			"account": "docs/research/results/2026-11-22-assurance/NOTES.md",
+			"trace": "docs/research/results/2026-11-22-assurance/traces/first-run/campaign.txt"
+		}
+	]
+}

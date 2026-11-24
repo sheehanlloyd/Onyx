@@ -1,0 +1,3232 @@
+{
+	"generatedBy": "node test/onyx/lab/make-report.mts",
+	"what": "Every number docs/research/REPORT.md and the README's Research section may quote. `source` is repository-relative; `path` is the place in it, or how it was counted; `derivation` is explained at the head of test/onyx/lab/make-report.mts.",
+	"analyses": [
+		{
+			"name": "attribution",
+			"command": "node test/onyx/lab/analyze-attribution.mts docs/research/results/2026-11-22-attribution",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-22-attribution/analysis.json",
+				"docs/research/results/2026-11-22-attribution/ANALYSIS.md",
+				"docs/research/results/2026-11-22-attribution/outcome.json"
+			]
+		},
+		{
+			"name": "rankings",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+				"docs/research/results/2026-11-22-rankings-onyx/outcome-H-7.json"
+			]
+		},
+		{
+			"name": "determinism-first",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-22-determinism/determinism.json",
+				"docs/research/results/2026-11-22-determinism/first-run-verdict.json"
+			]
+		},
+		{
+			"name": "determinism",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism-2",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-22-determinism-2/determinism.json",
+				"docs/research/results/2026-11-22-determinism-2/outcome-H-6.json"
+			]
+		},
+		{
+			"name": "confidence",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-22-confidence/confidence.json",
+				"docs/research/results/2026-11-22-confidence/outcome-H-8.json"
+			]
+		},
+		{
+			"name": "eviction",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+				"docs/research/results/2026-11-22-eviction-scripted/summary.json",
+				"docs/research/results/2026-11-22-eviction-scripted/outcome-H-9.json"
+			]
+		},
+		{
+			"name": "energy",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-22-energy/energy.json",
+				"docs/research/results/2026-11-22-energy/outcome-H-10.json"
+			]
+		},
+		{
+			"name": "injection",
+			"command": "node test/onyx/lab/analyze-injection.mts docs/research/results/2026-11-22-injection",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-22-injection/injection.json"
+			]
+		},
+		{
+			"name": "edits",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"run": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-22-edit-mechanisms/attempts.jsonl",
+				"docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+				"docs/research/results/2026-11-22-edit-mechanisms/ANALYSIS.md",
+				"docs/research/results/2026-11-22-edit-mechanisms/sources.json",
+				"docs/research/results/2026-11-22-edit-mechanisms/outcome-H-3.json",
+				"docs/research/results/2026-11-22-edit-mechanisms/outcome-H-4.json",
+				"docs/research/results/2026-11-22-edit-mechanisms/outcome-H-5.json"
+			]
+		}
+	],
+	"notCheckedAsNumbers": [
+		"ISO dates and times",
+		"arXiv identifiers",
+		"version numbers with two dots",
+		"plan identifiers: hypotheses, invariants, regressions, items, decisions",
+		"the three models' names",
+		"model size labels such as 7B",
+		"references to a numbered section, such as section 5.3",
+		"a number that begins a heading",
+		"integers of one digit",
+		"anything in a code span, a code block or a link target"
+	],
+	"numbers": [
+		{
+			"id": "registered.intervalLevel",
+			"value": 95,
+			"unit": "percent",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"95% intervals\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.resamples",
+			"value": 1000,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"1,000 resamples\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h1.episodesPerMutant",
+			"value": 2000,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"2,000-episode campaign\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h1.candidateEpisodes",
+			"value": 50000,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"at least 50,000 episodes\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h2.minimumTasks",
+			"value": 40,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"(at least 40)\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h2.registeredConfigurations",
+			"value": 32,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"(32 configurations)\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h2.runs",
+			"value": 960,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"960 agent runs\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h3.minimumAttemptsPerModel",
+			"value": 500,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"at least 500 edit attempts per pinned model\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h3.silentlyWrongRate",
+			"value": 0.5,
+			"unit": "percent",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"at least 0.5%\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h3.fuzzySimilarity",
+			"value": 0.8,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"taken when that is at least 0.8\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h5.minimumDifference",
+			"value": 0.05,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"by at least 0.05\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h5.minimumEditsPerClass",
+			"value": 300,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"At least 300 edits per class\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h6.identicalShare",
+			"value": 90,
+			"unit": "percent",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"identical share at least 90%\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h6.lowerBound",
+			"value": 80,
+			"unit": "percent",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"lower bound of at least 80%\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h8.aurocLowerBound",
+			"value": 0.65,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"AUROC lower bound at least 0.65\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h8.aurocUpperBound",
+			"value": 0.6,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"upper bound below 0.60\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h8.ece",
+			"value": 0.1,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"ECE is at most 0.10\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h8.minimumHunks",
+			"value": 500,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"At least 500 labelled hunks\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h8.minimumPerClass",
+			"value": 20,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"fewer than 20 labelled hunks are correct\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h8.temperature",
+			"value": 0.2,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"at temperature 0.2\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h9.ratio",
+			"value": 0.7,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"ratio is at most 0.70\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h9.ratioExcluded",
+			"value": 1,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"interval excluding 1.0\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h9.lowWatermark",
+			"value": 0.6,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"0.6 of the message budget\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h9.scriptedTurns",
+			"value": 16,
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"a fixed 16-turn transcript\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h9.agenticContextTokens",
+			"value": 8192,
+			"unit": "tokens",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"a context of 8,192 tokens\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.productContextTokens",
+			"value": 16384,
+			"unit": "tokens",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"not the 16,384 the product uses\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.taskFileCharacters",
+			"value": 12000,
+			"unit": "characters",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"at most 12,000 characters\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.elisionCharacters",
+			"value": 4000,
+			"unit": "characters",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"4,000 characters of a result (on)\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.elisionOffCharacters",
+			"value": 16000,
+			"unit": "characters",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"16,000 (off\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "registered.h10.repetitions",
+			"value": 24,
+			"unit": "tasks",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"24 of L10's tasks\"",
+			"derivation": "registered"
+		},
+		{
+			"id": "machine.memoryGiB",
+			"value": 24,
+			"unit": "GiB",
+			"source": "docs/research/results/2026-11-22-energy/manifest.json",
+			"path": "machine / memoryGiB",
+			"derivation": "committed"
+		},
+		{
+			"id": "machine.adapterWatts",
+			"value": 94,
+			"unit": "W",
+			"source": "docs/research/results/2026-11-22-energy/manifest.json",
+			"path": "machine / power",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-anchors.attempted",
+			"value": 160,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-anchors/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-anchors.succeeded",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-anchors/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-anchors.seconds",
+			"value": 1291,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-anchors/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-anchors-2.attempted",
+			"value": 160,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-anchors-2/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-anchors-2.succeeded",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-anchors-2/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-anchors-2.seconds",
+			"value": 1322,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-anchors-2/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-attribution.attempted",
+			"value": 960,
+			"denominator": 960,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-attribution.succeeded",
+			"value": 0,
+			"denominator": 960,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-attribution.seconds",
+			"value": 6630,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-attribution/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-confidence.attempted",
+			"value": 600,
+			"denominator": 600,
+			"source": "docs/research/results/2026-11-22-confidence/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-confidence.succeeded",
+			"value": 0,
+			"denominator": 600,
+			"source": "docs/research/results/2026-11-22-confidence/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-confidence.seconds",
+			"value": 4081,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-confidence/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-determinism.attempted",
+			"value": 200,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-22-determinism/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-determinism.succeeded",
+			"value": 0,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-22-determinism/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-determinism.seconds",
+			"value": 737,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-determinism/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-determinism-2.attempted",
+			"value": 200,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-22-determinism-2/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-determinism-2.succeeded",
+			"value": 0,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-22-determinism-2/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-determinism-2.seconds",
+			"value": 770,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-determinism-2/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-energy.attempted",
+			"value": 216,
+			"denominator": 216,
+			"source": "docs/research/results/2026-11-22-energy/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-energy.succeeded",
+			"value": 0,
+			"denominator": 216,
+			"source": "docs/research/results/2026-11-22-energy/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-energy.seconds",
+			"value": 1866,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-energy/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-engine-tier-a.attempted",
+			"value": 8,
+			"denominator": 8,
+			"source": "docs/research/results/2026-11-22-engine-tier-a/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-engine-tier-a.succeeded",
+			"value": 0,
+			"denominator": 8,
+			"source": "docs/research/results/2026-11-22-engine-tier-a/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-engine-tier-a.seconds",
+			"value": 75,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-engine-tier-a/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-engine-tier-s.attempted",
+			"value": 24,
+			"denominator": 24,
+			"source": "docs/research/results/2026-11-22-engine-tier-s/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-engine-tier-s.succeeded",
+			"value": 0,
+			"denominator": 24,
+			"source": "docs/research/results/2026-11-22-engine-tier-s/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-engine-tier-s.seconds",
+			"value": 428,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-engine-tier-s/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-eviction-agentic.attempted",
+			"value": 120,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-eviction-agentic/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-eviction-agentic.succeeded",
+			"value": 0,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-eviction-agentic/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-eviction-agentic.seconds",
+			"value": 536,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-eviction-agentic/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-injection.attempted",
+			"value": 92,
+			"denominator": 96,
+			"source": "docs/research/results/2026-11-22-injection/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-injection.succeeded",
+			"value": 3,
+			"denominator": 92,
+			"source": "docs/research/results/2026-11-22-injection/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-injection.seconds",
+			"value": 282,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-injection/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-rankings-brew.attempted",
+			"value": 120,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-rankings-brew/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-rankings-brew.succeeded",
+			"value": 0,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-rankings-brew/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-rankings-brew.seconds",
+			"value": 1087,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-rankings-brew/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-rankings-onyx.attempted",
+			"value": 120,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-rankings-onyx.succeeded",
+			"value": 0,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-rankings-onyx.seconds",
+			"value": 1417,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-rankings-onyx/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-reference-measure.attempted",
+			"value": 54,
+			"denominator": 54,
+			"source": "docs/research/results/2026-11-22-reference-measure/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-reference-measure.succeeded",
+			"value": 0,
+			"denominator": 54,
+			"source": "docs/research/results/2026-11-22-reference-measure/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-reference-measure.seconds",
+			"value": 1257,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-reference-measure/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-22-single-turn.attempted",
+			"value": 240,
+			"denominator": 240,
+			"source": "docs/research/results/2026-11-22-single-turn/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-22-single-turn.succeeded",
+			"value": 0,
+			"denominator": 240,
+			"source": "docs/research/results/2026-11-22-single-turn/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-22-single-turn.seconds",
+			"value": 1952,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-single-turn/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "h1.mutants",
+			"value": 41,
+			"source": "docs/research/results/2026-11-22-assurance/summary.json",
+			"path": "mutation / total",
+			"derivation": "committed"
+		},
+		{
+			"id": "h1.mutantsKilled",
+			"value": 41,
+			"denominator": 41,
+			"source": "docs/research/results/2026-11-22-assurance/summary.json",
+			"path": "mutation / killed",
+			"derivation": "committed"
+		},
+		{
+			"id": "h1.resurrectedDefects",
+			"value": 36,
+			"denominator": 41,
+			"source": "docs/research/results/2026-11-22-assurance/summary.json",
+			"path": "mutation / resurrectedDefects",
+			"derivation": "committed"
+		},
+		{
+			"id": "h1.genericMutants",
+			"value": 5,
+			"denominator": 41,
+			"source": "docs/research/results/2026-11-22-assurance/summary.json",
+			"path": "mutation / genericOnly",
+			"derivation": "committed"
+		},
+		{
+			"id": "h1.episodesPerMutant",
+			"value": 2000,
+			"source": "docs/research/results/2026-11-22-assurance/summary.json",
+			"path": "mutation / episodesPerMutant",
+			"derivation": "committed"
+		},
+		{
+			"id": "h1.episodes",
+			"value": 50000,
+			"source": "docs/research/results/2026-11-22-assurance/summary.json",
+			"path": "campaign / episodes",
+			"derivation": "committed"
+		},
+		{
+			"id": "h1.episodesWithoutViolation",
+			"value": 50000,
+			"denominator": 50000,
+			"source": "docs/research/results/2026-11-22-assurance/summary.json",
+			"path": "campaign / ranWithoutViolation",
+			"derivation": "committed",
+			"note": "the second run"
+		},
+		{
+			"id": "h1.campaignSeconds",
+			"value": 602,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-assurance/summary.json",
+			"path": "campaign / seconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "h1.mutationSeconds",
+			"value": 59,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-assurance/summary.json",
+			"path": "mutation / seconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "h1.injectionCorpusEpisodes",
+			"value": 80,
+			"source": "docs/research/results/2026-11-22-assurance/summary.json",
+			"path": "injectionCorpus / episodes",
+			"derivation": "committed"
+		},
+		{
+			"id": "h1.firstRun.episodesInCleanShards",
+			"value": 46000,
+			"denominator": 50000,
+			"source": "docs/research/results/2026-11-22-assurance/traces/first-run/campaign.txt",
+			"path": "the line that begins \"campaign:\"",
+			"derivation": "committed",
+			"note": "the first run counts whole shards: two shards failed, each for one episode"
+		},
+		{
+			"id": "h1.firstRun.seed1",
+			"value": 32218,
+			"source": "docs/research/results/2026-11-22-assurance/NOTES.md",
+			"path": "the table of seeds",
+			"derivation": "committed",
+			"unit": "seed"
+		},
+		{
+			"id": "h1.firstRun.seed2",
+			"value": 46211,
+			"source": "docs/research/results/2026-11-22-assurance/NOTES.md",
+			"path": "the table of seeds",
+			"derivation": "committed",
+			"unit": "seed"
+		},
+		{
+			"id": "h1.firstRun.episodesReported",
+			"value": 2,
+			"denominator": 50000,
+			"source": "docs/research/results/2026-11-22-assurance/NOTES.md",
+			"path": "rows of the table of seeds",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.native.runs",
+			"value": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "rows of qwen2.5-coder:7b whose configuration begins \"native-\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.native.exact",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.native.scoredAboveZero",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, score above 0",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.native.runsWithAnEdit",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with a non-empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.native.runsWithARejectedEditCall",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with an editFile call and an empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.repaired.runs",
+			"value": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "rows of qwen2.5-coder:7b whose configuration begins \"repaired-\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.repaired.exact",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.repaired.scoredAboveZero",
+			"value": 12,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, score above 0",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.repaired.runsWithAnEdit",
+			"value": 79,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with a non-empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.repaired.runsWithARejectedEditCall",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with an editFile call and an empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.constrained.runs",
+			"value": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "rows of qwen2.5-coder:7b whose configuration begins \"constrained-\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.constrained.exact",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.constrained.scoredAboveZero",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, score above 0",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.constrained.runsWithAnEdit",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with a non-empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:7b.constrained.runsWithARejectedEditCall",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with an editFile call and an empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.native.runs",
+			"value": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "rows of qwen2.5-coder:1.5b whose configuration begins \"native-\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.native.exact",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.native.scoredAboveZero",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, score above 0",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.native.runsWithAnEdit",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with a non-empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.native.runsWithARejectedEditCall",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with an editFile call and an empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.repaired.runs",
+			"value": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "rows of qwen2.5-coder:1.5b whose configuration begins \"repaired-\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.repaired.exact",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.repaired.scoredAboveZero",
+			"value": 1,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, score above 0",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.repaired.runsWithAnEdit",
+			"value": 53,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with a non-empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.repaired.runsWithARejectedEditCall",
+			"value": 86,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with an editFile call and an empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.constrained.runs",
+			"value": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "rows of qwen2.5-coder:1.5b whose configuration begins \"constrained-\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.constrained.exact",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.constrained.scoredAboveZero",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "of those, score above 0",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.constrained.runsWithAnEdit",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with a non-empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.qwen2.5-coder:1.5b.constrained.runsWithARejectedEditCall",
+			"value": 18,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-attribution/traces/records.jsonl",
+			"path": "records with an editFile call and an empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.runs",
+			"value": 960,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "rows",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.exact",
+			"value": 0,
+			"denominator": 960,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.configurations",
+			"value": 12,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "distinct configurations",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h2.primary.successShapley.qwen2.5-coder:7b",
+			"value": 0,
+			"interval": [
+				0,
+				0
+			],
+			"source": "docs/research/results/2026-11-22-attribution/analysis.json",
+			"path": "games / primary/success / perModel / qwen2.5-coder:7b / attribution / shapley / 0",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-attribution.mts docs/research/results/2026-11-22-attribution",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "protocol handling, the registered metric in the primary game; times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h2.primary.successShapley.qwen2.5-coder:1.5b",
+			"value": 0,
+			"interval": [
+				0,
+				0
+			],
+			"source": "docs/research/results/2026-11-22-attribution/analysis.json",
+			"path": "games / primary/success / perModel / qwen2.5-coder:1.5b / attribution / shapley / 0",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-attribution.mts docs/research/results/2026-11-22-attribution",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "protocol handling, the registered metric in the primary game; times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h2.secondary.meanScoreShapley.7b",
+			"value": 0.019,
+			"interval": [
+				0.003,
+				0.041
+			],
+			"source": "docs/research/results/2026-11-22-attribution/analysis.json",
+			"path": "games / secondary/score / perModel / qwen2.5-coder:7b / attribution / shapley / 0",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-attribution.mts docs/research/results/2026-11-22-attribution",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "protocol handling; a secondary measure in a secondary game: it decides nothing by registration; times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h2.successRateUpperBound",
+			"value": 8.8,
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-attribution/analysis.json",
+			"path": "configurations / 0 / successRate / high",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-attribution.mts docs/research/results/2026-11-22-attribution",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "the Wilson upper bound of 0 of 40, the same for every configuration; times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h3.attempts",
+			"value": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / exact-unique / attempts",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.exact-unique.placed",
+			"value": 424,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / exact-unique / applied",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.exact-unique.placedShare",
+			"value": 32.6,
+			"interval": [
+				30.1,
+				35.2
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / exact-unique / applyRate",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h3.exact-unique.placedThoughNotInTheFile",
+			"value": 0,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / exact-unique / appliedThoughNotInTheFile",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.exact-unique.silentlyWrong",
+			"value": 350,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / exact-unique / silentlyWrong",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.exact-unique.silentlyWrongShare",
+			"value": 26.9,
+			"interval": [
+				24.6,
+				29.4
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / exact-unique / silentlyWrongRate",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h3.exact-unique.meanScore",
+			"value": 0.03,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / exact-unique / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.whitespace-insensitive.placed",
+			"value": 649,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / whitespace-insensitive / applied",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.whitespace-insensitive.placedShare",
+			"value": 49.9,
+			"interval": [
+				47.2,
+				52.6
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / whitespace-insensitive / applyRate",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h3.whitespace-insensitive.placedThoughNotInTheFile",
+			"value": 178,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / whitespace-insensitive / appliedThoughNotInTheFile",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.whitespace-insensitive.silentlyWrong",
+			"value": 551,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / whitespace-insensitive / silentlyWrong",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.whitespace-insensitive.silentlyWrongShare",
+			"value": 42.4,
+			"interval": [
+				39.7,
+				45.1
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / whitespace-insensitive / silentlyWrongRate",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h3.whitespace-insensitive.meanScore",
+			"value": 0.057,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / whitespace-insensitive / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.unique-first-line.placed",
+			"value": 594,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / unique-first-line / applied",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.unique-first-line.placedShare",
+			"value": 45.7,
+			"interval": [
+				43,
+				48.4
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / unique-first-line / applyRate",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h3.unique-first-line.placedThoughNotInTheFile",
+			"value": 195,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / unique-first-line / appliedThoughNotInTheFile",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.unique-first-line.silentlyWrong",
+			"value": 512,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / unique-first-line / silentlyWrong",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.unique-first-line.silentlyWrongShare",
+			"value": 39.4,
+			"interval": [
+				36.7,
+				42
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / unique-first-line / silentlyWrongRate",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h3.unique-first-line.meanScore",
+			"value": 0.061,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / unique-first-line / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.fuzzy.placed",
+			"value": 798,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / fuzzy / applied",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.fuzzy.placedShare",
+			"value": 61.3,
+			"interval": [
+				58.7,
+				63.9
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / fuzzy / applyRate",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h3.fuzzy.placedThoughNotInTheFile",
+			"value": 319,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / fuzzy / appliedThoughNotInTheFile",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.fuzzy.silentlyWrong",
+			"value": 700,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / fuzzy / silentlyWrong",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.fuzzy.silentlyWrongShare",
+			"value": 53.8,
+			"interval": [
+				51.1,
+				56.5
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / fuzzy / silentlyWrongRate",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h3.fuzzy.meanScore",
+			"value": 0.067,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / table / fuzzy / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.fuzzyLessExact",
+			"value": 28.7,
+			"interval": [
+				26.1,
+				31.3
+			],
+			"unit": "percentage points",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / pooled / fuzzyLessExact",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h3.attempts.qwen2.5-coder:7b",
+			"value": 855,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / perModel / qwen2.5-coder:7b / table / exact-unique / attempts",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.attempts.qwen2.5-coder:1.5b",
+			"value": 446,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h3 / perModel / qwen2.5-coder:1.5b / table / exact-unique / attempts",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.attemptsFrom.2026-11-22-single-turn",
+			"value": 303,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "sources / 2026-11-22-single-turn / attempts",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.attemptsFrom.2026-11-22-confidence",
+			"value": 726,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "sources / 2026-11-22-confidence / attempts",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.attemptsFrom.2026-11-22-attribution",
+			"value": 272,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "sources / 2026-11-22-attribution / attempts",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h3.exact-unique.silentlyWrongOfPlaced",
+			"value": 350,
+			"denominator": 424,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/attempts.jsonl",
+			"path": "exact-unique verdicts that are silently wrong, over those that were placed",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h4.qwen2.5-coder:7b.search-replace.runs",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:7b / search-replace / runs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:7b.search-replace.editCalls",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:7b / search-replace / editCalls",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:7b.search-replace.refused",
+			"value": 0,
+			"denominator": 0,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:7b / search-replace / refused",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:7b.search-replace.collateral",
+			"value": 0,
+			"denominator": 0,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:7b / search-replace / collateral",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:7b.search-replace.p90Seconds",
+			"value": 6.2,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:7b / search-replace / p90Seconds",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 1, rounded to 1 decimals"
+		},
+		{
+			"id": "h4.qwen2.5-coder:7b.constrained-anchors.runs",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:7b / constrained-anchors / runs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:7b.constrained-anchors.editCalls",
+			"value": 31,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:7b / constrained-anchors / editCalls",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:7b.constrained-anchors.refused",
+			"value": 0,
+			"denominator": 31,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:7b / constrained-anchors / refused",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:7b.constrained-anchors.collateral",
+			"value": 30,
+			"denominator": 31,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:7b / constrained-anchors / collateral",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:7b.constrained-anchors.p90Seconds",
+			"value": 44.6,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:7b / constrained-anchors / p90Seconds",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 1, rounded to 1 decimals"
+		},
+		{
+			"id": "h4.qwen2.5-coder:1.5b.search-replace.runs",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:1.5b / search-replace / runs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:1.5b.search-replace.editCalls",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:1.5b / search-replace / editCalls",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:1.5b.search-replace.refused",
+			"value": 0,
+			"denominator": 0,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:1.5b / search-replace / refused",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:1.5b.search-replace.collateral",
+			"value": 0,
+			"denominator": 0,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:1.5b / search-replace / collateral",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:1.5b.search-replace.p90Seconds",
+			"value": 2.7,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:1.5b / search-replace / p90Seconds",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 1, rounded to 1 decimals"
+		},
+		{
+			"id": "h4.qwen2.5-coder:1.5b.constrained-anchors.runs",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:1.5b / constrained-anchors / runs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:1.5b.constrained-anchors.editCalls",
+			"value": 24,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:1.5b / constrained-anchors / editCalls",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:1.5b.constrained-anchors.refused",
+			"value": 1,
+			"denominator": 24,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:1.5b / constrained-anchors / refused",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:1.5b.constrained-anchors.collateral",
+			"value": 21,
+			"denominator": 24,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:1.5b / constrained-anchors / collateral",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.qwen2.5-coder:1.5b.constrained-anchors.p90Seconds",
+			"value": 17,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / arms / qwen2.5-coder:1.5b / constrained-anchors / p90Seconds",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 1, rounded to 1 decimals"
+		},
+		{
+			"id": "h4.pairedTasks",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / pairedTasks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h4.editCalls",
+			"value": 55,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h4 / editCalls",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h5.grounded.edits",
+			"value": 163,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h5 / grounded / edits",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h5.grounded.meanScore",
+			"value": 0.021,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h5 / grounded / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h5.ungrounded.edits",
+			"value": 36,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h5 / ungrounded / edits",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h5.ungrounded.meanScore",
+			"value": 0,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h5 / ungrounded / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h5.leftOut.notApplicable",
+			"value": 73,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h5 / leftOut / notApplicable",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h5.difference",
+			"value": 0.021,
+			"interval": [
+				0.009,
+				0.034
+			],
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h5 / difference",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h5.cliffsDelta",
+			"value": 0.08,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/analysis.json",
+			"path": "h5 / cliffsDelta",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
+			"rerun": "only by `node test/onyx/lab/make-report.mts --slow`"
+		},
+		{
+			"id": "h6.first.comparisons",
+			"value": 160,
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json",
+			"path": "pooled / comparisons",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.first.identical",
+			"value": 146,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json",
+			"path": "pooled / identical",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.first.identicalShare",
+			"value": 91.3,
+			"interval": [
+				85.8,
+				94.7
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json",
+			"path": "pooled / identicalShare",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h6.first.units",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json",
+			"path": "units",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.first.runs",
+			"value": 200,
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json",
+			"path": "runs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.first.multiTurnRuns",
+			"value": 200,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json",
+			"path": "multiTurnRuns",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.first.unitsAllIdentical",
+			"value": 35,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json",
+			"path": "byModel / unitsAllIdentical, summed",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.first.harnessDivergences",
+			"value": 14,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json",
+			"path": "byModel / bySource / harness, summed",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.first.runtimeDivergences",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json",
+			"path": "byModel / bySource / runtime, summed",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.first.unitsWithADivergence",
+			"value": 5,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json",
+			"path": "units less unitsAllIdentical",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h6.second.comparisons",
+			"value": 160,
+			"source": "docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "pooled / comparisons",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism-2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.second.identical",
+			"value": 160,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "pooled / identical",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism-2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.second.identicalShare",
+			"value": 100,
+			"interval": [
+				97.7,
+				100
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "pooled / identicalShare",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism-2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "h6.second.units",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "units",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism-2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.second.runs",
+			"value": 200,
+			"source": "docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "runs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism-2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.second.multiTurnRuns",
+			"value": 200,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "multiTurnRuns",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism-2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.second.unitsAllIdentical",
+			"value": 40,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "byModel / unitsAllIdentical, summed",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism-2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.second.harnessDivergences",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "byModel / bySource / harness, summed",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism-2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.second.runtimeDivergences",
+			"value": 0,
+			"denominator": 160,
+			"source": "docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "byModel / bySource / runtime, summed",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-22-determinism-2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h6.second.unitsWithADivergence",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "units less unitsAllIdentical",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h6.comparisonsWithoutARuntimeDivergence",
+			"value": 320,
+			"source": "docs/research/results/2026-11-22-determinism/determinism.json, docs/research/results/2026-11-22-determinism-2/determinism.json",
+			"path": "comparisons of both campaigns; the runtime diverged in none",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-onyx.qwen2.5-coder:7b.tasks",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-onyx] / scores / [model=qwen2.5-coder:7b] / tasks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-onyx.qwen2.5-coder:7b.solved",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-onyx] / scores / [model=qwen2.5-coder:7b] / solved",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-onyx.qwen2.5-coder:7b.meanScore",
+			"value": 0.04,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-onyx] / scores / [model=qwen2.5-coder:7b] / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-onyx.qwen2.5-coder:1.5b.tasks",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-onyx] / scores / [model=qwen2.5-coder:1.5b] / tasks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-onyx.qwen2.5-coder:1.5b.solved",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-onyx] / scores / [model=qwen2.5-coder:1.5b] / solved",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-onyx.qwen2.5-coder:1.5b.meanScore",
+			"value": 0.017,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-onyx] / scores / [model=qwen2.5-coder:1.5b] / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-onyx.llama3.2:3b.tasks",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-onyx] / scores / [model=llama3.2:3b] / tasks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-onyx.llama3.2:3b.solved",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-onyx] / scores / [model=llama3.2:3b] / solved",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-onyx.llama3.2:3b.meanScore",
+			"value": 0.037,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-onyx] / scores / [model=llama3.2:3b] / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-brew.qwen2.5-coder:7b.tasks",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-brew] / scores / [model=qwen2.5-coder:7b] / tasks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-brew.qwen2.5-coder:7b.solved",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-brew] / scores / [model=qwen2.5-coder:7b] / solved",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-brew.qwen2.5-coder:7b.meanScore",
+			"value": 0.146,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-brew] / scores / [model=qwen2.5-coder:7b] / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-brew.qwen2.5-coder:1.5b.tasks",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-brew] / scores / [model=qwen2.5-coder:1.5b] / tasks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-brew.qwen2.5-coder:1.5b.solved",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-brew] / scores / [model=qwen2.5-coder:1.5b] / solved",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-brew.qwen2.5-coder:1.5b.meanScore",
+			"value": 0.021,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-brew] / scores / [model=qwen2.5-coder:1.5b] / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-brew.llama3.2:3b.tasks",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-brew] / scores / [model=llama3.2:3b] / tasks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-brew.llama3.2:3b.solved",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-brew] / scores / [model=llama3.2:3b] / solved",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h7.2026-11-22-rankings-brew.llama3.2:3b.meanScore",
+			"value": 0.069,
+			"source": "docs/research/results/2026-11-22-rankings-onyx/rankings.json",
+			"path": "repositories / [repository=2026-11-22-rankings-brew] / scores / [model=llama3.2:3b] / meanScore",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-rankings.mts docs/research/results/2026-11-22-rankings-onyx docs/research/results/2026-11-22-rankings-brew",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h8.runs",
+			"value": 600,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "records",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h8.units",
+			"value": 120,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "units",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h8.unitsWithoutAnAppliedFirstReply",
+			"value": 58,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "unitsWithoutAnAppliedFirstReply",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h8.labelledHunks",
+			"value": 120,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "labelledHunks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h8.correctHunks",
+			"value": 6,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "correctHunks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h8.hunksAtTheAgreementFloor",
+			"value": 103,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "hunks whose agreement is 0.2",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h8.agreement.hunks",
+			"value": 120,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "pooled / [estimator=agreement] / hunks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h8.agreement.correct",
+			"value": 6,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "pooled / [estimator=agreement] / correct",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h8.agreement.auroc",
+			"value": 0.507,
+			"interval": [
+				0.384,
+				0.687
+			],
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "pooled / [estimator=agreement] / auroc",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h8.agreement.ece",
+			"value": 0.215,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "pooled / [estimator=agreement] / ece",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h8.token-probability.hunks",
+			"value": 114,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "pooled / [estimator=token-probability] / hunks",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h8.token-probability.correct",
+			"value": 6,
+			"denominator": 114,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "pooled / [estimator=token-probability] / correct",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h8.token-probability.auroc",
+			"value": 0.599,
+			"interval": [
+				0.299,
+				0.885
+			],
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "pooled / [estimator=token-probability] / auroc",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h8.token-probability.ece",
+			"value": 0.093,
+			"source": "docs/research/results/2026-11-22-confidence/confidence.json",
+			"path": "pooled / [estimator=token-probability] / ece",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-confidence.mts docs/research/results/2026-11-22-confidence",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "h9.scriptedRuns",
+			"value": 18,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / runs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.oldest-results-first.turns",
+			"value": 90,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=oldest-results-first] / turns",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.oldest-results-first.reprocessedTokens",
+			"value": 365920,
+			"unit": "tokens, estimated from prompt-evaluation time",
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=oldest-results-first] / reprocessedTokens",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.oldest-results-first.meanFirstTokenMs",
+			"value": 8062,
+			"unit": "ms",
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=oldest-results-first] / meanFirstTokenMs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.oldest-results-first.agentic.attempted",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "agentic / policies / [policy=oldest-results-first] / attempted",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.oldest-results-first.agentic.succeeded",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "agentic / policies / [policy=oldest-results-first] / succeeded",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.oldest-results-first.agentic.runsThatEvicted",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "agentic / policies / [policy=oldest-results-first] / runsThatEvicted",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.block-to-low-watermark.turns",
+			"value": 90,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=block-to-low-watermark] / turns",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.block-to-low-watermark.reprocessedTokens",
+			"value": 153178,
+			"unit": "tokens, estimated from prompt-evaluation time",
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=block-to-low-watermark] / reprocessedTokens",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.block-to-low-watermark.meanFirstTokenMs",
+			"value": 3343,
+			"unit": "ms",
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=block-to-low-watermark] / meanFirstTokenMs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.block-to-low-watermark.ratio",
+			"value": 0.42,
+			"interval": [
+				0.38,
+				0.47
+			],
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=block-to-low-watermark] / ratioToOldestFirst",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "an estimate from prompt-evaluation time: the runtime does not report evaluated tokens; times 1, rounded to 2 decimals"
+		},
+		{
+			"id": "h9.block-to-low-watermark.agentic.attempted",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "agentic / policies / [policy=block-to-low-watermark] / attempted",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.block-to-low-watermark.agentic.succeeded",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "agentic / policies / [policy=block-to-low-watermark] / succeeded",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.block-to-low-watermark.agentic.runsThatEvicted",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "agentic / policies / [policy=block-to-low-watermark] / runsThatEvicted",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.placeholder-results.turns",
+			"value": 90,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=placeholder-results] / turns",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.placeholder-results.reprocessedTokens",
+			"value": 339187,
+			"unit": "tokens, estimated from prompt-evaluation time",
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=placeholder-results] / reprocessedTokens",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.placeholder-results.meanFirstTokenMs",
+			"value": 8460,
+			"unit": "ms",
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=placeholder-results] / meanFirstTokenMs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.placeholder-results.ratio",
+			"value": 0.93,
+			"interval": [
+				0.9,
+				0.95
+			],
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "scripted / policies / [policy=placeholder-results] / ratioToOldestFirst",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "an estimate from prompt-evaluation time: the runtime does not report evaluated tokens; times 1, rounded to 2 decimals"
+		},
+		{
+			"id": "h9.placeholder-results.agentic.attempted",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "agentic / policies / [policy=placeholder-results] / attempted",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.placeholder-results.agentic.succeeded",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "agentic / policies / [policy=placeholder-results] / succeeded",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.placeholder-results.agentic.runsThatEvicted",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-22-eviction-scripted/eviction.json",
+			"path": "agentic / policies / [policy=placeholder-results] / runsThatEvicted",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-eviction.mts docs/research/results/2026-11-22-eviction-scripted docs/research/results/2026-11-22-eviction-agentic",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h9.probe.promptEvalCount",
+			"value": 2963,
+			"unit": "tokens",
+			"source": "docs/research/results/2026-11-22-eviction-scripted/probe.jsonl",
+			"path": "line 1 / firstTime / promptEvalCount",
+			"derivation": "committed"
+		},
+		{
+			"id": "h9.probe.firstMs",
+			"value": 6296,
+			"unit": "ms",
+			"source": "docs/research/results/2026-11-22-eviction-scripted/probe.jsonl",
+			"path": "line 1 / firstTime / promptEvalMs",
+			"derivation": "committed"
+		},
+		{
+			"id": "h9.probe.againMs",
+			"value": 22,
+			"unit": "ms",
+			"source": "docs/research/results/2026-11-22-eviction-scripted/probe.jsonl",
+			"path": "line 1 / sameAgain / promptEvalMs",
+			"derivation": "committed"
+		},
+		{
+			"id": "h10.runs",
+			"value": 216,
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "records",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.powerRefreshes",
+			"value": 39,
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "powerRefreshes",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.modelsWithASolvedTask",
+			"value": 0,
+			"denominator": 3,
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "modelsWithASolvedTask",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:7b.attempts",
+			"value": 72,
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:7b] / attempts",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:7b.solved",
+			"value": 0,
+			"denominator": 72,
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:7b] / solved",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:7b.blockSeconds",
+			"value": 506,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:7b] / blockSeconds",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:7b.joules",
+			"value": 36603,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:7b] / joules",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:7b.boundaryJoules",
+			"value": 4569,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:7b] / boundaryJoules",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:7b.joulesPerAttempt",
+			"value": 508,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:7b] / joulesPerAttempt",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:7b.joulesPerThousandTokens",
+			"value": 1725,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:7b] / joulesPerThousandTokens",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:7b.tokensPerSecond",
+			"value": 49.5,
+			"unit": "tokens a second",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:7b] / tokensPerSecond",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:7b.completionTokens",
+			"value": 21222,
+			"unit": "tokens",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:7b] / completionTokens",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:7b.boundaryShare",
+			"value": 12,
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "boundaryJoules over joules, times 100, rounded",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h10.qwen2.5-coder:1.5b.attempts",
+			"value": 72,
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:1.5b] / attempts",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:1.5b.solved",
+			"value": 0,
+			"denominator": 72,
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:1.5b] / solved",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:1.5b.blockSeconds",
+			"value": 381,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:1.5b] / blockSeconds",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:1.5b.joules",
+			"value": 25372,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:1.5b] / joules",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:1.5b.boundaryJoules",
+			"value": 7969,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:1.5b] / boundaryJoules",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:1.5b.joulesPerAttempt",
+			"value": 352,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:1.5b] / joulesPerAttempt",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:1.5b.joulesPerThousandTokens",
+			"value": 456,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:1.5b] / joulesPerThousandTokens",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:1.5b.tokensPerSecond",
+			"value": 160.3,
+			"unit": "tokens a second",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:1.5b] / tokensPerSecond",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:1.5b.completionTokens",
+			"value": 55614,
+			"unit": "tokens",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=qwen2.5-coder:1.5b] / completionTokens",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.qwen2.5-coder:1.5b.boundaryShare",
+			"value": 31,
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "boundaryJoules over joules, times 100, rounded",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "h10.llama3.2:3b.attempts",
+			"value": 72,
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=llama3.2:3b] / attempts",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.llama3.2:3b.solved",
+			"value": 0,
+			"denominator": 72,
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=llama3.2:3b] / solved",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.llama3.2:3b.blockSeconds",
+			"value": 975,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=llama3.2:3b] / blockSeconds",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.llama3.2:3b.joules",
+			"value": 62669,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=llama3.2:3b] / joules",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.llama3.2:3b.boundaryJoules",
+			"value": 7548,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=llama3.2:3b] / boundaryJoules",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.llama3.2:3b.joulesPerAttempt",
+			"value": 870,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=llama3.2:3b] / joulesPerAttempt",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.llama3.2:3b.joulesPerThousandTokens",
+			"value": 764,
+			"unit": "J",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=llama3.2:3b] / joulesPerThousandTokens",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.llama3.2:3b.tokensPerSecond",
+			"value": 91.7,
+			"unit": "tokens a second",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=llama3.2:3b] / tokensPerSecond",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.llama3.2:3b.completionTokens",
+			"value": 82020,
+			"unit": "tokens",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "models / [model=llama3.2:3b] / completionTokens",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-energy.mts docs/research/results/2026-11-22-energy --idle-watts 2",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "h10.llama3.2:3b.boundaryShare",
+			"value": 12,
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-22-energy/energy.json",
+			"path": "boundaryJoules over joules, times 100, rounded",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "outcomes.supported",
+			"value": 4,
+			"denominator": 10,
+			"source": "docs/research/results/*/outcome*.json",
+			"path": "outcome files that say \"supported\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "outcomes.refuted",
+			"value": 1,
+			"denominator": 10,
+			"source": "docs/research/results/*/outcome*.json",
+			"path": "outcome files that say \"refuted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "outcomes.inconclusive",
+			"value": 5,
+			"denominator": 10,
+			"source": "docs/research/results/*/outcome*.json",
+			"path": "outcome files that say \"inconclusive\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "injection.plantedRuns",
+			"value": 80,
+			"source": "docs/research/results/2026-11-22-injection/injection.json",
+			"path": "plantedRuns",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-injection.mts docs/research/results/2026-11-22-injection",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "injection.reachedForThePlantedEffect",
+			"value": 4,
+			"denominator": 80,
+			"source": "docs/research/results/2026-11-22-injection/injection.json",
+			"path": "reachedForThePlantedEffect",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-injection.mts docs/research/results/2026-11-22-injection",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "injection.plantedEffectHappened",
+			"value": 0,
+			"denominator": 80,
+			"source": "docs/research/results/2026-11-22-injection/injection.json",
+			"path": "plantedEffectHappened",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-injection.mts docs/research/results/2026-11-22-injection",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "injection.controlRuns",
+			"value": 16,
+			"source": "docs/research/results/2026-11-22-injection/injection.json",
+			"path": "controlRuns",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-injection.mts docs/research/results/2026-11-22-injection",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "injection.controlRunsThatReached",
+			"value": 0,
+			"denominator": 16,
+			"source": "docs/research/results/2026-11-22-injection/injection.json",
+			"path": "controlRunsThatReachedForAnyEffect",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-injection.mts docs/research/results/2026-11-22-injection",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "injection.fixtureTasks",
+			"value": 24,
+			"source": "docs/research/results/2026-11-22-injection/tasks.json",
+			"path": "tasks",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "injection.fixtureTasksWithAPlantedInstruction",
+			"value": 20,
+			"denominator": 24,
+			"source": "docs/research/results/2026-11-22-injection/tasks.json",
+			"path": "tasks whose effect is not \"none\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "tasks.total",
+			"value": 120,
+			"source": "docs/research/results/2026-11-22-task-set/summary.json",
+			"path": "tasks",
+			"derivation": "committed"
+		},
+		{
+			"id": "tasks.scannedCommits",
+			"value": 37736,
+			"source": "docs/research/results/2026-11-22-task-set/summary.json",
+			"path": "selection / scannedCommits",
+			"derivation": "committed"
+		},
+		{
+			"id": "tasks.eligibleCommits",
+			"value": 2912,
+			"source": "docs/research/results/2026-11-22-task-set/summary.json",
+			"path": "selection / eligible",
+			"derivation": "committed"
+		},
+		{
+			"id": "tasks.withATestChange",
+			"value": 19,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-task-set/summary.json",
+			"path": "counts / withTests",
+			"derivation": "committed"
+		},
+		{
+			"id": "tasks.fromRequests",
+			"value": 0,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-task-set/summary.json",
+			"path": "counts / bySource / request",
+			"derivation": "committed"
+		},
+		{
+			"id": "tasks.hashesMatch",
+			"value": 120,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-task-set/summary.json",
+			"path": "checkedAgainstTheRepository / tasksWhoseHashesMatch",
+			"derivation": "committed"
+		},
+		{
+			"id": "tasks.excludedCommits",
+			"value": 8,
+			"source": "docs/research/results/2026-11-22-task-set/summary.json",
+			"path": "selection / excludedCommits",
+			"derivation": "committed"
+		},
+		{
+			"id": "tasks.subset.h2",
+			"value": 40,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-attribution/results.jsonl",
+			"path": "distinct tasks",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "tasks.subset.h6",
+			"value": 20,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-determinism-2/results.jsonl",
+			"path": "distinct tasks",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "tasks.subset.h8",
+			"value": 60,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-confidence/results.jsonl",
+			"path": "distinct tasks",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "tasks.subset.h10",
+			"value": 24,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-energy/results.jsonl",
+			"path": "distinct tasks",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "tasks.subset.brew",
+			"value": 40,
+			"source": "docs/research/results/2026-11-22-rankings-brew/results.jsonl",
+			"path": "distinct tasks",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "tasks.subset.referenceMeasure",
+			"value": 18,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-22-reference-measure/results.jsonl",
+			"path": "distinct tasks",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "totals.exactReproductions",
+			"value": 0,
+			"denominator": 3182,
+			"source": "docs/research/results/*/results.jsonl",
+			"path": "successes over attempts, summed over every campaign on real tasks",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "sums 14 campaigns: 2026-11-22-anchors 160, 2026-11-22-anchors-2 160, 2026-11-22-attribution 960, 2026-11-22-confidence 600, 2026-11-22-determinism 200, 2026-11-22-determinism-2 200, 2026-11-22-energy 216, 2026-11-22-engine-tier-a 8, 2026-11-22-engine-tier-s 24, 2026-11-22-eviction-agentic 120, 2026-11-22-rankings-brew 120, 2026-11-22-rankings-onyx 120, 2026-11-22-reference-measure 54, 2026-11-22-single-turn 240. Left out: 2026-11-22-injection (fixture tasks). Includes the two superseded campaigns and the two engine campaigns. Attempts are not independent: campaigns reuse tasks, and H-6 repeats each unit five times"
+		},
+		{
+			"id": "totals.attemptsInSupersededCampaigns",
+			"value": 360,
+			"denominator": 3182,
+			"source": "docs/research/results/*/results.jsonl",
+			"path": "attempts of 2026-11-22-anchors and 2026-11-22-determinism",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "totals.attemptsOutsideSupersededCampaigns",
+			"value": 2822,
+			"source": "docs/research/results/*/results.jsonl",
+			"path": "attempts on real tasks less those of the superseded campaigns",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "totals.realTaskCampaigns",
+			"value": 14,
+			"source": "docs/research/results/*/results.jsonl",
+			"path": "campaigns on real tasks with a results.jsonl",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "totals.fixtureSuccesses",
+			"value": 3,
+			"denominator": 92,
+			"source": "docs/research/results/2026-11-22-injection/results.jsonl",
+			"path": "successes over attempts on the injection fixture",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "totals.fixtureUnits",
+			"value": 96,
+			"source": "docs/research/results/2026-11-22-injection/results.jsonl",
+			"path": "units of the injection run",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "product.attribution.runsWithAnEdit",
+			"value": 0,
+			"denominator": 320,
+			"source": "docs/research/results/*/traces/records.jsonl",
+			"path": "records whose `edits` list is not empty, over the records of the constrained-envelope configurations of H-2's campaign",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "this is the count docs/progress/STATE.md states as 0 of 320. Sums 2026-11-22-attribution/constrained-elide-numbered 80, 2026-11-22-attribution/constrained-elide-plain 80, 2026-11-22-attribution/constrained-whole-numbered 80, 2026-11-22-attribution/constrained-whole-plain 80. Three of the four configurations differ from the product's in elision or line numbering; the campaign ran with the engine defect"
+		},
+		{
+			"id": "product.attribution.runsWithARejectedEditCall",
+			"value": 18,
+			"denominator": 320,
+			"source": "docs/research/results/*/traces/records.jsonl",
+			"path": "records with an editFile call in a turn and an empty `edits` list: the tool turned the call away for its arguments",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "product.exactConfiguration.runsWithAnEdit",
+			"value": 0,
+			"denominator": 648,
+			"source": "docs/research/results/*/traces/records.jsonl",
+			"path": "records with an edit, over the records of every configuration whose hash is 9801945d, the one H-6's manifest names \"product\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "sums 2026-11-22-anchors/search-replace 80, 2026-11-22-anchors-2/search-replace 80, 2026-11-22-attribution/constrained-elide-numbered 80, 2026-11-22-determinism/product 200, 2026-11-22-determinism-2/product 200, 2026-11-22-engine-tier-a/shipping 8"
+		},
+		{
+			"id": "product.exactConfiguration.runsWithARejectedEditCall",
+			"value": 15,
+			"denominator": 648,
+			"source": "docs/research/results/*/traces/records.jsonl",
+			"path": "as above, records with a rejected editFile call",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "product.constrainedSearchReplace.runsWithAnEdit",
+			"value": 0,
+			"denominator": 1008,
+			"source": "docs/research/results/*/traces/records.jsonl",
+			"path": "records with an edit, over every constrained-envelope, search-and-replace configuration on real tasks",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "sums 2026-11-22-anchors/search-replace 80, 2026-11-22-anchors-2/search-replace 80, 2026-11-22-attribution/constrained-elide-numbered 80, 2026-11-22-attribution/constrained-elide-plain 80, 2026-11-22-attribution/constrained-whole-numbered 80, 2026-11-22-attribution/constrained-whole-plain 80, 2026-11-22-determinism/product 200, 2026-11-22-determinism-2/product 200, 2026-11-22-engine-tier-a/shipping 8, 2026-11-22-eviction-agentic/oldest-results-first 40, 2026-11-22-eviction-agentic/block-to-low-watermark 40, 2026-11-22-eviction-agentic/placeholder-results 40. H-9's arms run at half the product's context and two of them under another eviction policy"
+		},
+		{
+			"id": "product.constrainedSearchReplace.runsWithARejectedEditCall",
+			"value": 38,
+			"denominator": 1008,
+			"source": "docs/research/results/*/traces/records.jsonl",
+			"path": "as above, records with a rejected editFile call",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		}
+	]
+}

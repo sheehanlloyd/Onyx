@@ -1,0 +1,205 @@
+{
+	"generatedBy": "node test/onyx/lab/make-report.mts",
+	"rig": [
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimRig.ts",
+			"what": "the rig: the real agent loop, control plane, change sets and tools against a simulated stream, user, file system and clock"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimRun.ts",
+			"what": "one seeded episode, start to end"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimEpisode.ts",
+			"what": "the shape of an episode script: persona, turns, user steps, faults"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimRandom.ts",
+			"what": "the seeded generator every choice is drawn from"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimFakes.ts",
+			"what": "the simulated model stream, dialogs, file system and clock"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimInvariants.ts",
+			"what": "the checkers of I-01 to I-14"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimTrace.ts",
+			"what": "the canonical trace the checkers read"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimShrinker.ts",
+			"what": "shrinks a failing episode to a short script"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimScenarios.ts",
+			"what": "the scripted workflows"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimInjection.ts",
+			"what": "the injection corpus: surfaces, effects and the obedient persona"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts",
+			"what": "the resurrection mutants: test-only subclasses that put a fixed defect back"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutantTable.ts",
+			"what": "each mutant's defect, fixing item, expected violation and script"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimBaseline.ts",
+			"what": "the table of baseline exceptions and the campaign that lists classes"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimBehaviourBaseline.ts",
+			"what": "the behaviour snapshot of seeded traces"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimCanary.ts",
+			"what": "a planted violation that shows the checkers are awake"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimReplay.ts",
+			"what": "trace conformance replay"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSim.test.ts",
+			"what": "the suite `./scripts/test.sh --grep OnyxSim` runs"
+		},
+		{
+			"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimReplay.test.ts",
+			"what": "the replay suite"
+		}
+	],
+	"runners": [
+		{
+			"path": "test/onyx/sim/run-campaign.mts",
+			"what": "a seeded campaign in shards of 2,000 episodes"
+		},
+		{
+			"path": "test/onyx/sim/write-assurance.mts",
+			"what": "the assurance campaign and the mutation run, written as a results directory"
+		},
+		{
+			"path": "test/onyx/sim/export-episodes.mts",
+			"what": "writes the JSON tables under test/onyx/sim/ from their TypeScript sources, and checks them"
+		},
+		{
+			"path": "test/onyx/sim/baseline-exceptions.json",
+			"what": "the baseline exceptions still open"
+		}
+	],
+	"scriptedWorkflows": [
+		{
+			"path": "test/onyx/sim/episodes/audit-h4-duplicates-shift-then-accept.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/audit-h6-context-budget.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/audit-n2-edit-hunk-0-then-accept-hunk-0.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/audit-n2-type-above-then-accept-hunk-0.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b1-essential-tool-excluded.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b1-numbered-search-is-decoded.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b1-read-escape-attempts.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b1-read-only-profile.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b10-paused-and-never-resumed.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b10-stop-before-a-command.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b10-stop-before-an-edit.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b10-stop-during-slow-stream-before-a-tool-call.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b10-stop-then-the-stream-ends.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b10-stop-while-an-approval-dialog-is-open.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b8-delete-lines-then-accept-all.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/b9-inline-edit-stages-then-save.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/c10-a-name-with-two-dots-is-a-name.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/c10-edit-through-a-link-is-refused.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/c2-check-task-asks-after-accept-and-save.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/c3-one-edit-of-two-cannot-be-placed.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/c3-two-edits-in-one-call-then-accept-all.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/e2e-edittest.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/e2e-readedittest.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/e2e-slowtest-stop.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/e2e-termtest-denied.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/e2e-termtest.json",
+			"persona": "well-behaved"
+		},
+		{
+			"path": "test/onyx/sim/episodes/e2e-tooltest.json",
+			"persona": "well-behaved"
+		}
+	]
+}
