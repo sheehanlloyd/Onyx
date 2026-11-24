@@ -157,8 +157,11 @@ const electronAssetResolver = electronFeed
 export const config = {
 	version: electronVersion,
 	productAppName: product.nameLong,
-	companyName: 'Microsoft Corporation',
-	copyright: 'Copyright (C) 2026 Microsoft. All rights reserved',
+	// Onyx: the bundle is not Microsoft's product. Upstream's values put "Microsoft" in the crash handler's
+	// company name and "All rights reserved" in the Finder's Get Info, on a build Microsoft did not make and
+	// of code that is MIT-licensed (REBASE.md, D8).
+	companyName: product.nameLong,
+	copyright: `Copyright (c) Microsoft Corporation and the ${product.nameLong} contributors. MIT License.`,
 	darwinExecutable: product.nameShort,
 	darwinIcon: 'resources/darwin/code.icns',
 	darwinBundleIdentifier: product.darwinBundleIdentifier,
