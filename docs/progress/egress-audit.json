@@ -1,0 +1,89 @@
+{
+	"regression": "R-60",
+	"ranAt": "2026-11-24T16:11:54.629Z",
+	"product": {
+		"nameShort": "Onyx",
+		"commit": "4eb52add73f4178dd2994f3a8b719095b5956287"
+	},
+	"method": {
+		"proxy": "application started with --proxy-server pointing at a recording proxy; host and port of every CONNECT and plain request, content not read",
+		"sockets": "lsof -nP -i on the application's processes, at most every 300 ms; 4142 samples taken",
+		"cannotSee": [
+			"a direct connection shorter than the sampling interval",
+			"DNS queries, made by the system resolver",
+			"the content of TLS connections",
+			"behaviour outside these phases"
+		],
+		"runtime": "the mock runtime on 127.0.0.1:11434 (and the suite's second mock); loopback connections are listed by port only"
+	},
+	"suite": "all 72 checks passed",
+	"asked": {
+		"extensionRowsShown": 0,
+		"updateDialog": ""
+	},
+	"expectations": {
+		"suitePassed": true,
+		"galleryWasAsked": true,
+		"releaseListWasAsked": true
+	},
+	"phases": [
+		{
+			"phase": "workflow",
+			"startedAt": "2026-11-24T15:50:02.903Z",
+			"note": "run-e2e.mts on the packaged application, against the mock runtime",
+			"endedAt": "2026-11-24T16:00:25.534Z",
+			"throughProxy": {},
+			"directNonLoopback": [],
+			"loopbackPortsSeen": [
+				"11434",
+				"1234",
+				"62943",
+				"62944",
+				"62945"
+			],
+			"violations": []
+		},
+		{
+			"phase": "idle",
+			"startedAt": "2026-11-24T16:00:25.536Z",
+			"note": "a fresh first launch, the first-run dialog stepped through, then 10 minutes untouched",
+			"endedAt": "2026-11-24T16:10:38.655Z",
+			"throughProxy": {},
+			"directNonLoopback": [],
+			"loopbackPortsSeen": [
+				"11434",
+				"63450",
+				"63459",
+				"63460"
+			],
+			"violations": []
+		},
+		{
+			"phase": "asked",
+			"startedAt": "2026-11-24T16:10:38.656Z",
+			"note": "the Extensions view opened and searched, then Onyx: Check for Updates",
+			"endedAt": "2026-11-24T16:11:50.404Z",
+			"throughProxy": {
+				"open-vsx.org:443": 3,
+				"openvsx.eclipsecontent.org:443": 3,
+				"api.github.com:443": 1
+			},
+			"directNonLoopback": [],
+			"loopbackPortsSeen": [
+				"11434",
+				"63460"
+			],
+			"violations": []
+		}
+	],
+	"violations": [],
+	"passed": true,
+	"sleepCheck": {
+		"window": [
+			"2026-11-24T15:50:02Z",
+			"2026-11-24T16:11:54Z"
+		],
+		"method": "pmset -g log, Sleep/Wake/DarkWake entries",
+		"result": "none in the window (the last wake before it was 15:25Z)"
+	}
+}
