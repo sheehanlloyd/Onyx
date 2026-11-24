@@ -94,6 +94,11 @@ function sleep(ms: number) {
  * staged, "accepting clears the staged set" saw an already-empty view and
  * passed. Waiting on the condition costs nothing when it is already true.
  */
+/**
+ * Clicks in the Changes view go through Playwright locators, not element handles: the view re-renders
+ * when its state changes, and a handle taken before a re-render is detached by the time it is clicked
+ * (seen on a loaded machine, 2026-11-24).
+ */
 async function waitUntil(condition: () => boolean, timeoutMs = 20_000, stepMs = 500): Promise<boolean> {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
@@ -922,7 +927,7 @@ async function main() {
 	const inlineRunNotes = verificationNotesByRun().find(labels => labels.some(label => label.startsWith('Verification: stale'))) ?? [];
 	check('R-21: an inline edit is verified through the same path: undoing the kept hunk makes its result stale', inlineRunNotes.length > 0 && !inlineRunNotes.some(label => label.startsWith('Verification: not applied')), verificationNotesByRun().flat().join(' | ').slice(0, 400));
 	// Back to the side bar for the rest: Accept All takes the hunk that is left.
-	pw('run-code', 'async (page) => { const el = await page.$(".onyx-changes-summary button"); await el.click(); }'); // Accept All
+	pw('run-code', 'async (page) => { await page.locator(".onyx-changes-summary button").first().click(); }'); // Accept All
 	const readAcceptedState = () => pw('run-code', `async (page) => page.evaluate(() => ({
 		empty: !!document.querySelector('.onyx-changes .onyx-empty'),
 	}))`);
@@ -946,7 +951,7 @@ async function main() {
 	const readResult = JSON.stringify(readRuns().flatMap(run => run.events).filter(event => event.kind === 'promptSnapshot').slice(-2));
 	check('R-31: the model read the file through Onyx\'s own readFile tool, as numbered lines', readEditCalls()[0] === 'readFile' && /src\/math\.ts \(lines 1-\d+ of \d+/.test(readResult) && readResult.includes('1| export function addNumbers'), `tool calls: ${readEditCalls().join(', ') || 'none'}`);
 	check('R-31: the edit that quotes the line it read is staged, not written', readChangesState().includes('src/math.ts') && !fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8').includes('edited-by-mock // edited-by-mock'), readChangesState().slice(0, 160));
-	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
+	pw('run-code', 'async (page) => { const reject = page.locator(".onyx-changes-summary button").nth(1); if (await reject.count()) { await reject.click(); } }'); // Reject All
 	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
 
 	// --- C3: one editFile call that carries two edits stages two hunks, as one proposal.
@@ -972,7 +977,7 @@ async function main() {
 	const certificateLines: string[] = JSON.parse(/"certificates"\s*:\s*(\[[^\]]*\])/.exec(multiState)?.[1] ?? '[]');
 	const journaledCertificates = readRuns().flatMap(run => run.events).filter(event => event.kind === 'editCertificate' && event.data?.certificate?.path === 'src/util.ts');
 	check('R-46: each staged hunk shows what was checked for it, and the journal holds a sealed certificate for each edit', certificateLines.length === 2 && certificateLines.every(line => /^Anchored exactly once · /.test(line) && !/proof|correct|safe|guarantee/i.test(line)) && journaledCertificates.length === 2 && journaledCertificates.every(event => typeof event.data?.seal === 'string' && event.data?.certificate?.anchor?.matchCount === 1 && event.data?.certificate?.protocol === 'multi-edit'), `${certificateLines.join(' | ')} ; ${journaledCertificates.length} in the journal`);
-	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
+	pw('run-code', 'async (page) => { const reject = page.locator(".onyx-changes-summary button").nth(1); if (await reject.count()) { await reject.click(); } }'); // Reject All
 	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
 
 	// --- Terminal tool: approval dialog, execution, journaled output.
@@ -1101,7 +1106,7 @@ async function main() {
 		notifications: Array.from(document.querySelectorAll('.notifications-toasts .notification-list-item-message')).map(el => el.textContent),
 	}))`);
 	check('the rename staged into Onyx Changes, not the buffer', renameStaged.includes('report.ts'), renameStaged.slice(0, 300));
-	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); await buttons[1].click(); }'); // Reject All
+	pw('run-code', 'async (page) => { await page.locator(".onyx-changes-summary button").nth(1).click(); }'); // Reject All
 	await sleep(1500);
 
 	// --- Repo benchmark: history-derived tasks, scored, results doc.

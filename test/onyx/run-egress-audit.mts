@@ -16,7 +16,8 @@
  *              `Onyx: Check for Updates` is run
  *
  * Allowed, and nothing else (the plan's rule): the configured runtime, which in this audit is the
- * mock on this machine; open-vsx.org during `asked`; api.github.com during `asked`. Any other host
+ * mock on this machine; open-vsx.org and its content host openvsx.eclipsecontent.org during `asked`;
+ * api.github.com during `asked`. Any other host
  * in any phase, or any host at all in `workflow` or `idle`, fails the audit.
  *
  * Two observers, neither needing privileges or a system-wide change:
@@ -281,7 +282,9 @@ async function main(): Promise<number> {
 	}
 
 	// --- the verdict -----------------------------------------------------------------------------------------
-	const allowedWhenAsked = (host: string) => host === 'open-vsx.org' || host.endsWith('.open-vsx.org') || host === 'api.github.com';
+	// Open VSX serves extension files and icons from the Eclipse Foundation's content host; seen on
+	// 2026-11-24 during the Extensions search and nowhere else. It is part of "Open VSX when asked".
+	const allowedWhenAsked = (host: string) => host === 'open-vsx.org' || host.endsWith('.open-vsx.org') || host === 'openvsx.eclipsecontent.org' || host === 'api.github.com';
 	const summary = (['workflow', 'idle', 'asked'] as const).map(name => {
 		const viaProxy = new Map<string, number>();
 		for (const record of proxied.filter(record => record.phase === name)) {
