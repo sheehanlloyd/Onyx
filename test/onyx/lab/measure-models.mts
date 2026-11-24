@@ -47,6 +47,12 @@ const models = values('--model');
 const outDir = values('--out')[0];
 const contextArg = values('--context')[0];
 const keepAlias = process.argv.includes('--keep-alias');
+/**
+ * `--digest <model>=<sha256>`, for a runtime that reports no digest (LM Studio): the SHA-256 of the weights file it
+ * loads, computed by whoever runs the measurement (`shasum -a 256 <file>`). `--runtime-version` likewise.
+ */
+const givenDigests = new Map(values('--digest').map(entry => { const at = entry.lastIndexOf('='); return [entry.slice(0, at), entry.slice(at + 1)] as const; }));
+const givenRuntimeVersion = values('--runtime-version')[0];
 if (!baseUrl || models.length === 0 || !outDir || (contextArg !== undefined && !/^[1-9]\d{3,6}$/.test(contextArg))) {
 	console.error('usage: node test/onyx/lab/measure-models.mts --base-url <http://127.0.0.1:port/v1> --model <id> [--model <id>…] --out <results directory> [--context <tokens> [--keep-alias]]');
 	console.error('  --context: ask the runtime for this context first (B15). It creates a model alias on the runtime, over the same weights,');
@@ -153,7 +159,12 @@ try {
 	const discovered: readonly IDiscovered[] = await service.listModels(baseUrl);
 	fs.mkdirSync(path.join(outDir, 'traces'), { recursive: true });
 	for (const id of models) {
-		const model = discovered.find(candidate => candidate.id === id);
+		const found = discovered.find(candidate => candidate.id === id);
+		const given = givenDigests.get(id);
+		if (given !== undefined && !/^[0-9a-f]{64}$/.test(given)) {
+			throw new Error(`--digest ${id}=…: a digest is the 64 hex characters of a SHA-256`);
+		}
+		const model = found && { ...found, digest: found.digest ?? (given ? `sha256:${given}` : undefined), runtimeVersion: found.runtimeVersion ?? givenRuntimeVersion };
 		if (!model) {
 			throw new Error(`the runtime at ${baseUrl} does not have ${id}. Nothing is downloaded by a measurement; it has: ${discovered.map(candidate => candidate.id).join(', ') || 'no models'}`);
 		}

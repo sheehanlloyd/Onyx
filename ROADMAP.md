@@ -30,7 +30,7 @@ The safety machinery is tested. The usefulness of the two pinned models as agent
 
 1. **Fix what the pilot finds.** Every P0 and P1 from the pilot gets a regression test before the candidate is rebuilt.
 2. **Larger local models.** Everything measured so far is 7B or smaller on a 24 GB machine. The lab can measure a 14B or 32B model on a machine that holds one; nobody has.
-3. **LM Studio.** Never measured in any study. Its rows in older tables are from August 2026 with no raw report.
+3. **LM Studio in the studies.** It is now benchmarked (tool calling, speed and speculative decoding, 2026-11-24), but none of the hypothesis campaigns ran on it, and it is not in the supported matrix.
 4. **Windows** (milestone M2): the command runner already refuses there instead of guessing; a signed installer and the platform seam's Windows side are the work.
 5. **A compatible automatic update service.** Today updating is manual by design.
 

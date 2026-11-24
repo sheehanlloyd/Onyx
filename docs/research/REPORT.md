@@ -8,7 +8,7 @@ Onyx is a code editor whose agent runs on models served on the user's own machin
 
 Four hypotheses are supported, one is refuted and five are inconclusive. Supported: a seeded simulation campaign detected all 41 mutants of the harness and ran 50,000 episodes with no violation, on its second run (H-1). A fuzzy edit applier placed 28.7 points more blocks than the product's exact-or-refuse applier, and 53.8% of attempts ended silently wrong under it (H-3). At temperature 0 with a fixed seed, 160 of 160 repetitions of short agent trajectories were identical, in the second campaign; the earlier one was invalidated by a harness defect it found (H-6). Evicting context in blocks re-processed an estimated 0.42 of the prompt tokens that the product's policy did in a scripted run; the hypothesis's success condition was met with no eviction occurring and no run succeeding (H-9). Refuted: grounded edits scored 0.021 higher than ungrounded ones, under the registered 0.05 (H-5). Inconclusive: H-2, H-4, H-7, H-8 and H-10.
 
-The measurements are from one machine, one operator, one runtime, three small models and two repositories. LM Studio was never measured. No score anywhere is a model's opinion of another model's output.
+The measurements are from one machine, one operator, one runtime, three small models and two repositories. No hypothesis campaign ran on LM Studio; it is benchmarked separately ([BENCHMARKS](../BENCHMARKS.md)). No score anywhere is a model's opinion of another model's output.
 
 ## 1 Thesis
 
@@ -356,7 +356,7 @@ The two pinned models are the ones the product's catalog recommends for a laptop
 
 ## 9 Threats to validity
 
-- **One machine, one operator, one runtime, three small models, two repositories.** Nothing here was repeated by anyone else or anywhere else. LM Studio was never measured.
+- **One machine, one operator, one runtime, three small models, two repositories.** Nothing here was repeated by anyone else or anywhere else. No hypothesis campaign ran on LM Studio; its benchmark rows (2026-11-24) are outside this report.
 - **A machine that was not quiet.** Most campaigns ran with other applications open. Only H-10's throughput numbers were taken on a quiet machine. H-9's token estimate is derived from time and inherits whatever else the machine was doing.
 - **A campaign-engine defect in two campaigns that were not run again.** H-2's campaign and the injection run of L12 were made while the runtime service kept a stale list of recently committed files across checkouts, so prompts named the previous task's files. H-2's edit calls also enter H-3 and H-5. Amendment 4 argues that an applier's verdict does not depend on that background; that argument was not tested.
 - **Judgement calls.** H-1's two printed violations were judged the rig's own by the people who wrote the rig. H-6's invalid campaign was replaced under an amendment written after its analysis.

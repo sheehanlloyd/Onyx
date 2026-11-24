@@ -129,6 +129,9 @@ export interface IOnyxSimState {
 	readonly defaultExport: string | undefined;
 	/** Every journal event the control plane recorded so far, one JSON line each. */
 	readonly journalLines: readonly string[];
+	/** For an LM Studio episode (B15): the context it loads the model at, and every prompt it cut without an error. */
+	readonly lmStudioLoadsAt: number | undefined;
+	readonly silentlyCutPrompts: readonly number[];
 }
 
 export type OnyxSimChecker = (state: IOnyxSimState, boundary: OnyxSimBoundary | 'end') => string | undefined;
@@ -200,6 +203,8 @@ export interface IOnyxSimResult {
 	readonly stagedPaths: readonly string[];
 	/** Every model turn that was served, scripted or live, in order (L8). */
 	readonly servedTurns: readonly OnyxSimModelTurn[];
+	/** For an LM Studio episode: the size of every prompt it cut without an error, in tokens (B15). */
+	readonly silentlyCut: readonly number[];
 }
 
 /**
@@ -243,6 +248,14 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly profile: IOnyxModelProfile;
 	/** Every journal event the control plane recorded, as the outcome service would write it (one JSON line each). */
 	readonly journalLines: string[] = [];
+
+	get lmStudioLoadsAt(): number | undefined {
+		return this.episode.lmStudioLoadsAt;
+	}
+
+	get silentlyCutPrompts(): readonly number[] {
+		return this.runtime.silentlyCut;
+	}
 	stopped = false;
 
 	private readonly _disposables = new DisposableStore();
@@ -288,7 +301,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			}
 			return { exitCode: 0, output: command.startsWith('cat ') ? (episode.files[command.slice(4).trim()] ?? '') : `ran: ${command}\n` };
 		};
-		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal, episode.runtimeContextTokens, episode.constrained === true, options.liveTurn));
+		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal, episode.runtimeContextTokens, episode.constrained === true, options.liveTurn, episode.lmStudioLoadsAt));
 		this.dialogs = new OnyxSimDialogService(episode.dialogDefault, this, this.trace);
 		this.tools = new OnyxSimToolsService(this, this.trace);
 
@@ -313,7 +326,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		// A constrained episode is a model whose tool calls are unreliable enough to be forced into the envelope.
 		const profile: IOnyxModelProfile = { toolCallQuality: episode.constrained ? 0.5 : 0.9, contextLength: 16384, maxTools: 8, temperature: 0.2, promptStyle: 'full', family: 'sim', parameterB: 7, supportsVision: false, ...episode.profile };
 		this.profile = profile;
-		this._profiles = new OnyxSimProfileService(profile);
+		this._profiles = new OnyxSimProfileService(profile, episode.lmStudioLoadsAt !== undefined);
 		instantiationService.stub(IOnyxProfileService, this._profiles);
 		// The real project config service: the episode's repository configuration is a `.onyx/config.json`
 		// on the in-memory disk, read the way the product reads it.
@@ -994,6 +1007,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			memoryNotes: this.memory.getNotes().map(note => note.text),
 			stagedPaths: this.changeSet.files.get().map(file => file.proposal.path),
 			servedTurns: [...this.runtime.servedTurns],
+			silentlyCut: [...this.runtime.silentlyCut],
 			followUpPromptText: this._followUpFirstRequest === undefined ? undefined : (this.runtime.requests[this._followUpFirstRequest]?.messages ?? []).map(message => String(message.content ?? '')).join('\n'),
 		};
 	}

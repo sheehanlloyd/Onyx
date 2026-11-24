@@ -29,7 +29,7 @@ export interface IOnyxModelProfile {
 	/** The context to budget against, in tokens: the smallest of the numbers in `context` (B13). */
 	readonly contextLength: number;
 	/** Where `contextLength` came from: what the architecture allows, what the server allocates, what was observed to fit. */
-	readonly context?: { readonly architectural?: number; readonly serverConfigured?: number; readonly observed?: number; readonly measured?: number; /** What Onyx asked the runtime for, what it reported and what a probe verified, when a requested context is in force (B15). */ readonly requested?: number; readonly reported?: number; readonly verified?: number; readonly source: 'verified' | 'measured' | 'observed' | 'server' | 'architectural' | 'default' };
+	readonly context?: { readonly architectural?: number; readonly serverConfigured?: number; readonly observed?: number; readonly measured?: number; /** What Onyx asked the runtime for, what it reported and what a probe verified, when a requested context is in force (B15). */ readonly requested?: number; readonly reported?: number; readonly verified?: number; readonly assumed?: number; readonly source: 'verified' | 'measured' | 'observed' | 'server' | 'assumed' | 'architectural' | 'default' };
 	/** Maximum number of tools to expose in a single request. */
 	readonly maxTools: number;
 	readonly temperature: number;

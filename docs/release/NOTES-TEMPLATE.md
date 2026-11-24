@@ -25,7 +25,7 @@ This is the whole of what was tested. Everything else is best effort.
 | | Supported | Best effort, untested |
 |---|---|---|
 | OS and hardware | macOS 14 or later, Apple silicon, 16 GB or more | Intel Macs, 8 GB |
-| Runtime | Ollama {{OLLAMA_VERSION}} | LM Studio (never measured), llama.cpp server, vLLM, other OpenAI-compatible servers |
+| Runtime | Ollama {{OLLAMA_VERSION}} | LM Studio (benchmarked, not in the supported matrix), llama.cpp server, vLLM, other OpenAI-compatible servers |
 | Models | `qwen2.5-coder:7b` for the agent, `qwen2.5-coder:1.5b` for autocomplete, at the digests in docs/SUPPORT.md | Everything else in the catalog |
 | Workflow | Read, propose, review in a diff editor, accept or reject each hunk, verify what you accepted; inline edit; commit message; review; measure models on your repository | Tournament, architecture map, speculative measurement, idle review, constrained anchors |
 | Extensions | Python, ESLint, Prettier and GitLens from Open VSX: {{EXTENSIONS}} | Anything else on Open VSX |
@@ -61,7 +61,7 @@ What this means in use: the review, approval and verification machinery is what 
 - A clean file that stays clean after you accept a change is reported as "timed out", not "verified".
 - An approval dialog that is open when you press Stop stays on screen; its answer is ignored.
 - Reasoning models are handled by code tested on constructed transcripts, not against a real reasoning model.
-- LM Studio has not been measured in any study. Its rows in older benchmark tables are from August 2026 and have no raw report.
+- LM Studio is benchmarked (tool calling, speed, speculative decoding) but was in none of the research campaigns, and is not in the supported matrix.
 - The energy and prompt-reuse figures are estimates; the report says how each was derived.
 - macOS on Apple silicon only. No Windows or Linux build.
 - The built-in extensions and the upstream Agent Host code are inside the application bundle and are not started.

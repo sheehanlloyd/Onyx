@@ -27,9 +27,12 @@ const benchmarksDir = path.join(repoRoot, 'docs', 'benchmarks');
 interface IReport { provenance?: { commit?: string; machine?: object; runtimes?: unknown[]; models?: unknown[]; parameters?: object }; attempts?: unknown[]; skipped?: unknown[] }
 
 test('C8: every chart names a committed report with its provenance, and the README shows only such charts and links a raw report', () => {
+	// Every report in every dated folder: a folder may hold more than one (a full run, and a part measured again alone).
 	const reports = fs.readdirSync(benchmarksDir, { withFileTypes: true })
-		.filter(entry => entry.isDirectory() && fs.existsSync(path.join(benchmarksDir, entry.name, 'report.json')))
-		.map(entry => ({ date: entry.name, report: JSON.parse(fs.readFileSync(path.join(benchmarksDir, entry.name, 'report.json'), 'utf8')) as IReport }));
+		.filter(entry => entry.isDirectory())
+		.flatMap(entry => fs.readdirSync(path.join(benchmarksDir, entry.name)).filter(name => name.endsWith('.json') && name !== 'manifest.json')
+			.map(name => ({ date: entry.name, report: JSON.parse(fs.readFileSync(path.join(benchmarksDir, entry.name, name), 'utf8')) as IReport })))
+		.filter(entry => entry.report.provenance !== undefined);
 	const charts = fs.readdirSync(imagesDir).filter(name => /^chart-.*\.svg$/.test(name)).sort();
 	const problems: string[] = [];
 	for (const chart of charts) {

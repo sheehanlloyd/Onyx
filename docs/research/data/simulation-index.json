@@ -150,6 +150,10 @@
 			"persona": "well-behaved"
 		},
 		{
+			"path": "test/onyx/sim/episodes/b15-lmstudio-model-not-loaded.json",
+			"persona": "well-behaved"
+		},
+		{
 			"path": "test/onyx/sim/episodes/b8-delete-lines-then-accept-all.json",
 			"persona": "well-behaved"
 		},

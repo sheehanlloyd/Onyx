@@ -4,7 +4,11 @@
 		"test/onyx/sim/mutants/*.json",
 		"docs/research/results/2026-11-22-assurance/traces/mutation.json"
 	],
-	"count": 41,
+	"count": 42,
+	"inTheCommittedCampaign": 41,
+	"addedAfterTheCampaign": [
+		"B15-lmstudio-context-not-learned"
+	],
 	"mutants": [
 		{
 			"id": "B1-naive-read-path",
@@ -173,6 +177,16 @@
 				"killedByTheCampaign": true,
 				"firstDetectedAtSeed": 7
 			}
+		},
+		{
+			"id": "B15-lmstudio-context-not-learned",
+			"descriptor": "test/onyx/sim/mutants/B15-lmstudio-context-not-learned.json",
+			"defectItResurrects": "Before an LM Studio model was loaded, Onyx budgeted against the trained context (32,768); LM Studio then loaded the model at its own setting (8,192 on the reference machine) and cut every longer prompt without an error (probed 2026-11-22; R-61)",
+			"fixedBy": "B15",
+			"violationTheCampaignMustReport": "R-61/context-not-learned",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantContextNotLearnedModelService",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": null
 		},
 		{
 			"id": "B2-normalized-approval",

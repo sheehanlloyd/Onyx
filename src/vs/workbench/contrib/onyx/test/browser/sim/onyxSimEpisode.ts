@@ -113,6 +113,12 @@ export interface OnyxSimEpisode {
 	 * anything, as a runtime that truncates silently would.
 	 */
 	readonly runtimeContextTokens?: number;
+	/**
+	 * The runtime is an LM Studio (B15): the model is not loaded when the episode starts, its context is
+	 * reported only once it is loaded, it is loaded on the first request (or a warm-up) at this many tokens,
+	 * and a prompt longer than that is cut without an error. The model's trained context is 32,768.
+	 */
+	readonly lmStudioLoadsAt?: number;
 	/** The model the user picked: the default one, or the one the runtime reports as cloud-backed (B14). */
 	readonly selectedModel?: 'cloud';
 	/**
@@ -399,7 +405,11 @@ export function generateEpisode(seed: number): OnyxSimEpisode {
 	if (windowRandom.chance(0.15)) {
 		userSteps.push({ at: 'commandRunning', occurrence: windowRandom.int(1, 2), step: { kind: 'closeWindow' } });
 	}
-	return {
+	// Now and then the runtime is an LM Studio that has not loaded the model yet (B15). Its own stream, drawn last,
+	// so that the episodes it does not touch keep every other draw.
+	const runtimeRandom = random.fork('runtime');
+	const lmStudio = runtimeRandom.chance(0.06) ? runtimeRandom.pick([4096, 8192]) : undefined;
+	const episode: OnyxSimEpisode = {
 		name: `seed-${seed}`,
 		seed,
 		persona,
@@ -421,6 +431,8 @@ export function generateEpisode(seed: number): OnyxSimEpisode {
 		// Now and then the model is one whose turns are constrained to the envelope.
 		...(configRandom.chance(0.08) ? { constrained: true } : {}),
 	};
+	// The simulated LM Studio lists one local model: it is not where the cloud-backed one is picked from.
+	return lmStudio !== undefined && episode.selectedModel === undefined ? { ...episode, lmStudioLoadsAt: lmStudio } : episode;
 }
 
 /** The JSON form, stable key order, for the shared episode files. */

@@ -12,9 +12,9 @@ What changed: the loop reads tool calls out of text as a matter of course, repai
 
 ### 2. Speculative decoding is measured, never assumed
 
-Pairing a 7B target with a 0.5B draft was expected to speed generation up. Measured in August 2026 on the reference machine: 0.72 times the speed, 48.0 down to 34.4 tokens a second. The raw report was not kept, so this number has no chart and is quoted as an older, unreproduced measurement.
+Pairing a 7B target with a 0.5B draft was expected to speed generation up. An August 2026 measurement on one prompt said 0.72 times the speed; its raw report was not kept, it could not be reproduced, and it is withdrawn. Measured again on 2026-11-24 on LM Studio 0.4.23: code 1.49 times faster, prose 0.97 times, with the same draft ([results](./research/results/2026-11-24-speculative/summary.json)).
 
-What changed: the feature is a measurement, not a setting. It runs the same prompt with and without the draft on the user's machine and reports the ratio, including when the ratio is below one. It is outside the supported workflow.
+What changed: the feature is a measurement, not a setting, and one number is not enough. It runs both a code and a prose prompt with and without the draft on the user's machine, takes the median of three rounds, checks with the runtime that the draft is attached, and reports each ratio, including one below one. It is outside the supported workflow.
 
 ### 3. The model's own account of what it did is not evidence
 

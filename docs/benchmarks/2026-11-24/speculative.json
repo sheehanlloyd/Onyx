@@ -1,0 +1,134 @@
+{
+	"provenance": {
+		"schema": 1,
+		"generatedAt": "2026-11-24T14:06:30.923Z",
+		"commit": "373fc58cd97ebcb7d39b03ba5cedc20f57b386e8",
+		"dirty": false,
+		"command": [
+			"--only-speculative",
+			"--json-out"
+		],
+		"machine": {
+			"platform": "darwin",
+			"arch": "arm64",
+			"cpu": "Apple M4 Pro",
+			"memoryGiB": 24,
+			"osRelease": "25.5.0",
+			"nodeVersion": "v24.22.3"
+		},
+		"load": {
+			"atStart": 14.02,
+			"atEnd": 15.98,
+			"cores": 14
+		},
+		"runtimes": [
+			{
+				"name": "lmstudio",
+				"version": "0.4.23"
+			}
+		],
+		"models": [
+			{
+				"key": "qwen2.5-coder-7b-instruct (LM Studio)",
+				"runtime": "lmstudio",
+				"id": "qwen2.5-coder-7b-instruct",
+				"digest": "60e05f2100071479f596b964f89f510f057ce397ea22f2833a0cfe029bfc2463"
+			},
+			{
+				"key": "qwen2.5-coder-1.5b-instruct (LM Studio)",
+				"runtime": "lmstudio",
+				"id": "qwen2.5-coder-1.5b-instruct",
+				"digest": "29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104"
+			},
+			{
+				"key": "qwen2.5-coder-0.5b-instruct (LM Studio)",
+				"runtime": "lmstudio",
+				"id": "qwen2.5-coder-0.5b-instruct",
+				"digest": "e1a77721fa97d412f121878223eec81fb4ae6f271e18f922d746711f67b344d1"
+			}
+		],
+		"parameters": {
+			"warmRounds": 3,
+			"benchTasks": 5,
+			"toolTrials": 6,
+			"skipModels": false,
+			"speculative": true,
+			"onlySpeculative": true,
+			"benchMetric": "changed-line-f1-preserving/2",
+			"benchPreservationCap": 0.5,
+			"benchTemperature": 0,
+			"benchMaxTokens": 4096
+		}
+	},
+	"results": [
+		{
+			"group": "runtimes",
+			"name": "chat models reachable",
+			"value": 3,
+			"unit": "models",
+			"detail": "qwen2.5-coder-7b-instruct (LM Studio), qwen2.5-coder-1.5b-instruct (LM Studio), qwen2.5-coder-0.5b-instruct (LM Studio)"
+		},
+		{
+			"group": "speculative",
+			"name": "qwen2.5-coder-7b-instruct — draft attached",
+			"value": 1,
+			"unit": "yes",
+			"detail": "LM Studio's REST list names qwen2.5-coder-0.5b-instruct as the loaded model's draft",
+			"model": "qwen2.5-coder-7b-instruct"
+		},
+		{
+			"group": "speculative",
+			"name": "qwen2.5-coder-7b-instruct — code tok/s without draft",
+			"value": 47.26,
+			"unit": "tok/s",
+			"detail": "median of 3 after a warm-up round",
+			"model": "qwen2.5-coder-7b-instruct"
+		},
+		{
+			"group": "speculative",
+			"name": "qwen2.5-coder-7b-instruct — code tok/s with draft",
+			"value": 70.4,
+			"unit": "tok/s",
+			"detail": "draft qwen2.5-coder-0.5b-instruct; median of 3 after a warm-up round",
+			"model": "qwen2.5-coder-7b-instruct"
+		},
+		{
+			"group": "speculative",
+			"name": "qwen2.5-coder-7b-instruct — code speedup with draft",
+			"value": 1.49,
+			"unit": "×",
+			"detail": "below 1.0 means the draft costs more than it saves",
+			"model": "qwen2.5-coder-7b-instruct"
+		},
+		{
+			"group": "speculative",
+			"name": "qwen2.5-coder-7b-instruct — prose tok/s without draft",
+			"value": 46.97,
+			"unit": "tok/s",
+			"detail": "median of 3 after a warm-up round",
+			"model": "qwen2.5-coder-7b-instruct"
+		},
+		{
+			"group": "speculative",
+			"name": "qwen2.5-coder-7b-instruct — prose tok/s with draft",
+			"value": 45.34,
+			"unit": "tok/s",
+			"detail": "draft qwen2.5-coder-0.5b-instruct; median of 3 after a warm-up round",
+			"model": "qwen2.5-coder-7b-instruct"
+		},
+		{
+			"group": "speculative",
+			"name": "qwen2.5-coder-7b-instruct — prose speedup with draft",
+			"value": 0.97,
+			"unit": "×",
+			"detail": "below 1.0 means the draft costs more than it saves",
+			"model": "qwen2.5-coder-7b-instruct"
+		}
+	],
+	"attempts": [],
+	"failures": [],
+	"skipped": [
+		"skipped: no Ollama at http://127.0.0.1:1 (start it with `ollama serve`)"
+	],
+	"violations": []
+}

@@ -1,0 +1,136 @@
+{
+	"version": 1,
+	"name": "2026-11-24-benchmarks",
+	"createdAt": "2026-11-24T13:36:57.765Z",
+	"models": [
+		{
+			"identifier": "ollama:qwen2.5-coder:7b",
+			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:llama3.2:3b",
+			"digest": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "ollama:qwen2.5-coder:1.5b",
+			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
+			"runtime": {
+				"name": "ollama",
+				"version": "0.33.0"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "lmstudio:qwen2.5-coder-7b-instruct",
+			"digest": "60e05f2100071479f596b964f89f510f057ce397ea22f2833a0cfe029bfc2463",
+			"runtime": {
+				"name": "lmstudio",
+				"version": "0.4.23"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "lmstudio:qwen2.5-coder-1.5b-instruct",
+			"digest": "29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104",
+			"runtime": {
+				"name": "lmstudio",
+				"version": "0.4.23"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "lmstudio:qwen2.5-coder-0.5b-instruct",
+			"digest": "e1a77721fa97d412f121878223eec81fb4ae6f271e18f922d746711f67b344d1",
+			"runtime": {
+				"name": "lmstudio",
+				"version": "0.4.23"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		99,
+		7
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 4096,
+		"responseFormat": false
+	},
+	"harnessConfigurations": [
+		{
+			"name": "none-the-benchmark-talks-to-the-runtime-directly",
+			"hash": "00000000"
+		}
+	],
+	"taskSet": {
+		"name": "repository benchmark: the five smallest eligible single-file commits of the last 400 (their hashes are in report.json)",
+		"hash": "b5edd5eb",
+		"count": 5
+	},
+	"repetitions": 1,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"nodeVersion": "24.22.3",
+		"osVersion": "Darwin 25.5.0"
+	},
+	"regenerate": [
+		{
+			"output": "report.json",
+			"command": "pnpm run transpile-client && ONYX_BENCH_OLLAMA=<Ollama root> ONYX_BENCH_LMSTUDIO=<LM Studio root> node test/onyx/run-benchmarks.mts --speculative --json-out docs/benchmarks/2026-11-24/report.json"
+		},
+		{
+			"output": "speculative.json",
+			"command": "ONYX_BENCH_LMSTUDIO=<LM Studio root> node test/onyx/run-benchmarks.mts --only-speculative --json-out docs/benchmarks/2026-11-24/speculative.json"
+		},
+		{
+			"output": "docs/images/chart-*.svg",
+			"command": "node test/onyx/make-charts.mts --manifest docs/benchmarks/2026-11-24/manifest.json docs/benchmarks/2026-11-24/report.json docs/benchmarks/2026-11-24/speculative.json"
+		}
+	],
+	"hypotheses": [],
+	"notes": "The raw reports behind the charts in the README. report.json: both runtimes, every section, at commit aa32e8f19ef with a clean tree; its speculative section is the older method (one prompt, best of three) and is superseded by speculative.json, which make-charts reads after it. speculative.json: the speculative comparison alone, code and prose apart, medians of three, the draft proven attached from LM Studio's REST list, at commit 373fc58cd97 with a clean tree. Ollama 0.33.0 and LM Studio 0.4.23 on private loopback ports, one model resident at a time; LM Studio's version is the one it records (report.json has null for it: the reader was fixed after that run). LM Studio's 7B and 1.5B GGUF files are byte-identical to Ollama's weight layers (the same digests), so the two runtimes are compared on the same weights. The two seeds are those of the pure-logic fuzz sections; no seed is sent with a model request. Each model ran at its runtime's own allocation: Ollama 4,096 tokens, LM Studio 8,192 (docs/research/results/2026-11-21-context-allocation, 2026-11-22-lmstudio-context). Load average: report.json 4.04 at the start and 19.13 at the end; speculative.json 14.02 and 15.98, on 14 cores. The owner was working on the machine; throughput for the 7B model matched the idle figure of 2026-11-21 (49 tok/s), and the speculative medians matched two separate lab runs (docs/research/results/2026-11-24-speculative)."
+}

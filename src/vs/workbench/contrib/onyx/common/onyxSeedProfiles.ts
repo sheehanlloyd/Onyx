@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IOnyxDiscoveredModel } from '../../../../platform/onyxRuntime/common/onyxRuntime.js';
-import { effectiveContext } from './onyxContextBudget.js';
+import { effectiveContext, ONYX_UNLOADED_LMSTUDIO_CONTEXT_TOKENS } from './onyxContextBudget.js';
 import { IOnyxModelProfile } from './onyxTypes.js';
 
 /**
@@ -16,11 +16,13 @@ export function seedProfile(model: IOnyxDiscoveredModel, observedContextTokens?:
 	const parameterB = model.parameterB;
 	const sizeClass = classifySize(parameterB);
 	// Three numbers, any of which may be missing; the budget is the smallest of what is known (B13).
-	const context = effectiveContext({ architectural: model.contextLength, serverConfigured: model.serverContextLength, observed: observedContextTokens });
+	// LM Studio says what it allocated only for a loaded model (B15): until then the budget assumes little.
+	const assumed = model.runtime === 'lmstudio' && model.serverContextLength === undefined ? ONYX_UNLOADED_LMSTUDIO_CONTEXT_TOKENS : undefined;
+	const context = effectiveContext({ architectural: model.contextLength, serverConfigured: model.serverContextLength, observed: observedContextTokens, assumed });
 	return {
 		toolCallQuality: model.supportsTools === false ? 0 : seedToolCallQuality(sizeClass),
 		contextLength: context.tokens,
-		context: { architectural: model.contextLength, serverConfigured: model.serverContextLength, observed: observedContextTokens, source: context.source },
+		context: { architectural: model.contextLength, serverConfigured: model.serverContextLength, observed: observedContextTokens, ...(assumed !== undefined ? { assumed } : {}), source: context.source },
 		maxTools: seedMaxTools(sizeClass),
 		temperature: 0.2,
 		promptStyle: sizeClass === 'large' ? 'full' : 'compact',

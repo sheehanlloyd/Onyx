@@ -109,4 +109,64 @@ suite('OnyxLoadedModels', () => {
 			await idle.close();
 		}
 	});
+
+	// An LM Studio without the REST list of 0.4: its native list says which models are loaded and at what context.
+	const LMSTUDIO: Readonly<Record<string, object>> = {
+		'/v1/models': { data: [{ id: 'qwen2.5-coder-7b-instruct' }, { id: 'qwen2.5-coder-1.5b-instruct' }] },
+		'/api/v0/models': {
+			data: [
+				{ id: 'qwen2.5-coder-7b-instruct', type: 'llm', state: 'loaded', max_context_length: 32768, loaded_context_length: 8192 },
+				{ id: 'qwen2.5-coder-1.5b-instruct', type: 'llm', state: 'not-loaded', max_context_length: 32768 },
+			],
+		},
+	};
+
+	test('R-61, LM Studio without the REST list: its native list says which models are loaded and at what context; a model that is not loaded has no server context yet', async () => {
+		const server = await serve(LMSTUDIO);
+		const disposables = store.add(new DisposableStore());
+		try {
+			const service = disposables.add(new OnyxRuntimeService(new NullLogService()));
+			const models = await service.listModels(server.baseUrl);
+			assert.deepStrictEqual({
+				loaded: await service.listLoadedModels(server.baseUrl),
+				contexts: models.map(model => ({ id: model.id, runtime: model.runtime, architecture: model.contextLength, server: model.serverContextLength })),
+			}, {
+				loaded: [{ id: 'qwen2.5-coder-7b-instruct', contextLength: 8192 }],
+				contexts: [
+					{ id: 'qwen2.5-coder-7b-instruct', runtime: 'lmstudio', architecture: 32768, server: 8192 },
+					{ id: 'qwen2.5-coder-1.5b-instruct', runtime: 'lmstudio', architecture: 32768, server: undefined },
+				],
+			});
+		} finally {
+			disposables.dispose();
+			await server.close();
+		}
+	});
+
+	// LM Studio 0.4.23 as probed on 2026-11-22 and 2026-11-24: its REST list gives each loaded instance's configuration.
+	const LMSTUDIO_REST: Readonly<Record<string, object>> = {
+		...LMSTUDIO,
+		'/api/v1/models': {
+			models: [
+				{ key: 'qwen2.5-coder-7b-instruct', loaded_instances: [{ id: 'qwen2.5-coder-7b-instruct', config: { context_length: 8192, speculative_draft_simple: true, speculative_draft_model: 'qwen2.5-coder-0.5b-instruct' } }] },
+				{ key: 'qwen2.5-coder-1.5b-instruct', loaded_instances: [{ id: 'qwen2.5-coder-1.5b-instruct', config: { context_length: 16384, speculative_draft_simple: false, speculative_draft_model: '' } }] },
+				{ key: 'qwen2.5-coder-0.5b-instruct', loaded_instances: [] },
+			],
+		},
+	};
+
+	test('R-61, LM Studio 0.4: its REST list says, for each loaded model, the context it was loaded at and the draft attached to it for speculative decoding, or that there is none', async () => {
+		const server = await serve(LMSTUDIO_REST);
+		const disposables = store.add(new DisposableStore());
+		try {
+			const service = disposables.add(new OnyxRuntimeService(new NullLogService()));
+			assert.deepStrictEqual(await service.listLoadedModels(server.baseUrl), [
+				{ id: 'qwen2.5-coder-7b-instruct', contextLength: 8192, speculativeDraft: { known: true, draft: 'qwen2.5-coder-0.5b-instruct' } },
+				{ id: 'qwen2.5-coder-1.5b-instruct', contextLength: 16384, speculativeDraft: { known: true } },
+			]);
+		} finally {
+			disposables.dispose();
+			await server.close();
+		}
+	});
 });

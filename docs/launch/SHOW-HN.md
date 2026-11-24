@@ -23,7 +23,7 @@ What the editor does guarantee is narrower, and it is the part I can stand behin
 
 Ten hypotheses were registered before their data existed. Four are supported, one is refuted, five are inconclusive, mostly at a floor of zero successes. The report gives each the same space: docs/research/REPORT.md. Related work, read at its source and dated, is in docs/research/RELATED.md; close prior work exists for each technique, and what is here is a setting and a set of replications, not an invention.
 
-Limits you should know before trying it: one machine (an M4 Pro with 24 GB), one person, three small models, two repositories. Larger local models may do far better and I have not measured them. LM Studio was never measured. macOS on Apple silicon only. It is an experimental alpha and says so in its title bar. There is no telemetry, and the repository has a capture of what the application sends over the network and what that capture could not see.
+Limits you should know before trying it: one machine (an M4 Pro with 24 GB), one person, three small models, two repositories. Larger local models may do far better and I have not measured them. LM Studio is benchmarked but was in none of the research campaigns. macOS on Apple silicon only. It is an experimental alpha and says so in its title bar. There is no telemetry, and the repository has a capture of what the application sends over the network and what that capture could not see.
 
 Being a fork has real costs (monthly upstream merges, no Microsoft marketplace, no extension signature verification), and docs/DESIGN.md lists them. If the host exposed staging and per-command approval as extension points, most of the fork would be unnecessary.
 

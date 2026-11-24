@@ -968,10 +968,16 @@ function buildData(): void {
 			inTheCommittedRun: run ? { killedByItsScript: field(run, 'killedByItsScript'), killedByTheCampaign: field(run, 'killedByTheCampaign'), firstDetectedAtSeed: field(run, 'firstDetectedAt') } : null,
 		};
 	});
-	dataFiles.set('mutants.json', serialize({ generatedBy: SELF, from: [`${mutantsDirectory}/*.json`, `${RESULTS}/2026-11-22-assurance/traces/mutation.json`], count: mutants.length, mutants }));
+	// The corpus grows after a dated campaign (a later fix adds its mutant); H-1 is about the campaign's
+	// own set. A mutant the campaign ran must still exist, and a later one is listed as not in it: the
+	// nightly workflow and the module gate run every current mutant.
+	const inCampaign = mutants.filter(mutant => mutant.inTheCommittedRun !== null).length;
+	const addedLater = mutants.filter(mutant => mutant.inTheCommittedRun === null).map(mutant => mutant.id);
+	dataFiles.set('mutants.json', serialize({ generatedBy: SELF, from: [`${mutantsDirectory}/*.json`, `${RESULTS}/2026-11-22-assurance/traces/mutation.json`], count: mutants.length, inTheCommittedCampaign: inCampaign, addedAfterTheCampaign: addedLater, mutants }));
 	const declared = numbers.find(entry => entry.id === 'h1.mutants')?.value;
-	if (mutants.length !== declared || mutants.some(mutant => mutant.inTheCommittedRun === null)) {
-		problems.push(`${mutantsDirectory} has ${mutants.length} descriptors; the committed assurance run has ${declared}, and every descriptor has to be in it`);
+	const vanished = mutation.map(entry => field(entry, 'id')).filter(id => !mutants.some(mutant => mutant.id === id));
+	if (inCampaign !== declared || vanished.length) {
+		problems.push(`the committed assurance run has ${declared} mutants; ${inCampaign} of the descriptors in ${mutantsDirectory} are in it${vanished.length ? `, and these it ran no longer exist: ${vanished.join(', ')}` : ''}`);
 	}
 
 	const violations = asArray(field(readJson(`${RESULTS}/2026-11-22-assurance/summary.json`), 'violationsFoundDuringDevelopment'), 'summary.json');

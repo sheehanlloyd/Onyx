@@ -105,6 +105,7 @@ suite('OnyxSim', () => {
 			'audit-n2-type-above-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
 			'audit-n2-edit-hunk-0-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
 			'b8-delete-lines-then-accept-all': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
+			'b15-lmstudio-model-not-loaded': { status: 'completed', turns: 4, dispatched: ['terminal', 'terminal', 'terminal'], staged: 0, dialogs: ['allow-once', 'allow-once', 'allow-once'] },
 			'c10-edit-through-a-link-is-refused': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 0, dialogs: [] },
 			'c10-a-name-with-two-dots-is-a-name': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			'c3-two-edits-in-one-call-then-accept-all': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },

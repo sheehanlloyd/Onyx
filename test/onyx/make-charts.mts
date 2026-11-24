@@ -179,7 +179,8 @@ function barChart(options: { title: string; subtitle: string; bars: IBar[]; max?
 	const width = options.width ?? 720;
 	const rowHeight = 42;
 	const top = 62;
-	const labelWidth = 210;
+	// Wide enough for the longest label at the label font, about 7.4 px a character.
+	const labelWidth = Math.max(210, Math.ceil(Math.max(...options.bars.map(bar => bar.label.length)) * 7.4) + 16);
 	const chartWidth = width - labelWidth - 112;
 	const max = options.max ?? (Math.max(...options.bars.map(bar => bar.value)) || 1);
 	const height = top + options.bars.length * rowHeight + 16;
@@ -366,8 +367,14 @@ ${rows}
 }
 
 /** Short enough to read as an axis label; the runtime stays in the caption. */
+/** A model's label on a chart: its id, and which runtime served it when both runtimes are on the chart. */
 function shortModelName(model: string): string {
-	return model.replace(' (LM Studio)', '');
+	const both = results.some(result => result.model?.endsWith(' (LM Studio)')) && results.some(result => result.model && !result.model.endsWith(' (LM Studio)'));
+	if (!both) {
+		return model.replace(' (LM Studio)', '');
+	}
+	// LM Studio's ids end in `-instruct`; the runtime is what tells the two rows of the same weights apart.
+	return model.endsWith(' (LM Studio)') ? `${model.replace(' (LM Studio)', '').replace(/-instruct$/, '')} · LM Studio` : `${model} · Ollama`;
 }
 
 // ------------------------------------------------- charts from real models
@@ -446,7 +453,25 @@ if (benchModels.length) {
 }
 
 const speculativeTarget = modelsOf('speculative')[0];
-if (speculativeTarget) {
+if (speculativeTarget && maybe(`${speculativeTarget} — code tok/s with draft`)) {
+	// Code and prose apart, since 2026-11-24: the same draft speeds one up and slows the other down.
+	const kinds = ['code', 'prose'];
+	const value = (kind: string, arm: 'without' | 'with') => maybe(`${speculativeTarget} — ${kind} tok/s ${arm} draft`)?.value ?? 0;
+	const attached = maybe(`${speculativeTarget} — draft attached`);
+	write('chart-speculative.svg', groupedBarChart({
+		title: 'Speculative decoding, measured instead of assumed',
+		subtitle: `${shortModelName(speculativeTarget)} loaded plain, then with ${(maybe(`${speculativeTarget} — code tok/s with draft`)?.detail ?? '').split(';')[0]}; median tok/s`,
+		series: ['No draft', 'With draft'],
+		max: Math.max(...kinds.flatMap(kind => [value(kind, 'without'), value(kind, 'with')])) * 1.15,
+		suffix: ' tok/s',
+		groups: kinds.map(kind => ({
+			label: kind === 'code' ? 'Code' : 'Prose',
+			caption: `${(maybe(`${speculativeTarget} — ${kind} speedup with draft`)?.value ?? 1).toFixed(2)}× with the draft${attached ? ' · attached' : ''}`,
+			bars: [{ series: 'No draft', value: value(kind, 'without') }, { series: 'With draft', value: value(kind, 'with') }],
+		})),
+	}));
+} else if (speculativeTarget) {
+	// A report from before 2026-11-24: one prompt, best of three.
 	const without = find(`${speculativeTarget} — tok/s without draft`);
 	const withDraft = find(`${speculativeTarget} — tok/s with draft`);
 	write('chart-speculative.svg', barChart({
