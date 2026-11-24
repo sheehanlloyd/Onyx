@@ -230,9 +230,28 @@ the server's own allocation even when it had been loaded with more. Two ways rem
 gets: a server setting, which is yours to change and applies to every model, and a derived model. Onyx uses
 the derived model. The native endpoint's per-request option also works; it is another wire protocol, whose
 tool calls, schemas and stream endings L5 did not measure, and any request on the OpenAI-style endpoint
-(autocomplete, another tool) would reload the model at the old context. LM Studio was not probed: it was not
-running, and starting it was outside what this work was authorised to do. Onyx reads the loaded context
-LM Studio reports and asks it for nothing; set the context length in LM Studio's own load settings.
+(autocomplete, another tool) would reload the model at the old context.
+
+**LM Studio** (0.4.23, probed 2026-11-22 with the owner's permission; `docs/research/results/2026-11-22-lmstudio-context/`):
+
+| Way of asking for 12,288 tokens | What LM Studio then reports | Honoured |
+|---|---|---|
+| Nothing: a request loads the model on demand | 8,192 | (its default) |
+| Per request: `context_length`, `num_ctx`, `options.num_ctx` on `/v1/chat/completions`, cold or loaded | 8,192 | no |
+| Load time: `lms load <model> --context-length 12288` | 12,288 | yes |
+| Load time: `POST /api/v1/models/load {"model", "context_length": 12288}` | 12,288 | yes |
+
+A later request uses the instance that is loaded. The canary agrees with what LM Studio reports: at the on-demand
+default both pinned models recall up to 6,989 tokens and lose a prompt from 8,736; loaded at 16,384 they recall
+at 14,745 and lose a prompt past it. A prompt longer than the loaded context is cut **without an error**. The
+weights LM Studio loads here are the same files as Ollama's (the same SHA-256).
+
+**What Onyx does with this today, and its gap.** Onyx asks LM Studio for nothing and budgets against the
+loaded context LM Studio reports. Before a model has been loaded, LM Studio reports only the trained context
+(32,768), and that is what the budget then uses: the first run on a model that is not loaded yet is budgeted at
+four times the 8,192 it is served, and what does not fit is cut silently. Until that is fixed, load the model
+in LM Studio first, at the context you want (its own load settings, or `lms load <model> --context-length
+<tokens>`), or measure it once ("Onyx: Measure This Model"), which records the context it really has.
 
 **What is created, and how to undo it.** A model alias: a second model name over the same weights, with
 `num_ctx` in its parameters, named `<model>-onyx-ctx<tokens>` (for example `qwen2.5-coder:7b-onyx-ctx16384`). It adds
