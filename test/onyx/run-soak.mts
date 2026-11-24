@@ -7,6 +7,7 @@
  * Stability soak of the packaged application (D8).
  *
  *   node test/onyx/run-soak.mts --app <path/to/Onyx.app> --json-out <file> [--minutes 60] [--run-timeout 20] [--skip-campaign]
+ *                               [--log-dir .build/soak-runs] [--suite test/onyx/run-e2e.mts]
  *
  * For the given time it runs the end-to-end suite against the mock runtime on
  * the packaged application, again and again, each run a fresh application on a
@@ -17,7 +18,9 @@
  * It records, and fails on: a suite run that does not pass; a process left
  * behind after a run (anything still running from the run's application or
  * with its working directory in the run's folder: a leaked command, B5); a new
- * crash report; the campaign failing. It records and does not judge: the peak
+ * crash report; the campaign failing; a run that does not finish in
+ * --run-timeout minutes (it is killed, with what it started, and the soak goes
+ * on with the next run). It records and does not judge: the peak
  * resident memory of the renderer in each run, and the idle instance's
  * renderer memory through the hour. The report states the bound these stayed
  * inside. That bound is an observation on one machine, not a limit the
@@ -44,8 +47,10 @@ const jsonOut = argValue('--json-out');
 const minutes = Number(argValue('--minutes') ?? 60);
 const skipCampaign = process.argv.includes('--skip-campaign');
 const runTimeoutMinutes = Number(argValue('--run-timeout') ?? 20);
+const suiteArg = argValue('--suite');
+const logDirArg = argValue('--log-dir');
 if (!appArg || !fs.existsSync(appArg) || !jsonOut) {
-	console.error('usage: node test/onyx/run-soak.mts --app <path/to/Onyx.app> --json-out <file> [--minutes 60] [--skip-campaign]');
+	console.error('usage: node test/onyx/run-soak.mts --app <path/to/Onyx.app> --json-out <file> [--minutes 60] [--run-timeout 20] [--skip-campaign] [--log-dir <dir>] [--suite <script>]');
 	process.exit(2);
 }
 
@@ -55,7 +60,9 @@ const idleDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onyx-soak-idle-'));
 const crashDir = path.join(os.homedir(), 'Library', 'Logs', 'DiagnosticReports');
 const startedAt = Date.now();
 // Each suite run's whole output, so that a failed run can be read afterwards.
-const logDir = path.join(repoRoot, '.build', 'soak-runs');
+const logDir = path.resolve(logDirArg ?? path.join(repoRoot, '.build', 'soak-runs'));
+// The suite each run executes; another script only for the soak's own self-check.
+const suite = path.resolve(suiteArg ?? path.join(repoRoot, 'test', 'onyx', 'run-e2e.mts'));
 fs.rmSync(logDir, { recursive: true, force: true });
 fs.mkdirSync(logDir, { recursive: true });
 
@@ -134,7 +141,7 @@ async function main(): Promise<number> {
 			const index = iterations.length + 1;
 			const logFile = path.join(logDir, `run-${index}.log`);
 			const run = await new Promise<{ status: number | null; stdout: string; timedOut: boolean }>(resolve => {
-				const runner = spawn(process.execPath, [path.join(repoRoot, 'test', 'onyx', 'run-e2e.mts')], { cwd: repoRoot, env: { ...process.env, ONYX_E2E_APP: app }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+				const runner = spawn(process.execPath, [suite], { cwd: repoRoot, env: { ...process.env, ONYX_E2E_APP: app }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 				let stdout = '';
 				let timedOut = false;
 				const log = fs.createWriteStream(logFile);
@@ -164,6 +171,16 @@ async function main(): Promise<number> {
 			const failures = run.stdout.split('\n').filter(line => /^\s*(?:✖|FAIL)/.test(line)).map(line => line.trim()).slice(0, 20);
 			const iteration: IIteration = { index, seconds: Math.round((Date.now() - began) / 1000), exitCode: run.timedOut ? null : run.status, result, failures, log: path.relative(repoRoot, logFile), peakRendererMb: megabytes(peakRendererKb), peakTotalMb: megabytes(peakTotalKb), leftBehind: leftBehind() };
 			iterations.push(iteration);
+			if (run.timedOut) {
+				// What the stopped run started would otherwise hold its ports for the next run.
+				for (const entry of iteration.leftBehind) {
+					try {
+						process.kill(Number(entry.split(' ')[0]), 'SIGKILL');
+					} catch {
+						// already gone
+					}
+				}
+			}
 			console.log(`  run ${iteration.index}: ${iteration.result} · ${iteration.seconds}s · renderer peak ${iteration.peakRendererMb} MB · all processes peak ${iteration.peakTotalMb} MB · left behind ${iteration.leftBehind.length}`);
 			for (const failure of iteration.failures) {
 				console.log(`    ${failure}`);
@@ -202,7 +219,7 @@ async function main(): Promise<number> {
 	const summary = {
 		ranAt: new Date(startedAt).toISOString(),
 		product: { nameShort: product.nameShort, commit: product.commit },
-		machine: { model: spawnSync('sysctl', ['-n', 'hw.model'], { encoding: 'utf8' }).stdout.trim(), memoryGb: Math.round(os.totalmem() / 2 ** 30), loadAverageAtEnd: os.loadavg() },
+		machine: { model: (spawnSync('sysctl', ['-n', 'hw.model'], { encoding: 'utf8' }).stdout ?? '').trim(), memoryGb: Math.round(os.totalmem() / 2 ** 30), loadAverageAtEnd: os.loadavg() },
 		minutesRequested: minutes,
 		minutesRun: Math.round((Date.now() - startedAt) / 6000) / 10,
 		suiteRuns: iterations.length,

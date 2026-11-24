@@ -130,8 +130,23 @@ function workbenchAnswers(): boolean {
 	}
 }
 
+/**
+ * The longest one driver command may take. No command of this suite waits in
+ * the page for more than a few seconds; the limit is there because a command
+ * that never returns otherwise holds the whole run with no output at all (a
+ * soak run on 2026-11-24 stood at its second command for 62 minutes).
+ */
+const driverCommandTimeoutMs = Number(process.env.ONYX_E2E_DRIVER_TIMEOUT_MS ?? 120_000);
+
 function pwOnce(...args: string[]) {
-	return execFileSync(process.execPath, [playwrightCli, `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+	try {
+		return execFileSync(process.execPath, [playwrightCli, `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: driverCommandTimeoutMs, killSignal: 'SIGKILL' });
+	} catch (error) {
+		if ((error as { code?: string }).code === 'ETIMEDOUT') {
+			throw new Error(`the driver command "${args[0]}" did not return in ${driverCommandTimeoutMs / 1000} s; the workbench ${workbenchAnswers() ? 'still answers' : 'no longer answers'} on :${cdpPort}`, { cause: error });
+		}
+		throw error;
+	}
 }
 
 /**
