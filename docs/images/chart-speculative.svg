@@ -1,0 +1,30 @@
+<!-- provenance: manifest 2026-11-24-benchmarks; models ollama:qwen2.5-coder:7b@dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364, ollama:llama3.2:3b@a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72, ollama:qwen2.5-coder:1.5b@d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668, lmstudio:qwen2.5-coder-7b-instruct@60e05f2100071479f596b964f89f510f057ce397ea22f2833a0cfe029bfc2463, lmstudio:qwen2.5-coder-1.5b-instruct@29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104, lmstudio:qwen2.5-coder-0.5b-instruct@e1a77721fa97d412f121878223eec81fb4ae6f271e18f922d746711f67b344d1; reports report.json@aa32e8f19ef, speculative.json@373fc58cd97 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="212" viewBox="0 0 720 212" role="img" aria-label="Speculative decoding, measured instead of assumed">
+  <title>Speculative decoding, measured instead of assumed</title>
+  <text x="0" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#57606a">Speculative decoding, measured instead of assumed</text>
+  <text x="0" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#8b949e">qwen2.5-coder-7b-instruct · Ollama loaded plain, then with draft qwen2.5-coder-0.5b-instruct; median tok/s</text>
+  <rect x="0" y="52" width="10" height="10" rx="2" fill="#8b949e"/>
+  <text x="16" y="61" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e">No draft</text>
+  <rect x="76" y="52" width="10" height="10" rx="2" fill="#7c5cff"/>
+  <text x="92" y="61" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e">With draft</text>
+  <g>
+    <text x="0" y="96" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">Code</text>
+    <text x="0" y="112" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">1.49× with the draft · attached</text>
+    <rect x="250" y="84" width="354" height="16" rx="3" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="250" y="84" width="206.6457509881423" height="16" rx="3" fill="#8b949e"/>
+    <text x="614" y="96" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#8b949e">47.3 tok/s</text>
+    <rect x="250" y="105" width="354" height="16" rx="3" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="250" y="105" width="307.82608695652175" height="16" rx="3" fill="#7c5cff"/>
+    <text x="614" y="117" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#7c5cff">70.4 tok/s</text>
+  </g>
+  <g>
+    <text x="0" y="156" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#8b949e">Prose</text>
+    <text x="0" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8b949e" opacity="0.75">0.97× with the draft · attached</text>
+    <rect x="250" y="144" width="354" height="16" rx="3" fill="rgba(139, 148, 158, 0.22)"/>
+    <rect x="250" y="144" width="205.37771739130434" height="16" rx="3" fill="#8b949e"/>
+    <text x="614" y="156" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#8b949e">47 tok/s</text>
+    <rect x="250" y="165" width="354" height="16" rx="3" fill="rgba(124, 92, 255, 0.18)"/>
+    <rect x="250" y="165" width="198.25049407114628" height="16" rx="3" fill="#7c5cff"/>
+    <text x="614" y="177" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace" font-size="12" font-weight="600" fill="#7c5cff">45.3 tok/s</text>
+  </g>
+</svg>

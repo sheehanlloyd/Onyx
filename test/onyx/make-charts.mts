@@ -179,7 +179,8 @@ function barChart(options: { title: string; subtitle: string; bars: IBar[]; max?
 	const width = options.width ?? 720;
 	const rowHeight = 42;
 	const top = 62;
-	const labelWidth = 210;
+	// Wide enough for the longest label at the label font, about 7.4 px a character.
+	const labelWidth = Math.max(210, Math.ceil(Math.max(...options.bars.map(bar => bar.label.length)) * 7.4) + 16);
 	const chartWidth = width - labelWidth - 112;
 	const max = options.max ?? (Math.max(...options.bars.map(bar => bar.value)) || 1);
 	const height = top + options.bars.length * rowHeight + 16;
@@ -366,8 +367,14 @@ ${rows}
 }
 
 /** Short enough to read as an axis label; the runtime stays in the caption. */
+/** A model's label on a chart: its id, and which runtime served it when both runtimes are on the chart. */
 function shortModelName(model: string): string {
-	return model.replace(' (LM Studio)', '');
+	const both = results.some(result => result.model?.endsWith(' (LM Studio)')) && results.some(result => result.model && !result.model.endsWith(' (LM Studio)'));
+	if (!both) {
+		return model.replace(' (LM Studio)', '');
+	}
+	// LM Studio's ids end in `-instruct`; the runtime is what tells the two rows of the same weights apart.
+	return model.endsWith(' (LM Studio)') ? `${model.replace(' (LM Studio)', '').replace(/-instruct$/, '')} · LM Studio` : `${model} · Ollama`;
 }
 
 // ------------------------------------------------- charts from real models
@@ -459,7 +466,7 @@ if (speculativeTarget && maybe(`${speculativeTarget} — code tok/s with draft`)
 		suffix: ' tok/s',
 		groups: kinds.map(kind => ({
 			label: kind === 'code' ? 'Code' : 'Prose',
-			caption: `${(maybe(`${speculativeTarget} — ${kind} speedup with draft`)?.value ?? 1).toFixed(2)}× with the draft${attached ? '; draft attached, as LM Studio reports' : ''}`,
+			caption: `${(maybe(`${speculativeTarget} — ${kind} speedup with draft`)?.value ?? 1).toFixed(2)}× with the draft${attached ? ' · attached' : ''}`,
 			bars: [{ series: 'No draft', value: value(kind, 'without') }, { series: 'With draft', value: value(kind, 'with') }],
 		})),
 	}));

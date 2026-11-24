@@ -28,9 +28,10 @@ every skip and failure. `make-charts.mts` refuses a report without that block,
 and each chart starts with a comment naming its manifest, its models and the
 commit of each report. The reports are under [`docs/benchmarks/`](benchmarks/);
 the charts in the README today come from
-[`docs/benchmarks/2026-11-21/`](benchmarks/2026-11-21/report.json). LM Studio
-exposes neither its version nor a digest of a model's weights, so those two
-fields are `null` for its models.
+[`docs/benchmarks/2026-11-24/`](benchmarks/2026-11-24/report.json). LM Studio
+has no API for its version or a model's digest: the harness reads the version
+from LM Studio's own file under `~/.lmstudio/.internal/` and hashes the GGUF
+file that `lms ls --json` names, so both are recorded.
 
 `--manifest` is required: the chart builder refuses to draw without an experiment manifest that validates
 against [`test/onyx/lab/manifest.schema.json`](../test/onyx/lab/manifest.schema.json) (models with digests,
@@ -50,6 +51,7 @@ Useful flags:
 |---|---|
 | `--skip-models` | Only the pure-logic sections. No runtime needed; this is what CI runs. |
 | `--speculative` | Adds the speculative-decoding comparison. **Reloads models in LM Studio**, which is why it is opt-in. |
+| `--only-speculative` | The speculative-decoding comparison and nothing else: no pure sections, fixtures or per-model loop. |
 | `--rounds N` | Warm rounds per model for the speed measurement (default 3, best wins). |
 | `--tasks N` | Commits replayed in the repo benchmark (default 5). |
 | `--tool-trials N` | Tool-calling requests per arm (default 6). |
@@ -384,48 +386,51 @@ Opt-in via `--speculative`, because it reloads models.
 The largest LM Studio model becomes the target and `candidateDrafts` — the
 product's own pairing function — picks the draft. Then: unload everything,
 load the target plain, measure; unload, reload the target with
-`--speculative-draft-simple --speculative-draft-model <draft>`, measure the
-identical prompt again. Same prompt, same token cap, best of 3 after a
-discarded warm-up round each time. The runtime is left with the draft detached.
+`--speculative-draft-simple --speculative-draft-model <draft>`, read LM
+Studio's REST model list (`/api/v1/models`) to confirm the loaded instance's
+configuration names that draft, and measure again. If it does not, nothing is
+recorded but a note saying so. Each measurement is two prompts, a code task
+and a prose task, the median of 3 after a discarded warm-up round each. The
+runtime is left with the draft detached.
 
-The measurement uses the same prompt and the same best-of-N shape as
-`Onyx: Measure Speculative Decoding` inside the app, so the harness number and
-the app's number are the same measurement.
+The prompts, the median shape and the attachment check are the same as
+`Onyx: Measure Speculative Decoding` inside the app
+(`ONYX_SPECULATIVE_PROMPTS`), so the harness number and the app's number are
+the same measurement.
 
-**A slowdown is a real result.** Speculative decoding only pays when the target
-accepts most of the draft's proposals; at small sizes the verification pass can
-cost more than the tokens it saves. Onyx reports whichever way it comes out,
-including "no measured effect", and the readout tells you to drop the pairing
-when it loses.
+**Code and prose are reported apart because they come out differently.** A
+draft pays when the target accepts most of its proposals, and a small coder
+model guesses code far better than prose. Measured on LM Studio 0.4.23, on an
+M4 Pro, with the 7B target
+([`docs/benchmarks/2026-11-24/speculative.json`](benchmarks/2026-11-24/speculative.json),
+and with five rounds a prompt in
+[`docs/research/results/2026-11-24-speculative/`](research/results/2026-11-24-speculative/summary.json)):
 
-**What it came out as here.** Three configurations were measured against LM
-Studio 0.4.23 (which drives llama.cpp's `llama-server` underneath) on an M4 Pro.
-Speculation lost every time:
-
-| target → draft | prompt | without draft | with draft | Δ |
+| draft | prompt | without draft | with draft | speedup |
 |---|---|---|---|---|
-| 1.5B → 0.5B | prose | 90.2 tok/s | 88.3 tok/s | −2% |
-| 7B → 0.5B | prose | 25.9 tok/s | 23.7 tok/s | −9% |
-| 7B → 0.5B | code | 31.2 tok/s | 24.7 tok/s | −21% |
+| 0.5B | code | 47.3 tok/s | 70.4 tok/s | 1.49x |
+| 0.5B | prose | 47.0 tok/s | 45.3 tok/s | 0.97x |
+| 0.5B (5 rounds) | code | 46.6 tok/s | 66.5 tok/s | 1.43x |
+| 0.5B (5 rounds) | prose | 47.6 tok/s | 44.8 tok/s | 0.94x |
+| 1.5B (5 rounds) | code | 46.6 tok/s | 57.4 tok/s | 1.23x |
+| 1.5B (5 rounds) | prose | 47.6 tok/s | 38.2 tok/s | 0.80x |
 
-The 14× size ratio in rows two and three is the case where speculation is
-usually expected to pay, and the code prompt is the one that matters for a
-coding tool — draft acceptance is domain-sensitive, so prose and code were
-measured separately rather than assuming they behave alike. The conclusion
-survives the run-to-run variance: the baseline's *worst* code round, 26.5 tok/s,
-still beat the draft's *best*, 24.7.
+At temperature 0 every reply with a draft was the same text as without it,
+which speculation guarantees; a different reply would have meant something
+else changed. LM Studio 0.4.23 does not report how many drafted tokens were
+accepted, so there is no acceptance rate.
 
-**The draft was genuinely attached**, which is the part worth verifying before
-publishing a negative result. Loading the target with a nonexistent draft is
-rejected outright — `Draft model "definitely-not-a-real-model" for llama-server
-speculative decoding could not be resolved` — so a load that succeeds is proof
-the pairing took effect rather than being silently ignored.
+**The August result is withdrawn.** This section used to report that
+speculation lost every time, 7B with the 0.5B draft at 0.79x to 0.91x, from an
+August 2026 run whose raw report and machine state were not kept. It used one
+prompt per kind, best of 3, and proved attachment only by a bogus draft name
+being rejected at load time. Re-measured with attachment read back from the
+runtime, the code result is the opposite. Which conditions produced the August
+numbers cannot be recovered.
 
-The likely cause is that both models contend for the same unified-memory GPU, so
-the draft is nowhere near free; on hardware where the draft runs on separate
-silicon the result could differ. That is exactly why the readout only ever
-reports a measurement taken on *your* machine. Shipping "speculative decoding
-supported" as a feature bullet would have been easy and wrong.
+**A slowdown is still a real result.** Prose shows one. Onyx reports whichever
+way it comes out, for each kind of prompt, and the readout tells you to drop
+the pairing when it loses on what you write.
 
 Note also that speculative decoding is **load-time only** on every runtime Onyx
 supports. A per-request `draft_model` field is rejected by LM Studio with an

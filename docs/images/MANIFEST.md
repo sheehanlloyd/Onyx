@@ -15,14 +15,15 @@ missing from this table or a row names a file that does not exist.
 | File | Source | Model | Date | Notes |
 |---|---|---|---|---|
 | `badges.svg` | dev (generated) | n/a | 2026-08-30 | README badge strip; the test counts it carries are re-derived by `run-benchmarks.mts` |
-| `chart-parsers.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-21/report.json`, C8) | n/a (pure-logic section) | 2026-11-21 | Parser resilience chart |
-| `chart-repobench.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-21/report.json`, C8) | `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b`, `llama3.2:3b` on Ollama 0.33.0; digests in the report | 2026-11-21 | Per-model scores on this repository's commits |
-| `chart-retrieval.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-21/report.json`, C8) | n/a (pure-logic section) | 2026-11-21 | BM25 versus substring search |
-| `chart-scale.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-21/report.json`, C8) | n/a (pure-logic section) | 2026-11-21 | Scale of the analysis |
-| `chart-speed.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-21/report.json`, C8) | `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b`, `llama3.2:3b` on Ollama 0.33.0; digests in the report | 2026-11-21 | Generation speed per model |
-| `chart-terminal.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-21/report.json`, C8) | n/a (pure-logic section) | 2026-11-21 | Dangerous-command classification |
-| `chart-tests.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-21/report.json`, C8) | n/a (pure-logic section) | 2026-11-21 | Test surface |
-| `chart-toolcalls.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-21/report.json`, C8) | `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b`, `llama3.2:3b` on Ollama 0.33.0; digests in the report | 2026-11-21 | Tool-call validity across three arms |
+| `chart-parsers.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-24/`, C8) | n/a (pure-logic section) | 2026-11-24 | Parser resilience chart |
+| `chart-repobench.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-24/`, C8) | `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b`, `llama3.2:3b` on Ollama 0.33.0; `qwen2.5-coder-7b/1.5b/0.5b-instruct` on LM Studio 0.4.23; digests in the report | 2026-11-24 | Per-model scores on this repository's commits |
+| `chart-retrieval.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-24/`, C8) | n/a (pure-logic section) | 2026-11-24 | BM25 versus substring search |
+| `chart-scale.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-24/`, C8) | n/a (pure-logic section) | 2026-11-24 | Scale of the analysis |
+| `chart-speed.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-24/`, C8) | `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b`, `llama3.2:3b` on Ollama 0.33.0; `qwen2.5-coder-7b/1.5b/0.5b-instruct` on LM Studio 0.4.23; digests in the report | 2026-11-24 | Generation speed per model |
+| `chart-terminal.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-24/`, C8) | n/a (pure-logic section) | 2026-11-24 | Dangerous-command classification |
+| `chart-speculative.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-24/speculative.json`, C8) | `qwen2.5-coder-7b-instruct` with the `qwen2.5-coder-0.5b-instruct` draft on LM Studio 0.4.23; digests in the report | 2026-11-24 | Speculative decoding, code and prose apart |
+| `chart-tests.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-24/`, C8) | n/a (pure-logic section) | 2026-11-24 | Test surface |
+| `chart-toolcalls.svg` | dev (`make-charts.mts` from `docs/benchmarks/2026-11-24/`, C8) | `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b`, `llama3.2:3b` on Ollama 0.33.0; `qwen2.5-coder-7b/1.5b/0.5b-instruct` on LM Studio 0.4.23; digests in the report | 2026-11-24 | Tool-call validity across three arms |
 | `onyx-architecture.png` | dev | unknown | 2026-08-30 | Architecture map with local-model summaries |
 | `onyx-changes.png` | dev | unknown | 2026-08-29 | Onyx Changes with staged hunks |
 | `onyx-commit-message.png` | dev | unknown | 2026-08-27 | Commit message written into the SCM input |

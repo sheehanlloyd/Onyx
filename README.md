@@ -71,9 +71,10 @@ requests for three of the five variants, and a schema-constrained turn reached
 [Benchmark results](#tool-calling) and
 [docs/BENCHMARKS.md](./docs/BENCHMARKS.md#tool-calling--three-separate-numbers).
 
-Two more measurements changed the design: speculative decoding came out at 0.72x
-on this machine, and the local reviewer missed an off-by-one that was in its own
-prompt. Both are below, in [Benchmark results](#speculative-decoding) and
+Two more measurements changed the design: speculative decoding made code 1.49x
+faster on this machine and prose 0.97x, slower, with the same draft, so Onyx
+measures and reports the two apart; and the local reviewer missed an off-by-one
+that was in its own prompt. Both are below, in [Benchmark results](#speculative-decoding) and
 [Known failure cases](#known-failure-cases).
 
 ---
@@ -124,9 +125,10 @@ prompt. Both are below, in [Benchmark results](#speculative-decoding) and
   explains the downshift in one plain sentence.
 - **Speculative decoding, measured.** Every runtime that supports it wants the
   draft set when the model loads, so Onyx measures your target as it stands,
-  gives you the exact command for your runtime, waits, then runs the identical
-  prompt again. When there is no gain it says so, as
-  [it did on this Mac](#speculative-decoding).
+  gives you the exact command for your runtime, waits, checks the runtime
+  really attached the draft, then runs the identical code and prose prompts
+  again and reports each. On this Mac the draft
+  [sped up code and slowed prose](#speculative-decoding).
 
 #### Where inference happens
 
@@ -340,19 +342,20 @@ high-contrast variants, pinned as the product defaults.*
 
 Every chart below was drawn by
 [`test/onyx/make-charts.mts`](./test/onyx/make-charts.mts) from one committed
-report, [docs/benchmarks/2026-11-21/report.json](./docs/benchmarks/2026-11-21/report.json),
-which [`test/onyx/run-benchmarks.mts`](./test/onyx/run-benchmarks.mts) wrote on
-the machine described below. The report names the commit, the machine and its
+run, [docs/benchmarks/2026-11-24/](./docs/benchmarks/2026-11-24/): the full
+[report.json](./docs/benchmarks/2026-11-24/report.json) and the speculative-decoding
+[speculative.json](./docs/benchmarks/2026-11-24/speculative.json), both written by [`test/onyx/run-benchmarks.mts`](./test/onyx/run-benchmarks.mts) on the machine
+described below. The report names the commit, the machine and its
 load, the runtime version, the digest of every model, the parameters, and every
 attempt and skip; the chart builder refuses a report without that block, and
 each chart begins with a comment naming its report. A chart cannot drift from
 the number it claims to show. [docs/BENCHMARKS.md](./docs/BENCHMARKS.md)
 explains what each measurement means and how to reproduce it.
 
-Two results quoted on this page are older than that rule and have no chart:
-the LM Studio rows of the tool-calling result and the speculative-decoding
-result were measured in August 2026 and their raw reports were not kept. They
-are marked where they appear. LM Studio was not running for the November run.
+Both runtimes are in this run. The LM Studio tool-calling rows and the
+speculative-decoding result, which earlier versions of this page quoted from an
+August 2026 measurement whose raw report was not kept, have been measured again
+and come from these reports.
 
 ```bash
 node test/onyx/run-benchmarks.mts        # skips the model sections if no runtime is up
@@ -363,11 +366,11 @@ node test/onyx/run-benchmarks.mts        # skips the model sections if no runtim
 | | |
 |---|---|
 | **Tested on** | MacBook Pro, Apple M4 Pro, 24 GB unified memory, macOS 26.5, otherwise idle |
-| **Runtimes** | Ollama 0.33.0. LM Studio was not measured in this run |
-| **Models** | `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b`, `llama3.2:3b`, by the digests in the report |
-| **Runs per test** | Throughput: best of 3 warm rounds. Cold TTFT: 1 sample. Tool calling: 6 requests per arm per model. Repo benchmark: 5 commits per model at temperature 0 |
-| **Reported statistic** | Best-of-N for throughput and latency, proportion valid for tool calls, mean score for the repo benchmark (F1 over added and removed lines, capped at 0.5 when a line the author kept is removed), mean latency for retrieval |
-| **Limitations** | One machine, one operator, local models only, one runtime resident at a time. **The machine was busy during this run**: the one-minute load average was 39 at the start and 14 at the end, on 14 cores, from system indexing. The throughput and latency numbers are therefore low: the same day, on the idle machine, the 7B model measured 49 tok/s and the 1.5B 167 ([context allocation results](./docs/research/results/2026-11-21-context-allocation/summary.json)). No variance is reported; treat throughput as an exploratory single-machine measurement. Proportions and scores at temperature 0 do not depend on load, except that one repo-benchmark task timed out for `llama3.2:3b` and is counted as not served |
+| **Runtimes** | Ollama 0.33.0 and LM Studio 0.4.23, one resident at a time |
+| **Models** | Ollama: `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b`, `llama3.2:3b`. LM Studio: `qwen2.5-coder-7b-instruct`, `-1.5b-instruct`, `-0.5b-instruct` (Q4_K_M GGUF files whose SHA-256 equals the Ollama weight layers of the same models). Digests in the report |
+| **Runs per test** | Throughput: best of 3 warm rounds. Speculative decoding: median of 3 after a warm-up round, per prompt. Cold TTFT: 1 sample. Tool calling: 6 requests per arm per model. Repo benchmark: 5 commits per model at temperature 0 |
+| **Reported statistic** | Best-of-N for throughput and latency, median for speculative decoding, proportion valid for tool calls, mean score for the repo benchmark (F1 over added and removed lines, capped at 0.5 when a line the author kept is removed), mean latency for retrieval |
+| **Limitations** | One machine, one operator, local models only, one runtime resident at a time. The one-minute load average was 4 at the start of the main run and 19 at its end, on 14 cores (system indexing), and 14 to 16 during the speculative run; both reports record it. The 7B model still measured 49 tok/s on both runtimes, the same as on the idle machine three days earlier ([context allocation results](./docs/research/results/2026-11-21-context-allocation/summary.json)). No variance is reported for throughput; treat it as an exploratory single-machine measurement. Proportions and scores at temperature 0 do not depend on load |
 
 The pure-logic half of the harness (retrieval, parsers, hunk algebra, terminal
 classification) is deterministic and runs anywhere, including CI. The model half
@@ -378,17 +381,15 @@ machines.
 
 <img src="docs/images/chart-toolcalls.svg" alt="Tool-call validity: the model's own channel, plus Onyx's repair, plus a grammar-constrained envelope" width="820" />
 
-Both qwen2.5-coder models used the native tool-call channel in 0 of 6 requests,
-even though Ollama advertises tool support for them. They write the call as
-prose instead. `llama3.2:3b` used the channel as designed, 6 of 6.
+All five qwen2.5-coder variants, two on Ollama and three on LM Studio, used the
+native tool-call channel in 0 of 6 requests, even though both runtimes advertise
+tool support for them. They write the call as prose instead. `llama3.2:3b` used
+the channel as designed, 6 of 6.
 
 Onyx's repair path recovered an executable call from that prose in 6 of 6
-requests for both qwen models. With `response_format: json_schema` constraining
-the turn, the 7B and `llama3.2:3b` reached 6 of 6 and the 1.5B 5 of 6.
-
-*Earlier, without a raw report (August 2026):* the same was measured on LM
-Studio with three qwen2.5-coder variants. All three used the native channel 0%
-of the time; repair recovered 6/6, 4/6 and 3/6. Those rows are not in the chart.
+requests for both Ollama qwen models and the LM Studio 7B, 4 of 6 for the LM
+Studio 1.5B and 3 of 6 for the 0.5B. With `response_format: json_schema`
+constraining the turn, every model reached 6 of 6 except the Ollama 1.5B, 5 of 6.
 
 The repair path is the only reason most of these models can call tools at all.
 That is a result about the models, not about Onyx, and it is why the tool loop
@@ -396,19 +397,26 @@ was built to assume the channel will fail.
 
 ### Speculative decoding
 
-*Measured in August 2026; the raw report was not kept, so there is no chart, and
-it has not been measured again (it needs LM Studio).*
+<img src="docs/images/chart-speculative.svg" alt="Speculative decoding: code faster with the draft, prose not" width="720" />
 
-A 7B target with a 0.5B draft of the same family ran at 0.72x, 48.0 down to 34.4
-tok/s. Both models contend for the same unified memory, so the draft is not close
-to free. The result held across three configurations and both prose and code
-prompts, and the draft was provably attached: a bogus draft name is rejected at
-load time, so a successful load proves the pairing took effect.
+A 7B target with a 0.5B draft of the same family, on LM Studio 0.4.23: code went
+from 47.3 to 70.4 tok/s, **1.49x**, and prose from 47.0 to 45.3, **0.97x**. The
+draft was attached: LM Studio's own model list named it in the loaded model's
+configuration before anything was measured. At temperature 0 the replies were
+the same text with and without it, as speculation requires. A separate run with
+five rounds a prompt gave the same split, 1.43x and 0.94x, and showed the 1.5B
+draft is worse on both, 1.23x and 0.80x
+([results](./docs/research/results/2026-11-24-speculative/summary.json)).
 
-Onyx reports whichever way the measurement comes out and tells you to drop the
-pairing when it loses. On hardware where the draft runs on separate silicon the
-answer could differ, which is why the readout only ever reports a measurement
-from your machine.
+The draft wins when it guesses the target's next tokens, and code is far more
+predictable than prose. So one number is wrong for one of them. Onyx's
+measurement now runs both kinds of prompt, takes the median of three rounds, and
+checks with the runtime that the draft really is attached; if it is not, it says
+so instead of reporting a speed.
+
+Earlier versions of this page reported 0.72x, from an August 2026 measurement on
+one prompt whose raw report and conditions were not kept. It could not be
+reproduced and is withdrawn.
 
 ### Local models on this Mac
 
@@ -416,9 +424,8 @@ from your machine.
 
 Onyx measures this itself, per model, and routes on it. Cold numbers are the
 first request after the model is evicted. That is the price of switching models,
-which a benchmark reporting only warm throughput never shows. This run was taken
-on a busy machine (see Limitations above); on an idle one these models are about
-twice as fast.
+which a benchmark reporting only warm throughput never shows. The same weights
+run at the same speed on both runtimes: 49 tok/s for the 7B on each.
 
 ### Scores on this repository's own commits
 
@@ -430,14 +437,16 @@ model added and removed and the lines the author added and removed, where 1.0
 means the model made exactly the author's change. A reply that removes a line
 the author kept scores at most 0.5, whatever else it got right.
 
-These are hard tasks and the numbers are small: 0.08, 0.03 and 0 for the three
-models. In 8 of the 14 attempts the model removed at least one line the author
+These are hard tasks and the numbers are small: 0.09, 0.08 and 0 on Ollama for
+the qwen 7B, `llama3.2:3b` and the qwen 1.5B, and 0.08, 0.02 and 0 on LM Studio
+for the 7B, 1.5B and 0.5B. No model reproduced a commit exactly. In 13 of the 18
+attempts where a model produced an edit, it removed at least one line the author
 kept. They are a routing signal, not a quality claim: they say which of your
 models is closer to how your code actually changed. Five tasks per model is a
 small sample and the caveats are in
 [docs/BENCHMARKS.md](./docs/BENCHMARKS.md#on-your-repo-benchmark). Every attempt,
 with its commit, score and reason, is in the
-[raw report](./docs/benchmarks/2026-11-21/report.json).
+[raw report](./docs/benchmarks/2026-11-24/report.json).
 
 The same measurement is a command in the product, `Onyx: Measure Models for
 This Repository`. Run on this machine on 2026-11-22 over 18 held-out tasks a
@@ -458,7 +467,7 @@ These run anywhere, need no model, and are what CI measures on every push.
 
 <img src="docs/images/chart-retrieval.svg" alt="BM25 retrieval versus substring search" width="720" />
 
-Measured through the index the product builds (18,252 files, tests and
+Measured through the index the product builds (18,004 files, tests and
 documentation included), the right file is in the top five for 7 of the 10
 questions. [docs/BENCHMARKS.md](./docs/BENCHMARKS.md#retrieval--bm25-versus-substring-search)
 has the three misses and why.
