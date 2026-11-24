@@ -187,6 +187,76 @@ function pwValue(output: string): string {
  */
 const isolationArgs = process.platform === 'darwin' ? ['--use-mock-keychain'] : [];
 
+const accessibilityOut = process.env.ONYX_E2E_A11Y_OUT ? path.resolve(process.env.ONYX_E2E_A11Y_OUT) : undefined;
+
+/**
+ * The accessibility pass (D8) rides on this suite, so that it looks at every Onyx surface the suite
+ * opens and not at a list someone remembered. With `ONYX_E2E_A11Y_OUT` set, a script in the page
+ * (a) records everything written to the workbench's screen-reader live regions, which is how a state
+ * change is announced, and (b) twice a second looks at each Onyx surface on screen (the first-run
+ * dialog, a dialog box, the quick input, the Onyx views, an inline proposal) and records every
+ * interactive element in it that has no accessible name or cannot take keyboard focus. The record is
+ * written at the end of the run. It is an inventory for a person to read, not a pass or a fail.
+ */
+function installAccessibilityProbe() {
+	if (!accessibilityOut) {
+		return;
+	}
+	pw('run-code', `async (page) => page.evaluate(() => {
+		if (window.__onyxA11y) { return; }
+		const record = window.__onyxA11y = { announcements: [], surfaces: {}, problems: {} };
+		const live = document.querySelector('.monaco-aria-container');
+		if (live) {
+			new MutationObserver(() => {
+				for (const region of live.querySelectorAll('[aria-live], [role=alert], [role=status]')) {
+					const text = (region.textContent || '').trim();
+					if (text && record.announcements[record.announcements.length - 1] !== text) { record.announcements.push(text); }
+				}
+			}).observe(live, { childList: true, subtree: true, characterData: true });
+		}
+		const surfaces = {
+			'first-run dialog': '.onboarding-a-overlay.visible',
+			'dialog': '.monaco-dialog-box',
+			'quick input': '.quick-input-widget:not([style*="display: none"])',
+			'Onyx view': '[id^="workbench.view.onyx"], .onyx-changes, .onyx-run',
+			'inline proposal': '.onyx-inline-hunk, .onyx-inline-edit-input',
+			'title bar': '.titlebar-right',
+		};
+		const interactive = 'a[href], a.monaco-button, a.action-label, button, input, select, textarea, [role=button], [role=checkbox], [role=link], [role=menuitem], [role=tab], [role=treeitem], [role=listitem][tabindex], [tabindex]:not([tabindex="-1"])';
+		const named = element => !!((element.getAttribute('aria-label') || '').trim() || element.getAttribute('aria-labelledby') || (element.textContent || '').trim() || (element.getAttribute('title') || '').trim() || (element.getAttribute('placeholder') || '').trim() || (element.labels && element.labels.length));
+		const focusable = element => element.tabIndex >= 0 || !!element.closest('[role=tree], [role=list], [role=listbox], [role=toolbar], [role=tablist], [role=menu], .monaco-list, .monaco-action-bar, .monaco-toolbar');
+		setInterval(() => {
+			for (const [name, selector] of Object.entries(surfaces)) {
+				for (const surface of document.querySelectorAll(selector)) {
+					if (!surface.getClientRects().length) { continue; }
+					record.surfaces[name] = (record.surfaces[name] || 0) + 1;
+					for (const element of surface.querySelectorAll(interactive)) {
+						if (!element.getClientRects().length || element.getAttribute('aria-hidden') === 'true') { continue; }
+						const problem = !named(element) ? 'no accessible name' : !focusable(element) ? 'not reachable by keyboard' : undefined;
+						if (problem) {
+							const key = name + ' | ' + problem + ' | ' + element.tagName.toLowerCase() + '.' + String(element.className).split(' ').filter(Boolean).slice(0, 3).join('.') + (element.getAttribute('role') ? '[role=' + element.getAttribute('role') + ']' : '');
+							record.problems[key] = (record.problems[key] || 0) + 1;
+						}
+					}
+				}
+			}
+		}, 500);
+	})`);
+}
+
+/** Writes what the probe saw. Called once, at the end; a window that was reloaded on the way has lost its record and says so. */
+function writeAccessibilityRecord() {
+	if (!accessibilityOut) {
+		return;
+	}
+	try {
+		const raw = pwValue(pw('run-code', 'async (page) => page.evaluate(() => JSON.stringify(window.__onyxA11y ?? { lost: true }))'));
+		fs.writeFileSync(accessibilityOut, JSON.stringify(JSON.parse(raw), undefined, '\t'));
+	} catch (error) {
+		fs.writeFileSync(accessibilityOut, JSON.stringify({ failed: String(error).split('\n')[0] }));
+	}
+}
+
 function git(...args: string[]) {
 	return execFileSync('git', ['-C', workspace, '-c', 'user.email=onyx-e2e@localhost', '-c', 'user.name=onyx-e2e', ...args], { encoding: 'utf8' });
 }
@@ -576,6 +646,7 @@ async function main() {
 		throw error;
 	}
 	await sleep(6000);
+	installAccessibilityProbe();
 
 	// Onboarding: "Connect a Local Runtime" then "Make It Yours".
 	await dismissOnboarding(30_000);
@@ -1189,6 +1260,7 @@ try {
 	}
 	failures.push('harness');
 } finally {
+	writeAccessibilityRecord();
 	try {
 		pw('close');
 	} catch {

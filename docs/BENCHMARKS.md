@@ -351,7 +351,7 @@ with new ones.
 specific human commit from its subject line is a hard task; 1.0 means "wrote
 exactly the author's lines". The value is *relative*: which of your models is
 better at which kind of work, on your code. That ordering is what the router
-consumes, and it is why Onyx can say "the router learns" without waving at a
+consumes, and it is what "the router adapts" means here: to a measurement on your code, not to a
 leaderboard.
 
 **Caveats, plainly.** Five tasks is a small sample, F1 over trimmed lines
