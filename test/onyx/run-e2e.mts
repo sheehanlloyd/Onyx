@@ -229,14 +229,15 @@ function installAccessibilityProbe() {
 		};
 		const interactive = 'a[href], a.monaco-button, a.action-label, button, input, select, textarea, [role=button], [role=checkbox], [role=link], [role=menuitem], [role=tab], [role=treeitem], [role=listitem][tabindex], [tabindex]:not([tabindex="-1"])';
 		const named = element => !!((element.getAttribute('aria-label') || '').trim() || element.getAttribute('aria-labelledby') || (element.textContent || '').trim() || (element.getAttribute('title') || '').trim() || (element.getAttribute('placeholder') || '').trim() || (element.labels && element.labels.length));
-		const focusable = element => element.tabIndex >= 0 || !!element.closest('[role=tree], [role=list], [role=listbox], [role=toolbar], [role=tablist], [role=menu], .monaco-list, .monaco-action-bar, .monaco-toolbar');
+		const focusable = element => element.tabIndex >= 0 || !!element.closest('[role=tree], [role=list], [role=listbox], [role=toolbar], [role=tablist], [role=menu], [role=radiogroup], .monaco-list, .monaco-action-bar, .monaco-toolbar');
 		setInterval(() => {
 			for (const [name, selector] of Object.entries(surfaces)) {
 				for (const surface of document.querySelectorAll(selector)) {
 					if (!surface.getClientRects().length) { continue; }
 					record.surfaces[name] = (record.surfaces[name] || 0) + 1;
 					for (const element of surface.querySelectorAll(interactive)) {
-						if (!element.getClientRects().length || element.getAttribute('aria-hidden') === 'true') { continue; }
+						// A presentational element (a toolbar separator) is not interactive whatever its tag; a radio group keeps one radio in the tab order and moves between them with the arrow keys.
+						if (!element.getClientRects().length || element.getAttribute('aria-hidden') === 'true' || element.getAttribute('role') === 'presentation') { continue; }
 						const problem = !named(element) ? 'no accessible name' : !focusable(element) ? 'not reachable by keyboard' : undefined;
 						if (problem) {
 							const key = name + ' | ' + problem + ' | ' + element.tagName.toLowerCase() + '.' + String(element.className).split(' ').filter(Boolean).slice(0, 3).join('.') + (element.getAttribute('role') ? '[role=' + element.getAttribute('role') + ']' : '');
