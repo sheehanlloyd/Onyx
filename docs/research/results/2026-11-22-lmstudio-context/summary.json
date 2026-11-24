@@ -1,0 +1,611 @@
+{
+	"what": "B15 on LM Studio 0.4.23: every way it accepts a context size (mechanisms-*.json), and the datasheets of the two pinned models measured with the canary probe at the context it loads a model at on demand, and loaded at 16,384 tokens through its REST load endpoint.",
+	"weights": "The GGUF files LM Studio loads are byte-identical to the weight layers of Ollama's qwen2.5-coder:7b and qwen2.5-coder:1.5b (the same SHA-256, and hard links to the same file): the numbers here and the Ollama numbers of 2026-11-21-context-allocation are of the same weights.",
+	"mechanisms": {
+		"qwen2.5-coder-1.5b-instruct": {
+			"trainedContext": 32768,
+			"defaultContext": 8192,
+			"asked": 12288,
+			"ways": [
+				{
+					"way": "just-in-time load, no request",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (context_length), cold",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (context_length), loaded",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (num_ctx), cold",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (num_ctx), loaded",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (options.num_ctx), cold",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (options.num_ctx), loaded",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "load time, `lms load --context-length`",
+					"honoured": true,
+					"readBack": 12288
+				},
+				{
+					"way": "  then a plain request",
+					"honoured": true,
+					"readBack": 12288
+				},
+				{
+					"way": "load time, REST /api/v1/models/load",
+					"honoured": true,
+					"readBack": 12288
+				}
+			]
+		},
+		"qwen2.5-coder-7b-instruct": {
+			"trainedContext": 32768,
+			"defaultContext": 8192,
+			"asked": 12288,
+			"ways": [
+				{
+					"way": "just-in-time load, no request",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (context_length), cold",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (context_length), loaded",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (num_ctx), cold",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (num_ctx), loaded",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (options.num_ctx), cold",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "per request (options.num_ctx), loaded",
+					"honoured": false,
+					"readBack": 8192
+				},
+				{
+					"way": "load time, `lms load --context-length`",
+					"honoured": true,
+					"readBack": 12288
+				},
+				{
+					"way": "  then a plain request",
+					"honoured": true,
+					"readBack": 12288
+				},
+				{
+					"way": "load time, REST /api/v1/models/load",
+					"honoured": true,
+					"readBack": 12288
+				}
+			]
+		}
+	},
+	"atTheOnDemandDefault": {
+		"datasheets": {
+			"qwen2.5-coder-7b-instruct": {
+				"version": 2,
+				"model": "qwen2.5-coder-7b-instruct",
+				"digest": "sha256:60e05f2100071479f596b964f89f510f057ce397ea22f2833a0cfe029bfc2463",
+				"runtime": {
+					"name": "lmstudio",
+					"version": "0.4.23"
+				},
+				"measuredAt": "2026-11-23T00:08:19.405Z",
+				"nativeToolCalls": {
+					"successes": 0,
+					"trials": 5
+				},
+				"repairableTextCalls": {
+					"successes": 5,
+					"trials": 5
+				},
+				"schemaEnforced": {
+					"object": {
+						"successes": 3,
+						"trials": 3
+					},
+					"enum": {
+						"successes": 3,
+						"trials": 3
+					},
+					"nested": {
+						"successes": 3,
+						"trials": 3
+					}
+				},
+				"context": {
+					"recalledUpToTokens": 6989,
+					"failedFromTokens": 8736,
+					"serverReportedTokens": null,
+					"requestedTokens": null,
+					"verifiedTokens": null,
+					"cutObserved": false,
+					"mechanism": null,
+					"steps": [
+						{
+							"promptTokens": 908,
+							"recalled": true,
+							"sentTokens": 1024
+						},
+						{
+							"promptTokens": 1776,
+							"recalled": true,
+							"sentTokens": 2048
+						},
+						{
+							"promptTokens": 3514,
+							"recalled": true,
+							"sentTokens": 4096
+						},
+						{
+							"promptTokens": 6989,
+							"recalled": true,
+							"sentTokens": 8192
+						},
+						{
+							"promptTokens": 13978,
+							"recalled": false,
+							"sentTokens": 16384
+						},
+						{
+							"promptTokens": 10484,
+							"recalled": false,
+							"sentTokens": 12288
+						},
+						{
+							"promptTokens": 8736,
+							"recalled": false,
+							"sentTokens": 10240
+						}
+					]
+				},
+				"outputCapHonoured": {
+					"successes": 3,
+					"trials": 3
+				},
+				"stopHonoured": {
+					"successes": 3,
+					"trials": 3
+				},
+				"reasoning": {
+					"style": "none",
+					"replies": {
+						"successes": 0,
+						"trials": 3
+					}
+				},
+				"seedRepeatable": {
+					"successes": 3,
+					"trials": 3
+				},
+				"logprobs": {
+					"successes": 3,
+					"trials": 3
+				},
+				"speed": {
+					"coldFirstTokenMs": 791,
+					"warmFirstTokenMs": 270.5,
+					"tokensPerSecond": 14.631843926998112
+				},
+				"unmeasured": []
+			},
+			"qwen2.5-coder-1.5b-instruct": {
+				"version": 2,
+				"model": "qwen2.5-coder-1.5b-instruct",
+				"digest": "sha256:29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104",
+				"runtime": {
+					"name": "lmstudio",
+					"version": "0.4.23"
+				},
+				"measuredAt": "2026-11-23T00:09:48.299Z",
+				"nativeToolCalls": {
+					"successes": 0,
+					"trials": 5
+				},
+				"repairableTextCalls": {
+					"successes": 0,
+					"trials": 5
+				},
+				"schemaEnforced": {
+					"object": {
+						"successes": 3,
+						"trials": 3
+					},
+					"enum": {
+						"successes": 3,
+						"trials": 3
+					},
+					"nested": {
+						"successes": 3,
+						"trials": 3
+					}
+				},
+				"context": {
+					"recalledUpToTokens": 6989,
+					"failedFromTokens": 8736,
+					"serverReportedTokens": null,
+					"requestedTokens": null,
+					"verifiedTokens": null,
+					"cutObserved": false,
+					"mechanism": null,
+					"steps": [
+						{
+							"promptTokens": 908,
+							"recalled": true,
+							"sentTokens": 1024
+						},
+						{
+							"promptTokens": 1776,
+							"recalled": true,
+							"sentTokens": 2048
+						},
+						{
+							"promptTokens": 3514,
+							"recalled": true,
+							"sentTokens": 4096
+						},
+						{
+							"promptTokens": 6989,
+							"recalled": true,
+							"sentTokens": 8192
+						},
+						{
+							"promptTokens": 13978,
+							"recalled": false,
+							"sentTokens": 16384
+						},
+						{
+							"promptTokens": 10484,
+							"recalled": false,
+							"sentTokens": 12288
+						},
+						{
+							"promptTokens": 8736,
+							"recalled": false,
+							"sentTokens": 10240
+						}
+					]
+				},
+				"outputCapHonoured": {
+					"successes": 3,
+					"trials": 3
+				},
+				"stopHonoured": {
+					"successes": 3,
+					"trials": 3
+				},
+				"reasoning": {
+					"style": "none",
+					"replies": {
+						"successes": 0,
+						"trials": 3
+					}
+				},
+				"seedRepeatable": {
+					"successes": 3,
+					"trials": 3
+				},
+				"logprobs": {
+					"successes": 3,
+					"trials": 3
+				},
+				"speed": {
+					"coldFirstTokenMs": 578,
+					"warmFirstTokenMs": 82.5,
+					"tokensPerSecond": 45.95744680851064
+				},
+				"unmeasured": []
+			}
+		},
+		"descriptions": {
+			"qwen2.5-coder-7b-instruct": [
+				"Tool calls: 0 of 5 on the tool channel; 5 of 5 of the rest readable as text",
+				"Schema enforced: object 3 of 3, enum 3 of 3, nested 3 of 3",
+				"Context: recalled up to 6989 tokens, lost from 8736",
+				"Output cap honoured 3 of 3; stop honoured 3 of 3",
+				"Reasoning: none seen (0 of 3 replies)",
+				"Same seed, same reply: 3 of 3; log-probabilities returned: 3 of 3",
+				"First token: 791 ms cold, 271 ms warm; 14.6 tokens a second"
+			],
+			"qwen2.5-coder-1.5b-instruct": [
+				"Tool calls: 0 of 5 on the tool channel; 0 of 5 of the rest readable as text",
+				"Schema enforced: object 3 of 3, enum 3 of 3, nested 3 of 3",
+				"Context: recalled up to 6989 tokens, lost from 8736",
+				"Output cap honoured 3 of 3; stop honoured 3 of 3",
+				"Reasoning: none seen (0 of 3 replies)",
+				"Same seed, same reply: 3 of 3; log-probabilities returned: 3 of 3",
+				"First token: 578 ms cold, 83 ms warm; 46 tokens a second"
+			]
+		}
+	},
+	"loadedAt16384": {
+		"how": "POST /api/v1/models/load {\"model\",\"context_length\":16384} for each model before the measurement; the measurement then used the loaded instances",
+		"datasheets": {
+			"qwen2.5-coder-7b-instruct": {
+				"version": 2,
+				"model": "qwen2.5-coder-7b-instruct",
+				"digest": "sha256:60e05f2100071479f596b964f89f510f057ce397ea22f2833a0cfe029bfc2463",
+				"runtime": {
+					"name": "lmstudio",
+					"version": "0.4.23"
+				},
+				"measuredAt": "2026-11-23T00:15:14.837Z",
+				"nativeToolCalls": {
+					"successes": 0,
+					"trials": 5
+				},
+				"repairableTextCalls": {
+					"successes": 4,
+					"trials": 5
+				},
+				"schemaEnforced": {
+					"object": {
+						"successes": 3,
+						"trials": 3
+					},
+					"enum": {
+						"successes": 3,
+						"trials": 3
+					},
+					"nested": {
+						"successes": 3,
+						"trials": 3
+					}
+				},
+				"context": {
+					"recalledUpToTokens": 14745,
+					"failedFromTokens": null,
+					"serverReportedTokens": 16384,
+					"requestedTokens": null,
+					"verifiedTokens": 16384,
+					"cutObserved": true,
+					"mechanism": null,
+					"steps": [
+						{
+							"promptTokens": 908,
+							"recalled": true,
+							"sentTokens": 1024,
+							"role": "control"
+						},
+						{
+							"promptTokens": 1776,
+							"recalled": true,
+							"sentTokens": 2048,
+							"role": "control"
+						},
+						{
+							"promptTokens": 3514,
+							"recalled": true,
+							"sentTokens": 4096,
+							"role": "control"
+						},
+						{
+							"promptTokens": 6989,
+							"recalled": true,
+							"sentTokens": 8192,
+							"role": "control"
+						},
+						{
+							"promptTokens": 13939,
+							"recalled": true,
+							"sentTokens": 16384,
+							"role": "control"
+						},
+						{
+							"promptTokens": 14745,
+							"recalled": true,
+							"sentTokens": 17332,
+							"role": "inside"
+						},
+						{
+							"promptTokens": 20480,
+							"recalled": false,
+							"sentTokens": 24073,
+							"role": "past"
+						}
+					]
+				},
+				"outputCapHonoured": {
+					"successes": 3,
+					"trials": 3
+				},
+				"stopHonoured": {
+					"successes": 3,
+					"trials": 3
+				},
+				"reasoning": {
+					"style": "none",
+					"replies": {
+						"successes": 0,
+						"trials": 3
+					}
+				},
+				"seedRepeatable": {
+					"successes": 3,
+					"trials": 3
+				},
+				"logprobs": {
+					"successes": 3,
+					"trials": 3
+				},
+				"speed": {
+					"coldFirstTokenMs": 2381,
+					"warmFirstTokenMs": 380.5,
+					"tokensPerSecond": 16.357688113413303
+				},
+				"unmeasured": []
+			},
+			"qwen2.5-coder-1.5b-instruct": {
+				"version": 2,
+				"model": "qwen2.5-coder-1.5b-instruct",
+				"digest": "sha256:29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104",
+				"runtime": {
+					"name": "lmstudio",
+					"version": "0.4.23"
+				},
+				"measuredAt": "2026-11-23T00:16:55.344Z",
+				"nativeToolCalls": {
+					"successes": 0,
+					"trials": 5
+				},
+				"repairableTextCalls": {
+					"successes": 0,
+					"trials": 5
+				},
+				"schemaEnforced": {
+					"object": {
+						"successes": 3,
+						"trials": 3
+					},
+					"enum": {
+						"successes": 3,
+						"trials": 3
+					},
+					"nested": {
+						"successes": 3,
+						"trials": 3
+					}
+				},
+				"context": {
+					"recalledUpToTokens": 14745,
+					"failedFromTokens": null,
+					"serverReportedTokens": 16384,
+					"requestedTokens": null,
+					"verifiedTokens": 16384,
+					"cutObserved": true,
+					"mechanism": null,
+					"steps": [
+						{
+							"promptTokens": 908,
+							"recalled": true,
+							"sentTokens": 1024,
+							"role": "control"
+						},
+						{
+							"promptTokens": 1776,
+							"recalled": true,
+							"sentTokens": 2048,
+							"role": "control"
+						},
+						{
+							"promptTokens": 3514,
+							"recalled": true,
+							"sentTokens": 4096,
+							"role": "control"
+						},
+						{
+							"promptTokens": 6989,
+							"recalled": true,
+							"sentTokens": 8192,
+							"role": "control"
+						},
+						{
+							"promptTokens": 13939,
+							"recalled": true,
+							"sentTokens": 16384,
+							"role": "control"
+						},
+						{
+							"promptTokens": 14745,
+							"recalled": true,
+							"sentTokens": 17332,
+							"role": "inside"
+						},
+						{
+							"promptTokens": 20480,
+							"recalled": false,
+							"sentTokens": 24073,
+							"role": "past"
+						}
+					]
+				},
+				"outputCapHonoured": {
+					"successes": 3,
+					"trials": 3
+				},
+				"stopHonoured": {
+					"successes": 3,
+					"trials": 3
+				},
+				"reasoning": {
+					"style": "none",
+					"replies": {
+						"successes": 0,
+						"trials": 3
+					}
+				},
+				"seedRepeatable": {
+					"successes": 3,
+					"trials": 3
+				},
+				"logprobs": {
+					"successes": 3,
+					"trials": 3
+				},
+				"speed": {
+					"coldFirstTokenMs": 211,
+					"warmFirstTokenMs": 99,
+					"tokensPerSecond": 43.97163120567376
+				},
+				"unmeasured": []
+			}
+		},
+		"descriptions": {
+			"qwen2.5-coder-7b-instruct": [
+				"Tool calls: 0 of 5 on the tool channel; 4 of 5 of the rest readable as text",
+				"Schema enforced: object 3 of 3, enum 3 of 3, nested 3 of 3",
+				"Context: 16384 tokens verified (requested nothing, reported 16384); a prompt past it lost its start",
+				"Output cap honoured 3 of 3; stop honoured 3 of 3",
+				"Reasoning: none seen (0 of 3 replies)",
+				"Same seed, same reply: 3 of 3; log-probabilities returned: 3 of 3",
+				"First token: 2381 ms cold, 381 ms warm; 16.4 tokens a second"
+			],
+			"qwen2.5-coder-1.5b-instruct": [
+				"Tool calls: 0 of 5 on the tool channel; 0 of 5 of the rest readable as text",
+				"Schema enforced: object 3 of 3, enum 3 of 3, nested 3 of 3",
+				"Context: 16384 tokens verified (requested nothing, reported 16384); a prompt past it lost its start",
+				"Output cap honoured 3 of 3; stop honoured 3 of 3",
+				"Reasoning: none seen (0 of 3 replies)",
+				"Same seed, same reply: 3 of 3; log-probabilities returned: 3 of 3",
+				"First token: 211 ms cold, 99 ms warm; 44 tokens a second"
+			]
+		}
+	}
+}

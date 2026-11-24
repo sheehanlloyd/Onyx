@@ -222,7 +222,7 @@ suite('OnyxContextBudget', () => {
 			tighter: describe(planTurn({ messages: [...base, ...turns], contextTokens: 4096, schemaTokens: 900, estimate })),
 			oneHugeResult: describe(planTurn({ messages: [...base, call('z'), result('z', 60_000)], contextTokens: 4096, schemaTokens: 900, estimate })),
 			impossible: describe(planTurn({ messages: base, contextTokens: 1024, schemaTokens: 900, estimate })),
-			effective: [effectiveContext({ architectural: 32768 }), effectiveContext({ architectural: 32768, serverConfigured: 4096 }), effectiveContext({ architectural: 32768, serverConfigured: 8192, observed: 6000 }), effectiveContext({})],
+			effective: [effectiveContext({ architectural: 32768 }), effectiveContext({ architectural: 32768, serverConfigured: 4096 }), effectiveContext({ architectural: 32768, serverConfigured: 8192, observed: 6000 }), effectiveContext({}), effectiveContext({ architectural: 32768, assumed: 4096 })],
 			overflowWording: ['the request exceeds the available context size', 'This model\'s maximum context length is 8192 tokens', 'prompt is too long: 9000 tokens > 8192', 'context window exceeded', 'ECONNREFUSED', '500 Internal Server Error'].map(isContextOverflowError),
 		}, {
 			caps: [307, 614, 1228, 4096, 4096],
@@ -231,7 +231,7 @@ suite('OnyxContextBudget', () => {
 			tighter: { kinds: 'system history history workspace request c c', calls: 2, results: 2, history: 0, workspace: false, shrank: false, fits: true, withinBudget: true },
 			oneHugeResult: { kinds: 'system request z z', calls: 0, results: 0, history: 2, workspace: true, shrank: true, fits: true, withinBudget: true },
 			impossible: { kinds: 'system request', calls: 0, results: 0, history: 2, workspace: true, shrank: false, fits: false, withinBudget: false },
-			effective: [{ tokens: 32768, source: 'architectural' }, { tokens: 4096, source: 'server' }, { tokens: 6000, source: 'observed' }, { tokens: 8192, source: 'default' }],
+			effective: [{ tokens: 32768, source: 'architectural' }, { tokens: 4096, source: 'server' }, { tokens: 6000, source: 'observed' }, { tokens: 8192, source: 'default' }, { tokens: 4096, source: 'assumed' }],
 			overflowWording: [true, true, true, true, false, false],
 		});
 	});

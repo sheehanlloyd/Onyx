@@ -103,6 +103,11 @@ export class OnyxAgentLoop {
 			return { errorDetails: { message: 'No local model available. Start a local runtime (Ollama, LM Studio, llama.cpp, vLLM) or configure onyx.endpoints, then try again.' } };
 		}
 		const metadata = this._languageModelsService.lookupLanguageModel(modelIdentifier);
+		if (modelIdentifier.startsWith(`${ONYX_VENDOR}:`)) {
+			// The budget is only as true as the context it is set from: a runtime that says it only for a loaded
+			// model (LM Studio) is asked after the model is loaded (B15).
+			await this._onyxModelService.learnServerContext(modelIdentifier.slice(ONYX_VENDOR.length + 1));
+		}
 		const profile = this._profileFor(modelIdentifier);
 
 		const task = this._routerService.classify([{ role: ChatMessageRole.User, content: [{ type: 'text', value: request.message }] }]);

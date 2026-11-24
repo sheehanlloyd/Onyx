@@ -71,9 +71,22 @@ interface ILmStudioModelList {
 		readonly arch?: string;
 		readonly quantization?: string;
 		readonly max_context_length?: number;
+		/** `loaded` or `not-loaded`. */
+		readonly state?: string;
 		/** Present for a model that is loaded: the context it was loaded with. */
 		readonly loaded_context_length?: number;
 	}[];
+}
+
+/** One loaded instance in LM Studio 0.4's REST model list, with the configuration it was loaded with. */
+interface ILmStudioLoadedInstance {
+	readonly id?: string;
+	readonly config?: { readonly context_length?: number; readonly speculative_draft_simple?: boolean; readonly speculative_draft_model?: string };
+}
+
+/** LM Studio 0.4's REST model list: each model with its loaded instances. */
+interface ILmStudioRestModelList {
+	readonly models?: readonly { readonly key?: string; readonly loaded_instances?: readonly ILmStudioLoadedInstance[] }[];
 }
 
 interface IOllamaShowResponse {
@@ -444,10 +457,32 @@ export class OnyxRuntimeService extends Disposable implements IOnyxRuntimeServic
 	}
 
 	async listLoadedModels(baseUrl: string): Promise<readonly IOnyxLoadedModel[] | undefined> {
-		const loaded = await this._fetchJson<IOllamaLoadedResponse>(`${ollamaRootUrl(normalizeBaseUrl(baseUrl))}/api/ps`);
+		const root = ollamaRootUrl(normalizeBaseUrl(baseUrl));
+		const loaded = await this._fetchJson<IOllamaLoadedResponse>(`${root}/api/ps`);
 		if (!Array.isArray(loaded?.models)) {
-			// No such endpoint, or not this shape: the runtime has not said, which is not "nothing is loaded".
-			return undefined;
+			// Not Ollama. LM Studio 0.4's REST list says for each loaded instance its context and its draft.
+			const rest = await this._fetchJson<ILmStudioRestModelList>(`${root}/api/v1/models`);
+			const restModels: ILmStudioRestModelList['models'] = rest?.models;
+			if (restModels !== undefined && Array.isArray(restModels)) {
+				return restModels.flatMap((model: NonNullable<ILmStudioRestModelList['models']>[number]) => (model.loaded_instances ?? []).map((instance: ILmStudioLoadedInstance): IOnyxLoadedModel => {
+					const config = instance.config ?? {};
+					const draft = config.speculative_draft_simple === true && typeof config.speculative_draft_model === 'string' && config.speculative_draft_model ? config.speculative_draft_model : undefined;
+					return {
+						id: instance.id ?? model.key ?? '',
+						...(typeof config.context_length === 'number' && config.context_length > 0 ? { contextLength: config.context_length } : {}),
+						speculativeDraft: { known: true, ...(draft ? { draft } : {}) },
+					};
+				})).filter(model => model.id.length > 0);
+			}
+			// An older LM Studio: its native list says which models are loaded and at what context.
+			const native = await this._fetchJson<ILmStudioModelList>(`${root}/api/v0/models`);
+			if (!Array.isArray(native?.data)) {
+				// No such endpoint, or not this shape: the runtime has not said, which is not "nothing is loaded".
+				return undefined;
+			}
+			return native.data
+				.filter(model => model.state === 'loaded')
+				.map(model => ({ id: model.id, ...(typeof model.loaded_context_length === 'number' && model.loaded_context_length > 0 ? { contextLength: model.loaded_context_length } : {}) }));
 		}
 		return loaded.models
 			.map(model => ({ id: model.name ?? model.model ?? '', ...(typeof model.context_length === 'number' && model.context_length > 0 ? { contextLength: model.context_length } : {}) }))

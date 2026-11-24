@@ -230,9 +230,31 @@ the server's own allocation even when it had been loaded with more. Two ways rem
 gets: a server setting, which is yours to change and applies to every model, and a derived model. Onyx uses
 the derived model. The native endpoint's per-request option also works; it is another wire protocol, whose
 tool calls, schemas and stream endings L5 did not measure, and any request on the OpenAI-style endpoint
-(autocomplete, another tool) would reload the model at the old context. LM Studio was not probed: it was not
-running, and starting it was outside what this work was authorised to do. Onyx reads the loaded context
-LM Studio reports and asks it for nothing; set the context length in LM Studio's own load settings.
+(autocomplete, another tool) would reload the model at the old context.
+
+**LM Studio** (0.4.23, probed 2026-11-22 with the owner's permission; `docs/research/results/2026-11-22-lmstudio-context/`):
+
+| Way of asking for 12,288 tokens | What LM Studio then reports | Honoured |
+|---|---|---|
+| Nothing: a request loads the model on demand | 8,192 | (its default) |
+| Per request: `context_length`, `num_ctx`, `options.num_ctx` on `/v1/chat/completions`, cold or loaded | 8,192 | no |
+| Load time: `lms load <model> --context-length 12288` | 12,288 | yes |
+| Load time: `POST /api/v1/models/load {"model", "context_length": 12288}` | 12,288 | yes |
+
+A later request uses the instance that is loaded. The canary agrees with what LM Studio reports: at the on-demand
+default both pinned models recall up to 6,989 tokens and lose a prompt from 8,736; loaded at 16,384 they recall
+at 14,745 and lose a prompt past it. A prompt longer than the loaded context is cut **without an error**. The
+weights LM Studio loads here are the same files as Ollama's (the same SHA-256).
+
+**What Onyx does with this.** Onyx asks LM Studio for nothing and budgets against the loaded context LM
+Studio reports. Before a model has been loaded, LM Studio reports only the trained context (32,768), which
+would be four times the 8,192 it is served. So before an agent run on an LM Studio model that is not loaded,
+Onyx loads it the way the first request would (a one-token warm-up, no settings changed) and reads the loaded
+context back from LM Studio's model list; any profile built while the model is still not loaded assumes
+4,096 tokens, shown as "an assumption until the runtime loads the model". The simulation rig checks this
+(R-61: no prompt larger than what LM Studio loaded, none cut silently), and a mutant that skips the load is
+caught. For more context than LM Studio's default, load the model at the context you want (its own load
+settings, or `lms load <model> --context-length <tokens>`); Onyx then budgets against that.
 
 **What is created, and how to undo it.** A model alias: a second model name over the same weights, with
 `num_ctx` in its parameters, named `<model>-onyx-ctx<tokens>` (for example `qwen2.5-coder:7b-onyx-ctx16384`). It adds
@@ -292,6 +314,24 @@ context. A model too small to recall the code from a short prompt cannot be veri
 server's allocation. The alias is another name to the runtime: a datasheet measured under the model's own
 name does not describe it, so measure again after requesting a context. Speculative-decoding measurement
 still addresses the model's own name.
+
+## Speculative-decoding measurement
+
+`Onyx: Measure Speculative Decoding` measures the target as it is loaded, gives the command that loads it with
+the draft (every supported runtime takes a draft only at load time), waits, then measures again. What it
+reports, and what it refuses:
+
+- **Code and prose apart.** Two prompts (`ONYX_SPECULATIVE_PROMPTS`), the median of three rounds each. On LM
+  Studio 0.4.23 the same 0.5B draft made the 7B target 1.49x faster on code and 0.97x on prose
+  (`docs/benchmarks/2026-11-24/speculative.json`); a single number would be wrong for one of them.
+- **Only an attached draft.** Before the second measurement it reads LM Studio's model list (`/api/v1/models`),
+  which names the draft in the loaded instance's configuration. If no draft is attached, or another one is,
+  the readout says so as a warning and reports no speed-up. A runtime that does not say is reported as
+  unknown.
+- **Not from a target that already has a draft.** If the baseline is already speculating, there is nothing to
+  compare against, and it says so instead of measuring.
+
+LM Studio 0.4.23 does not report how many drafted tokens were accepted, so no acceptance rate is shown.
 
 ## Stopping a run (B10)
 

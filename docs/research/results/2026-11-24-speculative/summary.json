@@ -1,0 +1,115 @@
+{
+	"what": "Speculative decoding on LM Studio: the target with no draft and with each draft attached at load time, through the native endpoint, whose stats prove the draft was attached and say how many of its tokens were accepted.",
+	"runtime": {
+		"name": "lmstudio",
+		"version": null
+	},
+	"target": "qwen2.5-coder-7b-instruct",
+	"drafts": [
+		"qwen2.5-coder-0.5b-instruct",
+		"qwen2.5-coder-1.5b-instruct"
+	],
+	"rounds": 5,
+	"maxTokens": 256,
+	"contextTokens": 8192,
+	"temperature": 0,
+	"machine": {
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"cores": 14,
+		"loadAverageAtStart": 20.38,
+		"loadAverageAtEnd": 17.69
+	},
+	"arms": [
+		{
+			"draft": null,
+			"attachedDraftAsLmStudioReports": null,
+			"byPrompt": {
+				"code": {
+					"medianTokensPerSecond": 46.6,
+					"rangeTokensPerSecond": [
+						45.2,
+						48.6
+					],
+					"speedupOverNoDraft": null,
+					"draftAttached": true,
+					"draftedTokens": null,
+					"acceptanceRate": null,
+					"sameTextAsWithoutDraft": null
+				},
+				"prose": {
+					"medianTokensPerSecond": 47.6,
+					"rangeTokensPerSecond": [
+						46.7,
+						48.3
+					],
+					"speedupOverNoDraft": null,
+					"draftAttached": true,
+					"draftedTokens": null,
+					"acceptanceRate": null,
+					"sameTextAsWithoutDraft": null
+				}
+			}
+		},
+		{
+			"draft": "qwen2.5-coder-0.5b-instruct",
+			"attachedDraftAsLmStudioReports": "qwen2.5-coder-0.5b-instruct",
+			"byPrompt": {
+				"code": {
+					"medianTokensPerSecond": 66.5,
+					"rangeTokensPerSecond": [
+						65.4,
+						69.4
+					],
+					"speedupOverNoDraft": 1.43,
+					"draftAttached": true,
+					"draftedTokens": 0,
+					"acceptanceRate": null,
+					"sameTextAsWithoutDraft": true
+				},
+				"prose": {
+					"medianTokensPerSecond": 44.8,
+					"rangeTokensPerSecond": [
+						44.3,
+						45
+					],
+					"speedupOverNoDraft": 0.94,
+					"draftAttached": true,
+					"draftedTokens": 0,
+					"acceptanceRate": null,
+					"sameTextAsWithoutDraft": true
+				}
+			}
+		},
+		{
+			"draft": "qwen2.5-coder-1.5b-instruct",
+			"attachedDraftAsLmStudioReports": "qwen2.5-coder-1.5b-instruct",
+			"byPrompt": {
+				"code": {
+					"medianTokensPerSecond": 57.4,
+					"rangeTokensPerSecond": [
+						56.7,
+						57.9
+					],
+					"speedupOverNoDraft": 1.23,
+					"draftAttached": true,
+					"draftedTokens": 0,
+					"acceptanceRate": null,
+					"sameTextAsWithoutDraft": true
+				},
+				"prose": {
+					"medianTokensPerSecond": 38.2,
+					"rangeTokensPerSecond": [
+						36.5,
+						38.7
+					],
+					"speedupOverNoDraft": 0.8,
+					"draftAttached": true,
+					"draftedTokens": 0,
+					"acceptanceRate": null,
+					"sameTextAsWithoutDraft": true
+				}
+			}
+		}
+	]
+}

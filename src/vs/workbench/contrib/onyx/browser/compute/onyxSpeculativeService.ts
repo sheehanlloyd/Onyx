@@ -16,7 +16,7 @@ import { IQuickInputService } from '../../../../../platform/quickinput/common/qu
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IOnyxRuntimeService, IOnyxStreamEvent } from '../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { OnyxSettingId } from '../../common/onyxConfiguration.js';
-import { candidateDrafts, formatSpeculativeReadout, IOnyxSpeculativeMeasurement, speculativeSetupHint, speculativeSupport } from '../../common/onyxSpeculative.js';
+import { candidateDrafts, draftAttachment, formatSpeculativeReadout, IOnyxSpeculativeMeasurement, IOnyxSpeculativeSpeed, medianSpeed, ONYX_SPECULATIVE_PROMPTS, speculativeSetupHint, speculativeSupport } from '../../common/onyxSpeculative.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 
 export const IOnyxSpeculativeService = createDecorator<IOnyxSpeculativeService>('onyxSpeculativeService');
@@ -24,8 +24,9 @@ export const IOnyxSpeculativeService = createDecorator<IOnyxSpeculativeService>(
 const STORAGE_KEY = 'onyx.speculative.measurements';
 /** Enough tokens that tok/s means generation, not TTFT noise. */
 const MEASURE_MAX_TOKENS = 160;
-const MEASURE_ROUNDS = 2;
-const MEASURE_PROMPT = 'Write a paragraph explaining what a binary search tree is, then list three balanced variants with one sentence each.';
+const MEASURE_ROUNDS = 3;
+
+interface IOnyxSpeculativeSpeeds { readonly code: IOnyxSpeculativeSpeed; readonly prose: IOnyxSpeculativeSpeed }
 
 /**
  * Speculative-decoding pairing and its honest measurement. Every runtime that
@@ -111,10 +112,19 @@ export class OnyxSpeculativeService extends Disposable implements IOnyxSpeculati
 		pairs[target.model.key] = draft.label;
 		await this._configurationService.updateValue(OnyxSettingId.SpeculativePairs, pairs);
 
-		let baseline: { tokensPerSecond: number; timeToFirstTokenMs: number };
+		const baseUrl = target.model.discovered.baseUrl;
+		const targetId = target.model.discovered.id;
+		// The "before" numbers have to be without a draft: a target that already has one attached is not measured.
+		const before = await this._draftOf(baseUrl, targetId);
+		if (before.known && before.draft) {
+			this._notificationService.notify({ severity: Severity.Warning, message: localize('onyx.speculative.alreadyAttached', "{0} is loaded with {1} attached as a draft, so Onyx cannot measure it without one. Load it without a draft first (for example: lms load {0}), then measure again.", targetId, before.draft) });
+			return;
+		}
+
+		let baseline: IOnyxSpeculativeSpeeds;
 		try {
-			this._notificationService.notify({ severity: Severity.Info, message: localize('onyx.speculative.baselining', "Measuring {0} as it is loaded now…", target.model.discovered.id) });
-			baseline = await this._measureOnce(target.model.discovered.baseUrl, target.model.discovered.id);
+			this._notificationService.notify({ severity: Severity.Info, message: localize('onyx.speculative.baselining', "Measuring {0} as it is loaded now…", targetId) });
+			baseline = await this._measure(baseUrl, targetId);
 		} catch (error) {
 			this._notificationService.notify({ severity: Severity.Error, message: localize('onyx.speculative.failed', "Speculative measurement failed: {0}", error instanceof Error ? error.message : String(error)) });
 			return;
@@ -122,13 +132,13 @@ export class OnyxSpeculativeService extends Disposable implements IOnyxSpeculati
 
 		// Every runtime that supports this configures it when the model loads, so
 		// Onyx cannot switch it on itself — it says exactly how, waits for the
-		// user to do it, and then measures the same prompt again.
+		// user to do it, and then measures the same prompts again.
 		const proceed = await this._dialogService.confirm({
-			message: localize('onyx.speculative.enableNow', "Enable speculative decoding for {0}, then measure again?", target.model.discovered.id),
+			message: localize('onyx.speculative.enableNow', "Enable speculative decoding for {0}, then measure again?", targetId),
 			detail: [
-				localize('onyx.speculative.baselineIs', "Right now {0} generates at {1} tok/s on this machine.", target.model.discovered.id, baseline.tokensPerSecond.toFixed(1)),
+				localize('onyx.speculative.baselineIsBoth', "Right now {0} generates code at {1} tok/s and prose at {2} tok/s on this machine.", targetId, baseline.code.tokensPerSecond.toFixed(1), baseline.prose.tokensPerSecond.toFixed(1)),
 				'',
-				speculativeSetupHint(target.model.discovered.runtime, target.model.discovered.id, draft.label),
+				speculativeSetupHint(target.model.discovered.runtime, targetId, draft.label),
 				'',
 				localize('onyx.speculative.thenContinue', "Do that, then continue — Onyx runs the identical prompt again and reports the honest difference."),
 			].join('\n'),
@@ -139,39 +149,57 @@ export class OnyxSpeculativeService extends Disposable implements IOnyxSpeculati
 		}
 
 		try {
-			const withDraft = await this._measureOnce(target.model.discovered.baseUrl, target.model.discovered.id);
+			// Whether the runtime has the draft attached now: when it says, nothing is put down to a draft it does not have.
+			const after = await this._draftOf(baseUrl, targetId);
+			const attachment = draftAttachment(draft.label, after);
+			const withDraft = attachment === 'not-attached' || attachment === 'other' ? baseline : await this._measure(baseUrl, targetId);
 			const measurement: IOnyxSpeculativeMeasurement = {
 				targetKey: target.model.key,
 				draftModelId: draft.label,
-				withDraft,
-				withoutDraft: baseline,
+				withDraft: withDraft.code,
+				withoutDraft: baseline.code,
+				prose: { withDraft: withDraft.prose, withoutDraft: baseline.prose },
+				attachment,
+				...(after.draft ? { attachedDraft: after.draft } : {}),
 				measuredAt: Date.now(),
 			};
 			const next = [...this._measurementsObs.get().filter(entry => entry.targetKey !== measurement.targetKey), measurement];
 			this._measurementsObs.set(next, undefined);
 			this._storageService.store(STORAGE_KEY, JSON.stringify(next), StorageScope.APPLICATION, StorageTarget.MACHINE);
-			this._notificationService.notify({ severity: Severity.Info, message: formatSpeculativeReadout(measurement) });
+			this._notificationService.notify({ severity: attachment === 'not-attached' || attachment === 'other' ? Severity.Warning : Severity.Info, message: formatSpeculativeReadout(measurement) });
 		} catch (error) {
 			this._notificationService.notify({ severity: Severity.Error, message: localize('onyx.speculative.failed', "Speculative measurement failed: {0}", error instanceof Error ? error.message : String(error)) });
 		}
 	}
 
-	/** Best-of-N: the fastest round, so a cold start does not poison the comparison. */
-	private async _measureOnce(baseUrl: string, model: string): Promise<{ tokensPerSecond: number; timeToFirstTokenMs: number }> {
-		let best: { tokensPerSecond: number; timeToFirstTokenMs: number } | undefined;
-		for (let round = 0; round < MEASURE_ROUNDS + 1; round++) {
-			const sample = await this._sample(baseUrl, model);
-			if (round === 0) {
-				continue; // warm-up round: load the weights, discard the numbers
-			}
-			if (!best || sample.tokensPerSecond > best.tokensPerSecond) {
-				best = sample;
-			}
+	/** What the runtime says about the draft attached to a loaded model: known only where the runtime says (LM Studio). */
+	private async _draftOf(baseUrl: string, model: string): Promise<{ readonly known: boolean; readonly draft: string | undefined }> {
+		try {
+			const loaded = (await this._runtimeService.listLoadedModels(baseUrl))?.find(entry => entry.id === model);
+			return loaded?.speculativeDraft ? { known: loaded.speculativeDraft.known, draft: loaded.speculativeDraft.draft } : { known: false, draft: undefined };
+		} catch {
+			return { known: false, draft: undefined };
 		}
-		return best!;
 	}
 
-	private _sample(baseUrl: string, model: string): Promise<{ tokensPerSecond: number; timeToFirstTokenMs: number }> {
+	/** Code and prose, each the median of the rounds after a discarded warm-up. */
+	private async _measure(baseUrl: string, model: string): Promise<IOnyxSpeculativeSpeeds> {
+		return { code: await this._measureOnce(baseUrl, model, ONYX_SPECULATIVE_PROMPTS.code), prose: await this._measureOnce(baseUrl, model, ONYX_SPECULATIVE_PROMPTS.prose) };
+	}
+
+	/** The median of the rounds after a discarded warm-up: what a round usually does, not its best day. */
+	private async _measureOnce(baseUrl: string, model: string, prompt: string): Promise<IOnyxSpeculativeSpeed> {
+		const samples: IOnyxSpeculativeSpeed[] = [];
+		for (let round = 0; round < MEASURE_ROUNDS + 1; round++) {
+			const sample = await this._sample(baseUrl, model, prompt);
+			if (round > 0) {
+				samples.push(sample); // round 0 loads the weights; its numbers are discarded
+			}
+		}
+		return medianSpeed(samples);
+	}
+
+	private _sample(baseUrl: string, model: string, prompt: string): Promise<IOnyxSpeculativeSpeed> {
 		return new Promise((resolve, reject) => {
 			const operationId = `speculative-${generateUuid()}`;
 			const startedAt = Date.now();
@@ -207,7 +235,7 @@ export class OnyxSpeculativeService extends Disposable implements IOnyxSpeculati
 			this._runtimeService.startChatCompletion(operationId, {
 				baseUrl,
 				model,
-				messages: [{ role: 'user', content: MEASURE_PROMPT }],
+				messages: [{ role: 'user', content: prompt }],
 				maxTokens: MEASURE_MAX_TOKENS,
 				temperature: 0,
 			}).catch(reject);

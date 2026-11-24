@@ -636,6 +636,30 @@ const r27: OnyxSimChecker = state => {
 };
 
 /**
+ * R-61 on LM Studio (B15): LM Studio says what context it gave a model only
+ * once the model is loaded, and cuts a longer prompt without an error. A run
+ * is budgeted from what it reports, so the trace header has that number, and
+ * no prompt the run sends is cut.
+ */
+const r61: OnyxSimChecker = (state, boundary) => {
+	if (state.lmStudioLoadsAt === undefined) {
+		return undefined;
+	}
+	const cut = state.silentlyCutPrompts[0];
+	if (cut !== undefined) {
+		return `R-61/silently-cut: a prompt of ${cut} tokens was sent to an LM Studio that loaded the model at ${state.lmStudioLoadsAt}, which cuts it without an error`;
+	}
+	if (boundary !== 'end') {
+		return undefined;
+	}
+	const header = state.journalLines.map(line => JSON.parse(line) as { kind?: string; data?: { kind?: string; context?: { reportedTokens?: number | null; budgetedTokens?: number } } }).find(event => event.data?.kind === 'trace')?.data;
+	if (header && header.context?.reportedTokens !== state.lmStudioLoadsAt) {
+		return `R-61/context-not-learned: the run on LM Studio was budgeted at ${header.context?.budgetedTokens} tokens with ${header.context?.reportedTokens ?? 'nothing'} reported; LM Studio loads the model at ${state.lmStudioLoadsAt}`;
+	}
+	return undefined;
+};
+
+/**
  * R-46 (L6): certificates are in the trace and hold up against it. Every
  * staging a run's edit call produced has a certificate in the journal; each
  * one's seal is its own; and what the journal can show of it (the anchor the
@@ -763,6 +787,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'R-28', title: 'A constrained answer is shown as it streams', check: r28 },
 	{ id: 'R-44', title: 'Every trace carries the hash of the harness configuration that ran', check: r44 },
 	{ id: 'R-21', title: 'No verification verdict is given before anything was accepted', check: r21 },
+	{ id: 'R-61', title: 'A run on LM Studio is budgeted from the context LM Studio reports for the loaded model, and none of its prompts is cut without an error', check: r61 },
 	{ id: 'R-46', title: 'Every staging by a run has a sealed certificate in the journal, and none contradicts the journal', check: r46 },
 ];
 

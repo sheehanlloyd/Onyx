@@ -1,0 +1,84 @@
+{
+	"version": 1,
+	"name": "2026-11-24-speculative",
+	"createdAt": "2026-11-24T14:00:47.631Z",
+	"models": [
+		{
+			"identifier": "lmstudio:qwen2.5-coder-7b-instruct",
+			"digest": "60e05f2100071479f596b964f89f510f057ce397ea22f2833a0cfe029bfc2463",
+			"runtime": {
+				"name": "lmstudio",
+				"version": "0.4.23"
+			},
+			"context": {
+				"requestedTokens": 8192,
+				"reportedTokens": 8192,
+				"verifiedTokens": null,
+				"mechanism": "load-time"
+			}
+		},
+		{
+			"identifier": "lmstudio:qwen2.5-coder-0.5b-instruct",
+			"digest": "e1a77721fa97d412f121878223eec81fb4ae6f271e18f922d746711f67b344d1",
+			"runtime": {
+				"name": "lmstudio",
+				"version": "0.4.23"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		},
+		{
+			"identifier": "lmstudio:qwen2.5-coder-1.5b-instruct",
+			"digest": "29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104",
+			"runtime": {
+				"name": "lmstudio",
+				"version": "0.4.23"
+			},
+			"context": {
+				"requestedTokens": null,
+				"reportedTokens": null,
+				"verifiedTokens": null,
+				"mechanism": null
+			}
+		}
+	],
+	"seeds": [
+		0
+	],
+	"sampling": {
+		"temperature": 0,
+		"maxTokens": 256,
+		"responseFormat": false
+	},
+	"harnessConfigurations": [
+		{
+			"name": "none-the-measurement-talks-to-the-runtime-directly",
+			"hash": "00000000"
+		}
+	],
+	"taskSet": {
+		"name": "one code prompt and one prose prompt (ONYX_SPECULATIVE_PROMPTS)",
+		"hash": "00000000",
+		"count": 2
+	},
+	"repetitions": 5,
+	"machine": {
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpu": "Apple M4 Pro",
+		"memoryGiB": 24,
+		"nodeVersion": "24.22.3"
+	},
+	"regenerate": [
+		{
+			"output": "summary.json",
+			"command": "node test/onyx/lab/measure-speculative.mts --base-url <LM Studio base URL> --target qwen2.5-coder-7b-instruct --draft qwen2.5-coder-0.5b-instruct --draft qwen2.5-coder-1.5b-instruct --rounds 5 --out docs/research/results/2026-11-24-speculative"
+		}
+	],
+	"hypotheses": [],
+	"notes": "Speculative decoding on LM Studio 0.4.23: the 7B target alone (the first model above) and with each draft (the other two) attached at load time, at a context of 8,192. Whether a draft was attached is read from LM Studio's REST model list (attachedDraftAsLmStudioReports in summary.json); LM Studio 0.4.23 does not report how many drafted tokens were accepted. No seed is sent; the seed listed is a placeholder the manifest requires. Temperature 0: the reply was the same text with and without each draft (sameTextAsWithoutDraft). Load average 20.38 at the start and 17.69 at the end, on 14 cores, with the owner working on the machine; a second run the same morning and the benchmark's own speculative section agree within a few per cent."
+}

@@ -127,6 +127,17 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 	], {
 		userSteps: [{ at: 'afterRun', occurrence: 2, step: { kind: 'acceptAll' } }],
 	}),
+	// B15 on LM Studio (R-61): the model is not loaded when the run starts; LM Studio loads it at 8,192 tokens and cuts a
+	// longer prompt without an error. Three commands print 20,000 bytes each, and a full prompt keeps 16,000 of each.
+	scenario('b15-lmstudio-model-not-loaded', 'Run the checks until they pass.', [
+		...Array.from({ length: 3 }, (): OnyxSimEpisode['turns'][number] => ({ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } })),
+		{ kind: 'text', text: 'The checks ran.' },
+	], {
+		dialogDefault: 'allow-once',
+		profile: { promptStyle: 'full', maxTools: 8 },
+		faults: Array.from({ length: 3 }, (_, index) => ({ at: 'afterToolDispatch' as const, occurrence: index + 1, step: { kind: 'outputFlood' as const, bytes: 20_000 } })),
+		lmStudioLoadsAt: 8192,
+	}),
 	// B9 (R-34): an inline edit after a run. The reply is staged; the buffer and the disk stay the user's, through a save.
 	scenario('b9-inline-edit-stages-then-save', 'What does addNumbers do?', [
 		{ kind: 'text', text: 'It adds two numbers.' },

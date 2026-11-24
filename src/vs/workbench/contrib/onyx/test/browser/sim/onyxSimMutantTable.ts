@@ -241,6 +241,22 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		], { selectedModel: 'cloud' }),
 	},
 	{
+		id: 'B15-lmstudio-context-not-learned',
+		fixedBy: 'B15',
+		defect: 'Before an LM Studio model was loaded, Onyx budgeted against the trained context (32,768); LM Studio then loaded the model at its own setting (8,192 on the reference machine) and cut every longer prompt without an error (probed 2026-11-22; R-61)',
+		detects: 'R-61/context-not-learned',
+		resurrects: 'OnyxMutantContextNotLearnedModelService',
+		script: script('B15-lmstudio-context-not-learned', 'Run the checks until they pass.', [
+			...Array.from({ length: 3 }, (): OnyxSimEpisode['turns'][number] => ({ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } })),
+			{ kind: 'text', text: 'The checks ran.' },
+		], {
+			dialogDefault: 'allow-once',
+			profile: { promptStyle: 'full', maxTools: 8 },
+			faults: Array.from({ length: 3 }, (_, index) => ({ at: 'afterToolDispatch' as const, occurrence: index + 1, step: { kind: 'outputFlood' as const, bytes: 20_000 } })),
+			lmStudioLoadsAt: 8192,
+		}),
+	},
+	{
 		id: 'C4-thinking-is-answer',
 		fixedBy: 'C4',
 		defect: 'No handling of `<think>` tags: a reasoning model\'s thinking was its reply, so a reply that ended mid-thought was shown as an answer and the run completed (Cursor 3.1; R-26)',

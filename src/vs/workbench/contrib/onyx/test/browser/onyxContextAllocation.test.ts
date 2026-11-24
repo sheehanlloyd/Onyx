@@ -7,6 +7,7 @@ import assert from 'assert';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { mock } from '../../../../../base/test/common/mock.js';
+import { runWithFakedTimers } from '../../../../../base/test/common/timeTravelScheduler.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IConfirmation, IConfirmationResult, IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
@@ -21,6 +22,8 @@ import { IOnyxBudgetedMessage, planTurn } from '../../common/onyxContextBudget.j
 import { ChatMessageRole, IChatMessage } from '../../../chat/common/languageModels.js';
 import { canaryPlan, contextTarget, describeAllocation, IOnyxCanaryStep, judgeAllocation, memoryCeilingTokens } from '../../common/onyxContextAllocation.js';
 import { parseTrace, validateTrace } from '../../common/onyxTrace.js';
+import { OnyxSimEpisode, SIM_FILES, SIM_TARGET_FILE } from './sim/onyxSimEpisode.js';
+import { OnyxSimRig } from './sim/onyxSimRig.js';
 
 /**
  * R-61 (B15, I-04): a context is asked for with the user's consent, read
@@ -340,5 +343,60 @@ suite('OnyxContextAllocation', () => {
 			ignoredSaysNotHonoured: lines.ignored.includes('did not honour'),
 			othersNameTheServersAllocation: [lines.none, lines.ignored, lines.overReported].every(line => line.includes('server\'s own allocation of 4096 tokens is in force')),
 		}, { onlyTheVerifiedOneSaysVerified: ['verified'], verifiedNamesTheUndo: true, ignoredSaysNotHonoured: true, othersNameTheServersAllocation: true });
+	});
+});
+
+/**
+ * R-61 on LM Studio (B15, probed 2026-11-22): LM Studio reports the context
+ * of a model only once it is loaded, loads it on the first request at its own
+ * setting, and cuts a longer prompt without an error. The real agent loop,
+ * model service and seed profile run in the simulation rig against an LM
+ * Studio that loads the model at 8,192 tokens; the model was trained for
+ * 32,768.
+ */
+suite('OnyxContextAllocation, LM Studio', () => {
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	function episode(loadsAt: number | undefined): OnyxSimEpisode {
+		return {
+			name: 'lmstudio-context', seed: 0, persona: 'well-behaved', prompt: 'Run the checks until they pass.', files: SIM_FILES, target: SIM_TARGET_FILE,
+			// Five commands, each printing 20,000 bytes: about 25,000 tokens of results, three times what LM Studio loads.
+			turns: [...Array.from({ length: 5 }, (): OnyxSimEpisode['turns'][number] => ({ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } })), { kind: 'text', text: 'Done.' }],
+			dialogDefault: 'allow-once', userSteps: [],
+			faults: Array.from({ length: 5 }, (_, index) => ({ at: 'afterToolDispatch' as const, occurrence: index + 1, step: { kind: 'outputFlood' as const, bytes: 20_000 } })),
+			// A full prompt keeps up to 16,000 characters of each result, so what was run would not fit 8,192 tokens.
+			profile: { promptStyle: 'full', maxTools: 8 },
+			...(loadsAt !== undefined ? { lmStudioLoadsAt: loadsAt } : {}),
+		};
+	}
+
+	async function run(script: OnyxSimEpisode) {
+		return runWithFakedTimers({ useFakeTimers: true, maxTaskCount: 400_000 }, async () => {
+			const rig = new OnyxSimRig(script);
+			try {
+				return await rig.run();
+			} finally {
+				await rig.dispose();
+			}
+		});
+	}
+
+	test('R-61, LM Studio: a run on a model that is not loaded yet is budgeted at the context LM Studio loads it at, not at the trained context; nothing is cut without an error, and the trace says what was reported', async () => {
+		const result = await run(episode(8192));
+		const header = parseTrace(result.journal).header;
+		assert.deepStrictEqual({
+			status: result.status,
+			largestPrompt: Math.max(...result.requests.map(request => request.promptTokens)) <= 8192,
+			silentlyCut: result.silentlyCut,
+			budgeted: header?.context.budgetedTokens,
+			reported: header?.context.reportedTokens,
+			source: header?.context.source,
+			violations: result.violations,
+		}, {
+			status: 'completed', largestPrompt: true, silentlyCut: [],
+			budgeted: 8192, reported: 8192, source: 'server',
+			violations: [],
+		});
 	});
 });
