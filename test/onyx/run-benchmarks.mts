@@ -6,7 +6,7 @@
 /**
  * Reproducible measurements for the numbers Onyx publishes.
  *
- *   node test/onyx/run-benchmarks.mts [--json | --json-out <path>] [--skip-models]
+ *   node test/onyx/run-benchmarks.mts [--json | --json-out <path>] [--skip-models] [--speculative | --only-speculative]
  *                                     [--speculative] [--rounds N] [--tasks N]
  *                                     [--tool-trials N] [--module-root <dir>]
  *
@@ -1148,8 +1148,24 @@ async function sha256OfFile(file: string): Promise<string> {
 /** The version LM Studio last recorded for itself; null when it is not there to read. */
 function lmStudioVersion(): string | null {
 	try {
-		const recorded = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.lmstudio', '.internal', 'historical-version-info.json'), 'utf8')) as { lastRecordedAppVersion?: unknown };
-		return typeof recorded.lastRecordedAppVersion === 'string' ? recorded.lastRecordedAppVersion : null;
+		// The field is not at the top level: LM Studio keeps it inside an object of its own, beside a misspelled one.
+		const find = (value: unknown): string | null => {
+			if (typeof value !== 'object' || value === null) {
+				return null;
+			}
+			const record = value as Record<string, unknown>;
+			if (typeof record.lastRecordedAppVersion === 'string') {
+				return record.lastRecordedAppVersion;
+			}
+			for (const nested of Object.values(record)) {
+				const found = find(nested);
+				if (found) {
+					return found;
+				}
+			}
+			return null;
+		};
+		return find(JSON.parse(fs.readFileSync(path.join(os.homedir(), '.lmstudio', '.internal', 'historical-version-info.json'), 'utf8')));
 	} catch {
 		return null;
 	}
@@ -1183,13 +1199,14 @@ function familyFromId(modelId: string): string | undefined {
 // and the number the app prints are the same measurement.
 const SPECULATIVE_PROMPT = 'Write a paragraph explaining what a binary search tree is, then list three balanced variants with one sentence each.';
 
-async function measureGeneration(target: IModelTarget, rounds: number): Promise<{ tokensPerSecond: number; timeToFirstTokenMs: number }> {
-	let best = { tokensPerSecond: 0, timeToFirstTokenMs: Number.POSITIVE_INFINITY };
+async function measureGeneration(target: IModelTarget, rounds: number, prompt: string = SPECULATIVE_PROMPT): Promise<{ tokensPerSecond: number; timeToFirstTokenMs: number }> {
+	const samples: { tokensPerSecond: number; timeToFirstTokenMs: number }[] = [];
 	// One discarded warm-up round: the first request after a load pays for
-	// weights, not for decoding.
+	// weights, not for decoding. Then the median of the rounds, not the best:
+	// what a round usually does.
 	for (let round = 0; round <= rounds; round++) {
 		const result = await streamChat(target, {
-			messages: [{ role: 'user', content: SPECULATIVE_PROMPT }],
+			messages: [{ role: 'user', content: prompt }],
 			temperature: 0,
 			max_tokens: 160,
 		});
@@ -1197,12 +1214,24 @@ async function measureGeneration(target: IModelTarget, rounds: number): Promise<
 			continue;
 		}
 		const generationSeconds = (result.totalMs - result.ttftMs) / 1000;
-		const tokensPerSecond = generationSeconds > 0 ? result.completionTokens / generationSeconds : 0;
-		if (tokensPerSecond > best.tokensPerSecond) {
-			best = { tokensPerSecond, timeToFirstTokenMs: result.ttftMs };
-		}
+		samples.push({ tokensPerSecond: generationSeconds > 0 ? result.completionTokens / generationSeconds : 0, timeToFirstTokenMs: result.ttftMs });
 	}
-	return best;
+	const middle = (values: number[]) => values.sort((x, y) => x - y)[Math.floor((values.length - 1) / 2)] ?? 0;
+	return { tokensPerSecond: middle(samples.map(sample => sample.tokensPerSecond)), timeToFirstTokenMs: middle(samples.map(sample => sample.timeToFirstTokenMs)) };
+}
+
+/** The draft LM Studio 0.4 says is attached to a loaded model, from its REST list: `null` for none, undefined when it does not say. */
+async function attachedDraft(modelId: string): Promise<string | null | undefined> {
+	try {
+		const listed = await getJson(`${LMSTUDIO_ROOT}/api/v1/models`, 5000) as { models?: { loaded_instances?: { id?: string; config?: { speculative_draft_simple?: boolean; speculative_draft_model?: string } }[] }[] };
+		const instance = listed.models?.flatMap(model => model.loaded_instances ?? []).find(entry => entry.id === modelId);
+		if (!instance) {
+			return undefined;
+		}
+		return instance.config?.speculative_draft_simple === true && instance.config.speculative_draft_model ? instance.config.speculative_draft_model : null;
+	} catch {
+		return undefined;
+	}
 }
 
 /**
@@ -1215,6 +1244,7 @@ async function measureGeneration(target: IModelTarget, rounds: number): Promise<
 async function benchmarkSpeculative(targets: readonly IModelTarget[], modules: {
 	candidateDrafts: (models: readonly { id: string; family: string | undefined; parameterB: number | undefined }[], target: { id: string; family: string | undefined; parameterB: number | undefined }) => { modelId: string; parameterB: number | undefined; sameFamily: boolean }[];
 	formatSpeculativeReadout: (measurement: unknown) => string;
+	prompts: Readonly<Record<string, string>>;
 }) {
 	section('Speculative decoding — the target with and without a draft');
 	const onLmStudio = targets.filter(candidate => candidate.runtime === 'lmstudio');
@@ -1250,23 +1280,42 @@ async function benchmarkSpeculative(targets: readonly IModelTarget[], modules: {
 		await new Promise(resolve => setTimeout(resolve, 3000));
 	};
 
-	let withoutDraft: { tokensPerSecond: number; timeToFirstTokenMs: number };
-	let withDraft: { tokensPerSecond: number; timeToFirstTokenMs: number };
+	// Code and prose apart: on LM Studio 0.4.23 the same draft made code faster and prose slower
+	// (docs/research/results/2026-11-24-speculative/). One number for both is wrong for one of them.
+	type Speed = { tokensPerSecond: number; timeToFirstTokenMs: number };
+	const without: Record<string, Speed> = {};
+	const withIt: Record<string, Speed> = {};
+	let attached: string | null | undefined;
 	try {
 		await reload([]);
-		withoutDraft = await measureGeneration(targetModel, 3);
+		for (const [kind, prompt] of Object.entries(modules.prompts)) {
+			without[kind] = await measureGeneration(targetModel, 3, prompt);
+		}
 		await reload(['--speculative-draft-simple', '--speculative-draft-model', draft.modelId]);
-		withDraft = await measureGeneration(targetModel, 3);
+		// The proof the draft is attached: LM Studio's own account of the loaded model. Without it a speed
+		// cannot tell an attached draft that did nothing from one that was never attached.
+		attached = await attachedDraft(largest.id);
+		if (attached !== draft.modelId) {
+			note(`speculative decoding not measured: LM Studio ${attached === undefined ? 'did not say what draft is attached' : attached === null ? 'says no draft is attached' : `has ${attached} attached`} after loading ${largest.id} with ${draft.modelId}`);
+			execFileSync(binary, ['unload', '--all'], { stdio: 'ignore', timeout: 60_000 });
+			return;
+		}
+		for (const [kind, prompt] of Object.entries(modules.prompts)) {
+			withIt[kind] = await measureGeneration(targetModel, 3, prompt);
+		}
 	} catch (error) {
 		note(`skipped: could not reload LM Studio for the comparison (${(error as Error).message.slice(0, 140)})`);
 		return;
 	}
 
-	record('speculative', `${largest.id} — tok/s without draft`, withoutDraft.tokensPerSecond, 'tok/s', 'best of 3 after a warm-up round', largest.id);
-	record('speculative', `${largest.id} — tok/s with draft`, withDraft.tokensPerSecond, 'tok/s', `draft ${draft.modelId}`, largest.id);
-	record('speculative', `${largest.id} — speedup with draft`, withoutDraft.tokensPerSecond > 0 ? withDraft.tokensPerSecond / withoutDraft.tokensPerSecond : 1, '×', 'below 1.0 means the draft costs more than it saves', largest.id);
+	record('speculative', `${largest.id} — draft attached`, 1, 'yes', `LM Studio's REST list names ${attached} as the loaded model's draft`, largest.id);
+	for (const kind of Object.keys(modules.prompts)) {
+		record('speculative', `${largest.id} — ${kind} tok/s without draft`, without[kind].tokensPerSecond, 'tok/s', 'median of 3 after a warm-up round', largest.id);
+		record('speculative', `${largest.id} — ${kind} tok/s with draft`, withIt[kind].tokensPerSecond, 'tok/s', `draft ${draft.modelId}; median of 3 after a warm-up round`, largest.id);
+		record('speculative', `${largest.id} — ${kind} speedup with draft`, without[kind].tokensPerSecond > 0 ? withIt[kind].tokensPerSecond / without[kind].tokensPerSecond : 1, '×', 'below 1.0 means the draft costs more than it saves', largest.id);
+	}
 	if (!asJson) {
-		console.log(`\n  ${modules.formatSpeculativeReadout({ targetKey: largest.id, draftModelId: draft.modelId, withDraft, withoutDraft, measuredAt: 0 })}`);
+		console.log(`\n  ${modules.formatSpeculativeReadout({ targetKey: largest.id, draftModelId: draft.modelId, withDraft: withIt.code, withoutDraft: without.code, prose: { withDraft: withIt.prose, withoutDraft: without.prose }, attachment: 'attached', measuredAt: 0 })}`);
 	}
 
 	// Leave the machine as it was found: the draft pairing is a measurement,
@@ -1301,8 +1350,10 @@ async function benchmarkRealModels() {
 	aggregateBenchResults = bench.aggregateBenchResults;
 	Object.assign(provenance.parameters, { benchMetric: bench.ONYX_BENCH_METRIC, benchPreservationCap: bench.ONYX_BENCH_PRESERVATION_CAP, benchTemperature: 0, benchMaxTokens: 4096 });
 
-	const fixtures = loadBenchFixtures(bench.selectBenchmarkCommits);
-	if (!fixtures.length) {
+	// `--only-speculative`: the speculative comparison alone, for a report to be drawn together with a full one.
+	const onlySpeculative = process.argv.includes('--only-speculative');
+	const fixtures = onlySpeculative ? [] : loadBenchFixtures(bench.selectBenchmarkCommits);
+	if (!fixtures.length && !onlySpeculative) {
 		note('repo benchmark skipped: no eligible single-file commits found in the last 400');
 	}
 
@@ -1317,7 +1368,7 @@ async function benchmarkRealModels() {
 	const attempts: IBenchAttempt[] = [];
 	const truncated = new Map<string, number>();
 	const failed = new Map<string, number>();
-	for (const target of targets) {
+	for (const target of onlySpeculative ? [] : targets) {
 		if (!asJson) {
 			console.log(`\n  ${target.key}  ·  ${target.runtime}`);
 		}
@@ -1341,10 +1392,11 @@ async function benchmarkRealModels() {
 		writeReport();
 	}
 
-	if (process.argv.includes('--speculative')) {
+	if (process.argv.includes('--speculative') || onlySpeculative) {
 		await benchmarkSpeculative(targets, {
 			candidateDrafts: speculative.candidateDrafts,
 			formatSpeculativeReadout: speculative.formatSpeculativeReadout,
+			prompts: speculative.ONYX_SPECULATIVE_PROMPTS,
 		});
 	} else {
 		note('speculative decoding not measured — pass --speculative (it reloads models in LM Studio)');
@@ -1382,19 +1434,21 @@ function benchmarkCoverage() {
 }
 
 async function main() {
-	Object.assign(provenance.parameters, { warmRounds: WARM_ROUNDS, benchTasks: BENCH_TASKS, toolTrials: TOOL_TRIALS, skipModels: process.argv.includes('--skip-models'), speculative: process.argv.includes('--speculative') });
+	Object.assign(provenance.parameters, { warmRounds: WARM_ROUNDS, benchTasks: BENCH_TASKS, toolTrials: TOOL_TRIALS, skipModels: process.argv.includes('--skip-models'), speculative: process.argv.includes('--speculative') || process.argv.includes('--only-speculative'), onlySpeculative: process.argv.includes('--only-speculative') });
 	if (!fs.existsSync(out('vs/platform/onyxRuntime/common/onyxBm25.js'))) {
 		throw new Error('run `pnpm run transpile-client` first — these benchmarks import from out/');
 	}
 	if (!asJson) {
 		console.log('Onyx benchmarks — measured on this machine, against this repository\n');
 	}
-	await benchmarkRetrieval();
-	await benchmarkArchitecture();
-	await benchmarkParsers();
-	await benchmarkChangeSet();
-	await benchmarkTerminalPolicy();
-	benchmarkCoverage();
+	if (!process.argv.includes('--only-speculative')) {
+		await benchmarkRetrieval();
+		await benchmarkArchitecture();
+		await benchmarkParsers();
+		await benchmarkChangeSet();
+		await benchmarkTerminalPolicy();
+		benchmarkCoverage();
+	}
 	if (process.argv.includes('--skip-models')) {
 		note('real-model sections skipped (--skip-models)');
 	} else {

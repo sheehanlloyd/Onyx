@@ -224,6 +224,11 @@ class OnyxMutantUnvalidatedArgumentsLoop extends OnyxAgentLoop {
 }
 
 /** B12: no deadline. A request that says nothing is waited on for ever. */
+/** B15 on LM Studio: the model service does not load an LM Studio model to learn its context before a run is budgeted. */
+class OnyxMutantContextNotLearnedModelService extends OnyxModelService {
+	override async learnServerContext(): Promise<void> { }
+}
+
 class OnyxMutantNoDeadlineModelService extends OnyxModelService {
 	protected override _streamDeadlines(): { readonly firstByteMs: number; readonly idleMs: number } {
 		return { firstByteMs: Number.POSITIVE_INFINITY, idleMs: Number.POSITIVE_INFINITY };
@@ -563,6 +568,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B10-pause-without-budget': { ControlPlaneService: OnyxMutantPauseWithoutBudgetControlPlane },
 	'C2-verdict-before-acceptance': { AgentLoop: OnyxMutantVerdictBeforeAcceptanceLoop },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
+	'B15-lmstudio-context-not-learned': { ModelService: OnyxMutantContextNotLearnedModelService },
 	'C4-thinking-is-answer': { AgentLoop: OnyxMutantThinkingIsAnswerLoop },
 	'C5-fence-withheld': { AgentLoop: OnyxMutantHoldEveryFenceLoop },
 	'C6-constrained-answer-withheld': { AgentLoop: OnyxMutantConstrainedAnswerWithheldLoop },

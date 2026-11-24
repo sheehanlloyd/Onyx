@@ -112,6 +112,15 @@ export interface IOnyxModelService extends ILanguageModelChatProvider {
 	isWarm(modelKey: string): boolean;
 	/** Loads a model's weights ahead of use. Fire-and-forget. */
 	warmUp(modelKey: string): Promise<void>;
+	/**
+	 * Makes the context the runtime gives a model known before it is budgeted
+	 * against. LM Studio reports it only for a loaded model, and loads one on
+	 * the first request at its own setting: a model that is not loaded is
+	 * loaded now, the same way, and the runtime is asked again. Nothing about
+	 * the model or the runtime's settings is changed. Resolves when that is
+	 * done, or at once when there is nothing to learn.
+	 */
+	learnServerContext(modelKey: string): Promise<void>;
 	/** Fires when a request starts against a cold model and again when its first token arrives. */
 	readonly onDidChangeLoading: Event<{ readonly modelKey: string; readonly loading: boolean }>;
 }
@@ -387,6 +396,22 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 		this._logService.trace(`[onyx] warming up ${modelKey}`);
 		await this._runtimeService.warmUpModel(model.discovered.baseUrl, model.wireModel ?? model.discovered.id, this._keepAliveFor(model));
 		this._lastUsedAt.set(modelKey, Date.now());
+	}
+
+	async learnServerContext(modelKey: string): Promise<void> {
+		const model = this._models.get(modelKey);
+		if (!model || model.discovered.runtime !== 'lmstudio' || model.discovered.serverContextLength !== undefined) {
+			return;
+		}
+		this._onDidChangeLoading.fire({ modelKey, loading: true });
+		try {
+			// The same on-demand load the run's first request would cause, one token long.
+			await this._runtimeService.warmUpModel(model.discovered.baseUrl, model.wireModel ?? model.discovered.id, this._keepAliveFor(model));
+			this._lastUsedAt.set(modelKey, Date.now());
+			await this.refresh();
+		} finally {
+			this._onDidChangeLoading.fire({ modelKey, loading: false });
+		}
 	}
 
 	async sendChatRequest(modelId: string, messages: IChatMessage[], _from: ExtensionIdentifier | undefined, options: ILanguageModelChatRequestOptions, token: CancellationToken): Promise<ILanguageModelChatResponse> {

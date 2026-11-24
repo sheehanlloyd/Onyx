@@ -85,6 +85,12 @@ export interface IOnyxLoadedModel {
 	readonly id: string;
 	/** The context the runtime allocated when it loaded the model, in tokens: the number a prompt really has to fit. */
 	readonly contextLength?: number;
+	/**
+	 * Whether the runtime says what draft model is attached to this one for
+	 * speculative decoding (LM Studio's REST list does), and which. `known`
+	 * with no `draft`: it said there is none.
+	 */
+	readonly speculativeDraft?: { readonly known: boolean; readonly draft?: string };
 }
 
 /** OpenAI chat-completions wire shapes. Kept loose on purpose: they mirror the JSON we send/receive. */
@@ -398,9 +404,10 @@ export interface IOnyxRuntimeService {
 	listModels(baseUrl: string): Promise<readonly IOnyxDiscoveredModel[]>;
 
 	/**
-	 * The models the runtime at this endpoint has in memory now (Ollama's
-	 * `/api/ps`). Undefined when the runtime does not say, which is not the
-	 * same as none being loaded.
+	 * The models the runtime at this endpoint has in memory now, with the
+	 * context each was loaded at: Ollama's `/api/ps`, LM Studio's native list
+	 * (`/api/v0/models`, `loaded_context_length`). Undefined when the runtime
+	 * does not say, which is not the same as none being loaded.
 	 */
 	listLoadedModels(baseUrl: string): Promise<readonly IOnyxLoadedModel[] | undefined>;
 

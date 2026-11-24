@@ -17,12 +17,13 @@ import { InMemoryFileSystemProvider } from '../../../../../../platform/files/com
 import { FileSystemFileSearchProvider } from '../../../../../services/search/common/fileSystemFileSearchProvider.js';
 import { IFileMatch, IFileQuery, ISearchComplete, ISearchService, ITextQuery, OneLineRange, QueryType, TextSearchMatch } from '../../../../../services/search/common/search.js';
 import { commandEnvironment } from '../../../../../../platform/onyxRuntime/common/onyxCommandExecution.js';
-import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode, OnyxContextAliasResult } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
+import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode, OnyxContextAliasResult, IOnyxLoadedModel } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../../../chat/common/tools/languageModelToolsService.js';
 import { ITaskService } from '../../../../tasks/common/taskService.js';
 import { ITaskSummary } from '../../../../tasks/common/taskSystem.js';
 import { InMemoryTask, RunOptions, Task, TaskGroup } from '../../../../tasks/common/tasks.js';
+import { seedProfile } from '../../../common/onyxSeedProfiles.js';
 import { isAnchoredCall } from '../../../common/onyxAnchorEdit.js';
 import { IOnyxEnergyDecision } from '../../../common/onyxEnergyPolicy.js';
 import { IOnyxModelProfile, IOnyxObservedStats } from '../../../common/onyxTypes.js';
@@ -101,6 +102,8 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		private readonly _enforcesJsonSchema = false,
 		/** Asked for a turn when the script has none left (L8): a model that is really there, or a continuation after a cut point. */
 		private readonly _liveTurn: ((params: IOnyxChatParams) => Promise<OnyxSimModelTurn>) | undefined = undefined,
+		/** An LM Studio that loads the model on demand at this context (B15); undefined for the usual Ollama. */
+		private readonly _lmStudioLoadsAt: number | undefined = undefined,
 	) {
 		super();
 	}
@@ -114,11 +117,22 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		return this._killed.has(operationId);
 	}
 
+	/** Whether the LM Studio has loaded the model: on the first request or a warm-up, as LM Studio does. */
+	private _lmStudioLoaded = false;
+	/** Prompts an LM Studio received that were longer than what it loaded the model at: cut, and nothing said. */
+	readonly silentlyCut: number[] = [];
+
 	get endpoint(): IOnyxEndpoint {
-		return { baseUrl: SIM_BASE_URL, kind: 'ollama', displayName: 'Ollama (simulated)', models: [this.model, this.cloudModel] };
+		return this._lmStudioLoadsAt !== undefined
+			? { baseUrl: SIM_BASE_URL, kind: 'lmstudio', displayName: 'LM Studio (simulated)', models: [this.model] }
+			: { baseUrl: SIM_BASE_URL, kind: 'ollama', displayName: 'Ollama (simulated)', models: [this.model, this.cloudModel] };
 	}
 
 	get model(): IOnyxDiscoveredModel {
+		if (this._lmStudioLoadsAt !== undefined) {
+			// LM Studio reports the trained context always, and what it loaded the model at only once it is loaded.
+			return { id: SIM_MODEL_ID, baseUrl: SIM_BASE_URL, runtime: 'lmstudio', family: 'sim', parameterB: 7, contextLength: 32768, ...(this._lmStudioLoaded ? { serverContextLength: this._lmStudioLoadsAt } : {}), supportsTools: true, supportsJsonSchema: this._enforcesJsonSchema, execution: 'local' };
+		}
 		// An Ollama on this machine that reports the model as one it runs itself.
 		return { id: SIM_MODEL_ID, baseUrl: SIM_BASE_URL, runtime: 'ollama', family: 'sim', parameterB: 7, contextLength: 16384, supportsTools: true, supportsJsonSchema: this._enforcesJsonSchema, execution: 'local' };
 	}
@@ -207,6 +221,12 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			temperature: params.temperature,
 			maxTokens: params.maxTokens,
 		});
+		if (this._lmStudioLoadsAt !== undefined) {
+			this._lmStudioLoaded = true;
+			if (Math.ceil((promptChars + toolsChars) / 4) > this._lmStudioLoadsAt) {
+				this.silentlyCut.push(Math.ceil((promptChars + toolsChars) / 4));
+			}
+		}
 		if (this._runtimeContextTokens !== undefined && Math.ceil((promptChars + toolsChars) / 4) > this._runtimeContextTokens) {
 			// A runtime that checks: the prompt does not fit what it allocated, and it says so.
 			this._trace.record({ kind: 'fault', fault: 'contextOverflow', detail: `${Math.ceil((promptChars + toolsChars) / 4)} > ${this._runtimeContextTokens}` });
@@ -379,10 +399,16 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	async gitShowFile(): Promise<string | undefined> { return undefined; }
 	async getMachineProfile(): Promise<IOnyxMachineProfile> { return { totalMemoryBytes: 32 * 1024 ** 3, freeMemoryBytes: 16 * 1024 ** 3, cpuModel: 'sim', cpuCount: 8, arch: 'arm64', platform: 'darwin' }; }
 	async getPowerState(): Promise<IOnyxPowerState> { return { onBattery: false, thermal: 'nominal', cpuSpeedLimit: undefined }; }
-	async warmUpModel(): Promise<void> { }
+	async warmUpModel(): Promise<void> {
+		if (this._lmStudioLoadsAt !== undefined) {
+			this._lmStudioLoaded = true;
+		}
+	}
 	async ensureWorkspaceIndex(): Promise<IOnyxIndexStats> { return { files: 0, eligibleFiles: 0, buildMs: 0, truncated: false, source: 'built', builtAt: 0 }; }
 	async configureWorkspaceIndex(): Promise<void> { }
-	async listLoadedModels(): Promise<undefined> { return undefined; }
+	async listLoadedModels(): Promise<readonly IOnyxLoadedModel[] | undefined> {
+		return this._lmStudioLoadsAt === undefined ? undefined : this._lmStudioLoaded ? [{ id: SIM_MODEL_ID, contextLength: this._lmStudioLoadsAt }] : [];
+	}
 	async createContextAlias(): Promise<OnyxContextAliasResult> { return { ok: false, error: 'the simulated runtime creates nothing' }; }
 	async removeContextAlias(): Promise<OnyxContextAliasResult> { return { ok: false, error: 'the simulated runtime removes nothing' }; }
 	/** What a lab manifest named by the environment would ask for; nothing unless a test sets it. */
@@ -637,11 +663,17 @@ export class OnyxSimProfileService implements IOnyxProfileService {
 	readonly onDidChangeProfiles = Event.None;
 	/** What the loop reported as fitting after an overflow, newest last. */
 	readonly observedContexts: number[] = [];
-	constructor(private readonly _profile: IOnyxModelProfile) { }
+	/**
+	 * `contextFromDiscovery`: the context is the one the product's own seed profile takes from what discovery
+	 * found (B15), not the episode's fixed number. For an LM Studio episode, whose discovery changes when the
+	 * model is loaded.
+	 */
+	constructor(private readonly _profile: IOnyxModelProfile, private readonly _contextFromDiscovery = false) { }
 	/** The profile, with the context narrowed to what an overflow taught, as the real service does. */
-	getProfile(): IOnyxModelProfile {
+	getProfile(_modelKey?: string, discovered?: IOnyxDiscoveredModel): IOnyxModelProfile {
+		const base = this._contextFromDiscovery && discovered ? (() => { const seeded = seedProfile(discovered); return { ...this._profile, contextLength: seeded.contextLength, context: seeded.context }; })() : this._profile;
 		const observed = this.observedContexts.at(-1);
-		return observed === undefined ? this._profile : { ...this._profile, contextLength: Math.min(this._profile.contextLength, observed) };
+		return observed === undefined ? base : { ...base, contextLength: Math.min(base.contextLength, observed) };
 	}
 	reportContextOverflow(_modelKey: string, observedTokens: number): void { this.observedContexts.push(observedTokens); }
 	getStats(): IOnyxObservedStats | undefined { return undefined; }

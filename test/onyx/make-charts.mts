@@ -446,7 +446,25 @@ if (benchModels.length) {
 }
 
 const speculativeTarget = modelsOf('speculative')[0];
-if (speculativeTarget) {
+if (speculativeTarget && maybe(`${speculativeTarget} — code tok/s with draft`)) {
+	// Code and prose apart, since 2026-11-24: the same draft speeds one up and slows the other down.
+	const kinds = ['code', 'prose'];
+	const value = (kind: string, arm: 'without' | 'with') => maybe(`${speculativeTarget} — ${kind} tok/s ${arm} draft`)?.value ?? 0;
+	const attached = maybe(`${speculativeTarget} — draft attached`);
+	write('chart-speculative.svg', groupedBarChart({
+		title: 'Speculative decoding, measured instead of assumed',
+		subtitle: `${shortModelName(speculativeTarget)} loaded plain, then with ${(maybe(`${speculativeTarget} — code tok/s with draft`)?.detail ?? '').split(';')[0]}; median tok/s`,
+		series: ['No draft', 'With draft'],
+		max: Math.max(...kinds.flatMap(kind => [value(kind, 'without'), value(kind, 'with')])) * 1.15,
+		suffix: ' tok/s',
+		groups: kinds.map(kind => ({
+			label: kind === 'code' ? 'Code' : 'Prose',
+			caption: `${(maybe(`${speculativeTarget} — ${kind} speedup with draft`)?.value ?? 1).toFixed(2)}× with the draft${attached ? '; draft attached, as LM Studio reports' : ''}`,
+			bars: [{ series: 'No draft', value: value(kind, 'without') }, { series: 'With draft', value: value(kind, 'with') }],
+		})),
+	}));
+} else if (speculativeTarget) {
+	// A report from before 2026-11-24: one prompt, best of three.
 	const without = find(`${speculativeTarget} — tok/s without draft`);
 	const withDraft = find(`${speculativeTarget} — tok/s with draft`);
 	write('chart-speculative.svg', barChart({

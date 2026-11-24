@@ -52,6 +52,7 @@ export function describeContextSource(source: string): string {
 		case 'observed': return localize('onyx.contextSource.observed', "learned from a request the runtime rejected");
 		case 'server': return localize('onyx.contextSource.server', "the server's own allocation");
 		case 'architectural': return localize('onyx.contextSource.architectural', "what the model's architecture allows; the server has not said what it allocates");
+		case 'assumed': return localize('onyx.contextSource.assumed', "an assumption until the runtime loads the model and says what it allocated");
 		default: return localize('onyx.contextSource.default', "a default; the runtime reported nothing");
 	}
 }

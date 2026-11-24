@@ -59,13 +59,29 @@ export interface IOnyxContextNumbers {
 	readonly serverConfigured?: number;
 	/** What was observed to fit: learned from an overflow error, or measured (L5). */
 	readonly observed?: number;
+	/**
+	 * An assumption that stands in for the server's number while the server
+	 * cannot say it: LM Studio reports the context of a model only once the
+	 * model is loaded, and loads it on demand at its own setting.
+	 */
+	readonly assumed?: number;
 }
 
-export type OnyxContextSource = 'observed' | 'server' | 'architectural' | 'default';
+export type OnyxContextSource = 'observed' | 'server' | 'assumed' | 'architectural' | 'default';
+
+/**
+ * The context assumed for an LM Studio model that is not loaded yet. LM
+ * Studio loads such a model on the first request, at the context its own
+ * settings give it, and cuts a longer prompt without an error (measured on
+ * 0.4.23: `docs/research/results/2026-11-22-lmstudio-context/`). Until it
+ * is loaded and says, the budget assumes this much, not the trained
+ * context, which would be four times what it was served there.
+ */
+export const ONYX_UNLOADED_LMSTUDIO_CONTEXT_TOKENS = 4096;
 
 /** The context to budget against: the smallest of what is known, and which number that was. */
 export function effectiveContext(numbers: IOnyxContextNumbers, fallbackTokens = 8192): { readonly tokens: number; readonly source: OnyxContextSource } {
-	const known: (readonly [OnyxContextSource, number | undefined])[] = [['observed', numbers.observed], ['server', numbers.serverConfigured], ['architectural', numbers.architectural]];
+	const known: (readonly [OnyxContextSource, number | undefined])[] = [['observed', numbers.observed], ['server', numbers.serverConfigured], ['assumed', numbers.assumed], ['architectural', numbers.architectural]];
 	let best: { tokens: number; source: OnyxContextSource } | undefined;
 	for (const [source, tokens] of known) {
 		if (typeof tokens === 'number' && tokens > 0 && (!best || tokens < best.tokens)) {
