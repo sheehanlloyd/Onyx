@@ -6,7 +6,7 @@
 /**
  * Stability soak of the packaged application (D8).
  *
- *   node test/onyx/run-soak.mts --app <path/to/Onyx.app> --json-out <file> [--minutes 60] [--skip-campaign]
+ *   node test/onyx/run-soak.mts --app <path/to/Onyx.app> --json-out <file> [--minutes 60] [--run-timeout 20] [--skip-campaign]
  *
  * For the given time it runs the end-to-end suite against the mock runtime on
  * the packaged application, again and again, each run a fresh application on a
@@ -43,6 +43,7 @@ const appArg = argValue('--app') ?? process.env.ONYX_PACKAGED_APP;
 const jsonOut = argValue('--json-out');
 const minutes = Number(argValue('--minutes') ?? 60);
 const skipCampaign = process.argv.includes('--skip-campaign');
+const runTimeoutMinutes = Number(argValue('--run-timeout') ?? 20);
 if (!appArg || !fs.existsSync(appArg) || !jsonOut) {
 	console.error('usage: node test/onyx/run-soak.mts --app <path/to/Onyx.app> --json-out <file> [--minutes 60] [--skip-campaign]');
 	process.exit(2);
@@ -53,6 +54,10 @@ const app = fs.realpathSync(path.resolve(appArg));
 const idleDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onyx-soak-idle-'));
 const crashDir = path.join(os.homedir(), 'Library', 'Logs', 'DiagnosticReports');
 const startedAt = Date.now();
+// Each suite run's whole output, so that a failed run can be read afterwards.
+const logDir = path.join(repoRoot, '.build', 'soak-runs');
+fs.rmSync(logDir, { recursive: true, force: true });
+fs.mkdirSync(logDir, { recursive: true });
 
 interface IProcess { readonly pid: number; readonly rssKb: number; readonly command: string }
 
@@ -96,7 +101,7 @@ function leftBehind(): string[] {
 	return [...fromApplication, ...withRunCwd];
 }
 
-interface IIteration { readonly index: number; readonly seconds: number; readonly exitCode: number | null; readonly result: string; readonly peakRendererMb: number; readonly peakTotalMb: number; readonly leftBehind: string[] }
+interface IIteration { readonly index: number; readonly seconds: number; readonly exitCode: number | null; readonly result: string; readonly failures: string[]; readonly log: string; readonly peakRendererMb: number; readonly peakTotalMb: number; readonly leftBehind: string[] }
 
 async function main(): Promise<number> {
 	const product = JSON.parse(fs.readFileSync(path.join(app, 'Contents', 'Resources', 'app', 'product.json'), 'utf8')) as { nameShort?: string; commit?: string };
@@ -126,18 +131,43 @@ async function main(): Promise<number> {
 				peakRendererKb = Math.max(peakRendererKb, ...suite.filter(entry => entry.command.includes('--type=renderer')).map(entry => entry.rssKb));
 				peakTotalKb = Math.max(peakTotalKb, suite.reduce((sum, entry) => sum + entry.rssKb, 0));
 			}, 5000);
-			const run = await new Promise<{ status: number | null; stdout: string }>(resolve => {
-				const runner = spawn(process.execPath, [path.join(repoRoot, 'test', 'onyx', 'run-e2e.mts')], { cwd: repoRoot, env: { ...process.env, ONYX_E2E_APP: app }, stdio: ['ignore', 'pipe', 'ignore'] });
+			const index = iterations.length + 1;
+			const logFile = path.join(logDir, `run-${index}.log`);
+			const run = await new Promise<{ status: number | null; stdout: string; timedOut: boolean }>(resolve => {
+				const runner = spawn(process.execPath, [path.join(repoRoot, 'test', 'onyx', 'run-e2e.mts')], { cwd: repoRoot, env: { ...process.env, ONYX_E2E_APP: app }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 				let stdout = '';
-				runner.stdout.on('data', (chunk: Buffer) => stdout += chunk.toString());
-				runner.on('close', status => resolve({ status, stdout }));
+				let timedOut = false;
+				const log = fs.createWriteStream(logFile);
+				runner.stdout.on('data', (chunk: Buffer) => {
+					stdout += chunk.toString();
+					log.write(chunk);
+				});
+				runner.stderr.on('data', (chunk: Buffer) => log.write(chunk));
+				// A run that does not finish is a failed run, recorded as such, not a soak that stops.
+				const watchdog = setTimeout(() => {
+					timedOut = true;
+					try {
+						process.kill(-runner.pid!, 'SIGKILL');
+					} catch {
+						// already gone
+					}
+				}, runTimeoutMinutes * 60_000);
+				runner.on('close', status => {
+					clearTimeout(watchdog);
+					log.end();
+					resolve({ status, stdout, timedOut });
+				});
 			});
 			clearInterval(sampler);
 			await sleep(4000);
-			const result = run.stdout.trim().split('\n').filter(line => /checks passed|failed|FAIL/.test(line)).slice(-1)[0] ?? `exit ${run.status}`;
-			const iteration: IIteration = { index: iterations.length + 1, seconds: Math.round((Date.now() - began) / 1000), exitCode: run.status, result, peakRendererMb: megabytes(peakRendererKb), peakTotalMb: megabytes(peakTotalKb), leftBehind: leftBehind() };
+			const result = run.timedOut ? `did not finish in ${runTimeoutMinutes} minutes` : run.stdout.trim().split('\n').filter(line => /checks passed|failed|FAIL/.test(line)).slice(-1)[0] ?? `exit ${run.status}`;
+			const failures = run.stdout.split('\n').filter(line => /^\s*(?:✖|FAIL)/.test(line)).map(line => line.trim()).slice(0, 20);
+			const iteration: IIteration = { index, seconds: Math.round((Date.now() - began) / 1000), exitCode: run.timedOut ? null : run.status, result, failures, log: path.relative(repoRoot, logFile), peakRendererMb: megabytes(peakRendererKb), peakTotalMb: megabytes(peakTotalKb), leftBehind: leftBehind() };
 			iterations.push(iteration);
 			console.log(`  run ${iteration.index}: ${iteration.result} · ${iteration.seconds}s · renderer peak ${iteration.peakRendererMb} MB · all processes peak ${iteration.peakTotalMb} MB · left behind ${iteration.leftBehind.length}`);
+			for (const failure of iteration.failures) {
+				console.log(`    ${failure}`);
+			}
 		}
 		sampleIdle();
 	} finally {

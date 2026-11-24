@@ -139,15 +139,13 @@ async function main(): Promise<void> {
 	if (!appArg || !outArg) {
 		throw new Error('usage: node build/darwin/onyx-release.ts --app <path/to/Product.app> --out <dir> [--ad-hoc]');
 	}
-	if (process.platform !== 'darwin') {
-		throw new Error('the release artifact is built on macOS');
-	}
 	const app = path.resolve(appArg);
 	const out = path.resolve(outArg);
 	if (!fs.existsSync(path.join(app, 'Contents', 'Info.plist'))) {
 		throw new Error(`not an application bundle: ${app}`);
 	}
 
+	// Credentials are checked before the platform, so that a run without them names them wherever it happens.
 	const identity = adHoc ? '-' : process.env['CODESIGN_IDENTITY'];
 	const key = process.env['ONYX_NOTARY_KEY'];
 	const keyId = process.env['ONYX_NOTARY_KEY_ID'];
@@ -162,6 +160,9 @@ async function main(): Promise<void> {
 		if (missing.length) {
 			throw new Error(`cannot sign or notarize: ${missing.join(', ')} not set (or the key file does not exist). Nothing was changed. Use --ad-hoc only to rehearse the mechanics; its output is not a release.`);
 		}
+	}
+	if (process.platform !== 'darwin') {
+		throw new Error('the release artifact is built on macOS');
 	}
 
 	const product = JSON.parse(fs.readFileSync(path.join(app, 'Contents', 'Resources', 'app', 'product.json'), 'utf8')) as { nameLong: string; commit?: string };
