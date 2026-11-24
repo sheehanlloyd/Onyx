@@ -199,7 +199,7 @@ async function main(): Promise<number> {
 		const began = Date.now();
 		while (Date.now() - began < 120_000 && !proposed) {
 			await sleep(2000);
-			proposed = value(pw('run-code', 'async (page) => String(!!document.querySelector(".onyx-inline-hunk"))')) === 'true';
+			proposed = value(pw('run-code', 'async (page) => String(await page.locator(".onyx-inline-hunk").count() > 0)')) === 'true';
 		}
 		const seconds = Math.round((Date.now() - began) / 1000);
 		if (proposed) {
@@ -252,8 +252,8 @@ async function main(): Promise<number> {
 		const agentBegan = Date.now();
 		while (Date.now() - agentBegan < 240_000) {
 			await sleep(5000);
-			staged = Number(value(pw('run-code', 'async (page) => String(document.querySelectorAll(".onyx-change-file-path").length)')));
-			const busy = value(pw('run-code', 'async (page) => String(!!document.querySelector(".chat-response-loading, .interactive-item-container.loading"))'));
+			staged = Number(value(pw('run-code', 'async (page) => String(await page.locator(".onyx-change-file-path").count())')));
+			const busy = value(pw('run-code', 'async (page) => String(await page.locator(".chat-response-loading, .interactive-item-container.loading").count() > 0)'));
 			if (staged > 0 || busy === 'false') {
 				break;
 			}

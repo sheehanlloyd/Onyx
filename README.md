@@ -151,6 +151,8 @@ model is verified to be local, because nothing verifies it.
 ### Nothing touches your code without you
 
 <img src="docs/images/onyx-changes.png" alt="Onyx Changes: agent edits staged for per-hunk review — nothing touches a file until accepted" width="420" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 <img src="docs/images/onyx-terminal-approval.png" alt="The agent proposing a shell command in an approval dialog. Screenshot from August 2026: it still shows the Run for This Session and Always Run buttons, which the alpha removed" width="900" />
 
 *The screenshot predates the alpha's approval contract: the dialog now offers Run Once and Deny only.*
@@ -204,6 +206,8 @@ model is verified to be local, because nothing verifies it.
 
 <img src="docs/images/onyx-architecture.png" alt="The Onyx architecture map: modules, dependencies, churn and fan-in hot spots with local-model summaries" width="420" />
 
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
+
 - **An architecture map of the workspace.** Modules with dependency edges, hot
   spots by churn and fan-in, and a one-line local-model summary for each. The map shows
   inherited source as well as Onyx's own: in a map of this repository
@@ -240,6 +244,8 @@ model is verified to be local, because nothing verifies it.
 
 <img src="docs/images/onyx-inline-edit.png" alt="Inline edit: a local model's change streaming in as four reviewable hunks" width="900" />
 
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
+
 - **Inline edit that survives small models (`⌘I`).** Select code, say what to
   change, and the edit comes back as a proposal: its hunks are shown under the
   lines they would replace and are not in your file. `⌘⏎` keeps one (one
@@ -269,12 +275,16 @@ model is verified to be local, because nothing verifies it.
   timeline as clickable `file:line` links. The reviewer reports; it never edits.
 
   <img src="docs/images/onyx-commit-message.png" alt="A commit message written from the staged diff by a local model, in the SCM input" width="900" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 - **The debugger, in the conversation.** While a session is paused, **Onyx:
   Explain This Failure** sends the stack, frames and variable values through
   normal chat — and the full snapshot is visible in the request before it goes,
   because nothing should be redacted silently.
 
 <img src="docs/images/onyx-debug.png" alt="Onyx: Explain This Failure at a real breakpoint, with the stack, variables and the model's diagnosis" width="900" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 <p><i>Paused at a real breakpoint: the stack and the actual variable values go into a request you can read, and the local model finds the null in the array.</i></p>
 
 - **Tournament mode.** `Onyx: Run in Parallel` races one instruction across
@@ -285,6 +295,8 @@ model is verified to be local, because nothing verifies it.
 ### Everything is observable
 
 <img src="docs/images/onyx-control-plane.png" alt="The Onyx control plane: an adversarial review run with file:line findings" width="900" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 
 - **The Onyx Control Plane (`⌘⌃O`)** streams every routing decision, model turn
   and tool call live — with pause, stop and redirect — plus an estimated context
@@ -303,6 +315,8 @@ model is verified to be local, because nothing verifies it.
 
 <img src="docs/images/onyx-compute.png" alt="The Onyx compute dashboard: per-model tokens, throughput and B·s" width="900" />
 
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
+
 <details>
 <summary><b>The rest of the workbench</b> — first run, themes, and what a fresh install does <i>not</i> ask you</summary>
 
@@ -316,6 +330,8 @@ your machine, and Onyx tells you which runtimes it can already see.*
 <img src="docs/images/onyx-workbench.png" alt="Onyx workbench: Onyx Dark theme, local agent chat, control plane" width="900" />
 
 <img src="docs/images/onyx-light.png" alt="Onyx Light: the same accent language on warm paper" width="900" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 
 *Onyx Light — the same violet and teal, on warm paper. Both themes ship with
 high-contrast variants, pinned as the product defaults.*
@@ -495,6 +511,12 @@ from this repository's own testing, against real local models.
 - Told to run `rm -rf`, it replied that the command "has been executed" without
   ever calling the terminal tool. Nothing ran. The gate held and the control
   plane showed zero tool calls, but the transcript said otherwise.
+
+The same, on the release build, on 2026-11-24: asked to make one function skip invalid items and add a
+test, the pinned 7B model ended its run in ten seconds with no edit proposed; the inline edit just before it
+failed too. The screenshot is unretouched.
+
+<img src="docs/images/onyx-agent-attempt.png" alt="The packaged build after an agent request to qwen2.5-coder:7b: the Onyx Changes view says No proposed changes, and Agent Activity shows the inline edit failed" width="900" />
 
 Onyx's answer is to make these failure modes survivable and visible. Edits stage
 before they land, tool calls are repaired or grammar-constrained, the terminal
