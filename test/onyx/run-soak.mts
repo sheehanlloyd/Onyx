@@ -59,6 +59,19 @@ const app = fs.realpathSync(path.resolve(appArg));
 const idleDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onyx-soak-idle-'));
 const crashDir = path.join(os.homedir(), 'Library', 'Logs', 'DiagnosticReports');
 const startedAt = Date.now();
+
+/** Where the power comes from, the battery's charge and the energy mode, as `pmset` reports them (macOS). */
+function powerState(): { at: string; source: string; battery: string; powermode: string } {
+	const battery = spawnSync('pmset', ['-g', 'batt'], { encoding: 'utf8' }).stdout ?? '';
+	const settings = spawnSync('pmset', ['-g'], { encoding: 'utf8' }).stdout ?? '';
+	return {
+		at: new Date().toISOString(),
+		source: /Now drawing from '(?<source>[^']+)'/.exec(battery)?.groups?.source ?? 'unknown',
+		battery: /(?<charge>\d+%;[^;]*)/.exec(battery)?.groups?.charge.trim() ?? 'unknown',
+		powermode: /powermode\s+(?<mode>\d+)/.exec(settings)?.groups?.mode ?? 'unknown',
+	};
+}
+const powerAtStart = powerState();
 // Each suite run's whole output, so that a failed run can be read afterwards.
 const logDir = path.resolve(logDirArg ?? path.join(repoRoot, '.build', 'soak-runs'));
 // The suite each run executes; another script only for the soak's own self-check.
@@ -115,6 +128,7 @@ interface IIteration { readonly index: number; readonly seconds: number; readonl
 
 async function main(): Promise<number> {
 	const product = JSON.parse(fs.readFileSync(path.join(app, 'Contents', 'Resources', 'app', 'product.json'), 'utf8')) as { nameShort?: string; commit?: string };
+	console.log(`power at the start: ${powerAtStart.source}, ${powerAtStart.battery}, powermode ${powerAtStart.powermode}`);
 	console.log(`soak · ${product.nameShort} ${product.commit?.slice(0, 11)} · ${minutes} minutes · load average ${os.loadavg().map(value => value.toFixed(1)).join(' ')}`);
 
 	// The instance that is left alone for the whole soak.
@@ -222,6 +236,7 @@ async function main(): Promise<number> {
 	const summary = {
 		ranAt: new Date(startedAt).toISOString(),
 		product: { nameShort: product.nameShort, commit: product.commit },
+		power: { atStart: powerAtStart, atEnd: powerState() },
 		machine: { model: (spawnSync('sysctl', ['-n', 'hw.model'], { encoding: 'utf8' }).stdout ?? '').trim(), memoryGb: Math.round(os.totalmem() / 2 ** 30), loadAverageAtEnd: os.loadavg() },
 		minutesRequested: minutes,
 		minutesRun: Math.round((Date.now() - startedAt) / 6000) / 10,
@@ -238,6 +253,7 @@ async function main(): Promise<number> {
 	};
 	fs.writeFileSync(path.resolve(jsonOut!), JSON.stringify(summary, undefined, '\t'));
 	console.log(`\n${iterations.length} suite runs in ${summary.minutesRun} minutes, ${failedRuns.length} failed; renderer peak ${summary.rendererPeakMb.min} to ${summary.rendererPeakMb.max} MB; idle renderer ${summary.idleInstance.rendererMbAfterTwoMinutes} → ${summary.idleInstance.rendererMbAtEnd} MB; left behind ${leaks.length}; crash reports ${crashes.length}`);
+	console.log(`power at the end: ${summary.power.atEnd.source}, ${summary.power.atEnd.battery}, powermode ${summary.power.atEnd.powermode}`);
 	console.log(passed ? 'soak: PASSED' : 'soak: FAILED');
 	return passed ? 0 : 1;
 }
