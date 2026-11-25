@@ -38,7 +38,12 @@ test('D8: the open-source files and Module 5\'s documents exist', () => {
 		'docs/pilot/README.md', 'docs/pilot/TASKS.md', 'docs/pilot/REPOSITORIES.md', 'docs/pilot/PROTOCOL.md', 'docs/pilot/RECORDING-SHEET.md',
 		'docs/launch/VIDEO-SCRIPT.md', 'docs/launch/THREAD.md', 'docs/launch/SHOW-HN.md',
 		'docs/naming/README.md', 'docs/brand/README.md',
-		'docs/progress/production-readiness.md', 'docs/progress/egress-audit.json', 'docs/progress/soak.json', 'docs/progress/budgets.json', 'docs/progress/dependency-audit.json', 'docs/progress/secret-scan.json',
+		'docs/progress/production-readiness.md', 'docs/progress/dependency-audit.json', 'docs/progress/secret-scan.json',
+		// The soak, egress and budget records are measurements of a packaged candidate that only the
+		// reference machine can take. The module gate holds them, more strictly than existence:
+		// candidate-evidence.mts (D8-soak, D8-budgets) checks that each record is there, is for the
+		// candidate and passed, and R-60 runs the egress audit again. Listing them here made this CI
+		// job fail whenever a measurement was still pending.
 	];
 	assert.deepStrictEqual(required.filter(file => !exists(file)), []);
 });
