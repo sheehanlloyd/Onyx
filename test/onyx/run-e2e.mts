@@ -174,7 +174,42 @@ function pw(...args: string[]) {
 		sessionsLost++;
 		console.error(`  note  the driver's session was gone while the workbench still answered on :${cdpPort}; attached again (${sessionsLost}) before: ${args[0]}`);
 		pwOnce('attach', `--cdp=http://127.0.0.1:${cdpPort}`);
+		const focus = emulateFocus();
+		if (focus !== 'focus:true') {
+			console.error(`  note  focus emulation after attaching again: ${focus}`);
+		}
 		return pwOnce(...args);
+	}
+}
+
+/**
+ * Makes the page behave as focused whatever the operating system says, as a
+ * browser Playwright launches itself does. Attaching over CDP to Electron's own
+ * context leaves this off, so without it a test window that another
+ * application covers or takes the focus from loses its editor focus. The CDP
+ * session that carries the setting is kept by the driver's process; a new
+ * attachment needs it again.
+ */
+function emulateFocus(): string {
+	try {
+		return pwValue(pwOnce('run-code', `async (page) => {
+			const cdp = await page.context().newCDPSession(page);
+			await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+			globalThis.__onyxFocusSession = cdp;
+			return await page.evaluate(() => 'focus:' + document.hasFocus());
+		}`));
+	} catch (error) {
+		// Just after attaching, the driver can have no page yet and tries to open one, which Electron refuses.
+		return `failed: ${String((error as { stdout?: unknown }).stdout ?? error).split('\n').find(line => /Error/.test(line)) ?? 'unknown'}`;
+	}
+}
+
+/** Focus emulation once the driver has the workbench page; it is retried while the page is not there yet. */
+async function emulateFocusWhenReady() {
+	let result = '';
+	await waitUntil(() => (result = emulateFocus()) === 'focus:true', 30_000, 2000);
+	if (result !== 'focus:true') {
+		throw new Error(`focus emulation did not take: ${result}`);
 	}
 }
 
@@ -206,6 +241,18 @@ function pwValue(output: string): string {
  * keychain removes the prompt and the dependency on per-machine state.
  */
 const isolationArgs = process.platform === 'darwin' ? ['--use-mock-keychain'] : [];
+
+/**
+ * The suite's window is not always in front. The soak starts a new one every
+ * few minutes on a machine that may be in use, and as soon as another
+ * application comes forward the window loses its focus and may be covered.
+ * Without these, Chromium then treats the page as hidden and stops animation
+ * frames, which the driver waits on before a click; and the editor sees the
+ * window's blur, so typing raises no inline completion and the code-action
+ * widget does not open (both seen in the soak of 2026-11-24). These switches
+ * keep a covered window's page running; `emulateFocus` below keeps its focus.
+ */
+const backgroundArgs = ['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling'];
 
 const accessibilityOut = process.env.ONYX_E2E_A11Y_OUT ? path.resolve(process.env.ONYX_E2E_A11Y_OUT) : undefined;
 
@@ -587,7 +634,15 @@ async function send(prompt: string) {
 	const focusScript = path.join(repoRoot, '.agents', 'skills', 'launch', 'playwrightScripts', 'focus-chat-input.ts');
 	const paste = path.join(repoRoot, '.agents', 'skills', 'launch', 'scripts', 'monaco-paste.sh');
 	pw('run-code', `--filename=${focusScript}`);
-	execFileSync(paste, ['--session', session, prompt], { cwd: repoRoot, encoding: 'utf8' });
+	// The helper makes up to three driver calls of its own; it gets their limit three times over.
+	try {
+		execFileSync(paste, ['--session', session, prompt], { cwd: repoRoot, encoding: 'utf8', timeout: driverCommandTimeoutMs * 3, killSignal: 'SIGKILL' });
+	} catch (error) {
+		if ((error as { code?: string }).code === 'ETIMEDOUT') {
+			throw new Error(`pasting the prompt did not finish in ${driverCommandTimeoutMs * 3 / 1000} s; the workbench ${workbenchAnswers() ? 'still answers' : 'no longer answers'} on :${cdpPort}`, { cause: error });
+		}
+		throw error;
+	}
 	pw('press', 'Enter');
 }
 
@@ -642,6 +697,7 @@ async function main() {
 		`--extensions-dir=${extensionsDir}`,
 		`--remote-debugging-port=${cdpPort}`,
 		...isolationArgs,
+		...backgroundArgs,
 		...extraLaunchArgs,
 		'--disable-workspace-trust',
 		'--skip-release-notes',
@@ -667,6 +723,14 @@ async function main() {
 		throw error;
 	}
 	await sleep(6000);
+	await emulateFocusWhenReady();
+	// The soak runs this suite on a machine that may be in use, where the window is soon behind another
+	// application. A covered window stopped animation frames and the driver's clicks timed out; a window
+	// without focus raised no inline completion (2026-11-24). Both are set up above and checked here.
+	const workbenchPid = children[children.length - 1].pid;
+	const workbenchCommand = execFileSync('ps', ['-o', 'command=', '-p', String(workbenchPid)], { encoding: 'utf8' });
+	const pageState = pwValue(pw('run-code', 'async (page) => page.evaluate(() => document.hasFocus() + "/" + document.visibilityState)'));
+	check('the window keeps its focus and keeps rendering when another application covers it (focus emulation and the background switches)', pageState === 'true/visible' && backgroundArgs.every(arg => workbenchCommand.includes(arg)), `${pageState}; ${backgroundArgs.filter(arg => !workbenchCommand.includes(arg)).join(' ') || 'switches present'}`);
 	installAccessibilityProbe();
 
 	// Onboarding: "Connect a Local Runtime" then "Make It Yours".

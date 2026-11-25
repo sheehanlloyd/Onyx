@@ -92,7 +92,7 @@ function crashReports(): string[] {
 	return fs.readdirSync(crashDir).filter(file => file.startsWith(name) && fs.statSync(path.join(crashDir, file)).mtimeMs >= startedAt);
 }
 
-/** Processes still alive that belong to a finished suite run: the application's own, or anything whose working directory is the run's folder. */
+/** Processes still alive that belong to a finished suite run: the application's own, anything whose working directory is the run's folder, and a mock runtime of the suite. */
 function leftBehind(): string[] {
 	const fromApplication = applicationProcesses().filter(entry => entry.command.includes('onyx-e2e-')).map(entry => `${entry.pid} ${entry.command.slice(0, 120)}`);
 	const cwds = spawnSync('lsof', ['-a', '-d', 'cwd', '-Fpn'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).stdout ?? '';
@@ -105,7 +105,10 @@ function leftBehind(): string[] {
 			withRunCwd.push(`${pid} cwd ${line.slice(1)}`);
 		}
 	}
-	return [...fromApplication, ...withRunCwd];
+	// The suite's mock runtimes run in process groups of their own; a run that is killed leaves them holding its ports.
+	const listing = spawnSync('ps', ['-Ao', 'pid=,command='], { encoding: 'utf8' }).stdout ?? '';
+	const mocks = listing.split('\n').filter(line => line.includes(path.join(repoRoot, 'test', 'onyx', 'mock-ollama.mts'))).map(line => `${line.trim().split(/\s+/)[0]} mock runtime`);
+	return [...fromApplication, ...withRunCwd, ...mocks];
 }
 
 interface IIteration { readonly index: number; readonly seconds: number; readonly exitCode: number | null; readonly result: string; readonly failures: string[]; readonly log: string; readonly peakRendererMb: number; readonly peakTotalMb: number; readonly leftBehind: string[] }
