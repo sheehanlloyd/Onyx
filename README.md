@@ -204,7 +204,9 @@ model is verified to be local, because nothing verifies it.
   fresh diagnostics of that file and compares them with the problems it had just
   before, and, on the saved file, can run your project's own build or test task
   (asking first), posting the verdict to the timeline. Staged and not accepted is
-  "not applied": nothing is verified before you accept it.
+  "not applied": nothing is verified before you accept it. A clean file that stays
+  clean gets no fresh report, so it is called verified only when a language service
+  answers for it; when none does, the verdict is "not checked".
 
 ### It adapts to your repository
 

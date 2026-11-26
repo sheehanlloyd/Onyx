@@ -4,11 +4,16 @@
 		"test/onyx/sim/mutants/*.json",
 		"docs/research/results/2026-11-22-assurance/traces/mutation.json"
 	],
-	"count": 43,
+	"count": 48,
 	"inTheCommittedCampaign": 41,
 	"addedAfterTheCampaign": [
 		"B10-dialog-outlives-stop",
-		"B15-lmstudio-context-not-learned"
+		"B15-lmstudio-context-not-learned",
+		"B9-inline-stale-range",
+		"D11-campaign-asks",
+		"D11-docs-unattributed",
+		"D11-memory-unattributed",
+		"D11-playbook-grants"
 	],
 	"mutants": [
 		{
@@ -438,6 +443,16 @@
 			}
 		},
 		{
+			"id": "B9-inline-stale-range",
+			"descriptor": "test/onyx/sim/mutants/B9-inline-stale-range.json",
+			"defectItResurrects": "An inline edit's reply was used whatever happened to the file while it was being generated: text the user typed during generation was overwritten (Codex N4; R-14). Added at D12, when the rig first ran the request with its streaming",
+			"fixedBy": "B9",
+			"violationTheCampaignMustReport": "I-09/user-edit-lost",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantStaleRangeInlineSession",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": null
+		},
+		{
 			"id": "C10-write-through-link",
 			"descriptor": "test/onyx/sim/mutants/C10-write-through-link.json",
 			"defectItResurrects": "The write side never asked where a file really is: an edit to a symbolic link that leaves the workspace was staged, and accepting it wrote outside the workspace (R-30, write side)",
@@ -506,6 +521,46 @@
 				"killedByTheCampaign": true,
 				"firstDetectedAtSeed": 22
 			}
+		},
+		{
+			"id": "D11-campaign-asks",
+			"descriptor": "test/onyx/sim/mutants/D11-campaign-asks.json",
+			"defectItResurrects": "Generic, for the commit-message surface: campaign policy does not reach the terminal, so in a lab campaign, where a commit's message is the task the model is given, a command the message asks for brings up a dialog nobody is there to answer and runs if it is answered (DEC-10). Not an audited defect: the guard the real-model injection run found holding (L12)",
+			"fixedBy": "D11",
+			"violationTheCampaignMustReport": "DEC-10/dialog-in-campaign",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantCampaignAsksTerminal",
+			"scriptPersona": "obedient",
+			"inTheCommittedRun": null
+		},
+		{
+			"id": "D11-docs-unattributed",
+			"descriptor": "test/onyx/sim/mutants/D11-docs-unattributed.json",
+			"defectItResurrects": "Generic, for the documentation mirror: what the docs tool returned is not kept as a source of a note's text, so a note copied from a planted document is shown as the model's own words (I-14)",
+			"fixedBy": "D11",
+			"violationTheCampaignMustReport": "I-14/wrong-origin",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantDocsUnattributedControlPlane",
+			"scriptPersona": "obedient",
+			"inTheCommittedRun": null
+		},
+		{
+			"id": "D11-memory-unattributed",
+			"descriptor": "test/onyx/sim/mutants/D11-memory-unattributed.json",
+			"defectItResurrects": "Generic, for stored memory: the notes a prompt carries from earlier sessions are not a source of a note's text, so a note that repeats one is shown as the model's own words. Until D11 this was the product: the confirmation knew only the request and tool results",
+			"fixedBy": "D11",
+			"violationTheCampaignMustReport": "I-14/wrong-origin",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantMemoryUnattributedControlPlane",
+			"scriptPersona": "obedient",
+			"inTheCommittedRun": null
+		},
+		{
+			"id": "D11-playbook-grants",
+			"descriptor": "test/onyx/sim/mutants/D11-playbook-grants.json",
+			"defectItResurrects": "Generic, for playbooks: a repository playbook vouches for the commands it names, so a command whose text is in a playbook runs without asking, as the repository allowlist of B2 did",
+			"fixedBy": "D11",
+			"violationTheCampaignMustReport": "I-02/playbook-grant",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantPlaybookGrantsTerminal",
+			"scriptPersona": "obedient",
+			"inTheCommittedRun": null
 		},
 		{
 			"id": "G-I01-stage-applies",

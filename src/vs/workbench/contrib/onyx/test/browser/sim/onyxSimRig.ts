@@ -39,11 +39,11 @@ import { IChatProgress } from '../../../../chat/common/chatService/chatService.j
 import { ILanguageModelToolsService, ToolDataSource } from '../../../../chat/common/tools/languageModelToolsService.js';
 import { ITaskService } from '../../../../tasks/common/taskService.js';
 import { ISearchService } from '../../../../../services/search/common/search.js';
-import { OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
+import { IOnyxDiagnosticsOptions, OnyxDiagnosticsRedactor } from '../../../common/onyxDiagnostics.js';
 import { IOnyxModelProfile } from '../../../common/onyxTypes.js';
 import { OnyxAgentLoop } from '../../../browser/agent/onyxAgentLoop.js';
 import { IOnyxPromptCacheService, OnyxPromptCacheService } from '../../../browser/agent/onyxPromptCache.js';
-import { IOnyxChangeSetService, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
+import { IOnyxChangeSetService, OnyxAcceptOutcome, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
 import { OnyxEditToolContribution } from '../../../browser/changes/onyxEditTool.js';
 import { readEditArguments } from '../../../common/onyxChangeSet.js';
 import { IOnyxEditBlock } from '../../../common/onyxInlineEdit.js';
@@ -66,12 +66,10 @@ import { OnyxDocsToolContribution } from '../../../browser/intelligence/onyxDocs
 import { OnyxChangesViewPane } from '../../../browser/changes/onyxChangesView.js';
 import { OnyxDiagnosticsExport } from '../../../browser/diagnostics/onyxDiagnosticsExport.js';
 import { IOnyxOutcomeService, OnyxOutcomeService } from '../../../browser/outcomes/onyxOutcomeService.js';
-import { IOnyxDiagnosticsOptions } from '../../../common/onyxDiagnostics.js';
 import '../../../browser/controlPlane/onyxControlPlane.contribution.js';
 import { IViewDescriptorService } from '../../../../../common/views.js';
 import { ViewDescriptorService } from '../../../../../services/views/browser/viewDescriptorService.js';
 import { ServiceCollection } from '../../../../../../platform/instantiation/common/serviceCollection.js';
-import { OnyxAcceptOutcome } from '../../../browser/changes/onyxChangeSetService.js';
 import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../../../browser/agent/onyxHarnessConfigService.js';
 import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../../../browser/models/onyxContextAllocationService.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
