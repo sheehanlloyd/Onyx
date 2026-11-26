@@ -7,7 +7,7 @@
 		"workflow": "b10-stop-then-the-stream-ends",
 		"persona": "well-behaved"
 	},
-	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
+	"reason": "the edit path: the edit tool's description says how to add code to a file, a tool call written as JSON after prose is run, and a reply that holds a call that was not run ends the run as failed",
 	"episode": {
 		"name": "workflow-b10-stop-then-the-stream-ends",
 		"seed": 0,
@@ -47,7 +47,7 @@
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"route\",\"label\":\"onyx:localhost:11434/sim-coder:7b\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"trace\",\"label\":\"\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 1\"}",
-		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"22447d2f\",\"promptChars\":594,\"toolsChars\":6348,\"temperature\":0.2,\"maxTokens\":2457}",
+		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"22447d2f\",\"promptChars\":594,\"toolsChars\":6484,\"temperature\":0.2,\"maxTokens\":2457}",
 		"{\"t\":401,\"kind\":\"userAction\",\"action\":\"stop\"}",
 		"{\"t\":401,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"live:cancelled\"}",
 		"{\"t\":401,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"cancelled\"}",

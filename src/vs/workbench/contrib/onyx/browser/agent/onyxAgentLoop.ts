@@ -22,7 +22,7 @@ import { elideMiddle } from '../../common/onyxContextCompression.js';
 import { runtimeEnforcesSchema } from '../../common/onyxDatasheet.js';
 import { IOnyxResolvedHarness, isConstrainedProtocol } from '../../common/onyxHarnessConfig.js';
 import { buildToolEnvelopeFormat, OnyxEnvelopeAnswerStream, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters, ONYX_ANCHORED_EDIT_TOOL } from '../../common/onyxConstrainedToolCalls.js';
-import { IOnyxAssistantTextStream, OnyxAssistantTextStream, OnyxPlainTextStream } from '../../common/onyxTextToolCalls.js';
+import { findUnexecutedToolCall, IOnyxAssistantTextStream, OnyxAssistantTextStream, OnyxPlainTextStream } from '../../common/onyxTextToolCalls.js';
 import { classifyStreamEnd, digestValue, IOnyxTraceHeader, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxPlaybookService } from '../playbooks/onyxPlaybookService.js';
 import { IOnyxTerminalService } from '../terminal/onyxTerminalTool.js';
@@ -520,6 +520,13 @@ export class OnyxAgentLoop {
 				recordTurn(assistantText, streamOutcome?.finishReason, false, streamOutcome?.seedHonoured);
 				if (configuration.verificationFeedback) {
 					this._reportVerification(run, anyToolRan);
+				}
+				// A reply that holds a tool call the harness did not run is not a finished answer: it ends as what it is.
+				const unexecuted = findUnexecutedToolCall(assistantText, tools.map(tool => tool.name));
+				if (unexecuted) {
+					run.activity({ kind: 'note', label: localize('onyx.agent.unexecutedToolCall.note', "The model wrote a call to {0} as text, and it was not run", unexecuted), ok: false });
+					run.complete('failed');
+					return { errorDetails: { message: localize('onyx.agent.unexecutedToolCall', "The model wrote a call to the {0} tool as text instead of making it, and Onyx did not run it, so nothing was read or changed by it. Try again, or rephrase the request.", unexecuted) } };
 				}
 				run.complete('completed');
 				return {};

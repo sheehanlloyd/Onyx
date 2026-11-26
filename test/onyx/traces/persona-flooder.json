@@ -6,7 +6,7 @@
 	"covers": {
 		"persona": "flooder"
 	},
-	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
+	"reason": "the edit path: the edit tool's description says how to add code to a file, a tool call written as JSON after prose is run, and a reply that holds a call that was not run ends the run as failed",
 	"episode": {
 		"name": "persona-flooder",
 		"seed": 1,
@@ -74,7 +74,7 @@
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"route\",\"label\":\"onyx:localhost:11434/sim-coder:7b\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"trace\",\"label\":\"\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 1\"}",
-		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":3,\"roles\":[\"system\",\"system\",\"user\"],\"lastUserDigest\":\"35d4c612\",\"promptChars\":786,\"toolsChars\":6348,\"temperature\":0.2,\"maxTokens\":2457}",
+		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":3,\"roles\":[\"system\",\"system\",\"user\"],\"lastUserDigest\":\"35d4c612\",\"promptChars\":786,\"toolsChars\":6484,\"temperature\":0.2,\"maxTokens\":2457}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":7515}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":7515}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":7515}",
@@ -108,7 +108,7 @@
 		"{\"t\":1,\"kind\":\"toolResult\",\"data\":{\"kind\":\"toolResult\",\"label\":\"editFile\",\"ok\":false,\"reason\":\"Edit refused for src/math.ts: the file has 12 lines and the proposed content 20013; a proposal is reviewed up to 20000 lines a side. Nothing was staged. Make a…\",\"at\":401}}",
 		"{\"t\":1,\"kind\":\"traceTurn\",\"data\":{\"kind\":\"traceTurn\",\"v\":2,\"turn\":1,\"requestDigest\":\"44bb33bb\",\"responseText\":\"\",\"streamEnd\":\"stop\",\"toolCalls\":[{\"name\":\"editFile\",\"argumentsDigest\":\"2d995b34\",\"resultDigest\":\"daf18501\",\"ok\":false}],\"seed\":{\"requested\":null,\"honoured\":\"unknown\"}}}",
 		"{\"t\":1,\"kind\":\"turn\",\"data\":{\"kind\":\"turn\",\"label\":\"Model turn 2\",\"at\":401}}",
-		"{\"t\":1,\"kind\":\"note\",\"data\":{\"kind\":\"note\",\"label\":\"The request does not fit the model's context\",\"reason\":\"about 16971 tokens of prompt and tool schemas against a context of 16384, with nothing left to drop\",\"ok\":false,\"at\":401}}",
+		"{\"t\":1,\"kind\":\"note\",\"data\":{\"kind\":\"note\",\"label\":\"The request does not fit the model's context\",\"reason\":\"about 17005 tokens of prompt and tool schemas against a context of 16384, with nothing left to drop\",\"ok\":false,\"at\":401}}",
 		"{\"t\":1,\"kind\":\"outcome\",\"data\":{\"status\":\"failed\"}}"
 	]
 }

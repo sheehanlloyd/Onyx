@@ -6,7 +6,7 @@
 	"covers": {
 		"persona": "anchor-liar"
 	},
-	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
+	"reason": "the edit path: the edit tool's description says how to add code to a file, a tool call written as JSON after prose is run, and a reply that holds a call that was not run ends the run as failed",
 	"episode": {
 		"name": "persona-anchor-liar",
 		"seed": 6,
@@ -115,7 +115,7 @@
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"route\",\"label\":\"onyx:localhost:11434/sim-coder:7b\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"trace\",\"label\":\"\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 1\"}",
-		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":3,\"roles\":[\"system\",\"system\",\"user\"],\"lastUserDigest\":\"13e9031d\",\"promptChars\":830,\"toolsChars\":6348,\"temperature\":0.2,\"maxTokens\":2457}",
+		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":3,\"roles\":[\"system\",\"system\",\"user\"],\"lastUserDigest\":\"13e9031d\",\"promptChars\":830,\"toolsChars\":6484,\"temperature\":0.2,\"maxTokens\":2457}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":26}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":26}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":26}",
@@ -135,7 +135,7 @@
 		"{\"t\":401,\"kind\":\"shown\",\"size\":189}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 2\"}",
-		"{\"t\":401,\"kind\":\"request\",\"turn\":2,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":5,\"roles\":[\"system\",\"system\",\"user\",\"assistant\",\"tool\"],\"lastUserDigest\":\"13e9031d\",\"promptChars\":1289,\"toolsChars\":6348,\"temperature\":0.2,\"maxTokens\":2457}",
+		"{\"t\":401,\"kind\":\"request\",\"turn\":2,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":5,\"roles\":[\"system\",\"system\",\"user\",\"assistant\",\"tool\"],\"lastUserDigest\":\"13e9031d\",\"promptChars\":1289,\"toolsChars\":6484,\"temperature\":0.2,\"maxTokens\":2457}",
 		"{\"t\":402,\"kind\":\"chunk\",\"op\":\"op#2\",\"delta\":\"text\",\"size\":19}",
 		"{\"t\":402,\"kind\":\"chunk\",\"op\":\"op#2\",\"delta\":\"text\",\"size\":19}",
 		"{\"t\":402,\"kind\":\"shown\",\"size\":7}",

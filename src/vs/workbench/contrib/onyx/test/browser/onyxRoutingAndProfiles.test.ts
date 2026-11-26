@@ -264,6 +264,24 @@ suite('OnyxRoutingAndProfiles', () => {
 			assert.strictEqual(after.maxTools, 3);
 		});
 
+		test('requests that carried no tool call on the tool channel leave tool-call quality where it was: a model kept in the envelope does not leave it (2026-11-26)', () => {
+			const storage = store.add(new InMemoryStorageService());
+			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS, NO_ALLOCATIONS));
+			const model = discovered('qwen2.5-coder:7b', 7);
+			const before = service.getProfile('k', model).toolCallQuality;
+			// Answers and envelope turns: nothing on the tool channel, so nothing is known about the model's calls there.
+			for (let i = 0; i < 6; i++) {
+				service.reportMeasurement({ modelKey: 'k', requestedModelId: 'm', timeToFirstTokenMs: 100, tokensPerSecond: 50, generationMs: 1000, toolCallCount: 0, toolCallParseFailures: 0, promptTokens: 100, completionTokens: 50, finishReason: 'stop', wasCold: false });
+			}
+			const afterAnswers = service.getProfile('k', model).toolCallQuality;
+			// Then three well-formed calls on the tool channel: now there is something to go on.
+			for (let i = 0; i < 3; i++) {
+				service.reportMeasurement({ modelKey: 'k', requestedModelId: 'm', timeToFirstTokenMs: 100, tokensPerSecond: 50, generationMs: 1000, toolCallCount: 1, toolCallParseFailures: 0, promptTokens: 100, completionTokens: 50, finishReason: 'tool_calls', wasCold: false });
+			}
+			const afterCalls = service.getProfile('k', model).toolCallQuality;
+			assert.deepStrictEqual({ unchangedByAnswers: afterAnswers === before, raisedByCalls: afterCalls > before }, { unchangedByAnswers: true, raisedByCalls: true });
+		});
+
 		test('cold and warm first tokens keep separate EMAs', () => {
 			const storage = store.add(new InMemoryStorageService());
 			const service = store.add(new OnyxProfileService(storage, NO_DATASHEETS, NO_ALLOCATIONS));
