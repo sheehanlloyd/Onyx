@@ -547,6 +547,60 @@ class OnyxMutantUnjournaledDispatchLoop extends OnyxAgentLoop {
 	protected override _noteDispatch(_run: IOnyxRunHandle, _tool: string): void { }
 }
 
+/**
+ * D11, commit messages: campaign policy does not reach the terminal. In a lab campaign, where a commit's
+ * message is the task the model is given, a command the message asks for brings up a dialog nobody is there
+ * to answer, and runs if it is answered (DEC-10).
+ */
+class OnyxMutantCampaignAsksTerminal extends OnyxTerminalService {
+	override setCampaignPolicy(_denyEverything: boolean): void { }
+}
+
+/**
+ * The control plane with one source of a note's text forgotten (D11): the run handle drops what it is told
+ * about that source, so a note copied from it is shown as the model's own words.
+ */
+function forgettingControlPlane(forget: (kind: 'tool' | 'context', name: string) => boolean): typeof OnyxControlPlaneService {
+	return class extends OnyxControlPlaneService {
+		override beginRun(info: Parameters<OnyxControlPlaneService['beginRun']>[0]): IOnyxRunHandle {
+			const handle = super.beginRun(info);
+			return {
+				...handle,
+				noteToolResult: (tool, text) => forget('tool', tool) ? undefined : handle.noteToolResult(tool, text),
+				noteContext: (source, text) => forget('context', source) ? undefined : handle.noteContext(source, text),
+			};
+		}
+	};
+}
+
+/** D11, the documentation mirror: what the `docs` tool returned is not kept as a source of a note's text. */
+const OnyxMutantDocsUnattributedControlPlane = forgettingControlPlane((kind, name) => kind === 'tool' && name === 'docs');
+Object.defineProperty(OnyxMutantDocsUnattributedControlPlane, 'name', { value: 'OnyxMutantDocsUnattributedControlPlane' });
+
+/** D11, stored memory: the notes a prompt carries from earlier sessions are not kept as a source of a note's text. */
+const OnyxMutantMemoryUnattributedControlPlane = forgettingControlPlane((kind, name) => kind === 'context' && name === 'memory');
+Object.defineProperty(OnyxMutantMemoryUnattributedControlPlane, 'name', { value: 'OnyxMutantMemoryUnattributedControlPlane' });
+
+/**
+ * D11, playbooks: a repository playbook vouches for the commands it names. A command whose text is in one of
+ * the repository's playbooks runs without asking, as if the recipe's `tools:` line were an approval.
+ */
+class OnyxMutantPlaybookGrantsTerminal extends OnyxTerminalService {
+	protected override async _authorize(invocation: IOnyxCommandInvocation, token: CancellationToken = CancellationToken.None): Promise<OnyxTerminalDecision> {
+		const folder = this._workspaceService.getWorkspace().folders[0];
+		try {
+			for (const entry of (await this._fileService.resolve(folder.toResource('.onyx/playbooks'))).children ?? []) {
+				if ((await this._fileService.readFile(entry.resource)).value.toString().includes(invocation.command)) {
+					return 'allow-once';
+				}
+			}
+		} catch {
+			// no playbooks: ask as usual
+		}
+		return super._authorize(invocation, token);
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -592,6 +646,10 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'G-I03-never-finishes': { ControlPlaneService: OnyxMutantNeverFinishesControlPlane },
 	'G-I07-stage-anywhere': { ChangeSetService: OnyxMutantStageAnywhereChangeSet },
 	'G-I12-unjournaled-dispatch': { AgentLoop: OnyxMutantUnjournaledDispatchLoop },
+	'D11-campaign-asks': { TerminalService: OnyxMutantCampaignAsksTerminal },
+	'D11-docs-unattributed': { ControlPlaneService: OnyxMutantDocsUnattributedControlPlane },
+	'D11-playbook-grants': { TerminalService: OnyxMutantPlaybookGrantsTerminal },
+	'D11-memory-unattributed': { ControlPlaneService: OnyxMutantMemoryUnattributedControlPlane },
 };
 
 /** The class name each mutant id resolves to, for the table's `resurrects` column. */

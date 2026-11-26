@@ -268,6 +268,10 @@ export class OnyxAgentLoop {
 		const promptBuilder = this._instantiationService.createInstance(OnyxPromptBuilder);
 		const built = await promptBuilder.build(request, history, profile, tools.map(t => t.name));
 		run.setContextBudget(built.budget);
+		// What the prompt carries from the workspace besides the request: a note copied from it is shown as coming from there (I-14, D11).
+		for (const context of built.contextTexts) {
+			run.noteContext(context.source, context.text);
+		}
 		const messages: IChatMessage[] = built.messages;
 		// What each message is to the context budget (B13). The builder returns the system prompt first and the
 		// request last, with earlier turns and the retrieved workspace context between; whatever the run adds

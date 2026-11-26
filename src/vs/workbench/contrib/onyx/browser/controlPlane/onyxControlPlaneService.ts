@@ -11,7 +11,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IOnyxTraceCertificate, IOnyxTraceCertificateOutcome } from '../../common/onyxEditCertificate.js';
 import { IOnyxTraceAcceptance, IOnyxTraceApproval, IOnyxTraceHeader, IOnyxTraceTurn } from '../../common/onyxTrace.js';
-import { describeNoteOrigin, IOnyxRunText, OnyxNoteOrigin } from '../../common/onyxMemoryOrigin.js';
+import { describeNoteOrigin, IOnyxContextText, IOnyxRunText, OnyxContextSource, OnyxNoteOrigin } from '../../common/onyxMemoryOrigin.js';
 import { IOnyxBudgetSlice, IOnyxRunEvent, isTerminalRunStatus, ONYX_RUN_BUDGET, OnyxRunStatus, OnyxTaskKind, OnyxTerminalRunStatus } from '../../common/onyxTypes.js';
 
 export const IOnyxControlPlaneService = createDecorator<IOnyxControlPlaneService>('onyxControlPlaneService');
@@ -69,6 +69,8 @@ export interface IOnyxRunHandle {
 	setTurnCount(count: number): void;
 	/** Records what a tool returned to the model in this run, so a later question about where some text came from can be answered (I-14). */
 	noteToolResult(tool: string, text: string): void;
+	/** Records workspace text the run's prompt carries besides the request (D11): remembered notes, the playbook index. */
+	noteContext(source: OnyxContextSource, text: string): void;
 	/**
 	 * Called between loop iterations. Resolves when the run may continue —
 	 * immediately when running, after resume when paused — and returns any
@@ -154,6 +156,7 @@ export class OnyxLiveRun implements IOnyxLiveRun {
 	readonly listeners = new DisposableStore();
 	/** What tools returned to the model in this run, newest last, bounded. */
 	readonly toolResults: IOnyxRunText[] = [];
+	readonly contextTexts: IOnyxContextText[] = [];
 
 	constructor(
 		readonly runId: string,
@@ -243,6 +246,12 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 					run.toolResults.shift();
 				}
 			},
+			noteContext(source, text) {
+				run.contextTexts.push({ source, text: text.length > MAX_ORIGIN_TEXT_CHARS ? text.slice(0, MAX_ORIGIN_TEXT_CHARS) : text });
+				if (run.contextTexts.length > MAX_ORIGIN_TEXTS) {
+					run.contextTexts.shift();
+				}
+			},
 			async gate() {
 				if (isTerminalRunStatus(run.statusObs.get())) {
 					return undefined;
@@ -304,7 +313,7 @@ export class OnyxControlPlaneService extends Disposable implements IOnyxControlP
 
 	originOf(runId: string, text: string): OnyxNoteOrigin {
 		const run = this._liveRuns.get(runId);
-		return run ? describeNoteOrigin(text, run.request, run.toolResults) : { kind: 'model' };
+		return run ? describeNoteOrigin(text, run.request, run.toolResults, run.contextTexts) : { kind: 'model' };
 	}
 
 	recordAcceptance(runId: string, acceptance: Omit<IOnyxTraceAcceptance, 'kind'>): void {

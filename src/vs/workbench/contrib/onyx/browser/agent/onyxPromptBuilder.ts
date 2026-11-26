@@ -18,6 +18,7 @@ import { IOnyxRankedFile, OnyxContextRanker } from '../intelligence/onyxContextR
 import { IOnyxMemoryService } from '../intelligence/onyxMemoryService.js';
 import { IOnyxPlaybookService } from '../playbooks/onyxPlaybookService.js';
 import { renderPlaybookIndex } from '../../common/onyxPlaybooks.js';
+import { IOnyxContextText } from '../../common/onyxMemoryOrigin.js';
 import { estimateMessageTokens, estimateTokens } from '../model/onyxOpenAITranslator.js';
 
 /** Rough characters per token for the estimator Onyx uses everywhere. */
@@ -33,6 +34,8 @@ const MAX_ATTACHMENTS = 6;
 export interface IBuiltPrompt {
 	readonly messages: IChatMessage[];
 	readonly budget: readonly IOnyxBudgetSlice[];
+	/** Workspace text the prompt carries besides the request, by source: where a note's text may have come from (I-14, D11). */
+	readonly contextTexts: readonly IOnyxContextText[];
 }
 
 /**
@@ -77,7 +80,8 @@ export class OnyxPromptBuilder {
 
 	async build(request: IChatAgentRequest, history: readonly IChatAgentHistoryEntry[], profile: IOnyxModelProfile, toolNames: readonly string[]): Promise<IBuiltPrompt> {
 		const rankedFiles = await this._rankedFiles(profile);
-		const workspaceContext = this._workspaceContextSection(rankedFiles, profile, toolNames);
+		const contextTexts: IOnyxContextText[] = [];
+		const workspaceContext = this._workspaceContextSection(rankedFiles, profile, toolNames, contextTexts);
 		// KV-cache-aware layout: the system prompt is deterministic for a given
 		// (profile, tool set), history is append-only, and everything volatile —
 		// ranked files, remembered facts, attachments — rides at the tail with
@@ -126,6 +130,7 @@ export class OnyxPromptBuilder {
 				{ category: 'toolSchemas', tokens: toolNames.length * 60 },
 				{ category: 'toolResults', tokens: 0 },
 			],
+			contextTexts,
 		};
 	}
 
@@ -169,7 +174,7 @@ export class OnyxPromptBuilder {
 	 * files with why they rank. Grounds the model's first tool calls in the
 	 * right part of the repo for a handful of tokens.
 	 */
-	private _workspaceContextSection(rankedFiles: readonly IOnyxRankedFile[], profile: IOnyxModelProfile, toolNames: readonly string[]): string {
+	private _workspaceContextSection(rankedFiles: readonly IOnyxRankedFile[], profile: IOnyxModelProfile, toolNames: readonly string[], contextTexts: IOnyxContextText[]): string {
 		const sections: string[] = [];
 		if (rankedFiles.length > 0) {
 			if (profile.promptStyle === 'compact') {
@@ -184,6 +189,7 @@ export class OnyxPromptBuilder {
 		if (notes.length > 0) {
 			const kept = notes.slice(profile.promptStyle === 'compact' ? -5 : -15);
 			sections.push(`Facts remembered from earlier sessions in this workspace:\n${kept.map(note => `- ${note.text}`).join('\n')}`);
+			contextTexts.push(...kept.map(note => ({ source: 'memory' as const, text: note.text })));
 		}
 		// The playbook index: one line per recipe, so the model knows which
 		// repository-authored workflows exist and can invoke them by name.
@@ -193,6 +199,7 @@ export class OnyxPromptBuilder {
 			const playbookIndex = renderPlaybookIndex(this._playbookService.playbooks.get().map(entry => entry.playbook));
 			if (playbookIndex) {
 				sections.push(playbookIndex);
+				contextTexts.push({ source: 'playbooks', text: playbookIndex });
 			}
 		}
 		return sections.join('\n');

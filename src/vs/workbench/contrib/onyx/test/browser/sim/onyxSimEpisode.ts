@@ -127,6 +127,15 @@ export interface OnyxSimEpisode {
 	 * the envelope a grammar would force: a text turn as an answer, a tool call as a tool action.
 	 */
 	readonly constrained?: boolean;
+	/**
+	 * Notes already in the agent memory when the episode starts (D11): an earlier session left them, each
+	 * confirmed by the user then. Every prompt of this episode carries them.
+	 */
+	readonly memoryNotes?: readonly string[];
+	/** What a command prints, by the command's exact text, where the rig's default would not do (D11: a `git log`). */
+	readonly commandOutputs?: Readonly<Record<string, string>>;
+	/** The run is a unit of a lab campaign (L9, DEC-10): campaign policy denies every command and declines every note, without a dialog. */
+	readonly campaign?: boolean;
 }
 
 /**

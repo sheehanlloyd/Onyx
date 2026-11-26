@@ -57,7 +57,9 @@ import { IOnyxWorkspaceAccessService, OnyxWorkspaceAccessService } from '../../.
 import { IOnyxPinService } from '../../../browser/intelligence/onyxPinService.js';
 import { IOnyxEndpointSecretService } from '../../../browser/model/onyxEndpointSecrets.js';
 import { IOnyxModelService, OnyxModelService } from '../../../browser/model/onyxLanguageModelProvider.js';
-import { IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
+import { IOnyxPlaybookService, OnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
+import { OnyxPlaybookToolContribution } from '../../../browser/playbooks/onyxPlaybookTool.js';
+import { OnyxDocsToolContribution } from '../../../browser/intelligence/onyxDocsTool.js';
 import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../../../browser/agent/onyxHarnessConfigService.js';
 import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../../../browser/models/onyxContextAllocationService.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
@@ -72,7 +74,7 @@ import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileServic
 import { IOnyxRouterService, OnyxRouterService } from '../../../browser/routing/onyxRouterService.js';
 import { IOnyxTerminalService, OnyxTerminalService, OnyxTerminalToolContribution } from '../../../browser/terminal/onyxTerminalTool.js';
 import { OnyxSimBoundary, OnyxSimEpisode, OnyxSimFault, OnyxSimModelTurn, OnyxSimUserAction } from './onyxSimEpisode.js';
-import { IOnyxSimCommandScript, IOnyxSimScheduler, OnyxSimDialogService, OnyxSimEnergyService, OnyxSimFileSystemProvider, OnyxSimLanguageModelsService, OnyxSimPinService, OnyxSimPlaybookService, OnyxSimProfileService, OnyxSimRuntimeService, OnyxSimSearchService, OnyxSimTaskService, OnyxSimToolsService, SIM_CLOUD_MODEL_KEY, SIM_CORE_TOOLS, SIM_MODEL_KEY, simWorkspaceUri } from './onyxSimFakes.js';
+import { IOnyxSimCommandScript, IOnyxSimScheduler, OnyxSimDialogService, OnyxSimEnergyService, OnyxSimFileSystemProvider, OnyxSimLanguageModelsService, OnyxSimPinService, OnyxSimProfileService, OnyxSimRuntimeService, OnyxSimSearchService, OnyxSimTaskService, OnyxSimToolsService, SIM_CLOUD_MODEL_KEY, SIM_CORE_TOOLS, SIM_MODEL_KEY, simWorkspaceUri } from './onyxSimFakes.js';
 import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY, SIM_OUTSIDE_PATH } from './onyxSimCanary.js';
 import { digest, OnyxSimTrace } from './onyxSimTrace.js';
 
@@ -112,6 +114,8 @@ export interface IOnyxSimState {
 	readonly pendingBuffer: ReadonlyMap<string, string>;
 	/** Text the user typed; it must survive every accept and rebase (I-09). */
 	readonly typedTexts: readonly string[];
+	/** Notes that were in the agent memory before the episode: the user confirmed them in an earlier session (D11). */
+	readonly priorNotes: readonly string[];
 	readonly stopped: boolean;
 	readonly acceptedHunks: readonly { readonly path: string; readonly hunk: number | 'all'; readonly newLines: readonly string[] }[];
 	/** How many accepts the user made that were applied. An undo does not take one back: this counts what was asked for. */
@@ -238,6 +242,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly sanctionedDisk = new Map<string, string>();
 	readonly pendingBuffer = new Map<string, string>();
 	readonly typedTexts: string[] = [];
+	readonly priorNotes: string[] = [];
 	readonly acceptedHunks: { path: string; hunk: number | 'all'; newLines: readonly string[] }[] = [];
 	userAccepts = 0;
 	readonly acceptedBufferMismatches: string[] = [];
@@ -299,11 +304,16 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			if (printed !== undefined) {
 				return { exitCode: 0, output: 'x'.repeat(Math.min(Number(printed), 4_000_000)) };
 			}
+			const scripted = episode.commandOutputs?.[command];
+			if (scripted !== undefined) {
+				return { exitCode: 0, output: scripted };
+			}
 			return { exitCode: 0, output: command.startsWith('cat ') ? (episode.files[command.slice(4).trim()] ?? '') : `ran: ${command}\n` };
 		};
 		this.runtime = this._disposables.add(new OnyxSimRuntimeService(episode.turns, episode.persona, this, this.trace, commandScript, episode.commandRefusal, episode.runtimeContextTokens, episode.constrained === true, options.liveTurn, episode.lmStudioLoadsAt));
 		this.dialogs = new OnyxSimDialogService(episode.dialogDefault, this, this.trace);
 		this.tools = new OnyxSimToolsService(this, this.trace);
+		this.dialogs.toolResultCount = () => this.tools.results.length;
 
 		const fileService = this._disposables.add(new FileService(new NullLogService()));
 		this._provider = this._disposables.add(new OnyxSimFileSystemProvider());
@@ -320,7 +330,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			const environment: IEnvironmentService = Object.create(instantiationService.get(IEnvironmentService), { isBuilt: { value: true } });
 			instantiationService.stub(IEnvironmentService, environment);
 		}
-		instantiationService.stub(IOnyxHarnessConfigService, instantiationService.createInstance(OnyxHarnessConfigService));
+		const harnessConfig = instantiationService.createInstance(OnyxHarnessConfigService);
+		instantiationService.stub(IOnyxHarnessConfigService, harnessConfig);
 		instantiationService.stub(IDialogService, this.dialogs);
 		instantiationService.stub(ILanguageModelToolsService, this.tools);
 		// A constrained episode is a model whose tool calls are unreliable enough to be forced into the envelope.
@@ -334,7 +345,6 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		instantiationService.stub(IWorkspaceTrustManagementService, this._disposables.add(new TestWorkspaceTrustManagementService(options.workspaceTrusted ?? true)));
 		instantiationService.stub(IOnyxEnergyService, new OnyxSimEnergyService());
 		instantiationService.stub(IOnyxPinService, new OnyxSimPinService());
-		instantiationService.stub(IOnyxPlaybookService, new OnyxSimPlaybookService());
 		this.tasks = new OnyxSimTaskService(this.trace);
 		instantiationService.stub(ITaskService, this.tasks);
 		// The product's own search defaults: ignore files are honoured and symbolic links are followed. The
@@ -378,6 +388,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this.verification = this._disposables.add(instantiationService.createInstance(OnyxVerificationService));
 		instantiationService.stub(IOnyxVerificationService, this.verification);
 		this.markers = instantiationService.get(IMarkerService);
+		// The product's playbook service over the in-memory disk (D11): it reads `.onyx/playbooks/*.md` the way the product does.
+		instantiationService.stub(IOnyxPlaybookService, this._disposables.add(instantiationService.createInstance(OnyxPlaybookService)));
 		this._disposables.add(instantiationService.createInstance(OnyxReadFileToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxListDirectoryToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxFindFilesToolContribution));
@@ -385,6 +397,15 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this._disposables.add(instantiationService.createInstance(OnyxEditToolContribution));
 		this._disposables.add(instantiationService.createInstance(OnyxTerminalToolContribution));
 		this._disposables.add(instantiationService.createInstance(classes.MemoryTool));
+		// The documentation mirror and the playbooks (D11): two more surfaces that put repository text in front of the model.
+		this._disposables.add(instantiationService.createInstance(OnyxDocsToolContribution));
+		this._disposables.add(instantiationService.createInstance(OnyxPlaybookToolContribution));
+		this.runtime.docsCorpus = () => this._markdownFiles();
+		if (episode.campaign) {
+			// A lab campaign's unit (L9, DEC-10): what `OnyxLabCampaign` sets before it runs anything.
+			this._terminal.setCampaignPolicy(true);
+			harnessConfig.campaignPolicy = true;
+		}
 		// What else the core registry holds: reviewed tools, network tools, excluded tools and unknown ones.
 		for (const tool of SIM_CORE_TOOLS) {
 			const source: ToolDataSource = tool.source === 'internal'
@@ -842,7 +863,12 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		if (this.episode.projectConfig) {
 			await this._fileService.writeFile(this._uri('.onyx/config.json'), VSBuffer.fromString(JSON.stringify(this.episode.projectConfig, undefined, '\t') + '\n'));
 		}
-		// The project config service reads the file on a short timer after it starts; let that pass.
+		// An earlier session's notes, confirmed then (D11): what every prompt of this episode carries.
+		for (const note of this.episode.memoryNotes ?? []) {
+			this.memory.addNote(note);
+			this.priorNotes.push(note);
+		}
+		// The project config service and the playbook service read their files on a short timer after they start; let that pass.
 		await timeout(400);
 		// Outside the workspace root, and a symbolic link to it from inside:
 		// neither may ever be read on the model's behalf (I-07, read side).
@@ -852,6 +878,32 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		await this._open(this.episode.target);
 		this.runtime.announce();
 		await this._languageModels.refresh();
+	}
+
+	/** The workspace's markdown as the documentation indexer walks it: no dot-directories, no build output or dependencies. */
+	private async _markdownFiles(): Promise<{ path: string; content: string }[]> {
+		const excluded = new Set(['node_modules', 'out', 'dist', 'build', 'target', 'coverage', 'vendor']);
+		const found: { path: string; content: string }[] = [];
+		const walk = async (directory: URI, prefix: string): Promise<void> => {
+			let children;
+			try {
+				children = (await this._fileService.resolve(directory)).children ?? [];
+			} catch {
+				return;
+			}
+			for (const child of children) {
+				const path = prefix ? `${prefix}/${child.name}` : child.name;
+				if (child.isDirectory) {
+					if (!child.name.startsWith('.') && !excluded.has(child.name)) {
+						await walk(child.resource, path);
+					}
+				} else if (child.name.toLowerCase().endsWith('.md')) {
+					found.push({ path, content: (await this._fileService.readFile(child.resource)).value.toString() });
+				}
+			}
+		};
+		await walk(simWorkspaceUri(), '');
+		return found;
 	}
 
 	/** Calls one registered tool by its reference name, outside any run: for tests of a tool's own limits and refusals. */

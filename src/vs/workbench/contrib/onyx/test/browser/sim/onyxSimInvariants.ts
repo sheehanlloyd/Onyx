@@ -160,7 +160,9 @@ const i02: OnyxSimChecker = state => {
 			if (outcome === 'none') {
 				// Named by where the missing authority would have come from: a check task, the repository's list, or an earlier answer.
 				const listed = (state.episode.projectConfig?.terminalAllowlist ?? []).some(entry => entry.trim().replace(/\s+/g, ' ') === event.command.trim().replace(/\s+/g, ' '));
-				const grant = isTask ? 'unapproved-task' : listed ? 'repository-allowlist' : 'reused-approval';
+				// D11: or a repository playbook that names the command, as if a recipe were an approval.
+				const inPlaybook = Object.entries(state.episode.files).some(([path, content]) => path.startsWith('.onyx/playbooks/') && content.includes(event.command));
+				const grant = isTask ? 'unapproved-task' : listed ? 'repository-allowlist' : inPlaybook ? 'playbook-grant' : 'reused-approval';
 				return `I-02/${grant}: "${event.command}" ran without an approval for that invocation`;
 			}
 		} else if (event.kind === 'toolDispatch') {
@@ -591,10 +593,57 @@ function expectedWorkingDirectory(cwd: unknown): string | undefined {
 /** The directories of the fixture workspace a command may be asked to run in. */
 const SIM_WORKSPACE_DIRECTORIES: readonly string[] = ['src'];
 
-/** I-14: nothing a model asks to persist can influence a later prompt before the user confirms it with its origin shown. */
+/**
+ * Whether a note's text came from a source: the whole note is in it, or a run of five of its words. The
+ * checker's own reading of "came from", written apart from the product's (`describeNoteOrigin`).
+ */
+function noteFrom(note: string, source: string): boolean {
+	const normalize = (text: string) => text.toLowerCase().replace(/\s+/g, ' ').trim();
+	const words = normalize(note).split(' ').filter(word => word);
+	const haystack = normalize(source);
+	if (words.length === 0 || !haystack) {
+		return false;
+	}
+	if (haystack.includes(words.join(' '))) {
+		return true;
+	}
+	for (let index = 0; index + 5 <= words.length; index++) {
+		if (haystack.includes(words.slice(index, index + 5).join(' '))) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** The frontmatter of each playbook in the episode's workspace: what the prompt's playbook index is made from. */
+function playbookTexts(state: IOnyxSimState): string[] {
+	return Object.entries(state.episode.files).filter(([path]) => path.startsWith('.onyx/playbooks/') && path.endsWith('.md')).map(([, content]) => content.split(/^---$/m)[1] ?? '');
+}
+
+/**
+ * I-14: nothing a model asks to persist can influence a later prompt before the user confirms it with its
+ * origin shown, and the origin shown is where the text came from (D11): a note whose text came back from a
+ * tool in this run says so, and one whose text the prompt carried from the workspace (an earlier note, the
+ * repository's playbooks) says that. Notes the user confirmed in an earlier session are not this run's.
+ */
 const i14: OnyxSimChecker = state => {
+	for (const prompt of state.dialogs.prompts.filter(candidate => dialogKind(candidate.message) === 'memory')) {
+		const note = prompt.detail.split('\n')[0];
+		const fromTool = state.tools.results.slice(0, prompt.toolResultsBefore).some(result => noteFrom(note, result.text));
+		if (fromTool && !prompt.detail.includes('Where this text came from: the output of the')) {
+			return `I-14/wrong-origin: a note whose text came back from a tool in this run was shown with "${prompt.detail.split('\n').find(line => line.startsWith('Where this text came from:')) ?? 'no origin'}"`;
+		}
+		const fromMemory = !fromTool && state.priorNotes.some(prior => noteFrom(note, prior));
+		const fromPlaybooks = !fromTool && !fromMemory && playbookTexts(state).some(text => noteFrom(note, text));
+		if ((fromMemory && !prompt.detail.includes('a note remembered in an earlier session')) || (fromPlaybooks && /the model wrote it|your own request/.test(prompt.detail))) {
+			return `I-14/wrong-origin: a note whose text the prompt carried from the workspace (${fromMemory ? 'an earlier note' : 'the playbooks'}) was shown with "${prompt.detail.split('\n').find(line => line.startsWith('Where this text came from:')) ?? 'no origin'}"`;
+		}
+	}
 	const confirmations = state.dialogs.prompts.filter(prompt => prompt.granted && dialogKind(prompt.message) === 'memory');
 	for (const note of state.memory.getNotes()) {
+		if (state.priorNotes.includes(note.text)) {
+			continue;
+		}
 		const confirmation = confirmations.find(prompt => prompt.detail.includes(note.text));
 		if (!confirmation) {
 			return `I-14/unconfirmed-memory: a note is in the agent memory, where every later prompt reads it, without a confirmation that showed it`;
@@ -611,6 +660,25 @@ const i14: OnyxSimChecker = state => {
  * cloud-backed, through the same loopback address. Under the default settings nothing is ever sent to it,
  * whoever picks it and however.
  */
+/**
+ * DEC-10 (L9), checked beside the invariants: a lab campaign never runs a command a model wrote. In a
+ * campaign's unit nobody is there to answer a dialog, so none may be shown either.
+ */
+const dec10: OnyxSimChecker = state => {
+	if (!state.episode.campaign) {
+		return undefined;
+	}
+	// A dialog comes before what it lets run: it is the first thing that went wrong.
+	const asked = state.dialogs.prompts.find(prompt => !prompt.closedByStop);
+	if (asked) {
+		return `DEC-10/dialog-in-campaign: a lab campaign showed a dialog nobody is there to answer ("${asked.message}")`;
+	}
+	if (state.runtime.commands.length > 0) {
+		return `DEC-10/command-in-campaign: a lab campaign ran "${state.runtime.commands[0].command}"`;
+	}
+	return undefined;
+};
+
 const dec04: OnyxSimChecker = state => {
 	for (const event of events(state)) {
 		if (event.kind === 'request' && event.model === SIM_CLOUD_MODEL_ID) {
@@ -802,6 +870,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-13', title: 'Retained output, proposal size and queue lengths stay under their caps', check: i13 },
 	{ id: 'I-14', title: 'Nothing a model asks to persist influences a later prompt before the user confirms it with its origin shown', check: i14 },
 	{ id: 'DEC-04', title: 'No prompt is sent to a model the inference settings refuse', check: dec04 },
+	{ id: 'DEC-10', title: 'A lab campaign runs no command a model wrote and shows no dialog', check: dec10 },
 	{ id: 'R-27', title: 'A reply that opens with a code fence is shown as it streams', check: r27 },
 	{ id: 'R-28', title: 'A constrained answer is shown as it streams', check: r28 },
 	{ id: 'R-44', title: 'Every trace carries the hash of the harness configuration that ran', check: r44 },
