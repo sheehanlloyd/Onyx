@@ -866,6 +866,17 @@ async function main() {
 	};
 	check('the prompt carries workspace context', lastPrompt.includes('Files the user is working on'), promptDetail());
 	check('the prompt carries agent memory', lastPrompt.includes('Facts remembered from earlier sessions'), promptDetail());
+	// A plain thank-you (2026-11-26): a reply and nothing else, and the workspace context goes to the model as a
+	// system message, not as a user turn just before the thanks, which the 7B answered "Understood." to.
+	const thanks = runs.find(run => run.events.some(event => event.kind === 'promptSnapshot' && JSON.stringify(event.data?.messages ?? []).includes('Thanks, that is all.')));
+	const thanksMessages: { role: number; content: { value?: string }[] }[] = (thanks?.events.filter(event => event.kind === 'promptSnapshot' && event.data?.messages).pop()?.data?.messages) ?? [];
+	const beforeThanks = thanksMessages[thanksMessages.length - 2];
+	check('a thank-you gets a plain reply: no tool is called, the run completes, and the workspace context is a system message before it', !!thanks
+		&& !thanks.events.some(event => event.kind === 'toolCall')
+		&& thanks.events.some(event => event.kind === 'outcome' && event.data?.status === 'completed')
+		&& thanksMessages[thanksMessages.length - 1]?.content.map(part => part.value ?? '').join('') === 'Thanks, that is all.'
+		&& beforeThanks?.role === 0 && (beforeThanks.content[0]?.value ?? '').startsWith('[Workspace context'),
+	JSON.stringify({ found: !!thanks, tools: thanks?.events.filter(event => event.kind === 'toolCall').map(event => event.data?.label), roles: thanksMessages.map(message => message.role) }));
 
 	const symbolResult = snapshots.map(snapshot => JSON.stringify(snapshot.data)).find(text => text.includes('Call graph of computeTotal'));
 	check('repoSymbols returned a call graph', !!symbolResult, 'no call-graph section in any tool result');

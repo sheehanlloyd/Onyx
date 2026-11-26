@@ -310,7 +310,7 @@ suite('OnyxRoutingAndProfiles', () => {
 			// volatile workspace context adjacent to the newest user message.
 			// (Verified live via the journal; here we pin the pure prefix math.)
 			const stablePrefix = [message(ChatMessageRole.System, 'stable system prompt'), message(ChatMessageRole.User, 'turn one')];
-			const nextTurn = [...stablePrefix, message(ChatMessageRole.User, '[Workspace context — background, not a request]\nchanged files'), message(ChatMessageRole.User, 'turn two')];
+			const nextTurn = [...stablePrefix, message(ChatMessageRole.System, '[Workspace context — background, not a request]\nchanged files'), message(ChatMessageRole.User, 'turn two')];
 			const reused = commonPrefixTokens(stablePrefix, nextTurn);
 			const total = nextTurn.reduce((sum, m) => sum + Math.ceil(JSON.stringify(m).length / 4), 0);
 			assert.ok(reused > 0 && reused < total);

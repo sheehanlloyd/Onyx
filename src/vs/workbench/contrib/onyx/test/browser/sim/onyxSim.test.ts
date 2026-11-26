@@ -6,7 +6,7 @@
 import { isTerminalRunStatus } from '../../../common/onyxTypes.js';
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { generateEpisode, OnyxSimEpisode, OnyxSimPersonaKind, serializeEpisode } from './onyxSimEpisode.js';
+import { generateEpisode, OnyxSimEpisode, OnyxSimPersonaKind, serializeEpisode, SIM_FILES, SIM_TARGET_FILE } from './onyxSimEpisode.js';
 import { BASELINE_EXCEPTIONS } from './onyxSimBaseline.js';
 import { allCheckers, INVARIANTS, UNOBSERVABLE_IN_RIG } from './onyxSimInvariants.js';
 import { parseTrace, validateTrace } from '../../../common/onyxTrace.js';
@@ -228,6 +228,19 @@ suite('OnyxSim', () => {
 			entries: ['README.txt', 'journal/index.json', 'journal/runs/<run>.jsonl', 'machine.json', 'models.json', 'profiles.json', 'runtimes.json', 'settings.json'],
 			journalHasTheRun: true,
 		});
+	});
+
+	test('a thank-you is a plain turn: the workspace context reaches the model as a system message before it, not as a user turn, and nothing but a reply comes back', async function () {
+		const episode: OnyxSimEpisode = { name: 'thanks', seed: 0, persona: 'well-behaved', prompt: 'thank you', files: SIM_FILES, target: SIM_TARGET_FILE, turns: [{ kind: 'text', text: 'You are welcome.' }], dialogDefault: 'deny', userSteps: [], faults: [], memoryNotes: ['the tests run with npm test'] };
+		const result = await runEpisode(episode);
+		const request = result.trace.split('\n').filter(line => line.trim()).map(line => JSON.parse(line) as { kind: string; roles?: string[] }).find(event => event.kind === 'request');
+		const text = result.requests[0]?.text ?? '';
+		assert.deepStrictEqual({
+			roles: request?.roles,
+			contextBeforeTheThanks: text.indexOf('[Workspace context') !== -1 && text.indexOf('[Workspace context') < text.lastIndexOf('thank you'),
+			dispatched: result.toolResults.length,
+			status: result.status,
+		}, { roles: ['system', 'system', 'user'], contextBeforeTheThanks: true, dispatched: 0, status: 'completed' });
 	});
 
 	test('shrinking keeps the violation and makes the script smaller', async () => {

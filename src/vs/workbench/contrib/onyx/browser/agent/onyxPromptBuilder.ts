@@ -94,8 +94,11 @@ export class OnyxPromptBuilder {
 
 		const historyMessages = this._historyMessages(history, profile);
 		const attachmentText = await this._attachmentText(request);
+		// A system message, not a user one: sent as a user turn just before the request, the background was a
+		// message the model answered. Thanked after a greeting, the 7B replied "Understood." to it, in every one of
+		// five samples, and "You're welcome!" in five of five once it was a system message (2026-11-26).
 		const contextMessage: IChatMessage | undefined = workspaceContext ? {
-			role: ChatMessageRole.User,
+			role: ChatMessageRole.System,
 			content: [{ type: 'text', value: `[Workspace context — background, not a request]\n${workspaceContext}` }],
 		} : undefined;
 		const systemTokens = estimateMessageTokens(system);
