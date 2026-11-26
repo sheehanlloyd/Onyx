@@ -245,6 +245,27 @@ const ANALYSES: readonly IAnalysis[] = [
 		expectedExit: 0,
 	},
 	{
+		name: 'protocol', script: lab('analyze-protocol.mts'), copies: ['2026-11-26-protocol'],
+		args: directory => [directory('2026-11-26-protocol')],
+		display: `node ${lab('analyze-protocol.mts')} ${RESULTS}/2026-11-26-protocol`,
+		outputs: ['protocol.json', 'outcome-protocol.json'].map(file => [result('2026-11-26-protocol', file), result('2026-11-26-protocol', file)] as const),
+		expectedExit: 0,
+	},
+	{
+		name: 'determinism-edits', script: lab('analyze-determinism.mts'), copies: ['2026-11-26-determinism-edits'],
+		args: directory => [directory('2026-11-26-determinism-edits'), '--editing-units'],
+		display: `node ${lab('analyze-determinism.mts')} ${RESULTS}/2026-11-26-determinism-edits --editing-units`,
+		outputs: ['determinism.json', 'outcome-H-6-editing.json'].map(file => [result('2026-11-26-determinism-edits', file), result('2026-11-26-determinism-edits', file)] as const),
+		expectedExit: 0,
+	},
+	{
+		name: 'forced-eviction', script: lab('analyze-forced-eviction.mts'), copies: ['2026-11-26-eviction-forced'],
+		args: directory => [directory('2026-11-26-eviction-forced')],
+		display: `node ${lab('analyze-forced-eviction.mts')} ${RESULTS}/2026-11-26-eviction-forced`,
+		outputs: ['forced-eviction.json', 'outcome-H-9-condition.json'].map(file => [result('2026-11-26-eviction-forced', file), result('2026-11-26-eviction-forced', file)] as const),
+		expectedExit: 0,
+	},
+	{
 		name: 'edits', script: lab('analyze-edits.mts'), copies: [], slow: true,
 		args: directory => ['--out', directory('2026-11-22-edit-mechanisms'), '--campaign', `${RESULTS}/2026-11-22-single-turn`, '--campaign', `${RESULTS}/2026-11-22-confidence`, '--campaign', `${RESULTS}/2026-11-22-attribution`, '--anchors', `${RESULTS}/2026-11-22-anchors-2`],
 		display: `node ${lab('analyze-edits.mts')} --out ${RESULTS}/2026-11-22-edit-mechanisms --campaign ${RESULTS}/2026-11-22-single-turn --campaign ${RESULTS}/2026-11-22-confidence --campaign ${RESULTS}/2026-11-22-attribution --anchors ${RESULTS}/2026-11-22-anchors-2`,
@@ -1176,6 +1197,45 @@ function buildLimits(): void {
 	recount('limits.h9.largestAgenticPrompt', Math.max(...prompts), eviction, 'the largest `promptTokens` of any request', { unit: 'tokens' });
 }
 
+/**
+ * The three campaigns of Amendment 5, reported beside H-2, H-6 and H-9 (which keep their outcomes). Every
+ * number is read from the output of the analysis that decided it.
+ */
+function buildAmendment5(): void {
+	const protocol = '2026-11-26-protocol/protocol.json';
+	const models = [['small', 0], ['large', 1]] as const; // sorted by identifier: qwen2.5-coder:1.5b, then qwen2.5-coder:7b
+	const arms = [['envelope', 0], ['repaired', 1], ['editFirst', 2]] as const;
+	for (const [size, model] of models) {
+		for (const [arm, index] of arms) {
+			from(`a5.protocol.${size}.${arm}.editOnRecord`, protocol, ['perModel', model, 'arms', index, 'editOnRecord', 'count'], { analysis: 'protocol', denominator: 40 });
+			from(`a5.protocol.${size}.${arm}.editCalls`, protocol, ['perModel', model, 'arms', index, 'editCall', 'count'], { analysis: 'protocol', denominator: 40 });
+			from(`a5.protocol.${size}.${arm}.succeeded`, protocol, ['perModel', model, 'arms', index, 'success', 'count'], { analysis: 'protocol', denominator: 40 });
+			from(`a5.protocol.${size}.${arm}.meanRequests`, protocol, ['perModel', model, 'arms', index, 'meanRequests'], { analysis: 'protocol', digits: 2 });
+		}
+		for (const [pair, index] of [['repairedLessEnvelope', 0], ['editFirstLessEnvelope', 1], ['editFirstLessRepaired', 2]] as const) {
+			from(`a5.protocol.${size}.${pair}`, protocol, ['perModel', model, 'pairs', index, 'editOnRecordDifference'], { analysis: 'protocol', interval: true, digits: 3 });
+		}
+	}
+	from('a5.protocol.records', protocol, ['records'], { analysis: 'protocol' });
+	const editing = '2026-11-26-determinism-edits/outcome-H-6-editing.json';
+	from('a5.determinism.editingUnits', editing, ['editingUnits', 'units'], { analysis: 'determinism-edits' });
+	from('a5.determinism.editingComparisons', editing, ['editingUnits', 'comparisons'], { analysis: 'determinism-edits' });
+	from('a5.determinism.editingIdentical', editing, ['editingUnits', 'identical'], { analysis: 'determinism-edits' });
+	from('a5.determinism.editingShare', editing, ['editingShare'], { analysis: 'determinism-edits', interval: true, scale: 100, digits: 1, unit: 'percent' });
+	from('a5.determinism.allComparisons', editing, ['allComparisons', 'comparisons'], { analysis: 'determinism-edits' });
+	from('a5.determinism.allIdentical', editing, ['allComparisons', 'identical'], { analysis: 'determinism-edits' });
+	const forced = '2026-11-26-eviction-forced/forced-eviction.json';
+	for (const [policy, index] of [['oldest', 0], ['block', 1], ['placeholder', 2]] as const) {
+		from(`a5.eviction.${policy}.runs`, forced, ['policies', index, 'runs'], { analysis: 'forced-eviction' });
+		from(`a5.eviction.${policy}.evicted`, forced, ['policies', index, 'runsThatEvicted'], { analysis: 'forced-eviction' });
+		from(`a5.eviction.${policy}.succeeded`, forced, ['policies', index, 'succeeded'], { analysis: 'forced-eviction' });
+		from(`a5.eviction.${policy}.editOnRecord`, forced, ['policies', index, 'editOnRecord'], { analysis: 'forced-eviction' });
+	}
+	for (const [policy, index] of [['block', 0], ['placeholder', 1]] as const) {
+		from(`a5.eviction.${policy}.pairedUnits`, forced, ['conditions', index, 'pairedUnits'], { analysis: 'forced-eviction' });
+	}
+}
+
 try {
 	if (!skipAnalyses) {
 		runAnalyses(temporary);
@@ -1190,6 +1250,7 @@ try {
 	buildTaskSet();
 	buildTotals(counts);
 	buildLimits();
+	buildAmendment5();
 	buildData();
 
 	const numbersText = serialize({

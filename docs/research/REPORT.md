@@ -4,7 +4,7 @@
 
 ## Abstract
 
-Onyx is a code editor whose agent runs on models served on the user's own machine. This report gives the outcome of ten hypotheses about its harness, each registered with its thresholds before its data existed. Three facts come before any result. No model reproduced a real task exactly in any campaign: 0 of 3,182 attempts, single-turn and agentic, on tasks from two repositories. Under the tool-call protocol the product derives for its two pinned models, neither model got an edit as far as the record in any of 320 agent runs on real tasks; in 18 of those runs the smaller model called the edit tool with arguments the tool rejected. Five of the ten hypotheses are inconclusive, and three of those five (H-2, H-7, H-10) are inconclusive at a floor of zero successes, which says nothing about the question asked.
+Onyx is a code editor whose agent runs on models served on the user's own machine. This report gives the outcome of ten hypotheses about its harness, each registered with its thresholds before its data existed. Three facts come before any result. No model reproduced a real task exactly in any campaign: 0 of 3,739 attempts, single-turn and agentic, on tasks from two repositories. Under the tool-call protocol the product derives for its two pinned models, neither model got an edit as far as the record in any of 320 agent runs on real tasks; in 18 of those runs the smaller model called the edit tool with arguments the tool rejected. Five of the ten hypotheses are inconclusive, and three of those five (H-2, H-7, H-10) are inconclusive at a floor of zero successes, which says nothing about the question asked.
 
 Four hypotheses are supported, one is refuted and five are inconclusive. Supported: a seeded simulation campaign detected all 41 mutants of the harness and ran 50,000 episodes with no violation, on its second run (H-1). A fuzzy edit applier placed 28.7 points more blocks than the product's exact-or-refuse applier, and 53.8% of attempts ended silently wrong under it (H-3). At temperature 0 with a fixed seed, 160 of 160 repetitions of short agent trajectories were identical, in the second campaign; the earlier one was invalidated by a harness defect it found (H-6). Evicting context in blocks re-processed an estimated 0.42 of the prompt tokens that the product's policy did in a scripted run; the hypothesis's success condition was met with no eviction occurring and no run succeeding (H-9). Refuted: grounded edits scored 0.021 higher than ungrounded ones, under the registered 0.05 (H-5). Inconclusive: H-2, H-4, H-7, H-8 and H-10.
 
@@ -12,7 +12,7 @@ The measurements are from one machine, one operator, one runtime, three small mo
 
 ## 1 Thesis
 
-Read this section with three facts in mind. No model reproduced a real task exactly in any campaign: 0 of 3,182 attempts. Under the product's own tool-call protocol neither pinned model got an edit on record in 320 agent runs, and 18 of those runs ended with an edit call the tool rejected. Five hypotheses are inconclusive, three of them at a floor of zero successes.
+Read this section with three facts in mind. No model reproduced a real task exactly in any campaign: 0 of 3,739 attempts. Under the product's own tool-call protocol neither pinned model got an edit on record in 320 agent runs, and 18 of those runs ended with an edit call the tool rejected. Five hypotheses are inconclusive, three of them at a floor of zero successes.
 
 The thesis is the one in [README.md](README.md). Local inference changes what a coding harness can be. Trials cost time and nothing else, so a harness can be measured. Weights are pinned by digest, so a measurement names the exact model. The decoder can be constrained, so a protocol can be enforced. The code under test never leaves the machine, so the user's own repository can be the benchmark. Onyx treats the model as an untrusted, measurable component: every guarantee in the harness contract is meant to hold for any model output, and every published number regenerates from committed data.
 
@@ -120,6 +120,9 @@ A manifest names models, seeds, harness configurations and a task set (`test/ony
 | `2026-11-22-rankings-onyx` | H-7 | S | 120 | 120 | 0 | 1,417 | 8.4 to 6.0 | single requests |
 | `2026-11-22-reference-measure` | none | S, in the application | 54 | 54 | 0 | 1,257 | 11.6 to 8.4 | single requests |
 | `2026-11-22-single-turn` | H-3 | S | 240 | 240 | 0 | 1,952 | 7.8 to 9.0 | single requests |
+| `2026-11-26-determinism-edits` | H-6 | A | 200 | 200 | 0 | 3,635 | 7.0 to 9.0 | ran with the fix |
+| `2026-11-26-eviction-forced` | none | A | 120 | 120 | 0 | 952 | 9.0 to 6.3 | ran with the fix |
+| `2026-11-26-protocol` | none | A | 240 | 237 | 0 | 3,526 | 9.8 to 7.0 | ran with the fix |
 <!-- /generated:campaigns -->
 
 "Ran with the defect" means the campaign-engine defect of section 10: for up to a minute after a campaign checked out a task, prompts named the recently committed files of the task before. Two campaigns were run again with the fix and the earlier ones are superseded. H-2's campaign and the injection run were made with the defect and were not run again.
@@ -339,19 +342,22 @@ Three of these five (H-2, H-7, H-10) are at a floor of zero successes. H-4 is at
 | `2026-11-22-rankings-onyx` | 120 | 0 |
 | `2026-11-22-reference-measure` | 54 | 0 |
 | `2026-11-22-single-turn` | 240 | 0 |
-| **All campaigns on real tasks** | **3,182** | **0** |
+| `2026-11-26-determinism-edits` | 200 | 0 |
+| `2026-11-26-eviction-forced` | 120 | 0 |
+| `2026-11-26-protocol` | 237 | 0 |
+| **All campaigns on real tasks** | **3,739** | **0** |
 | `2026-11-22-injection` (fixture tasks, in no total) | 92 | 3 |
 
 | Agent runs on real tasks under the constrained envelope with search-and-replace edits | Runs | Runs with an edit on record | Runs whose edit call the tool rejected |
 |---|---|---|---|
 | H-2's campaign, its four constrained-envelope configurations (the count STATE.md states) | 320 | 0 | 18 |
-| Every configuration with the product's hash `9801945d`, 6 campaigns | 648 | 0 | 15 |
-| Every such configuration, 7 campaigns | 1,008 | 0 | 38 |
+| Every configuration with the product's hash `9801945d`, 7 campaigns | 728 | 0 | 18 |
+| Every such configuration, 8 campaigns | 1,088 | 0 | 41 |
 <!-- /generated:totals -->
 
-**No model reproduced a real task exactly.** The total is 0 of 3,182 attempts over 14 campaigns, single-turn and agentic. It counts attempts, not independent trials: campaigns reuse tasks, H-6 repeats each unit, and 360 of the attempts are from the two superseded campaigns, which leaves 2,822. The total reproduces the figure `docs/progress/STATE.md` states.
+**No model reproduced a real task exactly.** The total is 0 of 3,739 attempts over 17 campaigns, single-turn and agentic. It counts attempts, not independent trials: campaigns reuse tasks, H-6 repeats each unit, and 360 of the attempts are from the two superseded campaigns, which leaves 3,379. The total reproduces the figure `docs/progress/STATE.md` states.
 
-**Under the product's tool-call protocol neither pinned model got an edit on record.** STATE.md states this as 0 of 320 agent runs, and the count reproduces: the 320 are the four constrained-envelope configurations of H-2's campaign, and none of their records carries an edit. Two qualifications come from the raw records. In 18 of the 320 runs the 1.5B model called the edit tool with arguments the tool rejected, so "proposed no edit" is exact only in the sense that no edit reached staging. And three of those four configurations differ from the product's in elision or line numbering. Counting only configurations with the product's exact hash gives 0 of 648 runs with an edit over six campaigns, and counting every constrained-envelope configuration with search-and-replace edits gives 0 of 1,008. Under repaired text the same models do get edits on record, and under constrained anchors they do too; none reproduced a task.
+**Under the product's tool-call protocol neither pinned model got an edit on record.** STATE.md states this as 0 of 320 agent runs, and the count reproduces: the 320 are the four constrained-envelope configurations of H-2's campaign, and none of their records carries an edit. Two qualifications come from the raw records. In 18 of the 320 runs the 1.5B model called the edit tool with arguments the tool rejected, so "proposed no edit" is exact only in the sense that no edit reached staging. And three of those four configurations differ from the product's in elision or line numbering. Counting only configurations with the product's exact hash gives 0 of 728 runs with an edit over seven campaigns, and counting every constrained-envelope configuration with search-and-replace edits gives 0 of 1,088. Under repaired text the same models do get edits on record, and under constrained anchors they do too; none reproduced a task.
 
 The two pinned models are the ones the product's catalog recommends for a laptop of this size. On real single-file changes from this repository, the agent loop with either model completed none.
 
