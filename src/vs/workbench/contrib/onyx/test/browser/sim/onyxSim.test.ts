@@ -101,7 +101,9 @@ suite('OnyxSim', () => {
 			'b10-stop-then-the-stream-ends': { status: 'cancelled', turns: 1, dispatched: [], staged: 0, dialogs: [] },
 			'b10-stop-before-a-command': { status: 'cancelled', turns: 1, dispatched: ['terminal'], staged: 0, dialogs: [] },
 			'b10-stop-before-an-edit': { status: 'cancelled', turns: 1, dispatched: ['editFile'], staged: 0, dialogs: [] },
-			'b10-stop-while-an-approval-dialog-is-open': { status: 'cancelled', turns: 1, dispatched: [], staged: 0, dialogs: ['allow-once'] },
+			// The dialog open at the Stop is closed by it (B10): until 2026-11-26 it stayed open and was answered "allow-once".
+			'b10-stop-while-a-command-approval-is-open': { status: 'cancelled', turns: 1, dispatched: ['terminal'], staged: 0, dialogs: ['closed by stop'] },
+			'b10-stop-while-an-approval-dialog-is-open': { status: 'cancelled', turns: 1, dispatched: [], staged: 0, dialogs: ['closed by stop'] },
 			'audit-n2-type-above-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
 			'audit-n2-edit-hunk-0-then-accept-hunk-0': { status: 'completed', turns: 2, dispatched: ['editFile', 'editFile'], staged: 2, dialogs: [] },
 			'b8-delete-lines-then-accept-all': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
@@ -176,7 +178,22 @@ suite('OnyxSim', () => {
 			// The call had been handed to the tools service when Stop came; the tool itself was never entered.
 			'b10-stop-before-a-command': { ...stopped, dispatched: 1 },
 			'b10-stop-before-an-edit': { ...stopped, dispatched: 1 },
+			'b10-stop-while-a-command-approval-is-open': { ...stopped, dispatched: 1 },
 			'b10-stop-while-an-approval-dialog-is-open': stopped,
+		});
+	});
+
+	test('B10, I-05: an approval dialog that is open when Stop is pressed is closed by the stop, for a command and for a network call; nobody answers it and nothing runs', async () => {
+		const outcomes: Record<string, { status: string; dialogs: { closedByStop: boolean; granted: boolean }[]; commands: number; violations: string[] }> = {};
+		for (const name of ['b10-stop-while-a-command-approval-is-open', 'b10-stop-while-an-approval-dialog-is-open']) {
+			const result = await runEpisode(SIM_SCENARIOS.find(scenario => scenario.name === name)!, allCheckers());
+			outcomes[name] = { status: result.status, dialogs: result.dialogs.map(dialog => ({ closedByStop: dialog.closedByStop, granted: dialog.granted })), commands: result.commands.length, violations: result.violations.map(violation => violation.invariant) };
+		}
+		// Before, the dialog stayed open: the user's later Run Once was recorded as granted and then ignored.
+		const closed = { status: 'cancelled', dialogs: [{ closedByStop: true, granted: false }], commands: 0, violations: [] };
+		assert.deepStrictEqual(outcomes, {
+			'b10-stop-while-a-command-approval-is-open': closed,
+			'b10-stop-while-an-approval-dialog-is-open': closed,
 		});
 	});
 

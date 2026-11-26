@@ -182,7 +182,7 @@ export interface IOnyxSimResult {
 	/** What the agent loop returned to the chat: an error message when the run was refused or failed. */
 	readonly errorMessage: string | undefined;
 	/** Every dialog the user was shown: what it said, which buttons it offered and what the user decided. */
-	readonly dialogs: readonly { readonly message: string; readonly detail: string; readonly buttons: readonly string[]; readonly decision: string }[];
+	readonly dialogs: readonly { readonly message: string; readonly detail: string; readonly buttons: readonly string[]; readonly decision: string; readonly granted: boolean; readonly closedByStop: boolean }[];
 	/** Every command the runtime was asked to execute, as dispatched. */
 	readonly commands: readonly { readonly cwd: string; readonly command: string; readonly timeoutMs: number; readonly passEnvironment: boolean }[];
 	/** The most command output the terminal service held at once, in characters. */

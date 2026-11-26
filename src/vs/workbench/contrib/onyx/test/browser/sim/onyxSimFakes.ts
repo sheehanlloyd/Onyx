@@ -461,7 +461,8 @@ export class OnyxSimDialogService implements IDialogService {
 	readonly onWillShowDialog = Event.None;
 	readonly onDidShowDialog = Event.None;
 	private _handledPromptButtons: IPromptBaseButton<unknown>[] = [];
-	readonly prompts: { readonly message: string; readonly detail: string; readonly buttons: readonly string[]; readonly decision: OnyxSimDialogDecision; readonly granted: boolean }[] = [];
+	/** Every dialog asked, with how it ended. `closedByStop`: the run was stopped while it was open and the stop closed it (B10). */
+	readonly prompts: { readonly message: string; readonly detail: string; readonly buttons: readonly string[]; readonly decision: OnyxSimDialogDecision; readonly granted: boolean; readonly closedByStop: boolean }[] = [];
 	private _pending: OnyxSimDialogDecision | undefined;
 	private _openDialogs = 0;
 
@@ -488,12 +489,21 @@ export class OnyxSimDialogService implements IDialogService {
 		this._openDialogs++;
 		try {
 			await this._scheduler.boundary('dialogOpen');
+			const detail = typeof prompt.detail === 'string' ? prompt.detail : prompt.detail?.value ?? '';
+			if (prompt.token?.isCancellationRequested) {
+				// The run was stopped while the dialog was open, and the dialog was given the run's token: the
+				// workbench closes it as if its cancel button had been pressed, and nobody answers it (B10).
+				this._pending = undefined;
+				this.prompts.push({ message: prompt.message, detail, buttons: (prompt.buttons ?? []).map(button => button.label), decision: 'dismiss', granted: false, closedByStop: true });
+				this._trace.record({ kind: 'dialog', message: prompt.message, decision: 'closed by stop', granted: false });
+				const cancel = prompt.cancelButton;
+				return { result: typeof cancel === 'object' && cancel ? await cancel.run({ checkboxChecked: false }) : undefined };
+			}
 			const decision = this._pending ?? this._default;
 			this._pending = undefined;
 			// A user who wants to run the command presses a button; one who does not, cancels or dismisses.
 			const granted = decision !== 'dismiss' && decision !== 'deny' && (prompt.buttons ?? []).length > 0;
-			const detail = typeof prompt.detail === 'string' ? prompt.detail : prompt.detail?.value ?? '';
-			this.prompts.push({ message: prompt.message, detail, buttons: (prompt.buttons ?? []).map(button => button.label), decision, granted });
+			this.prompts.push({ message: prompt.message, detail, buttons: (prompt.buttons ?? []).map(button => button.label), decision, granted, closedByStop: false });
 			this._trace.record({ kind: 'dialog', message: prompt.message, decision, granted });
 			this._handledPromptButtons = [...(prompt.buttons ?? [])];
 			if (decision === 'dismiss') {

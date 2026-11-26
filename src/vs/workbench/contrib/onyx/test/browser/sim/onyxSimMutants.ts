@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../../../base/common/cancellation.js';
 import { IOnyxRunHandle, OnyxControlPlaneService, OnyxLiveRun } from '../../../browser/controlPlane/onyxControlPlaneService.js';
 import { IOnyxChangeSetService, OnyxAcceptOutcome, OnyxChangeSetService } from '../../../browser/changes/onyxChangeSetService.js';
 import { OnyxInlineEditSession, OnyxInlineStageOutcome } from '../../../browser/editor/onyxInlineEditSession.js';
@@ -103,7 +104,7 @@ class OnyxMutantUnconfirmedMemoryTool extends OnyxMemoryToolContribution {
 
 /** B2: the repository's list as authority. A command that `.onyx/config.json` names runs with no dialog. */
 class OnyxMutantRepositoryAllowlistTerminal extends OnyxTerminalService {
-	protected override async _authorize(invocation: IOnyxCommandInvocation): Promise<OnyxTerminalDecision> {
+	protected override async _authorize(invocation: IOnyxCommandInvocation, token?: CancellationToken): Promise<OnyxTerminalDecision> {
 		let listed: string[] = [];
 		try {
 			const folder = this._workspaceService.getWorkspace().folders[0];
@@ -112,18 +113,18 @@ class OnyxMutantRepositoryAllowlistTerminal extends OnyxTerminalService {
 		} catch {
 			// no repository configuration: nothing is listed
 		}
-		return listed.includes(normalizeCommand(invocation.command)) ? 'allow-once' : super._authorize(invocation);
+		return listed.includes(normalizeCommand(invocation.command)) ? 'allow-once' : super._authorize(invocation, token);
 	}
 }
 
 /** B2: an approval that outlives its invocation. A command text approved once runs unasked from then on. */
 class OnyxMutantReusedApprovalTerminal extends OnyxTerminalService {
 	private readonly _approvedTexts = new Set<string>();
-	protected override async _authorize(invocation: IOnyxCommandInvocation): Promise<OnyxTerminalDecision> {
+	protected override async _authorize(invocation: IOnyxCommandInvocation, token?: CancellationToken): Promise<OnyxTerminalDecision> {
 		if (this._approvedTexts.has(normalizeCommand(invocation.command))) {
 			return 'allow-once';
 		}
-		const decision = await super._authorize(invocation);
+		const decision = await super._authorize(invocation, token);
 		if (decision === 'allow-once') {
 			this._approvedTexts.add(normalizeCommand(invocation.command));
 		}
@@ -504,6 +505,16 @@ class OnyxMutantStageAppliesChangeSet extends OnyxChangeSetService {
 	}
 }
 
+/** B10: an approval dialog that Stop does not close. It stays on screen after Stop, and its answer is then ignored. */
+class OnyxMutantDialogOutlivesStopTerminal extends OnyxTerminalService {
+	protected override async _askForApproval(invocation: IOnyxCommandInvocation, _token?: CancellationToken): Promise<OnyxTerminalDecision> {
+		return super._askForApproval(invocation);
+	}
+	override async confirmExecution(request: IOnyxExecutionRequest): Promise<boolean> {
+		return super.confirmExecution({ ...request, token: undefined });
+	}
+}
+
 /** I-02, generic: every command is approved without anyone being asked. */
 class OnyxMutantApproveWithoutAskingTerminal extends OnyxTerminalService {
 	protected override async _authorize(_invocation: IOnyxCommandInvocation): Promise<OnyxTerminalDecision> {
@@ -566,6 +577,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'B10-stop-does-not-cancel': { ControlPlaneService: OnyxMutantStopOnlyFlipsStatusControlPlane },
 	'B10-status-overwritten': { ControlPlaneService: OnyxMutantStopOnlyFlipsStatusControlPlane },
 	'B10-pause-without-budget': { ControlPlaneService: OnyxMutantPauseWithoutBudgetControlPlane },
+	'B10-dialog-outlives-stop': { TerminalService: OnyxMutantDialogOutlivesStopTerminal },
 	'C2-verdict-before-acceptance': { AgentLoop: OnyxMutantVerdictBeforeAcceptanceLoop },
 	'B14-address-is-locality': { ModelService: OnyxMutantAddressIsLocalityModelService },
 	'B15-lmstudio-context-not-learned': { ModelService: OnyxMutantContextNotLearnedModelService },

@@ -4,9 +4,10 @@
 		"test/onyx/sim/mutants/*.json",
 		"docs/research/results/2026-11-22-assurance/traces/mutation.json"
 	],
-	"count": 42,
+	"count": 43,
 	"inTheCommittedCampaign": 41,
 	"addedAfterTheCampaign": [
+		"B10-dialog-outlives-stop",
 		"B15-lmstudio-context-not-learned"
 	],
 	"mutants": [
@@ -37,6 +38,16 @@
 				"killedByTheCampaign": true,
 				"firstDetectedAtSeed": 11
 			}
+		},
+		{
+			"id": "B10-dialog-outlives-stop",
+			"descriptor": "test/onyx/sim/mutants/B10-dialog-outlives-stop.json",
+			"defectItResurrects": "An approval dialog open when Stop was pressed stayed on screen: the run was cancelled, nothing ran, and the dialog still waited for an answer that was then ignored (audit of Modules 1 to 4, 2026-11-26)",
+			"fixedBy": "B10",
+			"violationTheCampaignMustReport": "I-05/dialog-outlives-stop",
+			"resurrectedBy": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimMutants.ts#OnyxMutantDialogOutlivesStopTerminal",
+			"scriptPersona": "well-behaved",
+			"inTheCommittedRun": null
 		},
 		{
 			"id": "B10-pause-without-budget",

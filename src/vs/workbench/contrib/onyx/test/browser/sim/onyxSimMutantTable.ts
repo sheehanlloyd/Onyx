@@ -454,6 +454,16 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 		], { dialogDefault: 'deny', userSteps: [{ at: 'betweenChunks', occurrence: 3, step: { kind: 'pause' } }] }),
 	},
 	{
+		id: 'B10-dialog-outlives-stop',
+		fixedBy: 'B10',
+		defect: 'An approval dialog open when Stop was pressed stayed on screen: the run was cancelled, nothing ran, and the dialog still waited for an answer that was then ignored (audit of Modules 1 to 4, 2026-11-26)',
+		detects: 'I-05/dialog-outlives-stop',
+		resurrects: 'OnyxMutantDialogOutlivesStopTerminal',
+		script: script('B10-dialog-outlives-stop', 'Run the tests', [
+			{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
+		], { userSteps: [{ at: 'dialogOpen', occurrence: 1, step: { kind: 'stop' } }] }),
+	},
+	{
 		id: 'C2-verdict-before-acceptance',
 		fixedBy: 'C2',
 		defect: 'Verification ran when a tool-using turn ended, before anything was accepted: a run that had only staged an edit reported "no new problems" of files that did not hold it (Codex N6; R-21)',

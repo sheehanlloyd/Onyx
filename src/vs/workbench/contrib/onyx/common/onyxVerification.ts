@@ -89,11 +89,16 @@ export type OnyxVerificationState =
 	| 'not applied'
 	/** A hunk was accepted; fresh diagnostics for that content are awaited. */
 	| 'running'
-	/** Fresh diagnostics arrived for the accepted content, and none of them is a new problem. */
+	/**
+	 * Fresh diagnostics arrived for the accepted content, and none of them is a
+	 * new problem; or the file had no problems before, has none after, and no
+	 * report came in the wait (`unreported`): a language service that finds a
+	 * clean file still clean reports nothing, because nothing changed.
+	 */
 	| 'verified'
 	/** Fresh diagnostics arrived, and some are problems that were not there before the acceptance. */
 	| 'new problems'
-	/** No fresh diagnostics arrived in time: nothing is known about the accepted content. */
+	/** No fresh diagnostics arrived in time for a file that had problems before: nothing is known about the accepted content. */
 	| 'timed out'
 	/** The file changed after the acceptance, so the result is about content that is no longer there. */
 	| 'stale';
@@ -109,6 +114,8 @@ export interface IOnyxVerificationResult {
 	/** Hunks of the file's proposal that are still staged. Above zero after an acceptance, the result is partial: it covers what was accepted and not these. */
 	readonly stagedHunksLeft: number;
 	readonly diff: IOnyxProblemDiff | null;
+	/** For `verified`: no diagnostics report arrived; the verdict rests on no problem before, none after, and none reported. */
+	readonly unreported?: boolean;
 	/** What a project check found for this content, when one ran, and what it ran on. */
 	readonly check: IOnyxCheckOutcome | null;
 }
@@ -136,7 +143,9 @@ function describeVerificationState(result: IOnyxVerificationResult): string {
 		case 'running': return `Verification: running — waiting for diagnostics of the accepted content of ${file}`;
 		case 'timed out': return `Verification: timed out — no fresh diagnostics for ${file} arrived, so nothing is known about what was accepted`;
 		case 'stale': return `Verification: stale — ${file} changed after the acceptance; the result was for content that is no longer there`;
-		case 'verified': return `Verification: verified — no new problems in ${file} after the acceptance (${result.diff?.after ?? 0} in all${result.diff?.resolved.length ? `, ${result.diff.resolved.length} resolved` : ''})`;
+		case 'verified': return result.unreported
+			? `Verification: verified — no problems in ${file} before or after the acceptance, and none reported while waiting (a clean file that stays clean gets no new report)`
+			: `Verification: verified — no new problems in ${file} after the acceptance (${result.diff?.after ?? 0} in all${result.diff?.resolved.length ? `, ${result.diff.resolved.length} resolved` : ''})`;
 		case 'new problems': {
 			const introduced = result.diff?.introduced ?? [];
 			const first = introduced[0];
