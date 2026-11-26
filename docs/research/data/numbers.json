@@ -3943,6 +3943,14 @@
 			"derivation": "analysis",
 			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
 			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.contextTokens",
+			"value": 3584,
+			"unit": "tokens",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"a context of 3,584 tokens\"",
+			"derivation": "registered"
 		}
 	]
 }

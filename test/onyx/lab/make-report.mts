@@ -1234,6 +1234,7 @@ function buildAmendment5(): void {
 	for (const [policy, index] of [['block', 0], ['placeholder', 1]] as const) {
 		from(`a5.eviction.${policy}.pairedUnits`, forced, ['conditions', index, 'pairedUnits'], { analysis: 'forced-eviction' });
 	}
+	registered('a5.eviction.contextTokens', 3584, 'a context of 3,584 tokens', 'tokens');
 }
 
 try {
