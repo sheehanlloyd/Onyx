@@ -1,0 +1,490 @@
+{
+	"ranAt": "2026-11-26T06:36:20.879Z",
+	"product": {
+		"nameShort": "Onyx",
+		"commit": "f0f059b0ccd63b737e5d4f1249a76315eda1adfa"
+	},
+	"power": {
+		"atStart": {
+			"at": "2026-11-26T06:36:20.895Z",
+			"source": "AC Power",
+			"battery": "100%; charged",
+			"powermode": "2"
+		},
+		"atEnd": {
+			"at": "2026-11-26T07:48:58.310Z",
+			"source": "AC Power",
+			"battery": "100%; charged",
+			"powermode": "2"
+		}
+	},
+	"machine": {
+		"model": "Mac16,8",
+		"memoryGb": 24,
+		"loadAverageAtEnd": [
+			3.908203125,
+			3.6796875,
+			3.23779296875
+		]
+	},
+	"minutesRequested": 60,
+	"minutesRun": 72.6,
+	"suiteRuns": 8,
+	"failedRuns": 0,
+	"iterations": [
+		{
+			"index": 1,
+			"seconds": 497,
+			"exitCode": 0,
+			"result": "all 73 checks passed",
+			"failures": [],
+			"log": ".build/soak-runs/run-1.log",
+			"peakRendererMb": 933,
+			"peakTotalMb": 1766,
+			"leftBehind": []
+		},
+		{
+			"index": 2,
+			"seconds": 496,
+			"exitCode": 0,
+			"result": "all 73 checks passed",
+			"failures": [],
+			"log": ".build/soak-runs/run-2.log",
+			"peakRendererMb": 924,
+			"peakTotalMb": 1757,
+			"leftBehind": []
+		},
+		{
+			"index": 3,
+			"seconds": 495,
+			"exitCode": 0,
+			"result": "all 73 checks passed",
+			"failures": [],
+			"log": ".build/soak-runs/run-3.log",
+			"peakRendererMb": 897,
+			"peakTotalMb": 1733,
+			"leftBehind": []
+		},
+		{
+			"index": 4,
+			"seconds": 495,
+			"exitCode": 0,
+			"result": "all 73 checks passed",
+			"failures": [],
+			"log": ".build/soak-runs/run-4.log",
+			"peakRendererMb": 901,
+			"peakTotalMb": 1738,
+			"leftBehind": []
+		},
+		{
+			"index": 5,
+			"seconds": 495,
+			"exitCode": 0,
+			"result": "all 73 checks passed",
+			"failures": [],
+			"log": ".build/soak-runs/run-5.log",
+			"peakRendererMb": 901,
+			"peakTotalMb": 1734,
+			"leftBehind": []
+		},
+		{
+			"index": 6,
+			"seconds": 496,
+			"exitCode": 0,
+			"result": "all 73 checks passed",
+			"failures": [],
+			"log": ".build/soak-runs/run-6.log",
+			"peakRendererMb": 894,
+			"peakTotalMb": 1728,
+			"leftBehind": []
+		},
+		{
+			"index": 7,
+			"seconds": 495,
+			"exitCode": 0,
+			"result": "all 73 checks passed",
+			"failures": [],
+			"log": ".build/soak-runs/run-7.log",
+			"peakRendererMb": 897,
+			"peakTotalMb": 1732,
+			"leftBehind": []
+		},
+		{
+			"index": 8,
+			"seconds": 495,
+			"exitCode": 0,
+			"result": "all 73 checks passed",
+			"failures": [],
+			"log": ".build/soak-runs/run-8.log",
+			"peakRendererMb": 895,
+			"peakTotalMb": 1730,
+			"leftBehind": []
+		}
+	],
+	"rendererPeakMb": {
+		"min": 894,
+		"max": 933,
+		"firstRun": 933,
+		"lastRun": 895
+	},
+	"idleInstance": {
+		"samples": [
+			{
+				"minute": 1,
+				"rendererMb": 532,
+				"totalMb": 1277
+			},
+			{
+				"minute": 2,
+				"rendererMb": 532,
+				"totalMb": 1280
+			},
+			{
+				"minute": 3,
+				"rendererMb": 533,
+				"totalMb": 1280
+			},
+			{
+				"minute": 4,
+				"rendererMb": 533,
+				"totalMb": 1280
+			},
+			{
+				"minute": 5,
+				"rendererMb": 533,
+				"totalMb": 1280
+			},
+			{
+				"minute": 6,
+				"rendererMb": 533,
+				"totalMb": 1281
+			},
+			{
+				"minute": 7,
+				"rendererMb": 533,
+				"totalMb": 1282
+			},
+			{
+				"minute": 8,
+				"rendererMb": 527,
+				"totalMb": 1275
+			},
+			{
+				"minute": 9,
+				"rendererMb": 527,
+				"totalMb": 1279
+			},
+			{
+				"minute": 10,
+				"rendererMb": 527,
+				"totalMb": 1279
+			},
+			{
+				"minute": 11,
+				"rendererMb": 527,
+				"totalMb": 1281
+			},
+			{
+				"minute": 12,
+				"rendererMb": 527,
+				"totalMb": 1281
+			},
+			{
+				"minute": 13,
+				"rendererMb": 527,
+				"totalMb": 1281
+			},
+			{
+				"minute": 14,
+				"rendererMb": 527,
+				"totalMb": 1282
+			},
+			{
+				"minute": 15,
+				"rendererMb": 527,
+				"totalMb": 1282
+			},
+			{
+				"minute": 16,
+				"rendererMb": 527,
+				"totalMb": 1282
+			},
+			{
+				"minute": 17,
+				"rendererMb": 527,
+				"totalMb": 1285
+			},
+			{
+				"minute": 18,
+				"rendererMb": 527,
+				"totalMb": 1287
+			},
+			{
+				"minute": 19,
+				"rendererMb": 528,
+				"totalMb": 1287
+			},
+			{
+				"minute": 20,
+				"rendererMb": 528,
+				"totalMb": 1287
+			},
+			{
+				"minute": 21,
+				"rendererMb": 528,
+				"totalMb": 1288
+			},
+			{
+				"minute": 22,
+				"rendererMb": 375,
+				"totalMb": 1017
+			},
+			{
+				"minute": 23,
+				"rendererMb": 241,
+				"totalMb": 811
+			},
+			{
+				"minute": 24,
+				"rendererMb": 241,
+				"totalMb": 813
+			},
+			{
+				"minute": 25,
+				"rendererMb": 263,
+				"totalMb": 843
+			},
+			{
+				"minute": 26,
+				"rendererMb": 263,
+				"totalMb": 840
+			},
+			{
+				"minute": 27,
+				"rendererMb": 263,
+				"totalMb": 840
+			},
+			{
+				"minute": 28,
+				"rendererMb": 263,
+				"totalMb": 841
+			},
+			{
+				"minute": 29,
+				"rendererMb": 263,
+				"totalMb": 843
+			},
+			{
+				"minute": 30,
+				"rendererMb": 263,
+				"totalMb": 842
+			},
+			{
+				"minute": 31,
+				"rendererMb": 263,
+				"totalMb": 842
+			},
+			{
+				"minute": 32,
+				"rendererMb": 263,
+				"totalMb": 842
+			},
+			{
+				"minute": 33,
+				"rendererMb": 264,
+				"totalMb": 849
+			},
+			{
+				"minute": 34,
+				"rendererMb": 264,
+				"totalMb": 848
+			},
+			{
+				"minute": 35,
+				"rendererMb": 264,
+				"totalMb": 847
+			},
+			{
+				"minute": 36,
+				"rendererMb": 264,
+				"totalMb": 848
+			},
+			{
+				"minute": 37,
+				"rendererMb": 264,
+				"totalMb": 845
+			},
+			{
+				"minute": 38,
+				"rendererMb": 264,
+				"totalMb": 845
+			},
+			{
+				"minute": 39,
+				"rendererMb": 264,
+				"totalMb": 846
+			},
+			{
+				"minute": 40,
+				"rendererMb": 264,
+				"totalMb": 846
+			},
+			{
+				"minute": 41,
+				"rendererMb": 264,
+				"totalMb": 846
+			},
+			{
+				"minute": 42,
+				"rendererMb": 264,
+				"totalMb": 847
+			},
+			{
+				"minute": 43,
+				"rendererMb": 264,
+				"totalMb": 847
+			},
+			{
+				"minute": 44,
+				"rendererMb": 264,
+				"totalMb": 847
+			},
+			{
+				"minute": 45,
+				"rendererMb": 264,
+				"totalMb": 847
+			},
+			{
+				"minute": 46,
+				"rendererMb": 264,
+				"totalMb": 848
+			},
+			{
+				"minute": 47,
+				"rendererMb": 264,
+				"totalMb": 847
+			},
+			{
+				"minute": 48,
+				"rendererMb": 264,
+				"totalMb": 848
+			},
+			{
+				"minute": 49,
+				"rendererMb": 264,
+				"totalMb": 848
+			},
+			{
+				"minute": 50,
+				"rendererMb": 266,
+				"totalMb": 853
+			},
+			{
+				"minute": 51,
+				"rendererMb": 269,
+				"totalMb": 856
+			},
+			{
+				"minute": 52,
+				"rendererMb": 268,
+				"totalMb": 855
+			},
+			{
+				"minute": 53,
+				"rendererMb": 268,
+				"totalMb": 855
+			},
+			{
+				"minute": 54,
+				"rendererMb": 267,
+				"totalMb": 853
+			},
+			{
+				"minute": 55,
+				"rendererMb": 267,
+				"totalMb": 853
+			},
+			{
+				"minute": 56,
+				"rendererMb": 267,
+				"totalMb": 854
+			},
+			{
+				"minute": 57,
+				"rendererMb": 267,
+				"totalMb": 853
+			},
+			{
+				"minute": 58,
+				"rendererMb": 268,
+				"totalMb": 859
+			},
+			{
+				"minute": 59,
+				"rendererMb": 268,
+				"totalMb": 856
+			},
+			{
+				"minute": 60,
+				"rendererMb": 268,
+				"totalMb": 856
+			},
+			{
+				"minute": 61,
+				"rendererMb": 268,
+				"totalMb": 856
+			},
+			{
+				"minute": 62,
+				"rendererMb": 268,
+				"totalMb": 857
+			},
+			{
+				"minute": 63,
+				"rendererMb": 268,
+				"totalMb": 856
+			},
+			{
+				"minute": 64,
+				"rendererMb": 266,
+				"totalMb": 854
+			},
+			{
+				"minute": 65,
+				"rendererMb": 266,
+				"totalMb": 853
+			},
+			{
+				"minute": 66,
+				"rendererMb": 266,
+				"totalMb": 853
+			},
+			{
+				"minute": 66.1,
+				"rendererMb": 268,
+				"totalMb": 871
+			}
+		],
+		"rendererMbAfterTwoMinutes": 532,
+		"rendererMbAtEnd": 268,
+		"rendererMbMax": 533
+	},
+	"leftBehind": [],
+	"crashReports": [],
+	"campaign": {
+		"ran": true,
+		"exitCode": 0,
+		"seconds": 388,
+		"tail": "campaign: 50000 of 50000 episodes with no violation, in 348 s; exit 0 ⏎ mutants: 43 of 43 killed, in 38 s; the test's exit 0 ⏎ H-1: supported; wrote .build/soak-assurance/0000-00-00-soak"
+	},
+	"notShown": "one window used for many hours: each suite run is a new process that lives for minutes, and the long-lived instance is idle",
+	"passed": true,
+	"sleepCheck": {
+		"method": "pmset -g log over the window, for Sleep, Wake and DarkWake entries",
+		"from": "2026-11-26T06:36:20Z",
+		"to": "2026-11-26T07:48:58Z",
+		"entries": 0,
+		"lid": "closed; AppleClamshellCausesSleep = No (the owner's Amphetamine held a system-sleep assertion)",
+		"power": "AC Power for the whole window, battery 100%, powermode 2 (Low Power Mode off)"
+	}
+}

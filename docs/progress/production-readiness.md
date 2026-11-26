@@ -1,8 +1,8 @@
 # Production readiness (D8)
 
-Candidate: the packaged build of `4eb52add73f` (module-5 after merging `main` at `d4b97cab187`), built on the reference machine on 2026-11-24. Every packaged measurement below was taken on that build. Earlier runs on earlier builds are not used.
+Candidate: the packaged build of `f0f059b0ccd` (module-5 with the fixes of the audit of 2026-11-26), built on the reference machine on 2026-11-26. The soak, the budgets and the module gate's egress audit (R-60) were taken on that build. The accessibility probe and the egress record of 2026-11-24 below were taken on the earlier candidate, the build of `4eb52add73f`; the gate repeats the egress audit live on the current build, and its record replaces the earlier one when the gate is run (see STATE.md). The probe was not repeated: the audit's fixes changed which dialog style an approval uses (the workbench's own, so that Stop can close it), not the accessible names of any control.
 
-**Summary.** The egress audit passed (R-60). The accessibility probe found no unnamed or unreachable control on any Onyx surface the suite opens. The budgets are measured and published as measurements. The open-source files are in place. Gitleaks found nothing. The soak result is in its own section below. **This is not a clean bill of health:** the dependency audit found high-severity advisories in packages the application ships, all inherited from upstream 1.147.0 and none added by Onyx, and the final sweep therefore lists open P1 candidates that need the owner's decision under DEC-05.
+**Summary.** The egress audit passed (R-60). The accessibility probe found no unnamed or unreachable control on any Onyx surface the suite opens. The budgets are measured and published as measurements. The open-source files are in place. Gitleaks found nothing. The one-hour soak passed on the candidate, after five earlier soaks that found the defects listed in its section. **This is not a clean bill of health:** the dependency audit found high-severity advisories in packages the application ships, all inherited from upstream 1.147.0 and none added by Onyx, and the final sweep therefore lists open P1 candidates that need the owner's decision under DEC-05.
 
 ## Egress audit (R-60)
 
@@ -39,27 +39,42 @@ Two product defaults were set for this rule (D1): extension update checks, auto-
 
 ## Stability: one-hour soak
 
-SOAK_SECTION
+`node test/onyx/run-soak.mts --app ../VSCode-darwin-arm64/Onyx.app`, on the build of `f0f059b0ccd`, 2026-11-26, 06:36:20 to 07:48:58 UTC. Result in [soak.json](./soak.json): **passed**.
+
+- **Power:** on mains (94 W) for the whole window, battery 100% at the start and at the end, Low Power Mode off (`powermode 2`, high power). The lid was closed; the owner's Amphetamine held a system-sleep assertion (`AppleClamshellCausesSleep = No`), and `pmset -g log` has no Sleep, Wake or DarkWake entry in the window. No speed figure is taken from this run.
+- **Suite:** 8 runs of the end-to-end suite on the packaged app, back to back, beside a second, idle instance of the app, in 72.6 minutes: all 73 checks passed in every run. Nothing was left running after any run; no crash report was written.
+- **Memory:** the suite's renderer peaked between 894 and 933 MB a run, with no growth from run to run. The idle instance's renderer went from 532 MB to 268 MB over the hour.
+- **Campaign:** the full simulation campaign afterwards: 50,000 of 50,000 episodes with no violation, and 43 of 43 mutants detected.
+
+**The soaks before this one, and what each found.** None of their results is used here.
+
+| Started (UTC) | Build | Result | What it found |
+|---|---|---|---|
+| 2026-11-24 17:13 | `4eb52add73f` | discarded | the suite's window behind the owner's applications stopped rendering and lost focus; the driver had no time limit (fixed: `15f571a060a`, `17a44401773`; D8.md) |
+| 2026-11-25 17:39 | `4eb52add73f` | discarded | the Mac went onto battery four minutes in, which the rule then in force did not allow |
+| 2026-11-25 18:40 | `4eb52add73f` | void | the Mac slept with the lid closed, on battery, 37 minutes in |
+| 2026-11-26 03:46 | `4eb52add73f` | failed | one of eight runs stopped: F1 left no visible Command Palette while a run streamed (the suite now waits for it, `ab948abdeb2`) |
+| 2026-11-26 05:11 | `0a8e3023a19` | failed | the campaign found a dialog that Stop did not close: the memory confirmation, after which a note could still be stored (fixed: `f0f059b0ccd`) |
 
 ## Measured budgets
 
-`node test/onyx/run-budgets.mts --app … --runtime http://127.0.0.1:11500`, 2026-11-24, 16:59 to 17:06 UTC, on mains (94 W), one-minute load 3.6 at the start, no sleep in the window. [budgets.json](./budgets.json). The owner's other applications were open, and swap use was 4.2 GB at the start and 6.3 GB at the end: this is the reference machine as it is used, not an idle one. Copied into `docs/SUPPORT.md` as measurements.
+`node test/onyx/run-budgets.mts --app … --runtime http://127.0.0.1:11500`, 2026-11-26, 07:50 to 07:54 UTC, on the build of `f0f059b0ccd`, on mains (94 W, battery 100%), one-minute load 3.2 at the start and 4.0 at the end, no sleep in the window; a private Ollama 0.33.0 on that port, started for this and stopped after it. [budgets.json](./budgets.json). The owner's other applications were open, and swap use was 9.9 GB of 11.3 GB: this is the reference machine as it is used, not an idle one. Copied into `docs/SUPPORT.md` as measurements. The first measurement, on 2026-11-24 on the build of `4eb52add73f`, gave figures within a few per cent of these for the models (7B 51.1 tokens a second, 1.5B 168.7) and is replaced, because the application changed.
 
 | | `qwen2.5-coder:7b` | `qwen2.5-coder:1.5b` |
 |---|---|---|
-| First token, cold (model not loaded) | 2,729 ms (load 2,572 ms) | 837 ms (load 793 ms) |
-| First token, warm | 23 ms | 9 ms |
-| Tokens a second (median of 3) | 51.1 | 168.7 |
-| Model process resident memory | 5,020 MB | 1,482 MB |
+| First token, cold (model not loaded) | 2,480 ms (load 2,321 ms) | 837 ms (load 794 ms) |
+| First token, warm | 24 ms | 9 ms |
+| Tokens a second (median of 3) | 49.7 | 166.5 |
+| Model process resident memory | 4,729 MB | 1,148 MB |
 
 The warm first-token figure is for the same prompt sent again, whose prefix the runtime has cached; a new prompt of the same length waits for its evaluation. It is the floor, not the typical case.
 
 | Application | Measured |
 |---|---|
-| Start to a workbench with an editor area (fresh profile, files in the disk cache) | median 1,065 ms over 5 starts (959 to 1,508) |
-| Idle, two minutes after the first run, CPU (all processes, % of one core) | mean 5.0, one sample 118 |
-| Idle, resident memory, all processes | median 1,373 MB; 654 MB a few seconds later, before the run below |
-| One agent request with the 7B model ("add a multiplyNumbers function") | completed in 8 s with no proposal; application peak 770 MB, model process peak 5,562 MB |
+| Start to a workbench with an editor area (fresh profile, files in the disk cache) | median 992 ms over 5 starts (986 to 1,409) |
+| Idle, two minutes after the first run, CPU (all processes, % of one core) | mean 1.4, highest sample 3.6 |
+| Idle, resident memory, all processes | median 1,393 MB (renderer 637 MB) |
+| One agent request with the 7B model ("add a multiplyNumbers function") | completed in 8 s with no proposal; application peak 1,380 MB, model process peak 4,044 MB |
 
 Resident memory of an Electron application's processes moves a great deal on macOS (compression, the GPU process), so read those figures as a range on this machine, not a bound. An earlier attempt of this measurement had a filter that missed Ollama's runner process and reported 0 MB for it; the filter was fixed and the measurement taken again.
 
