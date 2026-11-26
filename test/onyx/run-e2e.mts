@@ -8,6 +8,11 @@
  *
  *   node test/onyx/run-e2e.mts [--keep]
  *
+ * By default it launches the build from sources. With `ONYX_E2E_APP` set to a
+ * packaged application bundle it drives that instead: the soak and the egress
+ * audit (D8) run the same suite on the release candidate. `ONYX_E2E_ARGS`
+ * adds launch arguments, separated by spaces (the audit's proxy).
+ *
  * Builds a throwaway workspace and profile, starts the mock runtime, launches
  * Code OSS with remote debugging, drives the chat surface with @playwright/cli
  * and asserts on the run journal Onyx writes per workspace. Exits non-zero on
@@ -30,6 +35,8 @@ const mockPort = Number(process.env.ONYX_MOCK_PORT ?? 11434);
 const lmStudioPort = Number(process.env.ONYX_MOCK_LMSTUDIO_PORT ?? 1234);
 const cdpPort = Number(process.env.ONYX_CDP_PORT ?? 9333);
 const session = `onyx-e2e-${process.pid}`;
+const packagedApp = process.env.ONYX_E2E_APP ? path.resolve(process.env.ONYX_E2E_APP) : undefined;
+const extraLaunchArgs = (process.env.ONYX_E2E_ARGS ?? '').split(' ').filter(Boolean);
 
 const runDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onyx-e2e-'));
 const workspace = path.join(runDir, 'ws');
@@ -87,6 +94,11 @@ function sleep(ms: number) {
  * staged, "accepting clears the staged set" saw an already-empty view and
  * passed. Waiting on the condition costs nothing when it is already true.
  */
+/**
+ * Clicks in the Changes view go through Playwright locators, not element handles: the view re-renders
+ * when its state changes, and a handle taken before a re-render is detached by the time it is clicked
+ * (seen on a loaded machine, 2026-11-24).
+ */
 async function waitUntil(condition: () => boolean, timeoutMs = 20_000, stepMs = 500): Promise<boolean> {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
@@ -109,6 +121,12 @@ const playwrightCli = createRequire(import.meta.url).resolve('@playwright/cli/pl
 /** How often the driver's session was found gone while the workbench was still there, and was attached again. */
 let sessionsLost = 0;
 
+/** How often a paste left the chat input empty and was made again (see `send`). */
+let pasteRetries = 0;
+
+/** How often F1 left no visible Command Palette and was pressed again (see `runCommand`). */
+let paletteRetries = 0;
+
 /** Whether the workbench still answers on its debugging port. Synchronous: it is asked from inside `pw`. */
 function workbenchAnswers(): boolean {
 	try {
@@ -118,8 +136,23 @@ function workbenchAnswers(): boolean {
 	}
 }
 
+/**
+ * The longest one driver command may take. No command of this suite waits in
+ * the page for more than a few seconds; the limit is there because a command
+ * that never returns otherwise holds the whole run with no output at all (a
+ * soak run on 2026-11-24 stood at its second command for 62 minutes).
+ */
+const driverCommandTimeoutMs = Number(process.env.ONYX_E2E_DRIVER_TIMEOUT_MS ?? 120_000);
+
 function pwOnce(...args: string[]) {
-	return execFileSync(process.execPath, [playwrightCli, `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+	try {
+		return execFileSync(process.execPath, [playwrightCli, `-s=${session}`, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: driverCommandTimeoutMs, killSignal: 'SIGKILL' });
+	} catch (error) {
+		if ((error as { code?: string }).code === 'ETIMEDOUT') {
+			throw new Error(`the driver command "${args[0]}" did not return in ${driverCommandTimeoutMs / 1000} s; the workbench ${workbenchAnswers() ? 'still answers' : 'no longer answers'} on :${cdpPort}`, { cause: error });
+		}
+		throw error;
+	}
 }
 
 /**
@@ -147,7 +180,42 @@ function pw(...args: string[]) {
 		sessionsLost++;
 		console.error(`  note  the driver's session was gone while the workbench still answered on :${cdpPort}; attached again (${sessionsLost}) before: ${args[0]}`);
 		pwOnce('attach', `--cdp=http://127.0.0.1:${cdpPort}`);
+		const focus = emulateFocus();
+		if (focus !== 'focus:true') {
+			console.error(`  note  focus emulation after attaching again: ${focus}`);
+		}
 		return pwOnce(...args);
+	}
+}
+
+/**
+ * Makes the page behave as focused whatever the operating system says, as a
+ * browser Playwright launches itself does. Attaching over CDP to Electron's own
+ * context leaves this off, so without it a test window that another
+ * application covers or takes the focus from loses its editor focus. The CDP
+ * session that carries the setting is kept by the driver's process; a new
+ * attachment needs it again.
+ */
+function emulateFocus(): string {
+	try {
+		return pwValue(pwOnce('run-code', `async (page) => {
+			const cdp = await page.context().newCDPSession(page);
+			await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+			globalThis.__onyxFocusSession = cdp;
+			return await page.evaluate(() => 'focus:' + document.hasFocus());
+		}`));
+	} catch (error) {
+		// Just after attaching, the driver can have no page yet and tries to open one, which Electron refuses.
+		return `failed: ${String((error as { stdout?: unknown }).stdout ?? error).split('\n').find(line => /Error/.test(line)) ?? 'unknown'}`;
+	}
+}
+
+/** Focus emulation once the driver has the workbench page; it is retried while the page is not there yet. */
+async function emulateFocusWhenReady() {
+	let result = '';
+	await waitUntil(() => (result = emulateFocus()) === 'focus:true', 30_000, 2000);
+	if (result !== 'focus:true') {
+		throw new Error(`focus emulation did not take: ${result}`);
 	}
 }
 
@@ -179,6 +247,89 @@ function pwValue(output: string): string {
  * keychain removes the prompt and the dependency on per-machine state.
  */
 const isolationArgs = process.platform === 'darwin' ? ['--use-mock-keychain'] : [];
+
+/**
+ * The suite's window is not always in front. The soak starts a new one every
+ * few minutes on a machine that may be in use, and as soon as another
+ * application comes forward the window loses its focus and may be covered.
+ * Without these, Chromium then treats the page as hidden and stops animation
+ * frames, which the driver waits on before a click; and the editor sees the
+ * window's blur, so typing raises no inline completion and the code-action
+ * widget does not open (both seen in the soak of 2026-11-24). These switches
+ * keep a covered window's page running; `emulateFocus` below keeps its focus.
+ */
+const backgroundArgs = ['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling'];
+
+const accessibilityOut = process.env.ONYX_E2E_A11Y_OUT ? path.resolve(process.env.ONYX_E2E_A11Y_OUT) : undefined;
+
+/**
+ * The accessibility pass (D8) rides on this suite, so that it looks at every Onyx surface the suite
+ * opens and not at a list someone remembered. With `ONYX_E2E_A11Y_OUT` set, a script in the page
+ * (a) records everything written to the workbench's screen-reader live regions, which is how a state
+ * change is announced, and (b) twice a second looks at each Onyx surface on screen (the first-run
+ * dialog, a dialog box, the quick input, the Onyx views, an inline proposal) and records every
+ * interactive element in it that has no accessible name or cannot take keyboard focus. The record is
+ * written at the end of the run. It is an inventory for a person to read, not a pass or a fail.
+ */
+function installAccessibilityProbe() {
+	if (!accessibilityOut) {
+		return;
+	}
+	pw('run-code', `async (page) => page.evaluate(() => {
+		if (window.__onyxA11y) { return; }
+		const record = window.__onyxA11y = { announcements: [], surfaces: {}, problems: {} };
+		const live = document.querySelector('.monaco-aria-container');
+		if (live) {
+			new MutationObserver(() => {
+				for (const region of live.querySelectorAll('[aria-live], [role=alert], [role=status]')) {
+					const text = (region.textContent || '').trim();
+					if (text && record.announcements[record.announcements.length - 1] !== text) { record.announcements.push(text); }
+				}
+			}).observe(live, { childList: true, subtree: true, characterData: true });
+		}
+		const surfaces = {
+			'first-run dialog': '.onboarding-a-overlay.visible',
+			'dialog': '.monaco-dialog-box',
+			'quick input': '.quick-input-widget:not([style*="display: none"])',
+			'Onyx view': '[id^="workbench.view.onyx"], .onyx-changes, .onyx-run',
+			'inline proposal': '.onyx-inline-hunk, .onyx-inline-edit-input',
+			'title bar': '.titlebar-right',
+		};
+		const interactive = 'a[href], a.monaco-button, a.action-label, button, input, select, textarea, [role=button], [role=checkbox], [role=link], [role=menuitem], [role=tab], [role=treeitem], [role=listitem][tabindex], [tabindex]:not([tabindex="-1"])';
+		const named = element => !!((element.getAttribute('aria-label') || '').trim() || element.getAttribute('aria-labelledby') || (element.textContent || '').trim() || (element.getAttribute('title') || '').trim() || (element.getAttribute('placeholder') || '').trim() || (element.labels && element.labels.length));
+		const focusable = element => element.tabIndex >= 0 || !!element.closest('[role=tree], [role=list], [role=listbox], [role=toolbar], [role=tablist], [role=menu], [role=radiogroup], .monaco-list, .monaco-action-bar, .monaco-toolbar');
+		setInterval(() => {
+			for (const [name, selector] of Object.entries(surfaces)) {
+				for (const surface of document.querySelectorAll(selector)) {
+					if (!surface.getClientRects().length) { continue; }
+					record.surfaces[name] = (record.surfaces[name] || 0) + 1;
+					for (const element of surface.querySelectorAll(interactive)) {
+						// A presentational element (a toolbar separator) is not interactive whatever its tag; a radio group keeps one radio in the tab order and moves between them with the arrow keys.
+						if (!element.getClientRects().length || element.getAttribute('aria-hidden') === 'true' || element.getAttribute('role') === 'presentation') { continue; }
+						const problem = !named(element) ? 'no accessible name' : !focusable(element) ? 'not reachable by keyboard' : undefined;
+						if (problem) {
+							const key = name + ' | ' + problem + ' | ' + element.tagName.toLowerCase() + '.' + String(element.className).split(' ').filter(Boolean).slice(0, 3).join('.') + (element.getAttribute('role') ? '[role=' + element.getAttribute('role') + ']' : '');
+							record.problems[key] = (record.problems[key] || 0) + 1;
+						}
+					}
+				}
+			}
+		}, 500);
+	})`);
+}
+
+/** Writes what the probe saw. Called once, at the end; a window that was reloaded on the way has lost its record and says so. */
+function writeAccessibilityRecord() {
+	if (!accessibilityOut) {
+		return;
+	}
+	try {
+		const raw = pwValue(pw('run-code', 'async (page) => page.evaluate(() => JSON.stringify(window.__onyxA11y ?? { lost: true }))'));
+		fs.writeFileSync(accessibilityOut, JSON.stringify(JSON.parse(raw), undefined, '\t'));
+	} catch (error) {
+		fs.writeFileSync(accessibilityOut, JSON.stringify({ failed: String(error).split('\n')[0] }));
+	}
+}
 
 function git(...args: string[]) {
 	return execFileSync('git', ['-C', workspace, '-c', 'user.email=onyx-e2e@localhost', '-c', 'user.name=onyx-e2e', ...args], { encoding: 'utf8' });
@@ -424,11 +575,28 @@ async function runCommand(label: string) {
 	// The first-run dialog can come up later than the two moments this runner waits for it at: on a loaded
 	// machine it has appeared a minute in. It is modal, so it is looked for before every command and prompt.
 	await dismissOnboarding(0);
-	pw('press', 'F1');
-	await sleep(800);
+	// Once in a soak (2026-11-26, run 6 of 8), F1 pressed while a run was streaming left no visible Command
+	// Palette, and the fill waited 30 s for it. The palette is now waited for; if it is not there, F1 is
+	// pressed once more, and that is printed and counted. A palette that does not open twice stops the run.
+	for (let attempt = 1; ; attempt++) {
+		pw('press', 'F1');
+		if (await waitUntil(() => paletteVisible(), 5000, 250)) {
+			break;
+		}
+		if (attempt >= 2) {
+			throw new Error(`the Command Palette did not open for "${label}" after F1 was pressed twice`);
+		}
+		paletteRetries++;
+		console.log(`  note: F1 left no visible Command Palette for "${label}"; pressing it again`);
+	}
 	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ${JSON.stringify('>' + label)}); }`);
 	await sleep(1000);
 	pw('press', 'Enter');
+}
+
+/** Whether the Command Palette's input is on screen. */
+function paletteVisible(): boolean {
+	return pwValue(pw('run-code', 'async (page) => String(await page.locator(".quick-input-widget .quick-input-box input").isVisible())')) === 'true';
 }
 
 /** The run index Onyx persists next to the journal; title/task/status per run. */
@@ -488,9 +656,40 @@ async function send(prompt: string) {
 	await dismissOnboarding(0);
 	const focusScript = path.join(repoRoot, '.agents', 'skills', 'launch', 'playwrightScripts', 'focus-chat-input.ts');
 	const paste = path.join(repoRoot, '.agents', 'skills', 'launch', 'scripts', 'monaco-paste.sh');
-	pw('run-code', `--filename=${focusScript}`);
-	execFileSync(paste, ['--session', session, prompt], { cwd: repoRoot, encoding: 'utf8' });
+	// The helper dispatches a synthetic paste event and reads the input back. Once, on CI (2026-11-25,
+	// 35701feb292), the first prompt of a run read back as an empty input: the event was dropped, not
+	// garbled. An input that is still empty is pasted into again, at most three times in all, and each
+	// retry is printed; a read-back with other text in it still stops the run. No check asserts on the
+	// paste itself: every check asserts on what the prompt caused.
+	for (let attempt = 1; ; attempt++) {
+		pw('run-code', `--filename=${focusScript}`);
+		try {
+			// The helper makes up to three driver calls of its own; it gets their limit three times over.
+			execFileSync(paste, ['--session', session, prompt], { cwd: repoRoot, encoding: 'utf8', timeout: driverCommandTimeoutMs * 3, killSignal: 'SIGKILL' });
+			break;
+		} catch (error) {
+			if ((error as { code?: string }).code === 'ETIMEDOUT') {
+				throw new Error(`pasting the prompt did not finish in ${driverCommandTimeoutMs * 3 / 1000} s; the workbench ${workbenchAnswers() ? 'still answers' : 'no longer answers'} on :${cdpPort}`, { cause: error });
+			}
+			if (attempt >= 3 || !pasteLeftInputEmpty(String((error as { stdout?: unknown }).stdout ?? ''))) {
+				throw error;
+			}
+			console.log(`  note: the paste of "${prompt.slice(0, 40)}" left the chat input empty; pasting again (attempt ${attempt + 1} of 3)`);
+			pasteRetries++;
+			await sleep(2000);
+		}
+	}
 	pw('press', 'Enter');
+}
+
+/** Whether the paste helper's report says the chat input read back empty after the paste. */
+function pasteLeftInputEmpty(stdout: string): boolean {
+	try {
+		const report = JSON.parse(stdout.trim().split('\n').pop() ?? '') as { ok?: boolean; actualLength?: number };
+		return report.ok === false && typeof report.actualLength === 'number' && report.actualLength <= 1;
+	} catch {
+		return false;
+	}
 }
 
 async function main() {
@@ -533,11 +732,19 @@ async function main() {
 		throw new Error(`the LM Studio mock never answered on :${lmStudioPort}`);
 	}
 
-	children.push(spawn(path.join(repoRoot, 'scripts', 'code.sh'), [
+	const executable = packagedApp
+		? path.join(packagedApp, 'Contents', 'MacOS', fs.readdirSync(path.join(packagedApp, 'Contents', 'MacOS'))[0])
+		: path.join(repoRoot, 'scripts', 'code.sh');
+	if (packagedApp) {
+		console.log(`driving the packaged application: ${packagedApp}`);
+	}
+	children.push(spawn(executable, [
 		`--user-data-dir=${userDataDir}`,
 		`--extensions-dir=${extensionsDir}`,
 		`--remote-debugging-port=${cdpPort}`,
 		...isolationArgs,
+		...backgroundArgs,
+		...extraLaunchArgs,
 		'--disable-workspace-trust',
 		'--skip-release-notes',
 		workspace,
@@ -562,6 +769,15 @@ async function main() {
 		throw error;
 	}
 	await sleep(6000);
+	await emulateFocusWhenReady();
+	// The soak runs this suite on a machine that may be in use, where the window is soon behind another
+	// application. A covered window stopped animation frames and the driver's clicks timed out; a window
+	// without focus raised no inline completion (2026-11-24). Both are set up above and checked here.
+	const workbenchPid = children[children.length - 1].pid;
+	const workbenchCommand = execFileSync('ps', ['-o', 'command=', '-p', String(workbenchPid)], { encoding: 'utf8' });
+	const pageState = pwValue(pw('run-code', 'async (page) => page.evaluate(() => document.hasFocus() + "/" + document.visibilityState)'));
+	check('the window keeps its focus and keeps rendering when another application covers it (focus emulation and the background switches)', pageState === 'true/visible' && backgroundArgs.every(arg => workbenchCommand.includes(arg)), `${pageState}; ${backgroundArgs.filter(arg => !workbenchCommand.includes(arg)).join(' ') || 'switches present'}`);
+	installAccessibilityProbe();
 
 	// Onboarding: "Connect a Local Runtime" then "Make It Yours".
 	await dismissOnboarding(30_000);
@@ -837,7 +1053,7 @@ async function main() {
 	const inlineRunNotes = verificationNotesByRun().find(labels => labels.some(label => label.startsWith('Verification: stale'))) ?? [];
 	check('R-21: an inline edit is verified through the same path: undoing the kept hunk makes its result stale', inlineRunNotes.length > 0 && !inlineRunNotes.some(label => label.startsWith('Verification: not applied')), verificationNotesByRun().flat().join(' | ').slice(0, 400));
 	// Back to the side bar for the rest: Accept All takes the hunk that is left.
-	pw('run-code', 'async (page) => { const el = await page.$(".onyx-changes-summary button"); await el.click(); }'); // Accept All
+	pw('run-code', 'async (page) => { await page.locator(".onyx-changes-summary button").first().click(); }'); // Accept All
 	const readAcceptedState = () => pw('run-code', `async (page) => page.evaluate(() => ({
 		empty: !!document.querySelector('.onyx-changes .onyx-empty'),
 	}))`);
@@ -861,7 +1077,7 @@ async function main() {
 	const readResult = JSON.stringify(readRuns().flatMap(run => run.events).filter(event => event.kind === 'promptSnapshot').slice(-2));
 	check('R-31: the model read the file through Onyx\'s own readFile tool, as numbered lines', readEditCalls()[0] === 'readFile' && /src\/math\.ts \(lines 1-\d+ of \d+/.test(readResult) && readResult.includes('1| export function addNumbers'), `tool calls: ${readEditCalls().join(', ') || 'none'}`);
 	check('R-31: the edit that quotes the line it read is staged, not written', readChangesState().includes('src/math.ts') && !fs.readFileSync(path.join(workspace, 'src', 'math.ts'), 'utf8').includes('edited-by-mock // edited-by-mock'), readChangesState().slice(0, 160));
-	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
+	pw('run-code', 'async (page) => { const reject = page.locator(".onyx-changes-summary button").nth(1); if (await reject.count()) { await reject.click(); } }'); // Reject All
 	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
 
 	// --- C3: one editFile call that carries two edits stages two hunks, as one proposal.
@@ -887,7 +1103,7 @@ async function main() {
 	const certificateLines: string[] = JSON.parse(/"certificates"\s*:\s*(\[[^\]]*\])/.exec(multiState)?.[1] ?? '[]');
 	const journaledCertificates = readRuns().flatMap(run => run.events).filter(event => event.kind === 'editCertificate' && event.data?.certificate?.path === 'src/util.ts');
 	check('R-46: each staged hunk shows what was checked for it, and the journal holds a sealed certificate for each edit', certificateLines.length === 2 && certificateLines.every(line => /^Anchored exactly once · /.test(line) && !/proof|correct|safe|guarantee/i.test(line)) && journaledCertificates.length === 2 && journaledCertificates.every(event => typeof event.data?.seal === 'string' && event.data?.certificate?.anchor?.matchCount === 1 && event.data?.certificate?.protocol === 'multi-edit'), `${certificateLines.join(' | ')} ; ${journaledCertificates.length} in the journal`);
-	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); if (buttons[1]) { await buttons[1].click(); } }'); // Reject All
+	pw('run-code', 'async (page) => { const reject = page.locator(".onyx-changes-summary button").nth(1); if (await reject.count()) { await reject.click(); } }'); // Reject All
 	await waitUntil(() => /"empty"\s*:\s*true/.test(readAcceptedState()));
 
 	// --- Terminal tool: approval dialog, execution, journaled output.
@@ -1016,7 +1232,7 @@ async function main() {
 		notifications: Array.from(document.querySelectorAll('.notifications-toasts .notification-list-item-message')).map(el => el.textContent),
 	}))`);
 	check('the rename staged into Onyx Changes, not the buffer', renameStaged.includes('report.ts'), renameStaged.slice(0, 300));
-	pw('run-code', 'async (page) => { const buttons = await page.$$(".onyx-changes-summary button"); await buttons[1].click(); }'); // Reject All
+	pw('run-code', 'async (page) => { await page.locator(".onyx-changes-summary button").nth(1).click(); }'); // Reject All
 	await sleep(1500);
 
 	// --- Repo benchmark: history-derived tasks, scored, results doc.
@@ -1168,13 +1384,16 @@ try {
 	// What the window showed when the run stopped. The run directory is
 	// removed afterwards unless --keep was passed.
 	try {
-		pw('screenshot', `--filename=${path.join(runDir, 'abort.png')}`);
-		console.error(`screenshot at the abort: ${path.join(runDir, 'abort.png')}${keep ? '' : ' (pass --keep to keep it)'}`);
+		// A caller that keeps its own logs (the soak) names where the screenshot goes, so it outlives the run directory.
+		const screenshot = process.env.ONYX_E2E_ABORT_SCREENSHOT || path.join(runDir, 'abort.png');
+		pw('screenshot', `--filename=${screenshot}`);
+		console.error(`screenshot at the abort: ${screenshot}${keep || process.env.ONYX_E2E_ABORT_SCREENSHOT ? '' : ' (pass --keep to keep it)'}`);
 	} catch {
 		// no attached session to capture
 	}
 	failures.push('harness');
 } finally {
+	writeAccessibilityRecord();
 	try {
 		pw('close');
 	} catch {
@@ -1205,7 +1424,8 @@ try {
 			await sleep(2000);
 		}
 	}
-	if (keep) {
+	// On CI a failed run keeps its directory, so that the upload step has its logs and abort screenshot.
+	if (keep || (process.env.CI && failures.length)) {
 		console.log(`\nkept ${runDir}`);
 	} else {
 		fs.rmSync(runDir, { recursive: true, force: true });
@@ -1214,5 +1434,5 @@ try {
 
 console.log(failures.length
 	? `\n${failures.length} of ${checksRun} checks failed`
-	: `\nall ${checksRun} checks passed${sessionsLost ? ` (the driver's session was lost and attached again ${sessionsLost} time${sessionsLost === 1 ? '' : 's'}; the workbench was not restarted)` : ''}`);
+	: `\nall ${checksRun} checks passed${sessionsLost ? ` (the driver's session was lost and attached again ${sessionsLost} time${sessionsLost === 1 ? '' : 's'}; the workbench was not restarted)` : ''}${pasteRetries ? ` (a paste left the chat input empty and was made again ${pasteRetries} time${pasteRetries === 1 ? '' : 's'})` : ''}${paletteRetries ? ` (F1 left no visible Command Palette and was pressed again ${paletteRetries} time${paletteRetries === 1 ? '' : 's'})` : ''}`);
 process.exit(failures.length ? 1 : 0);

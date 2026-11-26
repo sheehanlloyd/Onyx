@@ -245,6 +245,7 @@ jobs:
           name: onyx-e2e-logs
           path: |
             /tmp/onyx-e2e-*/**/*.log
+            /tmp/onyx-e2e-*/abort.png
             /tmp/onyx-e2e-*/user-data/User/workspaceStorage/**/onyx/journal/**
           if-no-files-found: ignore
           retention-days: 7

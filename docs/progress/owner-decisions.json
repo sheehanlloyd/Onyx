@@ -1,0 +1,8 @@
+{
+	"_": "Decisions and observations only the owner can make. A session never fills these in; the Module 5 gate reads them and stays blocked while one is null. Set a value, with a date, when it is true.",
+	"productName": null,
+	"logoDirection": null,
+	"pinnedModelRecommendation": null,
+	"publicClaimsApprovedOn": null,
+	"repositoryDescriptionAndTopicsSetOn": null
+}

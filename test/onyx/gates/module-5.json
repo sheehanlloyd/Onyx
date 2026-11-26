@@ -1,0 +1,115 @@
+{
+	"module": 5,
+	"title": "Module 5: distribute, validate and publish (every box of Section 12 for the candidate)",
+	"checks": [
+		{
+			"id": "R-32",
+			"title": "D1 the named extension set (Python, ESLint, Prettier, GitLens) installs from Open VSX through the packaged application and each activates. Needs the internet",
+			"layer": "packaged",
+			"regressions": ["R-32"],
+			"files": ["test/onyx/run-extension-smoke.mts"],
+			"command": ["node", "test/onyx/run-extension-smoke.mts", "--app", "$ONYX_PACKAGED_APP", "--json-out", ".build/gate-5/extension-smoke.json"],
+			"requires": { "platform": "darwin", "env": ["ONYX_PACKAGED_APP"] },
+			"timeoutMs": 1200000
+		},
+		{
+			"id": "D3-update-check",
+			"title": "D3 Onyx: Check for Updates: a newer release, no newer release, no releases, a network failure, a rate limit and an unreadable answer each say what they are; one anonymous request; a link outside the repository is never offered",
+			"layer": "service",
+			"files": ["src/vs/workbench/contrib/onyx/test/browser/onyxUpdateCheck.test.ts"],
+			"command": ["./scripts/test.sh", "--grep", "OnyxUpdateCheck"],
+			"scope": { "item": "D3", "when": "included" }
+		},
+		{
+			"id": "D3-replace",
+			"title": "D3 manual update, rollback and uninstall on the packaged application: settings and every journal file byte for byte the same after each replacement, data kept when the application is deleted, removed by the documented step",
+			"layer": "packaged",
+			"files": ["test/onyx/run-replace-check.mts", "docs/UPDATING.md"],
+			"command": ["node", "test/onyx/run-replace-check.mts", "--app", "$ONYX_PACKAGED_APP", "--json-out", ".build/gate-5/replace-check.json"],
+			"requires": { "platform": "darwin", "env": ["ONYX_PACKAGED_APP"] },
+			"timeoutMs": 2400000
+		},
+		{
+			"id": "module-5-documents",
+			"title": "D2, D4, D6, D8 the public material: open-source files present, the README's first screen, replaced words gone, no Gatekeeper bypass, no novelty wording without approval, nothing left planned, links resolve, the release script and notes refuse what they must",
+			"layer": "node",
+			"files": ["test/onyx/checks/module5-docs.test.mts"],
+			"command": ["node", "--test", "test/onyx/checks/module5-docs.test.mts"],
+			"timeoutMs": 600000
+		},
+		{
+			"id": "R-58",
+			"title": "L19 every table of the research report regenerates from committed raw data, a changed number fails, and a number with no source in the report or the README's Research section fails",
+			"layer": "node",
+			"regressions": ["R-58"],
+			"files": ["test/onyx/lab/make-report.mts", "test/onyx/checks/r58-report.test.mts", "docs/research/REPORT.md", "docs/research/RELATED.md", "docs/research/REPRODUCE.md"],
+			"command": ["node", "--test", "test/onyx/checks/r58-report.test.mts"],
+			"timeoutMs": 1200000
+		},
+		{
+			"id": "R-60",
+			"title": "D8 egress audit on the packaged application, run now: the whole end-to-end suite, ten idle minutes and the two user-initiated requests behind a recording proxy and a socket sampler; only the runtime, Open VSX when asked and GitHub when asked. Needs the internet",
+			"layer": "packaged",
+			"regressions": ["R-60"],
+			"files": ["test/onyx/run-egress-audit.mts", "docs/progress/egress-audit.json"],
+			"command": ["node", "test/onyx/run-egress-audit.mts", "--app", "$ONYX_PACKAGED_APP", "--json-out", ".build/gate-5/egress-audit.json"],
+			"requires": { "platform": "darwin", "env": ["ONYX_PACKAGED_APP"] },
+			"timeoutMs": 3600000
+		},
+		{
+			"id": "D8-soak",
+			"title": "D8 the committed one-hour soak passed and is for this candidate: no failed suite run, no process left behind, no crash report, the full simulation campaign green",
+			"layer": "procedure",
+			"files": ["test/onyx/run-soak.mts", "docs/progress/soak.json"],
+			"command": ["node", "test/onyx/checks/candidate-evidence.mts", "--require", "soak"]
+		},
+		{
+			"id": "D8-budgets",
+			"title": "D8 the committed measured budgets (cold start, idle CPU and memory, first token and tokens a second for the pinned models) are for this candidate",
+			"layer": "procedure",
+			"files": ["docs/progress/budgets.json", "docs/progress/production-readiness.md"],
+			"command": ["node", "test/onyx/checks/candidate-evidence.mts", "--require", "budgets"]
+		},
+		{
+			"id": "R-39",
+			"title": "D2 Gatekeeper evidence for the signed, notarized, stapled candidate. OWNER: needs Apple enrolment, a Developer ID certificate, a notary key and a dispatch of the release workflow",
+			"layer": "procedure",
+			"regressions": ["R-39"],
+			"command": ["node", "test/onyx/checks/owner-evidence.mts", "--require", "gatekeeper"]
+		},
+		{
+			"id": "D5-clean-install",
+			"title": "D5 the clean-machine runbook carried out once on the candidate, with its recording. OWNER",
+			"layer": "procedure",
+			"files": ["docs/RUNBOOK-clean-install.md"],
+			"command": ["node", "test/onyx/checks/owner-evidence.mts", "--require", "clean-install"]
+		},
+		{
+			"id": "E1-pilot",
+			"title": "E1 the pilot report with raw numbers, and scorecards from at least three machines. OWNER leads; nothing for E2 to fix until it has run",
+			"layer": "procedure",
+			"files": ["docs/pilot/README.md", "docs/pilot/TASKS.md", "docs/pilot/PROTOCOL.md"],
+			"command": ["node", "test/onyx/checks/owner-evidence.mts", "--require", "pilot"]
+		},
+		{
+			"id": "DEC-01-identity",
+			"title": "DEC-01 the product name and the logo direction are chosen and recorded. OWNER",
+			"layer": "procedure",
+			"files": ["docs/naming/README.md", "docs/brand/README.md", "docs/progress/owner-decisions.json"],
+			"command": ["node", "test/onyx/checks/owner-evidence.mts", "--require", "identity"]
+		},
+		{
+			"id": "DEC-09-approvals",
+			"title": "DEC-09 the owner has approved the public claims, answered the pinned-model question and set the repository description and topics. OWNER",
+			"layer": "procedure",
+			"files": ["docs/progress/owner-decisions.json"],
+			"command": ["node", "test/onyx/checks/owner-evidence.mts", "--require", "claims"]
+		},
+		{
+			"id": "E4-tag",
+			"title": "E4 the release tag exists. OWNER publishes the draft release, last",
+			"layer": "procedure",
+			"command": ["node", "test/onyx/checks/owner-evidence.mts", "--require", "tag"]
+		}
+	]
+}

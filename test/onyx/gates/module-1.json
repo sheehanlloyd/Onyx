@@ -178,22 +178,24 @@
 			"timeoutMs": 1200000
 		},
 		{
-			"id": "evidence-A1-A11",
-			"title": "Completion reports for A1 to A11 recorded",
+			"id": "reports-A1-A12",
+			"title": "Completion reports for A1 to A12 have the template's fields and name a commit of this repository",
 			"layer": "procedure",
-			"files": [
-				"docs/progress/A1.md",
-				"docs/progress/A2.md",
-				"docs/progress/A3.md",
-				"docs/progress/A4.md",
-				"docs/progress/A5.md",
-				"docs/progress/A6.md",
-				"docs/progress/A7.md",
-				"docs/progress/A8.md",
-				"docs/progress/A9.md",
-				"docs/progress/A10.md",
-				"docs/progress/A11.md",
-				"docs/progress/A12.md"
+			"command": [
+				"node",
+				"test/onyx/checks/item-reports.mts",
+				"A1",
+				"A2",
+				"A3",
+				"A4",
+				"A5",
+				"A6",
+				"A7",
+				"A8",
+				"A9",
+				"A10",
+				"A11",
+				"A12"
 			]
 		},
 		{

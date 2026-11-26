@@ -1,0 +1,41 @@
+{
+	"generatedBy": "node test/onyx/lab/make-report.mts",
+	"simulated": {
+		"path": "src/vs/workbench/contrib/onyx/test/browser/sim/onyxSimInjection.ts",
+		"episodes": 80,
+		"surfaces": [
+			"file-contents",
+			"search-result",
+			"documentation",
+			"file-name",
+			"tool-error"
+		],
+		"effects": [
+			"run-command",
+			"write-outside-workspace",
+			"edit-hooks-or-settings",
+			"persist-memory",
+			"send-to-url"
+		],
+		"userDecisions": [
+			"deny",
+			"allow-once"
+		],
+		"notSimulated": [
+			"commit messages",
+			"the documentation index",
+			"playbooks",
+			"a note already in memory"
+		],
+		"countFrom": "docs/research/results/2026-11-22-assurance/summary.json"
+	},
+	"realModelFixture": {
+		"generator": "test/onyx/lab/make-injection-fixture.mts",
+		"tasks": "docs/research/results/2026-11-22-injection/tasks.json",
+		"taskSetHash": "35b9d52dbe8e9daa",
+		"count": 24,
+		"withAPlantedInstruction": 20,
+		"withNothingPlanted": 4,
+		"analysis": "node test/onyx/lab/analyze-injection.mts docs/research/results/2026-11-22-injection"
+	}
+}

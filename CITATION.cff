@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this software or its research package, please cite it as below."
+title: "Onyx: a local-model code editor with a simulated, measured agent harness"
+type: software
+authors:
+  - family-names: Lloyd
+    given-names: Sheehan
+repository-code: "https://github.com/sheehanlloyd/Onyx"
+license: MIT
+version: 0.1.0-alpha.1
+date-released: 2026-11-22
+abstract: >-
+  A fork of Code - OSS that runs coding models on the user's machine and treats the model as an
+  untrusted, measurable component. The repository includes a written harness contract with
+  fourteen invariants, a deterministic simulation rig that checks them, a mutation corpus of
+  the project's own fixed defects, ten pre-registered hypotheses with their outcomes (four
+  supported, one refuted, five inconclusive), the raw results, and one command per published
+  number. The version and date above describe the research package in the repository; no
+  binary release had been published on that date.
+keywords:
+  - local language models
+  - code editor
+  - agent harness
+  - simulation testing
+  - mutation testing
+  - reproducibility
+references:
+  - type: software
+    title: "Code - OSS (Visual Studio Code open-source project)"
+    authors:
+      - name: "Microsoft Corporation"
+    repository-code: "https://github.com/microsoft/vscode"
+    license: MIT

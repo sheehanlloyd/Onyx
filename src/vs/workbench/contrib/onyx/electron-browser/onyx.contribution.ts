@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { getOnyxEndpointSettings } from '../common/onyxConfiguration.js';
 import '../browser/controlPlane/onyxControlPlane.contribution.js';
 import '../browser/architecture/onyxArchitecture.contribution.js';
@@ -71,6 +72,10 @@ import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../browser/
 import { IOnyxPromptCacheService, OnyxPromptCacheService } from '../browser/agent/onyxPromptCache.js';
 import { IOnyxProjectConfigService, OnyxProjectConfigService } from '../browser/config/onyxProjectConfigService.js';
 import { OnyxDiagnosticsExport } from '../browser/diagnostics/onyxDiagnosticsExport.js';
+import { OnyxUpdateCheck } from '../browser/update/onyxUpdateCheck.js';
+import { ONYX_VERSION } from '../common/onyxUpdateCheck.js';
+import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { TitleBarLeadingActionsGroup } from '../../../browser/parts/titlebar/titlebarActions.js';
 import { IOnyxEndpointSecretService, OnyxEndpointSecretService } from '../browser/model/onyxEndpointSecrets.js';
 import { OnyxDiagnosticsRedactor } from '../common/onyxDiagnostics.js';
 import { describeExecution, describeRefusal, describeTransport } from '../common/onyxInferenceLocation.js';
@@ -580,6 +585,42 @@ registerAction2(class ExportOnyxDiagnosticsAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		await accessor.get(IInstantiationService).createInstance(OnyxDiagnosticsExport).run();
+	}
+});
+
+registerAction2(class CheckForOnyxUpdatesAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.checkForUpdates',
+			title: localize2('onyx.checkForUpdates', "Onyx: Check for Updates"),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IInstantiationService).createInstance(OnyxUpdateCheck, undefined).run(CancellationToken.None);
+	}
+});
+
+/**
+ * The alpha says that it is one where the user is looking (Section 2 of the
+ * release definition): a text label in the title bar, which opens what the
+ * label means.
+ */
+registerAction2(class ShowOnyxAlphaNoticeAction extends Action2 {
+	constructor() {
+		super({
+			id: 'onyx.showAlphaNotice',
+			title: localize2('onyx.alphaNotice', "Experimental Alpha"),
+			f1: false,
+			menu: { id: MenuId.TitleBar, group: TitleBarLeadingActionsGroup, order: 0 },
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IDialogService).info(
+			localize('onyx.alphaNotice.message', "Onyx {0} Is an Experimental Alpha", ONYX_VERSION),
+			localize('onyx.alphaNotice.detail', "It is tested on macOS 14 or later on Apple silicon, with Ollama and the two pinned models; everything else is best effort and may not work. A model's edit is a proposal until you accept it, and a shell command runs only after you approve it. Small local models often fail at agent tasks: read what a run did before you rely on it. Onyx does not update itself; run \"Onyx: Check for Updates\" to see whether a newer release exists."));
 	}
 });
 

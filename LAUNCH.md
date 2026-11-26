@@ -1,5 +1,7 @@
 # Shipping Onyx on macOS
 
+> **Superseded.** This is the August 2026 checklist. The release procedure, the workflow that carries it out and what the owner must do are in [docs/RELEASING.md](./docs/RELEASING.md). Nothing has been released.
+
 How to go from this repo to a distributable, signed macOS app.
 
 ## Channel

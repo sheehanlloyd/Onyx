@@ -1,81 +1,37 @@
 <p align="center">
-  <img src="docs/images/onyx-icon.png" width="104" alt="Onyx" />
+  <img src="docs/images/onyx-icon.png" width="96" alt="Onyx" />
 </p>
 
 <h1 align="center">Onyx</h1>
 
 <p align="center">
-  <b>The local-first AI code editor for macOS.</b><br/>
-  Onyx talks to a model runtime on your machine and, by default, uses only models that runtime says it runs itself.<br/>
-  No telemetry. No account — there is nothing to sign in to.
+  <b>An experimental code editor for macOS that runs coding models on your own machine and treats every one of them as untrusted: an edit is a proposal until you accept it, and a command runs only when you approve it.</b>
 </p>
 
 <p align="center">
-  <img src="docs/images/badges.svg" alt="MIT licensed · macOS on Apple silicon · built on Code – OSS · no telemetry · 168 unit tests and 45 end-to-end checks" height="20" />
+  <a href="https://github.com/sheehanlloyd/Onyx/actions/workflows/onyx-ci.yml"><img src="https://github.com/sheehanlloyd/Onyx/actions/workflows/onyx-ci.yml/badge.svg?branch=main" alt="Onyx CI" /></a>
+  <a href="https://github.com/sheehanlloyd/Onyx/actions/workflows/onyx-packaged.yml"><img src="https://github.com/sheehanlloyd/Onyx/actions/workflows/onyx-packaged.yml/badge.svg" alt="Onyx packaged smoke" /></a>
+  <a href="https://github.com/sheehanlloyd/Onyx/actions/workflows/onyx-nightly.yml"><img src="https://github.com/sheehanlloyd/Onyx/actions/workflows/onyx-nightly.yml/badge.svg" alt="Onyx nightly assurance" /></a>
 </p>
 
 <p align="center">
-  <a href="#what-you-get">Features</a> ·
-  <a href="#benchmark-results">Benchmarks</a> ·
-  <a href="#how-onyx-compares">Comparison</a> ·
-  <a href="#installing">Install</a> ·
-  <a href="./ONYX.md">Architecture</a> ·
-  <a href="./docs/BENCHMARKS.md">Methodology</a>
+  <img src="docs/images/onyx-workbench.png" alt="Onyx, the packaged build: the editor, the agent chat and the Experimental Alpha label in the title bar" width="900" />
 </p>
 
 <p align="center">
-  <img src="docs/images/onyx-demo.gif" alt="Onyx in use: first run with live runtime detection, an inline edit reviewed hunk by hunk, and an adversarial review with file:line findings — all against models running on this Mac" width="900" />
+  <a href="#download"><b>Download</b></a> ·
+  <a href="./docs/SUPPORT.md">What is supported</a> ·
+  <a href="./docs/SUPPORT.md#tool-capability-contract-b3-dec-03">What the agent can do</a> ·
+  <a href="#research">Research</a> ·
+  <a href="./docs/research/REPORT.md">Report</a> ·
+  <a href="./ROADMAP.md">Status</a>
 </p>
-<p align="center"><i>Recorded from the real product, against real local models running on this Mac.</i></p>
 
-Onyx is a fork of [Code – OSS](https://github.com/microsoft/vscode) whose agent
-architecture is built around local inference. Inference happens on your hardware
-through any OpenAI-compatible runtime (Ollama, LM Studio, llama.cpp, vLLM), a 7B
-model gets a different harness than a 70B model, and a control plane shows what
-the agent is doing and why.
+- **Nothing changes without you.** A model's edit is staged and placed only where its quoted text matches your file exactly, once; otherwise it is refused and your file is untouched. Every shell command asks, every time, with Run Once or Deny.
+- **It measures instead of assuming.** A model's advertised abilities configure nothing. A one-minute datasheet measured on your Mac does, and `Onyx: Measure Models for This Repository` scores your models on tasks from your own git history, on your machine. What the datasheet chooses is not yet shown to be the best choice: for both pinned models it selects the constrained envelope, under which neither got an edit on record in H-2's 160 runs each, while the repaired-text protocol had an edit on record in 79 runs (7B) and 53 (1.5B) ([REPORT.md](./docs/research/REPORT.md), "Limits of these verdicts").
+- **The evidence is in the repository, including the unflattering part.** A written harness contract, a simulation that checks it, ten pre-registered hypotheses with their outcomes, and a command for every number. With the two small models it is tested with, the agent rarely proposes an edit on a real task. [Research](#research) says how rarely.
 
-The hard part is not calling a local endpoint. It is that a 7B model on a laptop
-mangles tool calls, writes edits that do not apply, and answers confidently from
-nothing. Onyx is the harness that makes those failures survivable, and that shows
-you when it did not.
-
-> **What I built:** Onyx is a Code – OSS fork with the upstream history
-> intentionally preserved. My original implementation is primarily in
-> [`src/vs/platform/onyxRuntime/`](./src/vs/platform/onyxRuntime),
-> [`src/vs/workbench/contrib/onyx/`](./src/vs/workbench/contrib/onyx),
-> [`extensions/theme-onyx/`](./extensions/theme-onyx) and
-> [`test/onyx/`](./test/onyx), plus the Onyx documentation and product design.
-> That is 143 files and about 25.8k lines. [REBASE.md](./REBASE.md) lists every
-> upstream file Onyx touches, and why the history is kept rather than squashed.
-
-<details>
-<summary>What is in each tree</summary>
-
-<br/>
-
-| Directory | What is in it | Size |
-|---|---|---|
-| [`src/vs/platform/onyxRuntime/`](./src/vs/platform/onyxRuntime) | Runtime layer: the OpenAI-compatible client, runtime discovery, per-model capability profiles | 8 files, 2.4k lines |
-| [`src/vs/workbench/contrib/onyx/`](./src/vs/workbench/contrib/onyx) | The agent itself: router, tool loop, staged changes, retrieval, control plane, every Onyx surface | 116 files, 19.2k lines |
-| [`extensions/theme-onyx/`](./extensions/theme-onyx) | The four themes | 14 files, 1.4k lines |
-| [`test/onyx/`](./test/onyx) | Mock runtime, end-to-end harness, benchmark harness, chart generator | 5 files, 2.7k lines |
-
-</details>
-
-**One result that shaped Onyx:** every qwen2.5-coder variant I tested used the
-native tool-call channel **0% of the time**, across both local runtimes, even
-though Ollama advertises tool support for them. The models emitted calls as prose
-instead. Onyx's repair path recovered a usable call from that prose in 6 of 6
-requests for three of the five variants, and a schema-constrained turn reached
-100% valid tool use on four of the five, 83% on the last. Method and numbers:
-[Benchmark results](#tool-calling) and
-[docs/BENCHMARKS.md](./docs/BENCHMARKS.md#tool-calling--three-separate-numbers).
-
-Two more measurements changed the design: speculative decoding made code 1.49x
-faster on this machine and prose 0.97x, slower, with the same draft, so Onyx
-measures and reports the two apart; and the local reviewer missed an off-by-one
-that was in its own prompt. Both are below, in [Benchmark results](#speculative-decoding) and
-[Known failure cases](#known-failure-cases).
+> **Status: experimental alpha, not yet released.** There is no download yet: a signed build needs an Apple Developer account the project does not have. Onyx is a fork of [Code - OSS](https://github.com/microsoft/vscode), tested on macOS 14 or later on Apple silicon with Ollama and two pinned models; everything else is best effort. [ROADMAP.md](./ROADMAP.md) says what is done and what is waiting.
 
 ---
 
@@ -83,13 +39,41 @@ that was in its own prompt. Both are below, in [Benchmark results](#speculative-
 
 | | |
 |---|---|
+| [Download](#download) | The release artifact, and why there is none yet |
+| [Research](#research) | Four findings, each with its count and its raw result |
 | [What you get](#what-you-get) | The feature set, grouped |
-| [Benchmark results](#benchmark-results) | Real numbers from real models, and the scope they were measured in |
+| [Benchmark results](#benchmark-results) | Numbers from real models, and the scope they were measured in |
 | [Known failure cases](#known-failure-cases) | Where local models failed, in detail |
-| [How Onyx compares](#how-onyx-compares) | Structural comparison, no invented numbers |
-| [Installing](#installing) | From source, or build the app |
-| [Testing](#testing) | 168 unit tests · 45 end-to-end checks · benchmarks |
+| [How Onyx compares](#how-onyx-compares) | By task, from each project's own documentation |
+| [Building from source](#building-from-source) | The only way to run it today |
+| [Testing](#testing) | What runs where |
 | [Documentation](#documentation) | Where everything else lives |
+| [Who built what](#who-built-what) | Authorship, licence and attribution |
+
+---
+
+## Download
+
+**Not published yet.** When `v0.1.0-alpha.1` is published, the artifact will be one signed, notarized disk image for Apple-silicon Macs, attached to the GitHub Release with its SHA-256:
+
+`https://github.com/sheehanlloyd/Onyx/releases/download/v0.1.0-alpha.1/Onyx-0.1.0-alpha.1-darwin-arm64.dmg`
+
+That address does not resolve today. It is written out because the alpha is a pre-release, and GitHub's "latest release" address skips pre-releases. The release will not be published unsigned, and nothing in this project tells you to get around macOS's checks: if macOS refuses to open a download, the download is wrong.
+
+Until then, [build from source](#building-from-source). Updating, rolling back and uninstalling are manual: [docs/UPDATING.md](./docs/UPDATING.md). How a release is made, and what the owner still has to do, is in [docs/RELEASING.md](./docs/RELEASING.md).
+
+---
+
+## Research
+
+Onyx treats the model as an untrusted, measurable component, and the repository carries the measurements. Ten hypotheses were registered before their data existed ([PREREGISTRATION.md](./docs/research/PREREGISTRATION.md)): four are supported, one is refuted and five are inconclusive. The full account is [docs/research/REPORT.md](./docs/research/REPORT.md); every number below regenerates from committed data with the commands in [REPRODUCE.md](./docs/research/REPRODUCE.md). One machine, three small models, two repositories.
+
+1. **No model reproduced a real task.** Across every campaign, 0 of 3,182 attempts reproduced a task exactly, and under the product's own configuration neither pinned model got an edit as far as staging in 320 agent runs (in 18 the edit call was rejected for its arguments) ([L13](./docs/progress/L13.md), [results](./docs/research/results/)).
+2. **The harness's guarantees held under simulation.** On the second run, 50,000 of 50,000 seeded episodes ran without a violation of the contract; the first run printed two violations, which were judged to be the rig's own and fixed in the rig, a judgement the registration did not provide for. 41 of 41 test-only mutants were detected: 36 audited defects put back and 5 generic ones. The mutants and the checkers were written by the same authors ([assurance](./docs/research/results/2026-11-22-assurance/)).
+3. **A fuzzy edit applier places more edits and is often silently wrong.** It placed 28.7 points more blocks than exact-or-refuse, and 53.8% of attempts under it ended silently wrong; in 319 of its 798 placements the text it replaced was not text the model had quoted. Exact-or-refuse is not free of the problem: under the same definition 26.9% of attempts (350 of 1,301) ended silently wrong under it too, by changing a line the author had not ([edit mechanisms](./docs/research/results/2026-11-22-edit-mechanisms/)).
+4. **Agent runs on a local runtime repeated exactly.** With temperature 0 and a fixed seed, 160 of 160 repetitions were identical, on one machine, in runs of two or three turns in which no edit was proposed; an earlier campaign, 146 of 160, was invalidated by a harness defect it found ([determinism](./docs/research/results/2026-11-22-determinism-2/)).
+
+What these do not show: that the product is useful as an agent with small models (the first finding says it mostly is not), that the results hold on other hardware or with larger models, or anything about LM Studio for these hypotheses: every campaign ran on Ollama. LM Studio is measured in the [benchmark results](#benchmark-results) only.
 
 ---
 
@@ -106,11 +90,13 @@ that was in its own prompt. Both are below, in [Benchmark results](#speculative-
   [Onyx says which is which](#where-inference-happens).
 - **The harness adapts to the model.** Prompt style, tool count, temperature and
   context budget come from a per-model capability profile, seeded from model
-  metadata and sharpened by measurements on your hardware and by which answers
+  metadata and adjusted by measurements on your hardware and by which answers
   you keep.
 - **Routing on measured behaviour.** Quick edits go to fast small models,
   implementation and debugging to your strongest tool-callers, based on measured
-  tok/s, tool-call reliability and accept rates.
+  tok/s, tool-call reliability and accept rates. Whether the router picks well is
+  not measured yet: the reference run has 0 of 0 tournaments and 0 of 0 routed
+  runs with a recorded outcome ([L11](./docs/progress/L11.md)).
 - **A model library sized to your Mac.** `Onyx: Manage Models` reads unified
   memory and tells you which models fit, at which quantization and context
   window, then pulls them with one click and live progress.
@@ -167,6 +153,8 @@ model is verified to be local, because nothing verifies it.
 ### Nothing touches your code without you
 
 <img src="docs/images/onyx-changes.png" alt="Onyx Changes: agent edits staged for per-hunk review — nothing touches a file until accepted" width="420" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 <img src="docs/images/onyx-terminal-approval.png" alt="The agent proposing a shell command in an approval dialog. Screenshot from August 2026: it still shows the Run for This Session and Always Run buttons, which the alpha removed" width="900" />
 
 *The screenshot predates the alpha's approval contract: the dialog now offers Run Once and Deny only.*
@@ -212,18 +200,23 @@ model is verified to be local, because nothing verifies it.
   correct across files — while the local model only *proposes names*. Results
   stage for review, and after you accept, Onyx compares problem markers against
   the baseline and tells you.
-- **Verification after every run.** When the agent finishes editing, Onyx diffs
-  workspace problems against the pre-run baseline and can run your project's own build or
-  test task, posting the verdict to the timeline.
+- **Verification of what you accepted.** When you accept a hunk, Onyx waits for
+  fresh diagnostics of that file and compares them with the problems it had just
+  before, and, on the saved file, can run your project's own build or test task
+  (asking first), posting the verdict to the timeline. Staged and not accepted is
+  "not applied": nothing is verified before you accept it.
 
-### It learns your repository
+### It adapts to your repository
 
 <img src="docs/images/onyx-architecture.png" alt="The Onyx architecture map: modules, dependencies, churn and fan-in hot spots with local-model summaries" width="420" />
 
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
+
 - **An architecture map of the workspace.** Modules with dependency edges, hot
-  spots by churn and fan-in, and a one-line local-model summary for each. This
-  repository, 13,256 files, maps in 3.1 seconds and in one second on a second
-  pass.
+  spots by churn and fan-in, and a one-line local-model summary for each. The map shows
+  inherited source as well as Onyx's own: in a map of this repository
+  `extensions/copilot` is visible because the source is in the tree, although
+  the packaged application does not include that extension.
 - **Semantic search without embeddings.** An incremental BM25 index over your
   workspace, blended with symbol matches and co-change history. It finds "commit
   message digest" in the file that defines `buildCommitDiffDigest`, which
@@ -234,13 +227,16 @@ model is verified to be local, because nothing verifies it.
 - **Documentation you already have, searchable offline.** A second index over
   your markdown, your dependencies' READMEs and the JSDoc inside their type
   declarations, with a `docs` tool the agent can query and a control-plane note
-  naming exactly which documents an answer used. No network, ever.
+  naming which documents an answer used. The mirror is built from files already
+  on disk; the tool makes no network request.
 - **Benchmarks from your own git history.** `Onyx: Benchmark on This Repo` turns
   real past commits into tasks: the model sees the file as it was plus the commit
   message and must reproduce the change. Scores are F1 over the lines the author
   added and removed, capped when the model deletes a line the author kept, and
-  they feed the router — so "the router learns" is measured
-  on *your* code, with the evidence in a document you can read.
+  they feed the router, so the routing adapts to measurements
+  on *your* code, with the evidence in a document you can read. On the tasks of
+  this repository no model has reproduced a change yet, so those scores are low
+  for every model and have not yet been shown to rank them.
 - **Playbooks your repository checks in.** `.onyx/playbooks/*.md` are named,
   versionable recipes with validated frontmatter. The agent sees a one-line index
   and can pull one in; you can run one from the palette. Broken playbooks show up
@@ -253,6 +249,8 @@ model is verified to be local, because nothing verifies it.
 ### The editor you already know
 
 <img src="docs/images/onyx-inline-edit.png" alt="Inline edit: a local model's change streaming in as four reviewable hunks" width="900" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 
 - **Inline edit that survives small models (`⌘I`).** Select code, say what to
   change, and the edit comes back as a proposal: its hunks are shown under the
@@ -283,27 +281,33 @@ model is verified to be local, because nothing verifies it.
   timeline as clickable `file:line` links. The reviewer reports; it never edits.
 
   <img src="docs/images/onyx-commit-message.png" alt="A commit message written from the staged diff by a local model, in the SCM input" width="900" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 - **The debugger, in the conversation.** While a session is paused, **Onyx:
   Explain This Failure** sends the stack, frames and variable values through
   normal chat — and the full snapshot is visible in the request before it goes,
   because nothing should be redacted silently.
 
 <img src="docs/images/onyx-debug.png" alt="Onyx: Explain This Failure at a real breakpoint, with the stack, variables and the model's diagnosis" width="900" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 <p><i>Paused at a real breakpoint: the stack and the actual variable values go into a request you can read, and the local model finds the null in the array.</i></p>
 
 - **Tournament mode.** `Onyx: Run in Parallel` races one instruction across
   several local models, each in its own `git worktree` so nothing collides.
   Compare the diffs side by side, pick a winner — it is applied to your tree, the
-  rest are discarded, and the pick teaches the router.
+  rest are discarded, and the pick is recorded as a routing signal.
 
 ### Everything is observable
 
 <img src="docs/images/onyx-control-plane.png" alt="The Onyx control plane: an adversarial review run with file:line findings" width="900" />
 
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
+
 - **The Onyx Control Plane (`⌘⌃O`)** streams every routing decision, model turn
   and tool call live — with pause, stop and redirect — plus an estimated context
-  budget and an inspector that replays any past run down to the exact wire
-  prompt.
+  budget and an inspector that replays any past run: the messages and tool names each
+  turn sent (schemas and options are not recorded).
 - **A ledger instead of a bill.** Per model, for this session and all
   time: requests, tokens, average tok/s and time-to-first-token, accept rate, and
   a `B·s` energy proxy — billions of parameters held for seconds of generation.
@@ -316,6 +320,8 @@ model is verified to be local, because nothing verifies it.
   checked in, files awaiting review.
 
 <img src="docs/images/onyx-compute.png" alt="The Onyx compute dashboard: per-model tokens, throughput and B·s" width="900" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 
 <details>
 <summary><b>The rest of the workbench</b> — first run, themes, and what a fresh install does <i>not</i> ask you</summary>
@@ -330,6 +336,8 @@ your machine, and Onyx tells you which runtimes it can already see.*
 <img src="docs/images/onyx-workbench.png" alt="Onyx workbench: Onyx Dark theme, local agent chat, control plane" width="900" />
 
 <img src="docs/images/onyx-light.png" alt="Onyx Light: the same accent language on warm paper" width="900" />
+
+<sub>Captured in August 2026 from a development build, before the alpha's review and approval changes; to be re-captured from the release candidate (`docs/images/MANIFEST.md`).</sub>
 
 *Onyx Light — the same violet and teal, on warm paper. Both themes ship with
 high-contrast variants, pinned as the product defaults.*
@@ -391,9 +399,10 @@ requests for both Ollama qwen models and the LM Studio 7B, 4 of 6 for the LM
 Studio 1.5B and 3 of 6 for the 0.5B. With `response_format: json_schema`
 constraining the turn, every model reached 6 of 6 except the Ollama 1.5B, 5 of 6.
 
-The repair path is the only reason most of these models can call tools at all.
-That is a result about the models, not about Onyx, and it is why the tool loop
-was built to assume the channel will fail.
+Without the repair path or the constrained envelope, most of these models do not
+call tools at all. These are 6 requests per arm, and an unused tool channel is a
+property of the runtime's chat template for the model as much as of the model:
+it is why the tool loop was built to assume the channel will fail.
 
 ### Speculative decoding
 
@@ -494,7 +503,7 @@ has the three misses and why.
 
 ## Known failure cases
 
-A 7B model on a laptop is not GPT-5-class, and no harness fixes that. These are
+A 7B model on a laptop is far from a frontier model, and no harness fixes that. These are
 from this repository's own testing, against real local models.
 
 - The adversarial reviewer was handed a diff containing `for (let i = 0; i <=
@@ -510,6 +519,12 @@ from this repository's own testing, against real local models.
   ever calling the terminal tool. Nothing ran. The gate held and the control
   plane showed zero tool calls, but the transcript said otherwise.
 
+The same, on the release build, on 2026-11-24: asked to make one function skip invalid items and add a
+test, the pinned 7B model ended its run in ten seconds with no edit proposed; the inline edit just before it
+failed too. The screenshot is unretouched.
+
+<img src="docs/images/onyx-agent-attempt.png" alt="The packaged build after an agent request to qwen2.5-coder:7b: the Onyx Changes view says No proposed changes, and Agent Activity shows the inline edit failed" width="900" />
+
 Onyx's answer is to make these failure modes survivable and visible. Edits stage
 before they land, tool calls are repaired or grammar-constrained, the terminal
 cannot run without you, and the control plane is the ground truth when the prose
@@ -519,35 +534,26 @@ is not.
 
 ## How Onyx compares
 
-Onyx is not trying to beat a frontier model. It is trying to make a model on your
-machine useful, and to be honest about what that costs.
+By what you are trying to do, from each project's own documentation, repository or release data, read on 2026-11-22. Where the documentation read was silent, the cell says so; that is not a "no". Nothing here claims another tool cannot work offline, and no performance number for another product appears, because none was measured. The sources, with what could not be opened, are in [docs/COMPARISON.md](./docs/COMPARISON.md).
 
-The comparison below is structural: where inference runs, and what you are shown
-before something happens to your code. No performance numbers for other products
-appear here, because none were measured. Every number in this README came from
-the harness above, on this machine.
+| You want to | Onyx | Cline | Zed | VS Code with your own model | Void | Continue |
+|---|---|---|---|---|---|---|
+| Know it is alive | Experimental alpha, unreleased | Active | Active | Active | Archived by its owner in June 2026; its README says deprecated | Its site says it was acquired (no date given); its README says it is no longer maintained |
+| Use a local model | Ollama supported; other OpenAI-compatible servers best effort | Ollama, LM Studio and others documented | llama.cpp, Ollama, LM Studio, OpenAI-compatible | Custom endpoints and provider extensions; documented to work without an account or internet for local models | Ollama, vLLM, OpenAI-compatible shown | Ollama guide; a documented no-internet setup |
+| Review an edit before it lands | Staged first; nothing is written until you accept, per hunk | Each edit shown as a diff needing approval unless auto-approve is on; checkpoints | Review after the agent has edited: accept or reject each hunk or all | Edits are saved to disk, then kept or undone per change; checkpoints | Diff zones after Apply; granularity not stated in the docs read | Inline diffs in Edit mode, accept or reject each; agent mode not stated in the docs read |
+| Run a command the model suggests | Asks for every invocation: Run Once or Deny, no stored grant | Asks by default; auto-approve toggles and a mode that approves everything | Confirms by default; per-tool allow, deny and confirm rules | Asks; once, session and always options, and auto-approve rules | Not stated in the docs read | Asks before each tool call by default; per-tool policies |
+| Measure models on your own code | Built in: a benchmark from your git history, with a scorecard | None found in the docs read | None found in the docs read | None found in the docs read | None found in the docs read | None found in the docs read |
+| Know what is sent home | No telemetry of its own; a recorded capture of what the application sends ([report](./docs/progress/production-readiness.md)) | Telemetry on by default, with a setting to turn it off | Telemetry, with settings to turn it off | Telemetry levels, including off | Not stated in the docs read | Its README says the final release removed anonymous telemetry |
+| Run it on | macOS on Apple silicon | VS Code, JetBrains, a CLI, a desktop app | macOS, Linux, Windows | Windows, macOS, Linux | macOS, Windows and Linux builds of its last release | VS Code, JetBrains, a CLI |
 
-| | Cloud AI editors<br/>(Cursor, Copilot) | Ollama or LM Studio<br/>on their own | Continue, Cline<br/>(extension in another editor) | **Onyx** |
-|---|---|---|---|---|
-| Where inference runs | The vendor's servers | Your machine | Your machine, or a cloud key | **Your machine only** |
-| Account required | Yes | No | No | **No — nothing to sign in to** |
-| Your code leaves the machine | Yes, by design | No | Depends on the model you configure | **No** |
-| Agent edits before they land | Varies by product | n/a — no editor | Varies by product | **Always staged; per-hunk accept/reject; survives a crash; rebased if the file moves** |
-| Shell commands | Varies by product | n/a | Varies by product | **Every invocation asks, with Run Once or Deny; no session or persistent grant, and repository files grant nothing; dangerous-looking patterns are named in the dialog** |
-| Which model handles a request | You select one, or an automatic mode routes per request | You decide, per request | You decide, per config | **Routed automatically from measurements of your hardware and your repository, with the reason shown** |
-| Speed and cost readout | Dollars, or nothing | `--verbose` in a terminal | Varies | **tok/s, TTFT, context usage and a B·s energy proxy, per model, live** |
-| Documentation lookup | The vendor's index, online | n/a | Varies | **A local BM25 mirror of your markdown, dependency READMEs and JSDoc — no network** |
-| Seeing what the agent actually sent | Rarely | You wrote the request | Sometimes | **Every past run replayable down to the exact wire prompt** |
-| Works with no internet | No | Yes | Depends | **Yes, entirely** |
+What the table cannot tell you is which of these is better at writing code. The others can use any model you point them at, and several are far more mature. Onyx's difference is narrow: what stands between a model and your files, and that it measures. [Research](#research) reports what the measuring found.
 
 ---
 
-## Installing
-
-### From source
+## Building from source
 
 ```bash
-# Node 24.22.1 or a newer 24.x, and the pnpm that package.json pins (12.16.0).
+# Node 24.22.1 or a newer 24.x, and the pnpm that package.json pins.
 # The repo's preinstall check refuses another major, an older 24.x, or npm.
 git clone https://github.com/sheehanlloyd/Onyx.git && cd Onyx
 corepack enable pnpm                      # ships with Node 24; reads the pin from package.json
@@ -556,46 +562,22 @@ pnpm run compile
 ./scripts/code.sh
 ```
 
-Install frozen, always. An unfrozen `pnpm install` rewrites `pnpm-lock.yaml` in
-place and is then refused by the seven-day release-age policy in
-`pnpm-workspace.yaml`; `pnpm_config_frozen_lockfile` carries the setting into
-the installs that run for `build/` and `remote/`.
+Install frozen, always. An unfrozen `pnpm install` rewrites `pnpm-lock.yaml` in place.
 
-You also need a local model runtime. Any OpenAI-compatible server works;
-`brew install ollama && ollama pull qwen2.5-coder:7b` is the shortest path. Onyx
-discovers it on first run — there is no configuration step.
+You also need a local model runtime. The supported one is Ollama with `qwen2.5-coder:7b` and `qwen2.5-coder:1.5b`, at the versions in [docs/SUPPORT.md](./docs/SUPPORT.md). Onyx finds it on first run.
 
-### The built app
-
-There is no download link yet. The release build produces `Onyx.app`, and
-`hdiutil` wraps it in a disk image:
-
-```bash
-pnpm run gulp vscode-darwin-arm64-min     # → ../VSCode-darwin-arm64/Onyx.app
-mkdir -p dmg-root && cp -R ../VSCode-darwin-arm64/Onyx.app dmg-root/
-ln -s /Applications dmg-root/Applications
-hdiutil create -volname "Onyx" -srcfolder dmg-root -ov -format UDZO Onyx.dmg
-```
-
-[LAUNCH.md](./LAUNCH.md) has the full checklist, including the signing and
-notarization steps for when there *is* a certificate to sign with.
-
-> [!WARNING]
-> **That DMG is unsigned and un-notarized.** Both need an Apple Developer ID,
-> which this project does not have yet, so macOS Gatekeeper will refuse to open
-> the app on first launch. Right-click it and choose **Open**, then confirm — or
-> build from source above, which Gatekeeper does not gate at all. A notarized
-> download is the next milestone, not a shipped one.
+To build the application bundle yourself, `pnpm run gulp vscode-darwin-arm64-min` writes `../VSCode-darwin-arm64/Onyx.app`. A build you made on your own Mac runs there. It is not signed for distribution; do not hand it to someone else.
 
 ---
 
 ## Testing
 
 ```bash
-./scripts/test.sh --grep Onyx      # 168 unit tests, including parser fuzzing
+./scripts/test.sh --grep Onyx      # the Onyx unit tests, including parser fuzzing, the simulation smoke and the trace replay
 node test/onyx/mock-ollama.mts     # an OpenAI-compatible mock, no model needed
-node test/onyx/run-e2e.mts         # 45 end-to-end checks against a real workbench
-node test/onyx/run-benchmarks.mts  # every number in this README, re-measured
+node test/onyx/run-e2e.mts         # the end-to-end suite against a real workbench; it prints its own count
+node test/onyx/run-benchmarks.mts  # the benchmark charts' numbers, re-measured
+ONYX_PACKAGED_APP=../VSCode-darwin-arm64/Onyx.app node test/onyx/run-module-gate.mts --module 5   # everything, on a packaged build
 ```
 
 What runs where — [.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.yml):
@@ -607,14 +589,16 @@ What runs where — [.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.
   benchmarks (every safety invariant in them is an assertion that fails the
   job), and the harness's own self-checks (`test/onyx/checks/`), which include
   the fresh-output protocol: a probe regression is transpiled before it is
-  observed to fail and again before it is observed to pass.
-- **On manual dispatch:** the same jobs. Later items add the module gate and the
-  packaged-app smoke here.
+  observed to fail and again before it is observed to pass. The simulation smoke
+  (2,000 seeded episodes) and the replay of the committed trace corpus
+  (`test/onyx/traces/`) are steps of their own in the same job.
+- **On manual dispatch:** the same jobs and the module gate. The packaged-app smoke has its own
+  workflow, the full simulation campaign runs nightly, and the release workflow runs only by hand.
 - **The harness contract.** What the agent must never do, for every model output, user action and
   environment fault, with the observable definition of each guarantee and the simulation rig that checks
-  them: [docs/research/HARNESS-CONTRACT.md](./docs/research/HARNESS-CONTRACT.md). The baseline exceptions the
-  unmodified harness still violates, each with an owner and a reproducing script, are in
-  `test/onyx/sim/baseline-exceptions.json`.
+  them: [docs/research/HARNESS-CONTRACT.md](./docs/research/HARNESS-CONTRACT.md). The table of baseline exceptions,
+  `test/onyx/sim/baseline-exceptions.json`, is empty: every defect it once listed is fixed and kept as a
+  mutant the simulation must detect.
 - **Provenance.** Every agent run journals a versioned trace with the harness configuration hash, the
   model digest, the runtime version, the sampling parameters including the seed and whether the runtime
   honoured it; every campaign carries an experiment manifest, and the chart builder refuses to draw
@@ -632,38 +616,25 @@ What runs where — [.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.
 
 | Document | What it covers |
 |---|---|
-| [ONYX.md](./ONYX.md) | Product plan, full architecture, status, and what real models found |
-| [docs/BENCHMARKS.md](./docs/BENCHMARKS.md) | Every measurement: what it means, how to reproduce it, what is *not* measured |
-| [REBASE.md](./REBASE.md) | Every upstream file Onyx touches, and four merge drills against microsoft/vscode |
-| [LAUNCH.md](./LAUNCH.md) | Packaging, signing, notarization and the release checklist |
-| [test/onyx/README.md](./test/onyx/README.md) | The mock runtime's prompt markers, the E2E harness, the benchmarks |
-| [NOTICE.md](./NOTICE.md) · [TRADEMARK.md](./TRADEMARK.md) | Who owns what, and what you may call your fork |
-| [docs/images/onyx-social-preview.png](./docs/images/onyx-social-preview.png) | The 1280×640 repository cover image (Settings → General → Social preview) |
-| [CONTRIBUTING](./.github/CONTRIBUTING.md) · [SECURITY](./.github/SECURITY.md) · [CODE_OF_CONDUCT](./.github/CODE_OF_CONDUCT.md) | Contributing (DCO, no CLA), the threat model, and conduct |
+| [docs/SUPPORT.md](./docs/SUPPORT.md) | The supported matrix, the tool list and its gates, measured budgets, every known limit |
+| [docs/research/REPORT.md](./docs/research/REPORT.md) | The research report: contract, hypotheses, outcomes, threats to validity |
+| [docs/research/REPRODUCE.md](./docs/research/REPRODUCE.md) · [RELATED.md](./docs/research/RELATED.md) | One command per number; related work, read at its source and dated |
+| [ROADMAP.md](./ROADMAP.md) | What is done, what is waiting on whom, what is not planned |
+| [docs/DESIGN.md](./docs/DESIGN.md) | The decisions the measurements changed, and what being a fork costs |
+| [docs/UPDATING.md](./docs/UPDATING.md) · [docs/RELEASING.md](./docs/RELEASING.md) | Manual update, rollback and uninstall; how a release is made |
+| [docs/BENCHMARKS.md](./docs/BENCHMARKS.md) | The benchmark charts: what each measures and how to reproduce it |
+| [SECURITY](./.github/SECURITY.md) · [CONTRIBUTING](./.github/CONTRIBUTING.md) · [CODE_OF_CONDUCT](./.github/CODE_OF_CONDUCT.md) | The threat model and how to report; how to contribute; conduct |
+| [ONYX.md](./ONYX.md) · [REBASE.md](./REBASE.md) | Architecture; every upstream file Onyx touches and the merge record |
+| [NOTICE.md](./NOTICE.md) · [TRADEMARK.md](./TRADEMARK.md) · [CITATION.cff](./CITATION.cff) | Who owns what; the name; how to cite |
 
 ---
 
-## License and attribution
+## Who built what
 
-The code is **MIT**, like the [Code – OSS](https://github.com/microsoft/vscode)
-project it is forked from — see [LICENSE.txt](./LICENSE.txt).
+Onyx is a fork of [Code - OSS](https://github.com/microsoft/vscode) with the upstream history preserved. The editor, the extension host, the language features and nearly all of the code in this repository are the work of Microsoft and the upstream contributors, under the MIT licence.
 
-- **Upstream:** Code – OSS, Copyright (c) Microsoft Corporation, MIT. Onyx is a
-  fork; every file in the tree keeps the upstream MIT header, including Onyx's
-  own new files, because the repository's inherited `header/header` lint rule
-  requires it. That header is a build requirement, not a statement of authorship
-  — [NOTICE.md](./NOTICE.md) records who owns what.
-- **Onyx:** the `src/vs/platform/onyxRuntime/`, `src/vs/workbench/contrib/onyx/`,
-  `extensions/theme-onyx/` and `test/onyx/` trees, the Onyx documentation and the
-  Onyx design are original work by Sheehan Lloyd, contributed under the same MIT
-  license.
-- **The name and the mark are not:** "Onyx", the word mark, the logo and the
-  application icon are reserved and are **not** licensed with the code. Fork the
-  code freely; please ship it under your own name. See
-  [TRADEMARK.md](./TRADEMARK.md).
+The Onyx part is in [`src/vs/platform/onyxRuntime/`](./src/vs/platform/onyxRuntime), [`src/vs/workbench/contrib/onyx/`](./src/vs/workbench/contrib/onyx), [`extensions/theme-onyx/`](./extensions/theme-onyx) and [`test/onyx/`](./test/onyx), plus the documents listed above. It is original work by Sheehan Lloyd, written with heavy use of AI coding assistants, and contributed under the same MIT licence ([LICENSE.txt](./LICENSE.txt)). [REBASE.md](./REBASE.md) lists every upstream file Onyx touches. Onyx added no third-party dependency to the upstream set.
 
-> [!NOTE]
-> Onyx's community files live in `.github/` because the repository root still
-> carries upstream VS Code's `CONTRIBUTING.md` and `SECURITY.md`. GitHub resolves
-> `.github/` first, so Onyx's versions are the ones that apply and upstream's
-> files stay untouched — one less thing to reconcile on every rebase.
+- **Licence headers.** Every file keeps the upstream MIT header, including Onyx's own new files, because the repository's inherited lint rule requires it. That header is a build requirement, not a statement of authorship; [NOTICE.md](./NOTICE.md) records who owns what.
+- **The name and the mark.** "Onyx", the word mark, the logo and the application icon are not licensed with the code. Fork the code freely and ship it under your own name ([TRADEMARK.md](./TRADEMARK.md)). The name and the icon are due to change; see [ROADMAP.md](./ROADMAP.md).
+- **Community files** live in `.github/` because the repository root still carries upstream's `CONTRIBUTING.md` and `SECURITY.md`. GitHub resolves `.github/` first, so Onyx's versions are the ones that apply.

@@ -178,6 +178,16 @@ export const SIM_SCENARIOS: readonly OnyxSimEpisode[] = [
 		dialogDefault: 'deny',
 		userSteps: [{ at: 'beforeToolDispatch', occurrence: 1, step: { kind: 'stop' } }],
 	}),
+	scenario('b10-stop-while-a-command-approval-is-open', 'Run the tests', [
+		{ kind: 'toolCall', tool: 'terminal', arguments: { command: 'npm test' } },
+	], {
+		userSteps: [{ at: 'dialogOpen', occurrence: 1, step: { kind: 'stop' } }],
+	}),
+	scenario('b10-stop-while-a-memory-confirmation-is-open', 'Remember that this project indents with tabs', [
+		{ kind: 'toolCall', tool: 'remember', arguments: { note: 'this project indents with tabs' } },
+	], {
+		userSteps: [{ at: 'dialogOpen', occurrence: 1, step: { kind: 'stop' } }],
+	}),
 	scenario('b10-stop-while-an-approval-dialog-is-open', 'Fetch the page', [
 		{ kind: 'toolCall', tool: 'vscode_fetchWebPage_internal', arguments: { url: 'https://example.test/' } },
 	], {

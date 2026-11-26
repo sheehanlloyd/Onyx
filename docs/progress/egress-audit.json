@@ -1,0 +1,81 @@
+{
+	"regression": "R-60",
+	"ranAt": "2026-11-26T09:54:19.607Z",
+	"product": {
+		"nameShort": "Onyx",
+		"commit": "3477aeeaa484f63ca6ed71eca74a7387f08e1ac2"
+	},
+	"method": {
+		"proxy": "application started with --proxy-server pointing at a recording proxy; host and port of every CONNECT and plain request, content not read",
+		"sockets": "lsof -nP -i on the application's processes, at most every 300 ms; 3676 samples taken",
+		"cannotSee": [
+			"a direct connection shorter than the sampling interval",
+			"DNS queries, made by the system resolver",
+			"the content of TLS connections",
+			"behaviour outside these phases"
+		],
+		"runtime": "the mock runtime on 127.0.0.1:11434 (and the suite's second mock); loopback connections are listed by port only"
+	},
+	"suite": "all 73 checks passed",
+	"asked": {
+		"extensionRowsShown": 0,
+		"updateDialog": ""
+	},
+	"expectations": {
+		"suitePassed": true,
+		"galleryWasAsked": true,
+		"releaseListWasAsked": true
+	},
+	"phases": [
+		{
+			"phase": "workflow",
+			"startedAt": "2026-11-26T09:34:48.310Z",
+			"note": "run-e2e.mts on the packaged application, against the mock runtime",
+			"endedAt": "2026-11-26T09:42:53.488Z",
+			"throughProxy": {},
+			"directNonLoopback": [],
+			"loopbackPortsSeen": [
+				"11434",
+				"1234",
+				"65336",
+				"65337",
+				"65338"
+			],
+			"violations": []
+		},
+		{
+			"phase": "idle",
+			"startedAt": "2026-11-26T09:42:53.490Z",
+			"note": "a fresh first launch, the first-run dialog stepped through, then 10 minutes untouched",
+			"endedAt": "2026-11-26T09:53:06.652Z",
+			"throughProxy": {},
+			"directNonLoopback": [],
+			"loopbackPortsSeen": [
+				"11434",
+				"49157",
+				"49158",
+				"65532"
+			],
+			"violations": []
+		},
+		{
+			"phase": "asked",
+			"startedAt": "2026-11-26T09:53:06.652Z",
+			"note": "the Extensions view opened and searched, then Onyx: Check for Updates",
+			"endedAt": "2026-11-26T09:54:15.396Z",
+			"throughProxy": {
+				"open-vsx.org:443": 3,
+				"openvsx.eclipsecontent.org:443": 6,
+				"api.github.com:443": 1
+			},
+			"directNonLoopback": [],
+			"loopbackPortsSeen": [
+				"11434",
+				"49158"
+			],
+			"violations": []
+		}
+	],
+	"violations": [],
+	"passed": true
+}

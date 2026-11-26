@@ -83,6 +83,19 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		// chrome that invites the user into it stays off.
 		'chat.titleBar.openInAgentsWindow.enabled': false,
 		'chat.agentsWindowBanner.enabled': false,
+		// The gallery is Open VSX (D1). It is asked when the user opens the
+		// Extensions view, searches or installs; it is not asked in the
+		// background. Upstream checks for and installs extension updates on a
+		// timer, and fetches recommendations at startup: both are outbound
+		// requests the user did not make (D8's egress rule), so both start off.
+		'extensions.autoCheckUpdates': false,
+		'extensions.autoUpdate': false,
+		'extensions.ignoreRecommendations': true,
+		// What the Settings editor shows matches what the installer does: this
+		// build cannot verify an extension's signature (see the note in
+		// extensionManagementService.ts). docs/SUPPORT.md says so to the user.
+		'extensions.verifySignature': false,
+		'workbench.enableExperiments': false,
 	},
 }]);
 

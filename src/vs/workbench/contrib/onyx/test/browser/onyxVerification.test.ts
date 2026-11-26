@@ -109,6 +109,25 @@ suite('OnyxVerification', () => {
 		});
 	});
 
+	test('C2, R-21: a clean file that stays clean after the acceptance ends as "verified", saying no report came, not as "timed out"', async () => {
+		const result = await withRig(async rig => {
+			const run = rig.controlPlane.beginRun({ sessionResource: URI.parse('onyx-test://verification'), requestId: 'r3', title: 'verification', task: 'quick-edit', modelKey: 'auto' });
+			// No problem before, and the language service has nothing to report after: the marker service fires
+			// no event when an empty set stays empty, so no report ever comes.
+			await rig.changeSet.stage(PATH, [ADD], run.runId);
+			await rig.changeSet.acceptFile(PATH);
+			const running = state(rig);
+			await timeout(16_000);
+			const verdict = rig.verification.resultFor(PATH)!;
+			run.complete('completed');
+			return { running, state: verdict.state, unreported: verdict.unreported, counts: [verdict.diff?.before, verdict.diff?.after], timeline: notes(rig, run.runId) };
+		});
+		assert.deepStrictEqual(result, {
+			running: 'running', state: 'verified', unreported: true, counts: [0, 0],
+			timeline: ['Verification: verified — no problems in src/math.ts before or after the acceptance, and none reported while waiting (a clean file that stays clean gets no new report)'],
+		});
+	});
+
 	test('R-21: the project check runs only on the accepted file as saved: an unsaved buffer is named and not saved for the user, and the check runs when they save it', async () => {
 		const result = await withRig(async rig => {
 			const uri = rig.uri(PATH);

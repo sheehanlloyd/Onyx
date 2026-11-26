@@ -1,0 +1,49 @@
+{
+	"ranAt": "2026-11-24T17:12:09.410Z",
+	"product": {
+		"nameShort": "Onyx",
+		"commit": "4eb52add73f4178dd2994f3a8b719095b5956287"
+	},
+	"runtime": "Ollama 0.33.0",
+	"model": "qwen2.5-coder:7b",
+	"captures": [
+		{
+			"file": "onyx-onboarding.png",
+			"taken": true,
+			"note": "first-run dialog on a fresh profile, with the private runtime named in settings"
+		},
+		{
+			"file": "onyx-workbench.png",
+			"taken": true,
+			"note": "the window after the first run, with the demo repository open",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"file": "onyx-model-library.png",
+			"taken": true,
+			"note": "Onyx: Manage Models on this Mac"
+		},
+		{
+			"file": "onyx-inline-edit.png",
+			"taken": false,
+			"note": "qwen2.5-coder:7b produced no applicable proposal within 120 s"
+		},
+		{
+			"file": "onyx-demo.gif",
+			"taken": true,
+			"note": "inline edit with qwen2.5-coder:7b, one frame a second of real time played at two frames a second (labelled as sped up twice); 95 frames",
+			"model": "qwen2.5-coder:7b"
+		},
+		{
+			"file": "onyx-commit-message.png",
+			"taken": false,
+			"note": "no message appeared in the commit input within 90 s"
+		},
+		{
+			"file": "onyx-agent-attempt.png",
+			"taken": true,
+			"note": "an agent request to qwen2.5-coder:7b: it ended without proposing an edit, as the project's measurements say is usual (10 s)",
+			"model": "qwen2.5-coder:7b"
+		}
+	]
+}

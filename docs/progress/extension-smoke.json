@@ -1,0 +1,47 @@
+{
+	"ranAt": "2026-11-23T00:01:03.784Z",
+	"product": {
+		"nameShort": "Onyx",
+		"commit": "0a30cc099bae537e4c2a938b3781c95f17947edf"
+	},
+	"gallery": "https://open-vsx.org/vscode/gallery",
+	"alsoInstalled": [
+		"ms-python.debugpy@2026.6.0",
+		"ms-python.vscode-python-envs@1.44.0"
+	],
+	"results": [
+		{
+			"id": "ms-python.python",
+			"what": "Python",
+			"installed": true,
+			"version": "2026.10.0",
+			"activated": true,
+			"detail": "ms-python.python, startup: true, activationEvent: 'workspaceContains:app.py'"
+		},
+		{
+			"id": "dbaeumer.vscode-eslint",
+			"what": "ESLint",
+			"installed": true,
+			"version": "3.0.34",
+			"activated": true,
+			"detail": "dbaeumer.vscode-eslint, startup: false, activationEvent: 'onStartupFinished'"
+		},
+		{
+			"id": "esbenp.prettier-vscode",
+			"what": "Prettier",
+			"installed": true,
+			"version": "12.4.0",
+			"activated": true,
+			"detail": "esbenp.prettier-vscode, startup: false, activationEvent: 'onStartupFinished'"
+		},
+		{
+			"id": "eamodio.gitlens",
+			"what": "GitLens",
+			"installed": true,
+			"version": "19.6.1",
+			"activated": true,
+			"detail": "eamodio.gitlens, startup: false, activationEvent: 'onStartupFinished'"
+		}
+	],
+	"passed": true
+}

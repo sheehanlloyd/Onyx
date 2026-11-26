@@ -231,12 +231,31 @@ const i04OutputCap: OnyxSimChecker = state => {
 	return undefined;
 };
 
-/** I-05: after Stop, no further tool is dispatched and no further proposal is staged. */
+/**
+ * I-05: after Stop, no further tool is dispatched and no further proposal is
+ * staged; and a dialog that is open when Stop is pressed is closed by it, not
+ * left on screen to be answered (B10). The dialog answered next after a Stop,
+ * with no other user action between them, is the one that was open (or one
+ * opened after the Stop, which is as wrong). A dispatch, a command or a
+ * staging after the Stop is the graver class, and is reported first.
+ */
 const i05: OnyxSimChecker = state => {
 	let stopped = false;
+	let dialogOpenAtStop = false;
+	let answeredAfterStop: string | undefined;
 	for (const event of events(state)) {
-		if (event.kind === 'userAction' && event.action === 'stop') {
-			stopped = true;
+		if (event.kind === 'userAction') {
+			if (event.action === 'stop') {
+				stopped = true;
+				dialogOpenAtStop = true;
+			} else if (event.action !== 'dialog') {
+				dialogOpenAtStop = false;
+			}
+		} else if (dialogOpenAtStop && event.kind === 'dialog') {
+			dialogOpenAtStop = false;
+			if (event.decision !== 'closed by stop') {
+				answeredAfterStop ??= `I-05/dialog-outlives-stop: "${event.message}" was answered after Stop (${event.decision}) instead of being closed by it`;
+			}
 		} else if (stopped && event.kind === 'toolDispatch') {
 			return `I-05/dispatch-after-stop: ${event.tool} was dispatched after Stop`;
 		} else if (stopped && event.kind === 'commandDispatch') {
@@ -245,7 +264,7 @@ const i05: OnyxSimChecker = state => {
 			return `I-05/stage-after-stop: ${event.path} was staged after Stop`;
 		}
 	}
-	return undefined;
+	return answeredAfterStop;
 };
 
 /** I-06: only tools in the contract are dispatched; an unknown or schema-invalid call produces an error result, never an effect. */

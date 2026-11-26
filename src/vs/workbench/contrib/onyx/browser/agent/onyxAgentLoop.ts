@@ -697,9 +697,10 @@ export class OnyxAgentLoop {
 				subject: `Tool: ${toolUse.name} ${JSON.stringify(parameters)}`,
 				configuredBy: localize('onyx.agent.networkToolsSetting', "your setting {0}", ONYX_NETWORK_TOOLS_SETTING),
 				runId: run.runId,
+				token,
 			});
 			if (token.isCancellationRequested) {
-				// Stop while the dialog was open: whatever it was then answered, the call is not dispatched (B10).
+				// Stop while the dialog was open: Stop closed it, and the call is not dispatched (B10).
 				run.activity({ kind: 'toolResult', label: toolUse.name, ok: false, reason: 'the run was stopped' });
 				return { text: 'The run was stopped by the user before this was done. Nothing was run or changed.', ok: false };
 			}

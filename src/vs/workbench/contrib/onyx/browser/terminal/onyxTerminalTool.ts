@@ -69,6 +69,18 @@ export interface IOnyxExecutionRequest {
 	/** Who configured it, in words the dialog shows. */
 	readonly configuredBy: string;
 	readonly runId: string | undefined;
+	/** The run's cancellation. Stop closes the dialog as a Deny, instead of leaving it open with its answer ignored (B10). */
+	readonly token?: CancellationToken;
+}
+
+/**
+ * Lets a run's cancellation close an approval dialog (B10). Only the
+ * workbench's own dialog can be closed by the application; a native macOS
+ * dialog cannot, so a dialog that a run can stop is always drawn in the
+ * window, whatever `window.dialogStyle` says.
+ */
+export function closableBy(token: CancellationToken | undefined): { readonly token?: CancellationToken; readonly custom?: boolean } {
+	return token && token !== CancellationToken.None ? { token, custom: true } : {};
 }
 
 /**
@@ -181,7 +193,13 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 		if (byPolicy) {
 			this._campaignDenials++;
 		}
-		const decision = byPolicy ? 'deny' : await this._authorize(invocation);
+		const decision = byPolicy ? 'deny' : await this._authorize(invocation, token);
+		if (token.isCancellationRequested) {
+			// Stop while the dialog was open (B10, I-05): Stop closed the dialog, and whatever it said, nothing runs.
+			// No decision of the user's is recorded: the user stopped the run, they did not answer the question.
+			this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.stopped', "Not run: the run was stopped"), reason: label, ok: false });
+			return errorResult('The run was stopped by the user while the approval was open. Nothing was run.');
+		}
 		this._remember(invocation, decision);
 		if (runId) {
 			this._controlPlaneService.recordApproval(runId, { command: invocation.command, cwd: invocation.cwd, timeoutMs: invocation.timeoutMs, decision, source: byPolicy ? 'campaign-policy' : 'dialog' });
@@ -191,11 +209,6 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 			return { content: [{ kind: 'text', value: 'The user denied this command. Do not retry it; ask the user what to do instead, or continue without it.' }] };
 		}
 
-		if (token.isCancellationRequested) {
-			// Stop while the dialog was open (B10, I-05): an approval given after Stop runs nothing.
-			this._appendActivity(runId, { kind: 'note', label: localize('onyx.terminal.stopped', "Not run: the run was stopped"), reason: label, ok: false });
-			return errorResult('The run was stopped by the user while the approval was open. Nothing was run.');
-		}
 		const operationId = `terminal-${generateUuid()}`;
 		const running: IOnyxRunningCommand = { operationId, command: label, startedAt: Date.now(), runId };
 		this._runningObs.set([...this._runningObs.get(), running], undefined);
@@ -272,8 +285,9 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 			].join('\n'),
 			buttons: [{ label: localize('onyx.terminal.allowOnce', "Run Once"), run: () => 'allow-once' }],
 			cancelButton: { label: localize('onyx.terminal.deny', "Deny"), run: () => 'deny' },
+			...closableBy(request.token),
 		});
-		const decision: OnyxTerminalDecision = result.result === 'allow-once' ? 'allow-once' : 'deny';
+		const decision: OnyxTerminalDecision = result.result === 'allow-once' && !request.token?.isCancellationRequested ? 'allow-once' : 'deny';
 		if (request.runId) {
 			this._controlPlaneService.recordApproval(request.runId, { command: request.subject, cwd: null, timeoutMs: null, decision, source: 'dialog' });
 		}
@@ -371,11 +385,11 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 	 * dialog that shows that invocation. Nothing else is consulted, whatever
 	 * the repository, an earlier answer or stored data says.
 	 */
-	protected async _authorize(invocation: IOnyxCommandInvocation): Promise<OnyxTerminalDecision> {
-		return this._askForApproval(invocation);
+	protected async _authorize(invocation: IOnyxCommandInvocation, token: CancellationToken = CancellationToken.None): Promise<OnyxTerminalDecision> {
+		return this._askForApproval(invocation, token);
 	}
 
-	protected async _askForApproval(invocation: IOnyxCommandInvocation): Promise<OnyxTerminalDecision> {
+	protected async _askForApproval(invocation: IOnyxCommandInvocation, token: CancellationToken = CancellationToken.None): Promise<OnyxTerminalDecision> {
 		const approval = this._approvalRequest(invocation);
 		const result = await this._dialogService.prompt<OnyxTerminalDecision>({
 			type: approval.dangerous ? Severity.Warning : Severity.Info,
@@ -385,8 +399,9 @@ export class OnyxTerminalService extends Disposable implements IOnyxTerminalServ
 			detail: approval.detail,
 			buttons: [{ label: localize('onyx.terminal.allowOnce', "Run Once"), run: () => 'allow-once' }],
 			cancelButton: { label: localize('onyx.terminal.deny', "Deny"), run: () => 'deny' },
+			...closableBy(token),
 		});
-		return result.result === 'allow-once' ? 'allow-once' : 'deny';
+		return result.result === 'allow-once' && !token.isCancellationRequested ? 'allow-once' : 'deny';
 	}
 
 	/** What the dialog says about an invocation: the exact command, where, for how long, and what it looks like. */

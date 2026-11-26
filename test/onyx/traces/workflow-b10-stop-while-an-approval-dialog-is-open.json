@@ -7,7 +7,7 @@
 		"workflow": "b10-stop-while-an-approval-dialog-is-open",
 		"persona": "well-behaved"
 	},
-	"reason": "First recording (L8): the harness at the end of Module 3, with certificates, verification after acceptance and exact-or-refuse edits.",
+	"reason": "Audit of 2026-11-26: Stop closes an approval dialog that is open (B10), and a clean file that stays clean after an acceptance is verified instead of timed out (C2)",
 	"episode": {
 		"name": "workflow-b10-stop-while-an-approval-dialog-is-open",
 		"seed": 0,
@@ -66,7 +66,7 @@
 		"{\"t\":401,\"kind\":\"userAction\",\"action\":\"stop\"}",
 		"{\"t\":401,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"live:cancelled\"}",
 		"{\"t\":401,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"cancelled\"}",
-		"{\"t\":401,\"kind\":\"dialog\",\"message\":\"The agent wants to use the network\",\"decision\":\"allow-once\",\"granted\":true}",
+		"{\"t\":401,\"kind\":\"dialog\",\"message\":\"The agent wants to use the network\",\"decision\":\"closed by stop\",\"granted\":false}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"approval\",\"label\":\"\"}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"toolResult\",\"label\":\"vscode_fetchWebPage_internal\",\"ok\":false}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
@@ -80,7 +80,7 @@
 		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"turn\":1,\"model\":\"onyx:localhost:11434/sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"remember\",\"usages\",\"testFailure\",\"openBrowserPage\",\"readPage\",\"vscode_fetchWebPage_internal\"],\"messages\":[{\"role\":0,\"content\":[{\"type\":\"text\",\"value\":\"You are Onyx, a coding agent running locally. Be direct and concise.\\nWorkspace: /ws. OS: macOS.\\nUse tools to inspect and change code. Available tools: readFile, listDirectory, findFiles, grep, editFile, terminal, remember, usages, testFailure, openBrowserPage, readPage, vscode_fetchWebPage_internal. Call one tool at a time. After tool results, continue until the task is done, then answer.\\nWhen editing, make the smallest correct change. Never invent file contents you have not read.\"}]},{\"role\":1,\"content\":[{\"type\":\"text\",\"value\":\"Fetch the page\"}]}]}}",
 		"{\"t\":1,\"kind\":\"toolCall\",\"data\":{\"kind\":\"toolCall\",\"label\":\"vscode_fetchWebPage_internal\",\"at\":401}}",
 		"{\"t\":1,\"kind\":\"outcome\",\"data\":{\"status\":\"cancelled\"}}",
-		"{\"t\":1,\"kind\":\"approval\",\"data\":{\"kind\":\"approval\",\"command\":\"Tool: vscode_fetchWebPage_internal {\\\"url\\\":\\\"https://example.test/\\\"}\",\"cwd\":null,\"timeoutMs\":null,\"decision\":\"allow-once\",\"source\":\"dialog\"}}",
+		"{\"t\":1,\"kind\":\"approval\",\"data\":{\"kind\":\"approval\",\"command\":\"Tool: vscode_fetchWebPage_internal {\\\"url\\\":\\\"https://example.test/\\\"}\",\"cwd\":null,\"timeoutMs\":null,\"decision\":\"deny\",\"source\":\"dialog\"}}",
 		"{\"t\":1,\"kind\":\"toolResult\",\"data\":{\"kind\":\"toolResult\",\"label\":\"vscode_fetchWebPage_internal\",\"ok\":false,\"reason\":\"the run was stopped\",\"at\":401}}",
 		"{\"t\":1,\"kind\":\"traceTurn\",\"data\":{\"kind\":\"traceTurn\",\"v\":2,\"turn\":1,\"requestDigest\":\"2cb7d978\",\"responseText\":\"\",\"streamEnd\":\"tool_calls\",\"toolCalls\":[{\"name\":\"vscode_fetchWebPage_internal\",\"argumentsDigest\":\"e01a188a\",\"resultDigest\":\"bf199ce6\",\"ok\":false}],\"seed\":{\"requested\":null,\"honoured\":\"unknown\"}}}"
 	]

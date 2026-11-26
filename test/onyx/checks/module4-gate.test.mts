@@ -209,7 +209,10 @@ test('Module 4 gate: the L7 decision, the badge decision, the eviction policy an
 	const outcomes = Object.fromEntries(outcomeFiles().map(outcome => [outcome.hypothesis, outcome.outcome]));
 	const row = (item: string) => new RegExp(`^\\| ${item} \\| (?<state>[^|]+) \\|(?<rest>.*)$`, 'm').exec(support)?.groups;
 	const l7 = row('L14 decision on constrained anchors \\(L7\\)');
-	const decision = /^(?<word>Default for supported models|Opt-in|Withdrawn)\./.exec(l7?.state.trim() ?? '')?.groups?.word;
+	// The plan's three outcomes, and a fourth that says what was built: "A lab arm only" (2026-11-26). The
+	// decision was recorded as "Opt-in", but a packaged build refuses every lab configuration, so no user
+	// could opt in; the record now names that state instead of a word that was not true.
+	const decision = /^(?<word>Default for supported models|Opt-in|Withdrawn|A lab arm only)\./.exec(l7?.state.trim() ?? '')?.groups?.word;
 	const badge = row('L16 confidence badge');
 	const eviction = row('L17 eviction policy');
 	const energy = row('L18 energy');

@@ -55,6 +55,8 @@ const ONYX_SCOPE = [
 	'.github/README.md',
 	'README.md',
 	'ONYX.md',
+	'ROADMAP.md',
+	'CITATION.cff',
 	'LAUNCH.md',
 	'REBASE.md',
 	'NOTICE.md',
@@ -62,7 +64,7 @@ const ONYX_SCOPE = [
 	'product.json',
 ];
 
-const TEXT_EXTENSIONS = new Set(['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs', '.json', '.md', '.css', '.yml', '.yaml', '.html', '.svg', '.txt', '.sh', '.ps1', '.tmLanguage', '.plist']);
+const TEXT_EXTENSIONS = new Set(['.cff', '.ts', '.mts', '.cts', '.js', '.mjs', '.cjs', '.json', '.md', '.css', '.yml', '.yaml', '.html', '.svg', '.txt', '.sh', '.ps1', '.tmLanguage', '.plist']);
 
 /** Files that may quote the old identity or a developer path: the audits, the plan and test fixtures. */
 const STALE_STRING_EXEMPT = [
@@ -81,6 +83,9 @@ const IDENTITY_FILES = ['product.json', 'extensions/theme-onyx/package.json', '.
 const URL_ALLOWLIST: readonly string[] = [
 	'https://github.com/sheehanlloyd/Onyx/', // the project (A3; D7 updates it if DEC-01 renames)
 	'https://github.com/sheehanlloyd/Onyx.git', // the theme extension's repository field
+	'https://github.com/sheehanlloyd/Onyx', // linkProtectionTrustedDomains: links into the project open without a prompt (D1)
+	'https://open-vsx.org', // the extension gallery and its trusted link domain (D1, Section 2: extensions come from Open VSX)
+	'https://open-vsx.org/vscode/', // the gallery's service, item, extension and resource endpoints (D1)
 	'https://github.com/microsoft/vscode/issues', // stock VS Code bugs go upstream (config.yml)
 	'https://github.com/microsoft/vscode-js-debug', // built-in debugger, from upstream product.json
 	'https://github.com/microsoft/vscode-js-debug-companion',

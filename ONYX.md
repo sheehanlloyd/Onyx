@@ -1,13 +1,15 @@
 # Onyx — a local-first AI IDE
 
 Onyx is a macOS-first AI code editor forked from [Code - OSS](https://github.com/microsoft/vscode).
-Think Cursor, except **all inference runs locally on your machine** — Ollama,
-LM Studio, llama.cpp, vLLM, or any OpenAI-compatible endpoint. No cloud, no
-telemetry, no remote calls outside endpoints you configure.
+Requests go to a model runtime on your machine (Ollama is the supported one; LM
+Studio, llama.cpp, vLLM and other OpenAI-compatible servers are best effort), and
+where a model then runs is what that runtime reports. Onyx has no telemetry of its
+own. Its other outbound requests are to Open VSX when you use the Extensions view
+and to GitHub when you run the update check ([docs/SUPPORT.md](./docs/SUPPORT.md)).
 
 The positioning is not "open-source Cursor with Ollama support". It is an IDE
 whose **entire agent architecture is designed around local inference**: a 7B
-model gets a different harness than a 70B model, the router learns which of
+model gets a different harness than a 70B model, the router adapts to which of
 your models is good at what on your hardware, and a visual control plane shows
 exactly what the agent is doing, what it costs in compute, and why.
 
@@ -94,6 +96,8 @@ Integration points consumed (imports only, never patched):
 
 ## Status
 
+> **This section is history.** It was written in August 2026 and calls things "done" and "shipped" that had run once in a development build. The current state, with evidence, is [ROADMAP.md](./ROADMAP.md) and [docs/progress/STATE.md](./docs/progress/STATE.md). Nothing has been released.
+
 ### Done (verified end-to-end in the running app)
 
 **At a glance**
@@ -132,8 +136,8 @@ Integration points consumed (imports only, never patched):
       The Agent Activity view is deliberately *live* — it shows this window's
       runs and starts empty after a reload, saying so and pointing at the
       Inspector, which replays every journaled run including earlier windows'
-- [x] Inspector view: replay any past run down to the exact wire prompt each
-      turn sent (messages, tool list, routing)
+- [x] Inspector view: replay any past run: the messages and tool names each
+      turn sent, and the routing (schemas and options are not recorded)
 - [x] Accept/reject learning: chat votes and kept/copied code feed per-model
       accept rates, which shift routing
 - [x] `Onyx: Benchmark Local Models`: measured tok/s, TTFT and tool-call

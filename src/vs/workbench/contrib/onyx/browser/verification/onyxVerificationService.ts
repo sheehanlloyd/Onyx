@@ -127,7 +127,10 @@ export class OnyxVerificationService extends Disposable implements IOnyxVerifica
 	 * awaited: the first report for the file starts a short settling time,
 	 * and when that passes the problems are compared with those from before
 	 * the acceptance. If no report arrives in time, nothing is known and the
-	 * result says so. If the file changes meanwhile or afterwards, the
+	 * result says so, unless the file had no problems before and has none
+	 * now: the marker service reports nothing when an empty set stays empty,
+	 * so a clean file that stays clean never sends a report, and is verified
+	 * on that ground, saying so (C2). If the file changes meanwhile or afterwards, the
 	 * result is about content that is gone, and says that.
 	 */
 	private _verify(path: string, generation: number, runId: string | undefined): void {
@@ -161,10 +164,13 @@ export class OnyxVerificationService extends Disposable implements IOnyxVerifica
 		waiting.add(toDisposable(() => { clearTimeout(giveUp); clearTimeout(settle); }));
 		const finish = (state: 'compare' | 'timed out') => {
 			waiting.dispose();
-			if (state === 'timed out') {
+			const now = this._problems(path, uri);
+			if (state === 'timed out' && before.length === 0 && now.length === 0 && this._contentHash(uri) === contentHash) {
+				publish({ ...result, state: 'verified', diff: diffProblems(before, now), unreported: true }, true);
+			} else if (state === 'timed out') {
 				publish({ ...result, state: 'timed out' }, true);
 			} else {
-				const diff = diffProblems(before, this._problems(path, uri));
+				const diff = diffProblems(before, now);
 				publish({ ...result, state: diff.introduced.length > 0 ? 'new problems' : 'verified', diff }, true);
 			}
 			this._runCheck(path, uri, runId, store, () => result, next => publish(next, false));

@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import Severity from '../../../../../base/common/severity.js';
 import { localize } from '../../../../../nls.js';
@@ -11,6 +12,7 @@ import { ILanguageModelToolsService, IToolData, IToolImpl, IToolInvocation, IToo
 import { OnyxNoteOrigin } from '../../common/onyxMemoryOrigin.js';
 import { IOnyxHarnessConfigService } from '../agent/onyxHarnessConfigService.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
+import { closableBy } from '../terminal/onyxTerminalTool.js';
 import { IOnyxMemoryService } from './onyxMemoryService.js';
 
 export const ONYX_MEMORY_TOOL_ID = 'onyx_memory';
@@ -59,14 +61,14 @@ export class OnyxMemoryToolContribution extends Disposable {
 			prepareToolInvocation: async (context) => ({
 				invocationMessage: localize('onyx.memory.invoking', "Proposing a note to remember: {0}", String((context.parameters as { note?: unknown }).note ?? '')),
 			}),
-			invoke: invocation => this._invoke(invocation),
+			invoke: (invocation, _countTokens, _progress, token) => this._invoke(invocation, token),
 		};
 
 		this._register(toolsService.registerToolData(toolData));
 		this._register(toolsService.registerToolImplementation(ONYX_MEMORY_TOOL_ID, impl));
 	}
 
-	private async _invoke(invocation: IToolInvocation): Promise<IToolResult> {
+	private async _invoke(invocation: IToolInvocation, token: CancellationToken): Promise<IToolResult> {
 		const note = (invocation.parameters as { note?: unknown }).note;
 		if (typeof note !== 'string' || !note.trim()) {
 			return { content: [{ kind: 'text', value: 'Error: a non-empty "note" string is required.' }], toolResultError: true };
@@ -75,7 +77,12 @@ export class OnyxMemoryToolContribution extends Disposable {
 		const runId = this._controlPlaneService.runs.get().find(run => run.requestId === invocation.chatRequestId)?.runId;
 		const origin: OnyxNoteOrigin = runId ? this._controlPlaneService.originOf(runId, text) : { kind: 'model' };
 		// In a campaign nobody is there to be asked (L9): the note is declined without a dialog, as a person saying no would.
-		if (this._harnessConfigService.campaignPolicy || !await this._confirm(text, origin)) {
+		const confirmed = !this._harnessConfigService.campaignPolicy && await this._confirm(text, origin, token);
+		if (token.isCancellationRequested) {
+			// Stop while the dialog was open (B10, I-05): Stop closed it, and nothing is remembered whatever it said.
+			return { content: [{ kind: 'text', value: 'The run was stopped by the user while the note was being confirmed. Nothing was remembered.' }], toolResultError: true };
+		}
+		if (!confirmed) {
 			return { content: [{ kind: 'text', value: 'Error: the user declined to store this note. Nothing was remembered; do not ask again.' }], toolResultError: true };
 		}
 		this._memoryService.addNote(text);
@@ -86,7 +93,7 @@ export class OnyxMemoryToolContribution extends Disposable {
 	 * The only way a note reaches the memory: the user presses Remember on a
 	 * dialog that shows the note and where its text came from.
 	 */
-	protected async _confirm(text: string, origin: OnyxNoteOrigin): Promise<boolean> {
+	protected async _confirm(text: string, origin: OnyxNoteOrigin, token: CancellationToken = CancellationToken.None): Promise<boolean> {
 		const confirmation = await this._dialogService.prompt<boolean>({
 			type: origin.kind === 'tool-result' ? Severity.Warning : Severity.Info,
 			message: localize('onyx.memory.confirm', "The agent wants to remember a note for this workspace"),
@@ -98,8 +105,9 @@ export class OnyxMemoryToolContribution extends Disposable {
 			].join('\n'),
 			buttons: [{ label: localize('onyx.memory.confirm.remember', "Remember"), run: () => true }],
 			cancelButton: { label: localize('onyx.memory.confirm.decline', "Don't Remember"), run: () => false },
+			...closableBy(token),
 		});
-		return confirmation.result === true;
+		return confirmation.result === true && !token.isCancellationRequested;
 	}
 }
 

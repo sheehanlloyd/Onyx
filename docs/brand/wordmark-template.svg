@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 256" width="640" height="256">
+	<!--
+		Wordmark lockup template. Works for any name.
+
+		Unit: G = glyph height = 128.
+		Glyph slot:   128 x 128 square at x=32, y=64 (clear space of G/4 = 32 on every side of the lockup).
+		Gap:          G * 0.375 = 48 between the glyph slot and the first letter.
+		Text:         system font stack below, weight 600, size G * 0.8125 = 104,
+		              tracking -0.02em (letter-spacing -2.08), one word, capitalised first letter only.
+		Baseline:     y = 165, which centres the cap height (about 0.70 em = 73) on the glyph slot.
+		Colour:       currentColor for both parts; set "color" on the root to theme it.
+
+		To use: replace the placeholder inside #glyph-slot with the contents of the chosen
+		direction's mono.svg (viewBox 0 0 16 16, so scale by 8), then replace "Name".
+		Before shipping, convert the text to outlines so the mark no longer depends on installed fonts.
+	-->
+	<g id="glyph-slot" transform="translate(32 64)">
+		<rect x="2" y="2" width="124" height="124" rx="28" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="10 10" opacity="0.5"/>
+	</g>
+	<text id="name" x="208" y="165" fill="currentColor" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif" font-size="104" font-weight="600" letter-spacing="-2.08">Name</text>
+</svg>

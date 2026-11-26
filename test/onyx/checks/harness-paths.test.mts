@@ -44,3 +44,15 @@ test('A4: the launch scripts the harness drives exist at their tracked path', ()
 		paste: fs.existsSync(path.join(launch, 'scripts', 'monaco-paste.sh')),
 	}, { focusScript: true, paste: true });
 });
+
+test('every harness runner that takes --json-out makes the directory it writes the record to', () => {
+	// The module 5 gate of 2026-11-26 lost three records, one of them after a 19-minute egress audit, because
+	// the runners wrote to `.build/gate-5/` and nothing had made that directory.
+	const offenders = fs.readdirSync(harnessDir)
+		.filter(name => name.endsWith('.mts'))
+		.filter(name => {
+			const text = fs.readFileSync(path.join(harnessDir, name), 'utf8');
+			return text.includes('\'--json-out\'') && !/mkdirSync\(path\.dirname\(/.test(text);
+		});
+	assert.deepStrictEqual(offenders, []);
+});

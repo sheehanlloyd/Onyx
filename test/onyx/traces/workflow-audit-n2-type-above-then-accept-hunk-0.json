@@ -7,7 +7,7 @@
 		"workflow": "audit-n2-type-above-then-accept-hunk-0",
 		"persona": "well-behaved"
 	},
-	"reason": "First recording (L8): the harness at the end of Module 3, with certificates, verification after acceptance and exact-or-refuse edits.",
+	"reason": "Audit of 2026-11-26: Stop closes an approval dialog that is open (B10), and a clean file that stays clean after an acceptance is verified instead of timed out (C2)",
 	"episode": {
 		"name": "workflow-audit-n2-type-above-then-accept-hunk-0",
 		"seed": 0,
@@ -119,7 +119,7 @@
 		"{\"t\":1402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"acceptance\",\"label\":\"\"}",
 		"{\"t\":1402,\"kind\":\"buffer\",\"path\":\"src/math.ts\",\"digest\":\"b91603f9\",\"cause\":\"afterRun\"}",
 		"{\"t\":16402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"editCertificateOutcome\",\"label\":\"\"}",
-		"{\"t\":16402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"note\",\"label\":\"Verification: timed out — no fresh diagnostics for src/math.ts arrived, so nothing is known about what was accepted. Partial: 1 hunk is still staged and not part of this\"}",
+		"{\"t\":16402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"note\",\"label\":\"Verification: verified — no problems in src/math.ts before or after the acceptance, and none reported while waiting (a clean file that stays clean gets no new report). Partial: 1 hunk is still staged and not part of this\",\"ok\":true}",
 		"{\"t\":900400,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":2}"
 	],
 	"journal": [
@@ -141,8 +141,8 @@
 		"{\"t\":2,\"kind\":\"note\",\"data\":{\"kind\":\"note\",\"label\":\"Verification: not applied — src/math.ts has staged changes and none was accepted, so nothing was checked\",\"location\":{\"path\":\"src/math.ts\",\"line\":1},\"at\":402}}",
 		"{\"t\":2,\"kind\":\"outcome\",\"data\":{\"status\":\"completed\"}}",
 		"{\"t\":1002,\"kind\":\"editCertificateOutcome\",\"data\":{\"kind\":\"editCertificateOutcome\",\"path\":\"src/math.ts\",\"generation\":2,\"appliedContentHash\":\"b91603f9\",\"verification\":\"running\"}}",
-		"{\"t\":1002,\"kind\":\"acceptance\",\"data\":{\"kind\":\"acceptance\",\"path\":\"src/math.ts\",\"hunk\":\"g2.h1\"}}",
-		"{\"t\":16002,\"kind\":\"editCertificateOutcome\",\"data\":{\"kind\":\"editCertificateOutcome\",\"path\":\"src/math.ts\",\"generation\":2,\"appliedContentHash\":\"b91603f9\",\"verification\":\"timed out\"}}",
-		"{\"t\":16002,\"kind\":\"note\",\"data\":{\"kind\":\"note\",\"label\":\"Verification: timed out — no fresh diagnostics for src/math.ts arrived, so nothing is known about what was accepted. Partial: 1 hunk is still staged and not part of this\",\"location\":{\"path\":\"src/math.ts\",\"line\":1},\"at\":16402}}"
+		"{\"t\":1002,\"kind\":\"acceptance\",\"data\":{\"kind\":\"acceptance\",\"path\":\"src/math.ts\",\"hunk\":\"g2.h1\",\"added\":[\"0cce8d76\"]}}",
+		"{\"t\":16002,\"kind\":\"editCertificateOutcome\",\"data\":{\"kind\":\"editCertificateOutcome\",\"path\":\"src/math.ts\",\"generation\":2,\"appliedContentHash\":\"b91603f9\",\"verification\":\"verified\"}}",
+		"{\"t\":16002,\"kind\":\"note\",\"data\":{\"kind\":\"note\",\"label\":\"Verification: verified — no problems in src/math.ts before or after the acceptance, and none reported while waiting (a clean file that stays clean gets no new report). Partial: 1 hunk is still staged and not part of this\",\"ok\":true,\"location\":{\"path\":\"src/math.ts\",\"line\":1},\"at\":16402}}"
 	]
 }
