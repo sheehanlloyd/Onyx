@@ -121,6 +121,9 @@ const playwrightCli = createRequire(import.meta.url).resolve('@playwright/cli/pl
 /** How often the driver's session was found gone while the workbench was still there, and was attached again. */
 let sessionsLost = 0;
 
+/** How often a paste left the chat input empty and was made again (see `send`). */
+let pasteRetries = 0;
+
 /** Whether the workbench still answers on its debugging port. Synchronous: it is asked from inside `pw`. */
 function workbenchAnswers(): boolean {
 	try {
@@ -633,17 +636,40 @@ async function send(prompt: string) {
 	await dismissOnboarding(0);
 	const focusScript = path.join(repoRoot, '.agents', 'skills', 'launch', 'playwrightScripts', 'focus-chat-input.ts');
 	const paste = path.join(repoRoot, '.agents', 'skills', 'launch', 'scripts', 'monaco-paste.sh');
-	pw('run-code', `--filename=${focusScript}`);
-	// The helper makes up to three driver calls of its own; it gets their limit three times over.
-	try {
-		execFileSync(paste, ['--session', session, prompt], { cwd: repoRoot, encoding: 'utf8', timeout: driverCommandTimeoutMs * 3, killSignal: 'SIGKILL' });
-	} catch (error) {
-		if ((error as { code?: string }).code === 'ETIMEDOUT') {
-			throw new Error(`pasting the prompt did not finish in ${driverCommandTimeoutMs * 3 / 1000} s; the workbench ${workbenchAnswers() ? 'still answers' : 'no longer answers'} on :${cdpPort}`, { cause: error });
+	// The helper dispatches a synthetic paste event and reads the input back. Once, on CI (2026-11-25,
+	// 35701feb292), the first prompt of a run read back as an empty input: the event was dropped, not
+	// garbled. An input that is still empty is pasted into again, at most three times in all, and each
+	// retry is printed; a read-back with other text in it still stops the run. No check asserts on the
+	// paste itself: every check asserts on what the prompt caused.
+	for (let attempt = 1; ; attempt++) {
+		pw('run-code', `--filename=${focusScript}`);
+		try {
+			// The helper makes up to three driver calls of its own; it gets their limit three times over.
+			execFileSync(paste, ['--session', session, prompt], { cwd: repoRoot, encoding: 'utf8', timeout: driverCommandTimeoutMs * 3, killSignal: 'SIGKILL' });
+			break;
+		} catch (error) {
+			if ((error as { code?: string }).code === 'ETIMEDOUT') {
+				throw new Error(`pasting the prompt did not finish in ${driverCommandTimeoutMs * 3 / 1000} s; the workbench ${workbenchAnswers() ? 'still answers' : 'no longer answers'} on :${cdpPort}`, { cause: error });
+			}
+			if (attempt >= 3 || !pasteLeftInputEmpty(String((error as { stdout?: unknown }).stdout ?? ''))) {
+				throw error;
+			}
+			console.log(`  note: the paste of "${prompt.slice(0, 40)}" left the chat input empty; pasting again (attempt ${attempt + 1} of 3)`);
+			pasteRetries++;
+			await sleep(2000);
 		}
-		throw error;
 	}
 	pw('press', 'Enter');
+}
+
+/** Whether the paste helper's report says the chat input read back empty after the paste. */
+function pasteLeftInputEmpty(stdout: string): boolean {
+	try {
+		const report = JSON.parse(stdout.trim().split('\n').pop() ?? '') as { ok?: boolean; actualLength?: number };
+		return report.ok === false && typeof report.actualLength === 'number' && report.actualLength <= 1;
+	} catch {
+		return false;
+	}
 }
 
 async function main() {
@@ -1376,7 +1402,8 @@ try {
 			await sleep(2000);
 		}
 	}
-	if (keep) {
+	// On CI a failed run keeps its directory, so that the upload step has its logs and abort screenshot.
+	if (keep || (process.env.CI && failures.length)) {
 		console.log(`\nkept ${runDir}`);
 	} else {
 		fs.rmSync(runDir, { recursive: true, force: true });
@@ -1385,5 +1412,5 @@ try {
 
 console.log(failures.length
 	? `\n${failures.length} of ${checksRun} checks failed`
-	: `\nall ${checksRun} checks passed${sessionsLost ? ` (the driver's session was lost and attached again ${sessionsLost} time${sessionsLost === 1 ? '' : 's'}; the workbench was not restarted)` : ''}`);
+	: `\nall ${checksRun} checks passed${sessionsLost ? ` (the driver's session was lost and attached again ${sessionsLost} time${sessionsLost === 1 ? '' : 's'}; the workbench was not restarted)` : ''}${pasteRetries ? ` (a paste left the chat input empty and was made again ${pasteRetries} time${pasteRetries === 1 ? '' : 's'})` : ''}`);
 process.exit(failures.length ? 1 : 0);
