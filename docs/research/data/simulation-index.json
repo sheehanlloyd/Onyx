@@ -146,6 +146,10 @@
 			"persona": "well-behaved"
 		},
 		{
+			"path": "test/onyx/sim/episodes/b10-stop-while-a-command-approval-is-open.json",
+			"persona": "well-behaved"
+		},
+		{
 			"path": "test/onyx/sim/episodes/b10-stop-while-an-approval-dialog-is-open.json",
 			"persona": "well-behaved"
 		},
