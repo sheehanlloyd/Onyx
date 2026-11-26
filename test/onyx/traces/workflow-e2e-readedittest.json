@@ -7,7 +7,7 @@
 		"workflow": "e2e-readedittest",
 		"persona": "well-behaved"
 	},
-	"reason": "the edit path: the edit tool's description and refusals say how to add code and how to quote, and under the envelope no answer is offered after a refused edit until an edit is staged",
+	"reason": "a run that staged an edit ends with the harness's line that the change is staged for review, not applied",
 	"episode": {
 		"name": "workflow-e2e-readedittest",
 		"seed": 0,
@@ -92,6 +92,7 @@
 		"{\"t\":403,\"kind\":\"chunk\",\"op\":\"op#3\",\"delta\":\"done\",\"size\":0,\"finishReason\":\"stop\"}",
 		"{\"t\":403,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
 		"{\"t\":403,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"note\",\"label\":\"Verification: not applied — src/math.ts has staged changes and none was accepted, so nothing was checked\"}",
+		"{\"t\":403,\"kind\":\"shown\",\"size\":118}",
 		"{\"t\":403,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"live:completed\"}",
 		"{\"t\":403,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"completed\"}",
 		"{\"t\":900500,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":3}"

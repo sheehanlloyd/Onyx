@@ -256,6 +256,23 @@ suite('OnyxSim', () => {
 		});
 	});
 
+	test('an example call the user asked for is shown and not run or failed; a run that staged an edit ends saying it is staged, not applied (2026-11-26)', async function () {
+		const base = (prompt: string, turns: OnyxSimEpisode['turns'], extra: Partial<OnyxSimEpisode> = {}): OnyxSimEpisode => ({ name: 'closing', seed: 0, persona: 'well-behaved', prompt, files: SIM_FILES, target: SIM_TARGET_FILE, turns, dialogDefault: 'deny', userSteps: [], faults: [], ...extra });
+		const example = 'Here is an example:\n\n```json\n{"name": "readFile", "arguments": {"path": "src/math.ts"}}\n```';
+		const repaired = await runEpisode(base('Show me an example readFile call as JSON.', [{ kind: 'text', text: example }]));
+		const constrained = await runEpisode(base('Show me an example readFile call as JSON.', [{ kind: 'text', text: example }], { constrained: true }));
+		const edited = await runEpisode(base('Swap the operands in addNumbers.', [{ kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } }, { kind: 'text', text: 'The change has been added.' }]));
+		assert.deepStrictEqual({
+			repaired: { status: repaired.status, dispatched: repaired.toolResults.length, shownTheExample: repaired.shownText.includes('"arguments": {"path": "src/math.ts"}') },
+			constrained: { status: constrained.status, dispatched: constrained.toolResults.length },
+			edited: { status: edited.status, closing: edited.shownText.trim().split('\n').pop() },
+		}, {
+			repaired: { status: 'completed', dispatched: 0, shownTheExample: true },
+			constrained: { status: 'completed', dispatched: 0 },
+			edited: { status: 'completed', closing: 'Staged for review, not applied: `src/math.ts`. The file does not change until you accept the change in Onyx Changes.' },
+		});
+	});
+
 	test('shrinking keeps the violation and makes the script smaller', async () => {
 		// A stand-in violation: any command dispatched at all. The looping persona's
 		// long turn list and random user steps are the noise the shrinker removes.
