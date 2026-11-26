@@ -10,7 +10,7 @@
 	"covers": {
 		"workflow": "answer-from-a-read"
 	},
-	"reason": "D11: the rig registers the product's docs and playbook tools, so the requests advertise docs; recorded again against the same model on this machine",
+	"reason": "the edit path: the edit tool's description says how to add code, so the requests changed; recorded again against the same model on this machine",
 	"episode": {
 		"name": "model-qwen2.5-coder-1.5b-answer-from-a-read",
 		"seed": 0,
@@ -42,7 +42,7 @@
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"route\",\"label\":\"onyx:localhost:11434/sim-coder:7b\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"trace\",\"label\":\"\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 1\"}",
-		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"65bd6828\",\"promptChars\":658,\"toolsChars\":6348,\"temperature\":0.2,\"maxTokens\":2457}",
+		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"65bd6828\",\"promptChars\":658,\"toolsChars\":6484,\"temperature\":0.2,\"maxTokens\":2457}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":24}",
 		"{\"t\":401,\"kind\":\"shown\",\"size\":24}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":24}",
