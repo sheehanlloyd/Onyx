@@ -1,7 +1,7 @@
 # Onyx plan state
 Plan version: v4.2 in the owner's checkout (unchanged since 2026-11-22). Module 5 was implemented from it.
-Current module: 5      Status: **everything an agent can do is done; the gate is blocked on the owner by design** (below). Modules 1 to 4: complete; Module 4 merged as 78718eb281f (sheehanlloyd/Onyx#5).
-Revision: branch `module-5`, cut from `main` at 78718eb281f, `main` merged in again at d4b97cab187 (sheehanlloyd/Onyx#7, LM Studio measurements); one pull request into `main`, sheehanlloyd/Onyx#6
+Current module: 5      Status: **the agent's work of Module 5 is done; the gate does not pass, and cannot until the owner acts** ("Waiting on the owner", below). Modules 1 to 4: complete and merged (Module 4 as 78718eb281f, sheehanlloyd/Onyx#5); the LM Studio measurements merged as d4b97cab187 (sheehanlloyd/Onyx#7).
+Revision: branch `module-5`, cut from `main` at 78718eb281f, `main` merged in again at d4b97cab187 (sheehanlloyd/Onyx#7, LM Studio measurements); one pull request into `main`, sheehanlloyd/Onyx#6, marked ready, not merged. The candidate is the packaged build of this branch at 3477aeeaa48 (the soak and the budgets were taken on the build of f0f059b0ccd, which has the same application inputs).
 Isolated checkout: the work clone `onyx-work` in a plain developer folder; packaged builds beside it; the four private planning documents excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (an ancestor of this revision and of `main`)
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc
@@ -11,7 +11,7 @@ Toolchain: Node 24.22.1 pinned in `.nvmrc` (this machine ran 24.22.3); pnpm 12.1
 
 1. **Pick the product name.** `docs/naming/README.md`: 16 candidates researched on 2026-11-22, four survive (dubitant, lydstone, tentamen, stetit), none of 4 or 5 letters. Preliminary research, not legal clearance; trademark registers could not be queried. Keeping "Onyx" is a valid answer and makes D7 not applicable. Record it in `docs/progress/owner-decisions.json`.
 2. **Pick the logo direction.** `docs/brand/README.md`: three original directions (A Hunk, B Gauge, C Split), with renders at 16 to 1024 px and a written similarity check. Nothing is wired in. Record it in `owner-decisions.json`. Then the rename and the icon swap follow `docs/naming/RENAME-PROCEDURE.md` and `docs/brand/README.md`, before the signed candidate is built.
-3. **Answer the pinned-model question.** Should the product keep recommending `qwen2.5-coder:7b` and `:1.5b` for agent work? Under the product's own configuration neither got an edit as far as staging in 320 agent runs (in 18 the edit call was rejected), and on 2026-11-24 the packaged build's 7B ended an agent request in 8 to 10 s with no proposal and failed an inline edit. The product's own model library stars the 14B and a 20B model for a 24 GB Mac. Record it in `owner-decisions.json`.
+3. **Answer the pinned-model question, and the default tool-call protocol.** The second is new (2026-11-26): the protocol the datasheet selects for both pinned models, the constrained envelope, had no edit on record in H-2, where repaired text had edits in 79 and 53 runs (REPORT.md 9.1). Record both in `owner-decisions.json`. The first: Should the product keep recommending `qwen2.5-coder:7b` and `:1.5b` for agent work? Under the product's own configuration neither got an edit as far as staging in 320 agent runs (in 18 the edit call was rejected), and on 2026-11-24 the packaged build's 7B ended an agent request in 8 to 10 s with no proposal and failed an inline edit. The product's own model library stars the 14B and a 20B model for a 24 GB Mac. Record it in `owner-decisions.json`.
 4. **Decide on the inherited dependency advisories** (`docs/progress/production-readiness.md`): high-severity advisories in shipped upstream packages (undici, including a TLS certificate-validation advisory; zod; follow-redirects; image-size; markdown-it; msal-node). Move to a newer upstream release, override versions, or accept them in writing (DEC-05). Until then "zero open P1" is not claimed.
 5. **Apple Developer enrolment and the signing secrets.** Enrol; create a Developer ID Application certificate and an App Store Connect API key; store the five repository secrets named in `docs/RELEASING.md`; dispatch "Onyx release" once; commit its `gatekeeper-evidence.json` as `docs/progress/gatekeeper-evidence.json`. R-39 cannot pass before this. Expect the first signed dispatch to need a fix: that path has never run.
 6. **Screenshots.** Re-capture the eight README images still from August 2026 and record the 15-second GIF, on the signed release candidate (`docs/images/MANIFEST.md` lists them).
@@ -20,12 +20,48 @@ Toolchain: Node 24.22.1 pinned in `.nvmrc` (this machine ran 24.22.3); pnpm 12.1
 9. **Approve the public wording** (DEC-09): the README, `docs/research/REPORT.md` and `docs/launch/`. No novelty wording is used anywhere. Decide whether the positioning sentence "treats the model as an untrusted, measurable component" stays before the Measurement gate's three-machine scorecards exist. A VoiceOver pass by a person would also belong here.
 10. **Repository description and topics**, naming the research artifacts.
 11. **The rename itself**: the repository rename (redirects), the domain and the organisation, if a new name was picked.
-12. **Tag and publish** `v0.1.0-alpha.1` by publishing the draft release, last, when every box of Section 12 is checked. Then post the launch drafts.
+12. **Optional, not blocking: make CI a required check on `main`.** A8 and B3 say "required check" of the module gate and the packaged workflow; GitHub has no branch protection or ruleset on `main` (checked 2026-11-26), so nothing stops a merge with red CI. Repository settings are the owner's.
+13. **Tag and publish** `v0.1.0-alpha.1` by publishing the draft release, last, when every box of Section 12 is checked. Then post the launch drafts.
 
-Also for the owner, not blocking: review and merge sheehanlloyd/Onyx#6. The nightly assurance workflow was dispatched from `main` once on 2026-11-22 as Module 4 asked: run 45083489213, green.
+Also for the owner, not blocking: review and merge sheehanlloyd/Onyx#6. The nightly assurance workflow was dispatched from `main` once on 2026-11-22 as Module 4 asked (run 45083489213, green) and again on 2026-11-26 (run 45751025520 on d4b97cab187, green: 50,000 of 50,000 episodes, 42 of 42 mutants).
 
 ## Module 5
-MODULE5_SECTION
+Items done (an agent's part; what remains of each is the owner's, above):
+| Item | Branch → PR | Report | Gate check ids |
+|---|---|---|---|
+| D1 Extensions from Open VSX | module-5 → #6 | D1.md | R-32 |
+| D2 Signing and notarization (script and workflow) | module-5 → #6 | D2.md | R-39 (blocked on the owner) |
+| D3 Manual updates and the update command | module-5 → #6 | D3.md | D3-update-check, D3-replace |
+| D4 Release workflow and notes | module-5 → #6 | D4.md | R-39 (blocked on the owner) |
+| D5 Clean-machine runbook | module-5 → #6 | D5.md, docs/RUNBOOK-clean-install.md | D5-clean-install (blocked on the owner) |
+| D6 Docs and visuals | module-5 → #6 | D6.md, docs/images/MANIFEST.md | module-5-documents |
+| D7 Identity change, preparation | module-5 → #6 | D7.md, docs/naming/, docs/brand/ | DEC-01-identity (blocked on the owner) |
+| D8 Production readiness | module-5 → #6 | D8.md, production-readiness.md, soak.json, budgets.json, egress-audit.json | R-60, D8-soak, D8-budgets |
+| E1 Pilot kit | module-5 → #6 | E1.md, docs/pilot/ | E1-pilot (blocked on the owner) |
+| E3 Launch drafts | module-5 → #6 | E3.md, docs/launch/ | DEC-09-approvals, E4-tag (blocked on the owner) |
+| L19 Research report and reproduction package | module-5 → #6 | L19.md, docs/research/REPORT.md, REPRODUCE.md | R-58 |
+| Audit of Modules 1 to 4 (2026-11-26) | module-5 → #6 | audit-2026-11-26.md | reports-A1-A12, R-57, the B10 and C2 tests |
+Items remaining for an agent: none of Module 5's. Open from the audit, for a later session: L12's four injection surfaces the simulation does not have (commit messages, the documentation index, playbooks, a note already in memory), each with a mutant (D11); L2's three audit findings the campaign did not rediscover, with a persona or action for each and a rerun (D12).
+Done in part (earlier modules, recorded here so that "complete" above is not read as more than it is; checked against the tree on 2026-11-26):
+| Item | PARTLY because |
+|---|---|
+| A8, B3 "required check" | Required by the module gate and the packaged workflow; GitHub enforces nothing: `main` has no branch protection or ruleset. The owner's setting (list item 12) |
+| L1 rig coverage | The rig runs the real agent loop, control plane, change set, edit and terminal tools, inline-edit session, memory tool and diagnostics redactor. It does not have the inline-edit widget and controller, the Changes view, the diagnostics export command, or real child processes (commands are recorded, never run). The audit also named the memory tool; that one is in the rig |
+| L2 | The campaign rediscovered 7 of the 10 audit findings in the simulator's scope without being pointed at them; the other three need a persona or an action the rig lacks (D12, open) |
+| C4 | R-26 passes on transcripts written by hand in the runtimes' stream shapes; no reasoning model was run, because none is installed and none may be downloaded by a session (the owner's) |
+| L11 | The router's hit rate is 0 of 0 tournaments and 0 of 0 routed runs; 3 of the catalog's 6 models were measured (the other three are not installed) |
+| L12 | Four injection surfaces of the plan are not simulated: commit messages, the documentation index, playbooks, a note already in memory (D11, open) |
+| L13 | 2 of the 5 harness components are left out of the factorial (eviction and verification feedback; Amendment 1 says why) |
+Gate: `ONYX_PACKAGED_APP=../VSCode-darwin-arm64/Onyx.app node test/onyx/run-module-gate.mts --module 5`, 2026-11-26, 08:57:29 to 09:54:20 UTC, on 3477aeeaa48 with a clean source tree and fresh output (`node test/onyx/run-fresh.mts -- pnpm run transpile-client`), the packaged application rebuilt from the same revision first; exit 1; `docs/progress/gate-module-5.json`. Verbatim summary: "101 checks: 95 passed, 0 expected failure(s), 0 skipped, 6 blocking", "module 5 gate: FAILED". The six blocking checks are each blocked on the owner, and print as such: R-39, D5-clean-install, E1-pilot, DEC-01-identity, DEC-09-approvals, E4-tag. No check fails for another reason. Modules 1 to 4 within it: 23, 24, 21 and 19 checks, every one passed, which is Section 11's suite on the candidate. Module 5's own: R-32, D3-update-check, D3-replace, module-5-documents, R-58, R-60, D8-soak, D8-budgets passed.
+  The run before it, on 1607efbfaf5 (07:58 to 08:55 UTC), had 92 passed and 9 blocking: the six above, and R-32, D3-replace and R-60, which ran and could not write their records because nothing had made `.build/gate-5/` (fixed in 3477aeeaa48, with a check).
+Candidate evidence: the soak (passed, 2026-11-26 06:36 to 07:48 UTC, on mains with Low Power Mode off, no sleep) and the budgets (07:50 to 07:54 UTC) on the build of f0f059b0ccd, whose application inputs are the candidate's; the egress audit in the gate on the candidate (production-readiness.md).
+CI: Onyx CI and the packaged smoke, green on 85d28955524, f0f059b0ccd, 1607efbfaf5 and 3477aeeaa48 (runs 45765681665, 45769179538, 45779029927, 45787351880 and the smoke runs beside them); the commit that adds this record runs them again.
+Machine: the reference machine on mains (94 W) from 03:40 UTC on 2026-11-26; earlier work on 2026-11-25 ran partly on battery, and nothing measured then is used.
+Human actions waiting: the list at the top. Merge sheehanlloyd/Onyx#6 after review; it was marked ready and not merged.
+Notes for the next session:
+  Rebuild the packaged app from the revision a gate runs on (`pnpm run gulp vscode-darwin-arm64-min`, about 1.5 minutes), then `run-fresh.mts`; the soak and the budgets are not repeated by the gate, and become stale when an application input changes.
+  The soak needs the Mac to stay awake for about 80 minutes: on battery, a closed lid sleeps it whatever caffeinate says.
+  The private Ollama used for the budgets (127.0.0.1:11500) is stopped.
 
 ## Module 4
 Items done:
@@ -46,7 +82,7 @@ Items remaining: none.
 Hypotheses (each outcome file is under docs/research/results/, beside its manifest or, for H-3 to H-5, beside `sources.json` naming the campaigns it reads):
 | | Outcome | One number | Where |
 |---|---|---|---|
-| H-1 | supported | 41 of 41 mutants killed; 50,000 of 50,000 episodes with no violation (second run; the first printed two that were the rig's) | 2026-11-22-assurance |
+| H-1 | supported | 41 of 41 mutants killed (43 exist now; the soak of 2026-11-26 killed 43 of 43); 50,000 of 50,000 episodes with no violation (second run; the first printed two that were the rig's) | 2026-11-22-assurance |
 | H-2 | inconclusive | 0 of 960 agent runs reproduced a task: a floor | 2026-11-22-attribution |
 | H-3 | supported | the fuzzy applier places 28.7 points more blocks than exact-or-refuse [26.1, 31.3]; 53.8% of attempts end silently wrong under it | 2026-11-22-edit-mechanisms |
 | H-4 | inconclusive | 0 tasks with an edit call in both arms (55 edit calls) | 2026-11-22-edit-mechanisms |
@@ -73,9 +109,9 @@ Mutants added in this module (5; 41 in all): G-I01-stage-applies, G-I02-approve-
 Gate: `ONYX_PACKAGED_APP=<the rebuilt Onyx.app> node test/onyx/run-module-gate.mts --module 4`, 2026-11-22T21:48Z, exit 0, "87 checks: 87 passed, 0 expected failure(s), 0 skipped, 0 blocking", "module 4 gate: PASSED", on d88beede49f with a clean tree and fresh output, the packaged application rebuilt from the same revision first; `docs/progress/gate-module-4.json`. It runs Modules 1 to 3 as well (23, 24 and 21 checks), which is also the Section 11 suite on that revision. The first run, on 091b9c67374, exited 1 with one blocking check, a gate entry of this module that named its output directory wrongly; `docs/progress/module-4-gate.md` has both runs.
 CI: Onyx CI and the packaged smoke on the pull request. Green on 091b9c67374 (runs 45065007651 and 45065007614), the first commit on which the evidence checks could read the history. The runs on later commits are named in the pull request and in the session's final report.
 Human actions waiting:
-  The owner reviews and merges sheehanlloyd/Onyx#5 into `main`; it is marked ready and was not merged by the session.
+  The owner reviews and merges sheehanlloyd/Onyx#5 into `main`; it is marked ready and was not merged by the session. (Since: merged as 78718eb281f.)
   Decide whether the product should keep recommending the two pinned models for agent work as it does. This module's measurements say that under the product's own configuration neither proposes an edit on real tasks of this repository (L13.md); the catalog's wording for the 7B model was corrected only as far as its tool calls (L11.md).
-  LM Studio results remain not measured.
+  LM Studio results remain not measured. (Since: measured on 2026-11-24 in the benchmarks only, sheehanlloyd/Onyx#7, merged into `main` as d4b97cab187; no hypothesis campaign ran on it.)
 Notes for the next session:
   Module 5 starts from `main` after #5 is merged. The research report (L19) reads the outcome files under docs/research/results/ and the four amendments; three hypotheses are inconclusive at a floor of zero successes, and the report should say so before anything else about them.
   The private Ollama of this session is stopped and its scratch clones are removed; a new campaign needs `ollama serve` on a free port with `OLLAMA_CONTEXT_LENGTH=16384`, a bare clone for `--repo`, and `freeze-app.mts` (L9.md).
@@ -90,7 +126,7 @@ Items done:
 | B7 | codex/b7-versioned-proposals → #4 | B7.md | R-09-R-12-R-38 |
 | B8 | codex/b8-deletion-edits → #4 | B8.md | R-13 |
 | B9 | codex/b9-inline-staging → #4 | B9.md | R-14-R-34, three end-to-end checks |
-| B10 | codex/b10-stop-means-stop → #4 | B10.md | R-15, two end-to-end checks, sim-campaign-20000-empty-baseline (not yet run), sim-mutants-module-3 |
+| B10 | codex/b10-stop-means-stop → #4 | B10.md | R-15, two end-to-end checks, sim-campaign-20000-empty-baseline (run in the Module 3 and 4 gates), sim-mutants-module-3. Completed on 2026-11-26 (audit): the command, network and memory dialogs open at a Stop are now closed by it, `I-05/dialog-outlives-stop`, mutant B10-dialog-outlives-stop |
 | C1 | codex/c1-proposal-diff → #4 | C1.md | R-25-service, two end-to-end checks |
 | C2 | codex/c2-verify-accepted → #4 | C2.md | R-21, three end-to-end checks |
 | C3 | codex/c3-multi-block-edits → #4 | C3.md | C3-multi-block, one end-to-end check |
@@ -207,8 +243,8 @@ Items done:
 | A7 | a7-ci-asserts → #1 | A7.md | R-23, R-35, benchmarks |
 | A12 | a12-module-gate → #1 | A12.md | R-57 |
 | A8 | a8-packaged-harness → #1 | A8.md, packaged-smoke-baseline.json, packaged-smoke-release.json | packaged-baseline, packaged-release (expected failure) |
-| A9 | a9-upstream-trial → #1 | A9.md, upstream-drill/1.147.0.md | evidence-A1-A11 (drill workflow runs weekly and on dispatch) |
-| A10 | a10-lfs-strategy → #1 | A10.md | evidence-A1-A11 |
+| A9 | a9-upstream-trial → #1 | A9.md, upstream-drill/1.147.0.md | reports-A1-A12, which was evidence-A1-A11 until 2026-11-26 (drill workflow runs weekly and on dispatch) |
+| A10 | a10-lfs-strategy → #1 | A10.md | reports-A1-A12 (was evidence-A1-A11) |
 | A11 | a11-inherited-automation → #1 | A11.md | hygiene (inherited-automation) |
 | L1 | l1-sim-rig → #1 | L1.md | R-41, sim-episodes, sim-tables-sync |
 | L2 | l2-harness-contract → #1 | L2.md, docs/research/HARNESS-CONTRACT.md | R-41 (R-42), sim-smoke, sim-tables-sync |

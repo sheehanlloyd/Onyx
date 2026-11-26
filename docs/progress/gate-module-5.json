@@ -1,0 +1,1585 @@
+{
+	"module": 5,
+	"revision": "3477aeeaa484f63ca6ed71eca74a7387f08e1ac2",
+	"dirtyDigest": "d2b7cc694cd54835a249973011442738a90cf1266111c3d05e726c9e65ea4f98",
+	"dirtyEntries": 0,
+	"ranAt": "2026-11-26T09:54:20.087Z",
+	"platform": "darwin-arm64",
+	"node": "v24.22.3",
+	"packageManager": "pnpm 12.16.0",
+	"build": {
+		"command": "pnpm run transpile-client",
+		"startedAt": "2026-11-26T08:57:20.493Z",
+		"completedAt": "2026-11-26T08:57:25.058Z",
+		"durationMs": 4565,
+		"exitCode": 0
+	},
+	"results": [
+		{
+			"module": 1,
+			"id": "typecheck",
+			"title": "TypeScript type check of src/",
+			"layer": "build",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "pnpm run typecheck-client",
+			"outcome": "pass",
+			"durationMs": 6338,
+			"exitCode": 0,
+			"detail": "$ tsc --project ./src/tsconfig.json --noEmit --skipLibCheck"
+		},
+		{
+			"module": 1,
+			"id": "layers",
+			"title": "Layer check",
+			"layer": "build",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "pnpm run valid-layers-check",
+			"outcome": "pass",
+			"durationMs": 15847,
+			"exitCode": 0,
+			"detail": "$ node build/checker/layersChecker.ts && node build/checker/layersTypeCheck.ts"
+		},
+		{
+			"module": 1,
+			"id": "eslint",
+			"title": "Lint on the Onyx paths: oxlint running the eslint.config.js rules",
+			"layer": "build",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "pnpm run oxlint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx",
+			"outcome": "pass",
+			"durationMs": 1114,
+			"exitCode": 0,
+			"detail": "oxlint: checking 3 requested targets. ⏎ oxlint: checked 315 files in 933ms with 1 process (the slowest took 642ms). ⏎ $ node build/oxlint.ts src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx"
+		},
+		{
+			"module": 1,
+			"id": "stylelint",
+			"title": "Stylelint",
+			"layer": "build",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "pnpm run stylelint",
+			"outcome": "pass",
+			"durationMs": 863,
+			"exitCode": 0,
+			"detail": "/contrib/onyx/browser/media/onyxControlPlane.css(713,1): Unknown variable: --vscode-fontWeight-semibold ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(735,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(749,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(758,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(799,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxInlineEdit.css(51,1): Unknown variable: --vscode-fontSize-caption1"
+		},
+		{
+			"module": 1,
+			"id": "hygiene",
+			"title": "A6 scoped hygiene",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-hygiene.mts",
+			"outcome": "pass",
+			"durationMs": 2843,
+			"exitCode": 0,
+			"detail": "  ok   identity-urls        4 files ⏎   ok   image-manifest       28 images ⏎   ok   inherited-automation 17 entries ⏎   ok   sync-duplicates      1046 files ⏎  ⏎ hygiene: all checks passed"
+		},
+		{
+			"module": 1,
+			"id": "unit",
+			"title": "Onyx unit tests on fresh output",
+			"layer": "service",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep Onyx",
+			"outcome": "pass",
+			"durationMs": 34810,
+			"exitCode": 0,
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 3 pending\u001b[0m ⏎  ⏎ (node:36969) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:36969) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:36969) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 1,
+			"id": "benchmarks",
+			"title": "Pure-logic benchmarks with asserting invariants",
+			"layer": "node",
+			"regressions": [
+				"R-23"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-benchmarks.mts --skip-models",
+			"outcome": "pass",
+			"durationMs": 9766,
+			"exitCode": 0,
+			"detail": " ⏎ Not measured here ⏎ ----------------- ⏎   real-model sections skipped (--skip-models) ⏎  ⏎ Re-run any time: node test/onyx/run-benchmarks.mts"
+		},
+		{
+			"module": 1,
+			"id": "R-37",
+			"title": "A1 inventory in disposable repositories",
+			"layer": "procedure",
+			"regressions": [
+				"R-37"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r37-inventory.test.mts",
+			"outcome": "pass",
+			"durationMs": 433,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 404.525083"
+		},
+		{
+			"module": 1,
+			"id": "A4-paths",
+			"title": "Harness runs without the .claude symlink",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/harness-paths.test.mts",
+			"outcome": "pass",
+			"durationMs": 99,
+			"exitCode": 0,
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 70.731708"
+		},
+		{
+			"module": 1,
+			"id": "A6-fixtures",
+			"title": "Hygiene fails on injected defects",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/hygiene.test.mts",
+			"outcome": "pass",
+			"durationMs": 414,
+			"exitCode": 0,
+			"detail": "ℹ pass 5 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 386.321042"
+		},
+		{
+			"module": 1,
+			"id": "R-23",
+			"title": "Benchmarks exit non-zero on an injected marker leak",
+			"layer": "node",
+			"regressions": [
+				"R-23"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r23-benchmark-asserts.test.mts",
+			"outcome": "pass",
+			"durationMs": 19129,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 19100.057917"
+		},
+		{
+			"module": 1,
+			"id": "R-35",
+			"title": "Fresh-output protocol: red then green on refreshed output",
+			"layer": "procedure",
+			"regressions": [
+				"R-35"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r35-fresh-output.test.mts",
+			"outcome": "pass",
+			"durationMs": 37504,
+			"exitCode": 0,
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 37475.445791"
+		},
+		{
+			"module": 1,
+			"id": "R-57",
+			"title": "Gate runner: failing, missing, stale, exception",
+			"layer": "procedure",
+			"regressions": [
+				"R-57"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r57-module-gate.test.mts",
+			"outcome": "pass",
+			"durationMs": 3087,
+			"exitCode": 0,
+			"detail": "ℹ pass 7 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 3057.943917"
+		},
+		{
+			"module": 1,
+			"id": "e2e",
+			"title": "End-to-end suite against the mock runtime",
+			"layer": "e2e",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-e2e.mts",
+			"outcome": "pass",
+			"durationMs": 493630,
+			"exitCode": 0,
+			"detail": "  ok   no draft_model is ever sent on the wire ⏎   ok   the architecture map renders modules with timing ⏎   ok   hot modules get a local-model summary ⏎   ok   explain-failure explains when no session is paused ⏎  ⏎ all 73 checks passed"
+		},
+		{
+			"module": 1,
+			"id": "reports-A1-A12",
+			"title": "Completion reports for A1 to A12 have the template's fields and name a commit of this repository",
+			"layer": "procedure",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/checks/item-reports.mts A1 A2 A3 A4 A5 A6 A7 A8 A9 A10 A11 A12",
+			"outcome": "pass",
+			"durationMs": 168,
+			"exitCode": 0,
+			"detail": "all 12 reports have the template's fields and name a commit of this repository"
+		},
+		{
+			"module": 1,
+			"id": "packaged-baseline",
+			"title": "Packaged smoke, baseline mode: launch, profile and runtime isolation, observed tools",
+			"layer": "packaged",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-packaged-smoke.mts --app $ONYX_PACKAGED_APP --mode baseline --json-out docs/progress/packaged-smoke-baseline.json",
+			"outcome": "pass",
+			"durationMs": 31602,
+			"exitCode": 0,
+			"detail": "  ok   the request carried a tool list ⏎   observed tools (8): readFile, listDirectory, findFiles, grep, editFile, terminal, repoSymbols, docs ⏎   missing essentials: none ⏎ wrote docs/progress/packaged-smoke-baseline.json ⏎  ⏎ baseline mode: infrastructure checks passed; this mode records tools and gaps and claims nothing about read or edit capability"
+		},
+		{
+			"module": 1,
+			"id": "packaged-release",
+			"title": "Packaged smoke, release mode: the tool contract (R-05), read → staged edit → accept (R-31), per-invocation approval, the network opt-in, no Agent Host",
+			"layer": "packaged",
+			"regressions": [
+				"R-05",
+				"R-31",
+				"R-36"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-packaged-smoke.mts --app $ONYX_PACKAGED_APP --mode release --json-out docs/progress/packaged-smoke-release.json",
+			"outcome": "pass",
+			"durationMs": 108043,
+			"exitCode": 0,
+			"detail": "  ok   R-44: no mutant and nothing of the simulation rig is in the product bundle ⏎   ok   the Agent Host did not start: no agenthost log in this profile ⏎   ok   asking for the Agents window opens no second workbench and starts no Agent Host ⏎ wrote docs/progress/packaged-smoke-release.json ⏎  ⏎ release mode: all 26 checks passed"
+		},
+		{
+			"module": 1,
+			"id": "R-41",
+			"title": "L1/L2 simulation suite: R-41, R-42, personas, scenarios, shrinking",
+			"layer": "service",
+			"regressions": [
+				"R-41",
+				"R-42"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxSim",
+			"outcome": "pass",
+			"durationMs": 24988,
+			"exitCode": 0,
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 2 pending\u001b[0m ⏎  ⏎ (node:50551) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:50551) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:50551) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 1,
+			"id": "sim-smoke",
+			"title": "L1/L2 campaign: 2,000 seeded episodes with every invariant checker, R-42 at gate size",
+			"layer": "service",
+			"regressions": [
+				"R-41",
+				"R-42"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxSim",
+			"outcome": "pass",
+			"durationMs": 35939,
+			"exitCode": 0,
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 2 pending\u001b[0m ⏎  ⏎ (node:50912) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:50912) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:50912) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 1,
+			"id": "sim-episodes",
+			"title": "L1 episode scripts in sync and replayable through the mock's SSE path",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/sim-episodes.test.mts",
+			"outcome": "pass",
+			"durationMs": 665,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 630.269875"
+		},
+		{
+			"module": 1,
+			"id": "sim-tables-sync",
+			"title": "L1/L2 episode and baseline JSON tables match their TypeScript sources",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/sim/export-episodes.mts --check",
+			"outcome": "pass",
+			"durationMs": 71,
+			"exitCode": 0,
+			"detail": "episodes: 30 files in sync ⏎ baseline: 0 exceptions in sync ⏎ mutants: 43 descriptors in sync"
+		},
+		{
+			"module": 1,
+			"id": "R-43",
+			"title": "L3 trace and experiment provenance at the harness layer: charts refuse without a valid manifest, the mock echoes the seed on the wire",
+			"layer": "node",
+			"regressions": [
+				"R-43"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r43-provenance.test.mts",
+			"outcome": "pass",
+			"durationMs": 1162,
+			"exitCode": 0,
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 1131.602584"
+		},
+		{
+			"module": 1,
+			"id": "R-43-unit",
+			"title": "L3 trace schema v2 and the seed on the wire and honoured, in the product",
+			"layer": "unit",
+			"regressions": [
+				"R-43"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxTrace|OnyxRuntimeService",
+			"outcome": "pass",
+			"durationMs": 8241,
+			"exitCode": 0,
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 1 pending\u001b[0m ⏎  ⏎ (node:51461) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:51461) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:51461) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "B1-read-tools",
+			"title": "B1 read-side tools: numbered reads and their decoder (R-24), limits and refusals, containment on the read side (R-30)",
+			"layer": "service",
+			"regressions": [
+				"R-24",
+				"R-30"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxReadTools",
+			"outcome": "pass",
+			"durationMs": 7814,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 8 passing\u001b[0m\u001b[90m (507ms)\u001b[0m ⏎  ⏎ (node:51589) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:51589) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:51589) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-36",
+			"title": "B1 tool-slot policy: six essentials within eight slots, optional order, lower caps, excluded essentials refuse",
+			"layer": "service",
+			"regressions": [
+				"R-36"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxToolSlots",
+			"outcome": "pass",
+			"durationMs": 7875,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (473ms)\u001b[0m ⏎  ⏎ (node:51715) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:51715) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:51715) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-01-R-04",
+			"title": "B2 per-invocation shell approval through the dispatch boundary: repository content grants nothing, trust changes nothing, every invocation asks with its exact bytes, legacy grants never run",
+			"layer": "service",
+			"regressions": [
+				"R-01",
+				"R-02",
+				"R-03",
+				"R-04"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxTerminalApproval|OnyxTerminalPolicy",
+			"outcome": "pass",
+			"durationMs": 7950,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 19 passing\u001b[0m\u001b[90m (514ms)\u001b[0m ⏎  ⏎ (node:51842) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:51842) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:51842) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-06",
+			"title": "B4 warnings that know about egress: the sixteen-command bypass list and the script example earn their categories, every warning reaches the prompt as \"looks like\", and each still asks with Run Once or Deny",
+			"layer": "service",
+			"regressions": [
+				"R-06"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxTerminalPolicy|OnyxShellWords|OnyxTerminalApproval",
+			"outcome": "pass",
+			"durationMs": 7919,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 22 passing\u001b[0m\u001b[90m (520ms)\u001b[0m ⏎  ⏎ (node:51969) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:51969) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:51969) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-18",
+			"title": "B5 bounded, killable command execution: fifty megabytes of output stay bounded at the process boundary and in the window; a timeout, a cancel, a dispose and a closing window each kill the command",
+			"layer": "node, service",
+			"regressions": [
+				"R-18"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxCommandExecution|OnyxTerminalExecution",
+			"outcome": "pass",
+			"durationMs": 10526,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 8 passing\u001b[0m\u001b[90m (3s)\u001b[0m ⏎  ⏎ (node:52086) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52086) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52086) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-40",
+			"title": "B5 runner seam: darwin and linux take the POSIX path and run, win32 refuses and starts nothing",
+			"layer": "node",
+			"regressions": [
+				"R-40"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxCommandRunner",
+			"outcome": "pass",
+			"durationMs": 7824,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (436ms)\u001b[0m ⏎  ⏎ (node:52360) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52360) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52360) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-40-source-scan",
+			"title": "B5 runner seam: no Onyx product file outside the seam names a shell path or a signal, or starts a process itself",
+			"layer": "pure",
+			"regressions": [
+				"R-40"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r40-runner-seam.test.mts",
+			"outcome": "pass",
+			"durationMs": 140,
+			"exitCode": 0,
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 111.779"
+		},
+		{
+			"module": 2,
+			"id": "R-16",
+			"title": "B13 context that fits: fifteen large tool results against an 8k window and a runtime that rejects anything larger; every request fits with max_tokens on the wire, whole calls are evicted oldest first and the timeline says so; an overflow is learned from and retried once",
+			"layer": "service",
+			"regressions": [
+				"R-16"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxContextBudget",
+			"outcome": "pass",
+			"durationMs": 8422,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (826ms)\u001b[0m ⏎  ⏎ (node:52495) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52495) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52495) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-17",
+			"title": "B14 where inference happens: transport and reported execution are labelled separately; by default a cloud-backed model through loopback, a LAN endpoint, an unidentified server and the internet are refused and nothing is sent to them; LAN needs its own opt-in",
+			"layer": "service",
+			"regressions": [
+				"R-17"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxInferenceLocation",
+			"outcome": "pass",
+			"durationMs": 7843,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (416ms)\u001b[0m ⏎  ⏎ (node:52627) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52627) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52627) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-19",
+			"title": "B12 honest stream termination and index freshness: each ending is reported as what it was, a silent request is stopped at its deadline, a cut-off reply is never applied or called complete, and a persisted index is reconciled with the tree or rebuilt",
+			"layer": "node, service",
+			"regressions": [
+				"R-19"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxStreamTermination|OnyxWorkspaceIndexer|OnyxStreamEndings",
+			"outcome": "pass",
+			"durationMs": 8644,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 11 passing\u001b[0m\u001b[90m (1s)\u001b[0m ⏎  ⏎ (node:52753) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52753) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52753) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-26",
+			"title": "C4 reasoning models: thinking in tags or in a field of its own is taken out before anything is parsed; the tool call after it is recognised; the thinking is a note; a reply that ended mid-thought is reported and not applied",
+			"layer": "pure, node, service",
+			"regressions": [
+				"R-26"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxReasoning",
+			"outcome": "pass",
+			"durationMs": 7920,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (328ms)\u001b[0m ⏎  ⏎ (node:52891) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52891) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52891) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-27",
+			"title": "C5 streaming for fenced replies: a reply that opens with a code fence is shown as soon as the fence is seen not to be JSON; a tool call written as text is still withheld to its end and run",
+			"layer": "pure",
+			"regressions": [
+				"R-27"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxFencedStreaming",
+			"outcome": "pass",
+			"durationMs": 7843,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (420ms)\u001b[0m ⏎  ⏎ (node:53013) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53013) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53013) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-28-mandatory",
+			"title": "B12 argument validation: a call whose arguments do not match the tool's schema is answered and never dispatched",
+			"layer": "pure, service",
+			"regressions": [
+				"R-28"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxStreamEndings",
+			"outcome": "pass",
+			"durationMs": 7890,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (441ms)\u001b[0m ⏎  ⏎ (node:53139) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53139) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53139) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-28-streaming",
+			"title": "C6 incremental constrained-answer streaming (included): the answer is read out of the envelope and shown as it arrives, once and whole",
+			"layer": "pure, service",
+			"regressions": [
+				"R-28"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxConstrainedStreaming",
+			"outcome": "pass",
+			"durationMs": 7863,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (417ms)\u001b[0m ⏎  ⏎ (node:53265) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53265) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53265) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "C7-index-coverage",
+			"title": "C7 broader index coverage (included): source folders are indexed first, the exclude settings and the root .gitignore are honoured at build and on update, coverage is counted, and the index is persisted in batches",
+			"layer": "node, pure",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxWorkspaceIndexer C7|OnyxIndexOptions",
+			"outcome": "pass",
+			"durationMs": 7857,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 6 passing\u001b[0m\u001b[90m (430ms)\u001b[0m ⏎  ⏎ (node:53391) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53391) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53391) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-20",
+			"title": "B11 diagnostics that redact what they say they redact: a journal, settings and logs seeded with a sentinel in every content channel produce a default bundle, and a zip, with none of them; the API key is absent even with content included",
+			"layer": "service",
+			"regressions": [
+				"R-20"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxDiagnosticsExport",
+			"outcome": "pass",
+			"durationMs": 7824,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (423ms)\u001b[0m ⏎  ⏎ (node:53515) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53515) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53515) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-05-R-59",
+			"title": "B3 tool capability contract at the service layer: the wire carries only contracted tools by default and with the network opt-in (R-05); a stored note needs a confirmation that shows its origin (R-59)",
+			"layer": "service",
+			"regressions": [
+				"R-05",
+				"R-59",
+				"R-36"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxToolContract",
+			"outcome": "pass",
+			"durationMs": 7875,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (474ms)\u001b[0m ⏎  ⏎ (node:53641) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53641) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53641) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "B3-agent-host",
+			"title": "B3 upstream's Agent Host is excluded: the switch is off and no agent-host session type can start a chat (the packaged smoke and the end-to-end suite check that it never starts)",
+			"layer": "service",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxChatDefaults",
+			"outcome": "pass",
+			"durationMs": 7809,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (418ms)\u001b[0m ⏎  ⏎ (node:53767) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53767) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53767) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-44",
+			"title": "L4 harness configuration as data: the default configuration is what the loop decided before, 1,000 seeded episodes and every scripted scenario run identically, a requested configuration is followed in a development build and refused in a packaged one, and every trace carries the hash of the configuration that ran",
+			"layer": "pure, node, service",
+			"regressions": [
+				"R-44"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxHarnessConfig|OnyxLabManifest",
+			"outcome": "pass",
+			"durationMs": 9770,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 7 passing\u001b[0m\u001b[90m (2s)\u001b[0m ⏎  ⏎ (node:53883) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53883) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53883) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "R-44-bundle-scan",
+			"title": "L4, DEC-10: the scan for mutants and the simulation rig finds them where they are, finds none in the compiled product folders, and has a marker for every mutant (the packaged smoke runs the same scan over the built app)",
+			"layer": "node",
+			"regressions": [
+				"R-44"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r44-bundle-scan.test.mts",
+			"outcome": "pass",
+			"durationMs": 125,
+			"exitCode": 0,
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 95.261167"
+		},
+		{
+			"module": 2,
+			"id": "R-45",
+			"title": "L5 model datasheet: the probe suite against mock runtimes of known behaviour reports each behaviour in counts; the profile uses what was measured and labels the rest as defaults; a changed digest or runtime version stops a datasheet being used; an Ollama server's loaded context is read",
+			"layer": "pure, node, service",
+			"regressions": [
+				"R-45"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxDatasheet|OnyxLoadedModels",
+			"outcome": "pass",
+			"durationMs": 7848,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 16 passing\u001b[0m\u001b[90m (503ms)\u001b[0m ⏎  ⏎ (node:54036) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:54036) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:54036) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 2,
+			"id": "sim-campaign-20000",
+			"title": "A 20,000-episode campaign with every checker, seeds 1 to 20,000 in ten processes: no violation class outside the baseline table, so none of the invariants this module owns (I-02, I-04, I-06, I-07 read side, I-10, I-11, I-13 output, I-14), whose entries are gone from it",
+			"layer": "service",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/sim/run-campaign.mts --episodes 20000 --seed 1 --shard 2000",
+			"outcome": "pass",
+			"durationMs": 139100,
+			"exitCode": 0,
+			"detail": "  ok   seeds 14001 to 16000 ⏎   ok   seeds 16001 to 18000 ⏎   ok   seeds 18001 to 20000 ⏎  ⏎ campaign: 20000 of 20000 episodes ran with no violation class outside the baseline table ⏎ classes seen (all in the table): none"
+		},
+		{
+			"module": 2,
+			"id": "module-2-tables",
+			"title": "docs/SUPPORT.md lists exactly the tools the contract can expose and records C6 and C7 as included; no baseline exception is left for an invariant this module owns, and every one left has a Module 3 owner",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/module2-gate.test.mts",
+			"outcome": "pass",
+			"durationMs": 97,
+			"exitCode": 0,
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 68.985542"
+		},
+		{
+			"module": 2,
+			"id": "sim-mutants",
+			"title": "Every defect fixed in this module has a resurrection mutant that its script and the seeded campaign detect",
+			"layer": "service",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxSim mutants",
+			"outcome": "pass",
+			"durationMs": 37681,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (30s)\u001b[0m ⏎  ⏎ (node:56243) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:56243) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:56243) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-61",
+			"title": "B15 context allocation: a runtime that honours the request, one that ignores it and one that reports more than it serves, with consent given and refused; the budget uses only the verified context, nothing is created without consent, and the trace carries requested, reported and verified",
+			"layer": "service, node",
+			"regressions": [
+				"R-61"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxContextAllocation|OnyxContextAlias|OnyxDatasheetProbes|OnyxTrace",
+			"outcome": "pass",
+			"durationMs": 8819,
+			"exitCode": 0,
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 1 pending\u001b[0m ⏎  ⏎ (node:56772) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:56772) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:56772) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-07-R-08-R-33",
+			"title": "B6 exact-or-refuse: a SEARCH text is placed only where it is exactly, and exactly once; a unique first line, a duplicate, different indentation, tabs, trailing spaces, multiline strings and line endings are refused with the text unchanged and the reason named, in the applier, in staging and in rebasing",
+			"layer": "pure",
+			"regressions": [
+				"R-07",
+				"R-08",
+				"R-33"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxInlineEdit|OnyxChangeSet",
+			"outcome": "pass",
+			"durationMs": 8005,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 62 passing\u001b[0m\u001b[90m (577ms)\u001b[0m ⏎  ⏎ (node:56909) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:56909) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:56909) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-09-R-12-R-38",
+			"title": "B7 versioned proposals with stable hunk identity: a hunk follows its own place by three lines of exact context or becomes a conflict with both texts; a hunk is accepted by the id it was shown with, after a rebase, or refused with \"look again\"; nothing of another hunk is applied in its place; a new generation invalidates an older review; a file that is not open; an oversized proposal is refused before it is diffed",
+			"layer": "pure, service",
+			"regressions": [
+				"R-09",
+				"R-10",
+				"R-11",
+				"R-12",
+				"R-38"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxChangeSet|OnyxSim the scripted user steps",
+			"outcome": "pass",
+			"durationMs": 7959,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 34 passing\u001b[0m\u001b[90m (546ms)\u001b[0m ⏎  ⏎ (node:57036) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57036) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57036) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-13",
+			"title": "B8 deletions through the text model: deleting the first, a middle, the last and every line, hunks one line apart, CRLF files and files with no final newline leave the buffer equal to the proposal byte for byte, whole and hunk by hunk, and one accept is one undo",
+			"layer": "service",
+			"regressions": [
+				"R-13"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxChangeSetService R-13",
+			"outcome": "pass",
+			"durationMs": 7862,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (489ms)\u001b[0m ⏎  ⏎ (node:57169) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57169) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57169) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-14-R-34",
+			"title": "B9 inline edits stage before acceptance: a reply becomes a proposal and the buffer, its dirty state and the disk are untouched through saves; typing during generation, a save participant, a cancel and a closed file leave it unstaged; keeping a hunk is one undoable edit, rejecting restores nothing over the user's work, and a proposal survives a reload as a proposal (the end-to-end suite has the window's half of R-34)",
+			"layer": "service",
+			"regressions": [
+				"R-14",
+				"R-34"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxInlineEditSession",
+			"outcome": "pass",
+			"durationMs": 7839,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 7 passing\u001b[0m\u001b[90m (443ms)\u001b[0m ⏎  ⏎ (node:57285) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57285) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57285) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-15",
+			"title": "B10 Stop means stop, at the service layer: a stop during a slow stream that would end in a tool call, before a command, before an edit and while an approval dialog is open dispatches, runs and stages nothing afterwards; a paused run ends on its own as budget-exhausted; a run has one terminal status that nothing replaces (the end-to-end suite has R-15 itself: cancelled in the journal within two seconds, the tool never called)",
+			"layer": "service, e2e",
+			"regressions": [
+				"R-15"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxSim R-15",
+			"outcome": "pass",
+			"durationMs": 7795,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (449ms)\u001b[0m ⏎  ⏎ (node:57411) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57411) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57411) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-25-service",
+			"title": "C1 a real diff editor for proposals, the service half: the proposal is a read-only document of its own that follows the change set, its code lenses name hunks by id, a line of it names the hunk it belongs to or none, and accepting from it changes the file and not before (R-25 itself is two end-to-end checks: the diff opens from Onyx Changes and one hunk is accepted from the editor)",
+			"layer": "service, e2e",
+			"regressions": [
+				"R-25"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxChangeSetService C1|OnyxChangeSet .* C1",
+			"outcome": "pass",
+			"durationMs": 7829,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (434ms)\u001b[0m ⏎  ⏎ (node:57526) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57526) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57526) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-21",
+			"title": "C2 verification of what was accepted: \"not applied\" while a proposal is only staged; after an acceptance, one error swapped for another is a new problem although the count did not move; a problem that only moved is not new; a partial acceptance says so; no report in time is \"timed out\"; a later change makes the result stale; the project check runs only on the accepted file as saved",
+			"layer": "pure, service",
+			"regressions": [
+				"R-21"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxVerification|OnyxTerminalApproval",
+			"outcome": "pass",
+			"durationMs": 7878,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 12 passing\u001b[0m\u001b[90m (527ms)\u001b[0m ⏎  ⏎ (node:57653) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57653) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57653) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "C3-multi-block",
+			"title": "C3 several edits in one editFile call: staged as one proposal with numbered-read quoting decoded; one edit that cannot be placed stages nothing and is named; the two shapes are never mixed; scripted scenarios hold I-08 and I-09",
+			"layer": "pure, service",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxChangeSetService C3|OnyxSim the end-to-end mock scenarios",
+			"outcome": "pass",
+			"durationMs": 7894,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (528ms)\u001b[0m ⏎  ⏎ (node:57781) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57781) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57781) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-22",
+			"title": "C8 a benchmark that cannot be fooled by a deletion: a reply that reproduces the author's added lines and deletes or rewrites an unrelated line scores strictly below 1, capped, with the line named; added and removed lines are scored together; routing scores kept under another metric are dropped",
+			"layer": "pure",
+			"regressions": [
+				"R-22"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxRepoBench",
+			"outcome": "pass",
+			"durationMs": 7822,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 9 passing\u001b[0m\u001b[90m (403ms)\u001b[0m ⏎  ⏎ (node:57896) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57896) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57896) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "C8-chart-provenance",
+			"title": "C8 raw reports: make-charts refuses a report without its provenance block; every published chart names a report committed under docs/benchmarks with its commit, machine, runtime versions, model digests, parameters, attempts and skips; the README shows only such charts and links a raw report",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r43-provenance.test.mts test/onyx/checks/c8-published-charts.test.mts",
+			"outcome": "pass",
+			"durationMs": 1184,
+			"exitCode": 0,
+			"detail": "ℹ pass 4 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 1152.268708"
+		},
+		{
+			"module": 3,
+			"id": "R-29",
+			"title": "C9 bounded line diff: 6,000 lines a side with scattered edits and with nothing in common, within C9's time and memory on the reference machine, in plain Node; the hunks reproduce the text. On 2,000 random pairs the hunks are a shortest edit script; past the search bound the changed region is one hunk",
+			"layer": "pure, node",
+			"regressions": [
+				"R-29"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r29-diff-performance.test.mts",
+			"outcome": "pass",
+			"durationMs": 359,
+			"exitCode": 0,
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 312.892667"
+		},
+		{
+			"module": 3,
+			"id": "R-29-correctness",
+			"title": "C9 hunk correctness and the size guard that remains: shortest scripts on random pairs, the one-hunk answer past the bound, 6,000 lines reviewed, 20,001 lines and over 1 MiB refused before the diff",
+			"layer": "pure, service",
+			"regressions": [
+				"R-29",
+				"R-38"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxInlineEdit computeLineHunks|OnyxChangeSet .*R-38|OnyxChangeSetService R-38",
+			"outcome": "pass",
+			"durationMs": 7920,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 6 passing\u001b[0m\u001b[90m (458ms)\u001b[0m ⏎  ⏎ (node:58067) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58067) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58067) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-30",
+			"title": "C10 and the write side of containment: traversal, an absolute path, a backslash, a dot-only segment and a symbolic link out of the workspace (the file itself, a new file in a linked directory, a file that becomes a link while its proposal waits) are refused by every way of staging and by accept; a file name that merely contains two dots is read, found, searched, staged, accepted and created",
+			"layer": "pure, service",
+			"regressions": [
+				"R-30"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep R-30",
+			"outcome": "pass",
+			"durationMs": 7803,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (434ms)\u001b[0m ⏎  ⏎ (node:58199) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58199) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58199) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-46",
+			"title": "L6 edit certificates: an anchor delivered this turn is grounded in the result that delivered it; one evicted before the edit is not, and is staged all the same; the certificate is in the journal with its hunks and recomputes from the journal alone; a tampered certificate, and one tampered and sealed again, fail; no line a reviewer reads calls a certificate proof of anything",
+			"layer": "pure, service",
+			"regressions": [
+				"R-46"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxEditCertificate",
+			"outcome": "pass",
+			"durationMs": 7973,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (359ms)\u001b[0m ⏎  ⏎ (node:58314) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58314) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58314) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-47",
+			"title": "L7 constrained anchors (experimental): the enumeration is the lines read this turn; an anchor that is not on it never reaches the edit tool; a duplicated anchor and reversed anchors are refused with the reason; without measured enforcement or without constrained decoding the protocol is unavailable and the run says so; above the bound the turn falls back to search and replace; by default nothing of it exists",
+			"layer": "pure, service",
+			"regressions": [
+				"R-47"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxAnchorEdit|OnyxHarnessConfig",
+			"outcome": "pass",
+			"durationMs": 9816,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 11 passing\u001b[0m\u001b[90m (2s)\u001b[0m ⏎  ⏎ (node:58440) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58440) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58440) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-48",
+			"title": "L8 trace conformance replay: every trace of the committed corpus (every persona, every scripted workflow, the pinned models) replays with the events it recorded; a deliberate change of behaviour fails with a report of the first divergence until the expected trace is replaced with a reason; cut-point mode serves the same prefix to two configurations and labels the result an executed counterfactual",
+			"layer": "service",
+			"regressions": [
+				"R-48"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxTraceReplay",
+			"outcome": "pass",
+			"durationMs": 7931,
+			"exitCode": 0,
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 1 pending\u001b[0m ⏎  ⏎ (node:58589) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58589) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58589) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 3,
+			"id": "R-48-corpus",
+			"title": "L8 the committed corpus is fit to be committed: well formed, unchanged by the diagnostics redactor (B11), no home directory, real-model traces named by digest; the CI workflow replays it as a step of its own",
+			"layer": "node",
+			"regressions": [
+				"R-48"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r48-trace-corpus.test.mts",
+			"outcome": "pass",
+			"durationMs": 100,
+			"exitCode": 0,
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 72.45975"
+		},
+		{
+			"module": 3,
+			"id": "module-3-tables",
+			"title": "The Module 3 gate boxes that are about committed evidence and documents: the two pinned models' datasheets re-measured at the requested context with a valid manifest that names requested, reported and verified context (B15)",
+			"layer": "node",
+			"regressions": [
+				"R-61"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/module3-gate.test.mts",
+			"outcome": "pass",
+			"durationMs": 103,
+			"exitCode": 0,
+			"detail": "ℹ pass 5 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 75.705292"
+		},
+		{
+			"module": 3,
+			"id": "sim-campaign-20000-empty-baseline",
+			"title": "A 20,000-episode campaign with every checker, seeds 1 to 20,000 in ten processes, against an empty baseline table: zero violations of every invariant, I-01 to I-14",
+			"layer": "service",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/sim/run-campaign.mts --episodes 20000 --seed 1 --shard 2000",
+			"outcome": "pass",
+			"durationMs": 139625,
+			"exitCode": 0,
+			"detail": "  ok   seeds 14001 to 16000 ⏎   ok   seeds 16001 to 18000 ⏎   ok   seeds 18001 to 20000 ⏎  ⏎ campaign: 20000 of 20000 episodes ran with no violation class outside the baseline table ⏎ classes seen (all in the table): none"
+		},
+		{
+			"module": 3,
+			"id": "sim-mutants-module-3",
+			"title": "Every defect fixed in Modules 2 and 3 has a resurrection mutant that its script and the seeded campaign detect, and the unmutated harness is not flagged",
+			"layer": "service",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxSim mutants",
+			"outcome": "pass",
+			"durationMs": 37737,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (30s)\u001b[0m ⏎  ⏎ (node:60810) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:60810) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:60810) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 4,
+			"id": "R-49-pure",
+			"title": "L9 campaign planning: one model resident at a time, a killed campaign resumes at the next unfinished unit, a unit the runtime could not serve is counted apart from a failed attempt, a task that needed a command is blocked by policy, a work order is run whole or not at all, and a campaign's seed is refused by a packaged build",
+			"layer": "pure",
+			"regressions": [
+				"R-49"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxLab",
+			"outcome": "pass",
+			"durationMs": 7985,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 11 passing\u001b[0m\u001b[90m (241ms)\u001b[0m ⏎  ⏎ (node:61350) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:61350) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:61350) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 4,
+			"id": "R-49-node",
+			"title": "L9 tier S against the mock, through the launcher: killed mid-run and restarted, Ctrl+C within two seconds with no record of the unit in flight, an unservable model counted apart, one model resident, the repository's files, index, HEAD and refs unchanged",
+			"layer": "node",
+			"regressions": [
+				"R-49"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r49-lab-campaign.test.mts",
+			"outcome": "pass",
+			"durationMs": 21470,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 21441.721625"
+		},
+		{
+			"module": 4,
+			"id": "R-49-app",
+			"title": "L9 tier A against the mock, in the application: the agent loop on a linked worktree stages an edit that the record holds, a command is denied by campaign policy and counted, a cancel during a task leaves no record and a later run resumes, the worktree is removed and the repository unchanged",
+			"layer": "e2e",
+			"regressions": [
+				"R-49"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r49-lab-campaign-app.test.mts",
+			"outcome": "pass",
+			"durationMs": 48617,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 48590.027208"
+		},
+		{
+			"module": 4,
+			"id": "R-50-pure",
+			"title": "L10 tasks: only commits authored after the model was published are held out, a model with no date gives tasks labelled unknown, only accepted-and-committed requests become tasks and only with the opt-in, and the oracle is unavailable without a passed probe, the user's consent to this exact command, and runs left",
+			"layer": "pure",
+			"regressions": [
+				"R-50"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxLabTasks|OnyxRepoBench",
+			"outcome": "pass",
+			"durationMs": 7485,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 13 passing\u001b[0m\u001b[90m (252ms)\u001b[0m ⏎  ⏎ (node:65243) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:65243) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:65243) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 4,
+			"id": "R-50-sandbox",
+			"title": "L10 the executable oracle's sandbox on this machine: the probe sees the network and an out-of-tree write denied and its own listener reached from outside; a verification script that tries both is blocked at both and a fail-to-pass check still runs; where no sandbox exists nothing is started",
+			"layer": "node",
+			"regressions": [
+				"R-50"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxOracle|OnyxCommandRunner",
+			"outcome": "pass",
+			"durationMs": 7925,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 8 passing\u001b[0m\u001b[90m (612ms)\u001b[0m ⏎  ⏎ (node:65359) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:65359) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:65359) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 4,
+			"id": "R-50-node",
+			"title": "L10 through the lab's own scripts: a campaign under the network guard makes no outbound request and the guard is shown to refuse one; requests become tasks only with the opt-in; a task set holds ids and hashes and labels holdout",
+			"layer": "node",
+			"regressions": [
+				"R-50"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r50-lab-tasks.test.mts",
+			"outcome": "pass",
+			"durationMs": 1870,
+			"exitCode": 0,
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 1843.263792"
+		},
+		{
+			"module": 4,
+			"id": "R-51",
+			"title": "L11 the scorecard, the pure half: provenance, a datasheet for every model, every attempt and skip, a partial measurement labelled partial and not ranked, a sample below the minimum not ranked, the router's hit rate with its denominators, and the replay of accepted requests with counts (R-51 itself is six end-to-end checks: the measure command against the mock with two models, a cancel midway, and a router log with known picks, in the suite gate 1 runs)",
+			"layer": "pure, e2e",
+			"regressions": [
+				"R-51"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxScorecard",
+			"outcome": "pass",
+			"durationMs": 7751,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (409ms)\u001b[0m ⏎  ⏎ (node:66103) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:66103) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:66103) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 4,
+			"id": "R-52-injection",
+			"title": "L12 injection containment: a model that obeys text planted on every simulated surface causes no side effect the user did not approve, for each of five kinds of effect, and the corpus is shown to bite when a guard is removed",
+			"layer": "service",
+			"regressions": [
+				"R-52"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxSim R-52",
+			"outcome": "pass",
+			"durationMs": 7972,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (695ms)\u001b[0m ⏎  ⏎ (node:66221) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:66221) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:66221) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 4,
+			"id": "R-52-campaign",
+			"title": "L12 full campaign on this checkout: 50,000 seeded episodes, the scripted workflows and the injection corpus with no violation, then every mutant against the campaign's first 2,000 seeds, each reported as a violation (written under .build/, in a directory named as a results directory has to be; it is the gate's own run and not a dated result)",
+			"layer": "service",
+			"regressions": [
+				"R-52"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/sim/write-assurance.mts --out .build/gate-assurance/0000-00-00-gate",
+			"outcome": "pass",
+			"durationMs": 387677,
+			"exitCode": 0,
+			"detail": "campaign: 50000 of 50000 episodes with no violation, in 349 s; exit 0 ⏎ mutants: 43 of 43 killed, in 38 s; the test's exit 0 ⏎ H-1: supported; wrote .build/gate-assurance/0000-00-00-gate"
+		},
+		{
+			"module": 4,
+			"id": "R-53",
+			"title": "L13 attribution estimators on outcomes whose true values are known: main effects, pairwise interactions and Shapley values are recovered, the bootstrap interval covers the true value about as often as it says, and H-2 is decided by its registered thresholds",
+			"layer": "pure",
+			"regressions": [
+				"R-53"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxAttribution",
+			"outcome": "pass",
+			"durationMs": 8623,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (564ms)\u001b[0m ⏎  ⏎ (node:72109) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:72109) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:72109) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 4,
+			"id": "H-7-decision",
+			"title": "L13 the rankings decision on campaigns whose answer is known: supported only when the top model differs with a significant difference in each repository; a repository nobody solves has no ranking",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/h7-rankings.test.mts",
+			"outcome": "pass",
+			"durationMs": 379,
+			"exitCode": 0,
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 351.945167"
+		},
+		{
+			"module": 4,
+			"id": "L14-appliers",
+			"title": "L14 the three lab-only comparator appliers place what they are described to place, refuse what they should, are wrong where the study says they can be, and are named by no file under src/",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/l14-appliers.test.mts",
+			"outcome": "pass",
+			"durationMs": 955,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 924.688"
+		},
+		{
+			"module": 4,
+			"id": "R-54-pure",
+			"title": "L15 determinism measure: identical repetitions are 100% identical; a difference planted at a known turn is reported at that turn and attributed to the runtime or the harness by what differs first; H-6 is decided by its registered thresholds",
+			"layer": "pure",
+			"regressions": [
+				"R-54"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxDeterminism",
+			"outcome": "pass",
+			"durationMs": 7824,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (408ms)\u001b[0m ⏎  ⏎ (node:72274) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:72274) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:72274) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 4,
+			"id": "R-54-node",
+			"title": "L15 determinism measure on tier A campaigns against the mock, three repetitions a task: with the mock as it is every repetition is the same trajectory as the first; with a mock that answers differently every time at the third turn, every repetition diverges at turn 3, the runtime is named and the harness is not",
+			"layer": "node",
+			"regressions": [
+				"R-54"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r54-determinism.test.mts",
+			"outcome": "pass",
+			"durationMs": 29248,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 29220.179708"
+		},
+		{
+			"module": 4,
+			"id": "R-55-pure",
+			"title": "L16 calibration metrics: AUROC and expected calibration error match their known values on synthetic predictions, the interval of AUROC covers the known value about as often as it says and resamples by task, an estimator below the registered threshold gets no badge, and without a badge decision nothing is rendered for a hunk",
+			"layer": "pure",
+			"regressions": [
+				"R-55"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxCalibration",
+			"outcome": "pass",
+			"durationMs": 8432,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (991ms)\u001b[0m ⏎  ⏎ (node:74459) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:74459) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:74459) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 4,
+			"id": "R-55-node",
+			"title": "L16 the study's path against the mock: a tier S campaign that asks for log-probabilities keeps each token with its own, every hunk of the first seed's reply gets the agreement of the samples and the least token probability of its block, and with one class of hunk nothing is decided and no badge ships",
+			"layer": "node",
+			"regressions": [
+				"R-55"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r55-confidence.test.mts",
+			"outcome": "pass",
+			"durationMs": 2155,
+			"exitCode": 0,
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 2124.474458"
+		},
+		{
+			"module": 4,
+			"id": "R-56",
+			"title": "L17 eviction policies: a scripted 16-turn run in the simulation rig under each of the three policies, against a runtime that counts the prompt tokens it processes again: every request fits with its output cap under every policy (R-16), no invariant is violated, and block eviction processes fewer tokens again than oldest-first",
+			"layer": "service",
+			"regressions": [
+				"R-56",
+				"R-16"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxContextBudget",
+			"outcome": "pass",
+			"durationMs": 8299,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (950ms)\u001b[0m ⏎  ⏎ (node:74981) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:74981) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:74981) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 4,
+			"id": "L18-energy",
+			"title": "L18 the energy analysis on a campaign whose power is known: energy by model block from an accumulator read once a minute, energy per solved task, and the swap between the two rankings",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/l18-energy.test.mts",
+			"outcome": "pass",
+			"durationMs": 156,
+			"exitCode": 0,
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 128.829167"
+		},
+		{
+			"module": 4,
+			"id": "M4-evidence",
+			"title": "Module 4's committed evidence: one real-model campaign of each tier (L9), this repository's task set and the oracle's state (L10), the reference machine's scorecard (L11), the full campaign, the mutation score and the injection run (L12), one outcome for each hypothesis H-1 to H-10 with its manifest, results after their registration and its amendments, and the L7, badge, eviction and energy decisions in docs/SUPPORT.md",
+			"layer": "node",
+			"regressions": [
+				"R-50"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/module4-gate.test.mts",
+			"outcome": "pass",
+			"durationMs": 17809,
+			"exitCode": 0,
+			"detail": "ℹ pass 8 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 17779.461291"
+		},
+		{
+			"module": 5,
+			"id": "R-32",
+			"title": "D1 the named extension set (Python, ESLint, Prettier, GitLens) installs from Open VSX through the packaged application and each activates. Needs the internet",
+			"layer": "packaged",
+			"regressions": [
+				"R-32"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-extension-smoke.mts --app $ONYX_PACKAGED_APP --json-out .build/gate-5/extension-smoke.json",
+			"outcome": "pass",
+			"durationMs": 22379,
+			"exitCode": 0,
+			"detail": "extension smoke · Onyx 3477aeeaa48 · gallery https://open-vsx.org/vscode/gallery ⏎   ok   Python    ms-python.python@2026.10.0 — installed, activated ⏎   ok   ESLint    dbaeumer.vscode-eslint@3.0.34 — installed, activated ⏎   ok   Prettier  esbenp.prettier-vscode@12.4.0 — installed, activated ⏎   ok   GitLens   eamodio.gitlens@19.7.0 — installed, activated ⏎ extension smoke: all 4 installed and activated"
+		},
+		{
+			"module": 5,
+			"id": "D3-update-check",
+			"title": "D3 Onyx: Check for Updates: a newer release, no newer release, no releases, a network failure, a rate limit and an unreadable answer each say what they are; one anonymous request; a link outside the repository is never offered",
+			"layer": "service",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "./scripts/test.sh --grep OnyxUpdateCheck",
+			"outcome": "pass",
+			"durationMs": 7860,
+			"exitCode": 0,
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (426ms)\u001b[0m ⏎  ⏎ (node:76415) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:76415) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:76415) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+		},
+		{
+			"module": 5,
+			"id": "D3-replace",
+			"title": "D3 manual update, rollback and uninstall on the packaged application: settings and every journal file byte for byte the same after each replacement, data kept when the application is deleted, removed by the documented step",
+			"layer": "packaged",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-replace-check.mts --app $ONYX_PACKAGED_APP --json-out .build/gate-5/replace-check.json",
+			"outcome": "pass",
+			"durationMs": 148483,
+			"exitCode": 0,
+			"detail": "  ok   update: the settings file and every journal file are byte for byte what they were ⏎   ok   rollback: the earlier application opens a window on the same data ⏎   ok   rollback: the settings file and every journal file are byte for byte what they were ⏎   ok   uninstall: deleting the application leaves settings and journals where they were ⏎   ok   uninstall: removing the data folders removes the data and leaves the workspace alone ⏎ replace check: all 8 checks passed"
+		},
+		{
+			"module": 5,
+			"id": "module-5-documents",
+			"title": "D2, D4, D6, D8 the public material: open-source files present, the README's first screen, replaced words gone, no Gatekeeper bypass, no novelty wording without approval, nothing left planned, links resolve, the release script and notes refuse what they must",
+			"layer": "node",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/module5-docs.test.mts",
+			"outcome": "pass",
+			"durationMs": 323,
+			"exitCode": 0,
+			"detail": "ℹ pass 10 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 292.779958"
+		},
+		{
+			"module": 5,
+			"id": "R-58",
+			"title": "L19 every table of the research report regenerates from committed raw data, a changed number fails, and a number with no source in the report or the README's Research section fails",
+			"layer": "node",
+			"regressions": [
+				"R-58"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node --test test/onyx/checks/r58-report.test.mts",
+			"outcome": "pass",
+			"durationMs": 3180,
+			"exitCode": 0,
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 3154.606333"
+		},
+		{
+			"module": 5,
+			"id": "R-60",
+			"title": "D8 egress audit on the packaged application, run now: the whole end-to-end suite, ten idle minutes and the two user-initiated requests behind a recording proxy and a socket sampler; only the runtime, Open VSX when asked and GitHub when asked. Needs the internet",
+			"layer": "packaged",
+			"regressions": [
+				"R-60"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/run-egress-audit.mts --app $ONYX_PACKAGED_APP --json-out .build/gate-5/egress-audit.json",
+			"outcome": "pass",
+			"durationMs": 1171372,
+			"exitCode": 0,
+			"detail": "idle: through the proxy {}; direct non-loopback 0; loopback ports 11434, 49157, 49158, 65532 ⏎  ⏎ asked: through the proxy {\"open-vsx.org:443\":3,\"openvsx.eclipsecontent.org:443\":6,\"api.github.com:443\":1}; direct non-loopback 0; loopback ports 11434, 49158 ⏎  ⏎ expected requests seen: gallery true, release list true; suite passed true ⏎ egress audit: PASSED, no connection outside the allowed set"
+		},
+		{
+			"module": 5,
+			"id": "D8-soak",
+			"title": "D8 the committed one-hour soak passed and is for this candidate: no failed suite run, no process left behind, no crash report, the full simulation campaign green",
+			"layer": "procedure",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/checks/candidate-evidence.mts --require soak",
+			"outcome": "pass",
+			"durationMs": 80,
+			"exitCode": 0,
+			"detail": "ok: docs/progress/soak.json passed at f0f059b0ccd, and the application's inputs have not changed since"
+		},
+		{
+			"module": 5,
+			"id": "D8-budgets",
+			"title": "D8 the committed measured budgets (cold start, idle CPU and memory, first token and tokens a second for the pinned models) are for this candidate",
+			"layer": "procedure",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/checks/candidate-evidence.mts --require budgets",
+			"outcome": "pass",
+			"durationMs": 73,
+			"exitCode": 0,
+			"detail": "ok: docs/progress/budgets.json passed at f0f059b0ccd, and the application's inputs have not changed since"
+		},
+		{
+			"module": 5,
+			"id": "R-39",
+			"title": "D2 Gatekeeper evidence for the signed, notarized, stapled candidate. OWNER: needs Apple enrolment, a Developer ID certificate, a notary key and a dispatch of the release workflow",
+			"layer": "procedure",
+			"regressions": [
+				"R-39"
+			],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/checks/owner-evidence.mts --require gatekeeper",
+			"outcome": "fail",
+			"durationMs": 52,
+			"exitCode": 1,
+			"detail": "BLOCKED ON THE OWNER: R-39 has no evidence. Enrol in the Apple Developer Program, store the five signing secrets, dispatch \"Onyx release\", and commit the draft release's gatekeeper-evidence.json as docs/progress/gatekeeper-evidence.json (docs/RELEASING.md)."
+		},
+		{
+			"module": 5,
+			"id": "D5-clean-install",
+			"title": "D5 the clean-machine runbook carried out once on the candidate, with its recording. OWNER",
+			"layer": "procedure",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/checks/owner-evidence.mts --require clean-install",
+			"outcome": "fail",
+			"durationMs": 53,
+			"exitCode": 1,
+			"detail": "BLOCKED ON THE OWNER: D5: carry out docs/RUNBOOK-clean-install.md on the signed candidate with a fresh macOS user account, and commit the filled record as docs/progress/clean-install-<date>.md with the recording linked."
+		},
+		{
+			"module": 5,
+			"id": "E1-pilot",
+			"title": "E1 the pilot report with raw numbers, and scorecards from at least three machines. OWNER leads; nothing for E2 to fix until it has run",
+			"layer": "procedure",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/checks/owner-evidence.mts --require pilot",
+			"outcome": "fail",
+			"durationMs": 50,
+			"exitCode": 1,
+			"detail": "BLOCKED ON THE OWNER: E1: run the pilot (docs/pilot/README.md) and commit its report as docs/pilot/<date>.md with the raw sheets. E2 then closes every P0 and P1 it found."
+		},
+		{
+			"module": 5,
+			"id": "DEC-01-identity",
+			"title": "DEC-01 the product name and the logo direction are chosen and recorded. OWNER",
+			"layer": "procedure",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/checks/owner-evidence.mts --require identity",
+			"outcome": "fail",
+			"durationMs": 53,
+			"exitCode": 1,
+			"detail": "BLOCKED ON THE OWNER: DEC-01: pick the product name (docs/naming/README.md; \"Onyx\" is a valid answer and makes D7 not applicable) and the logo direction (docs/brand/README.md), and record both in docs/progress/owner-decisions.json."
+		},
+		{
+			"module": 5,
+			"id": "DEC-09-approvals",
+			"title": "DEC-09 the owner has approved the public claims, answered the pinned-model question and set the repository description and topics. OWNER",
+			"layer": "procedure",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/checks/owner-evidence.mts --require claims",
+			"outcome": "fail",
+			"durationMs": 51,
+			"exitCode": 1,
+			"detail": "BLOCKED ON THE OWNER: approve the public claims in README.md, docs/research/REPORT.md and docs/launch/ (publicClaimsApprovedOn); decide whether the product keeps recommending the two pinned models for agent work (pinnedModelRecommendation); set the repository description and topics (repositoryDescriptionAndTopicsSetOn). Record each in docs/progress/owner-decisions.json."
+		},
+		{
+			"module": 5,
+			"id": "E4-tag",
+			"title": "E4 the release tag exists. OWNER publishes the draft release, last",
+			"layer": "procedure",
+			"regressions": [],
+			"required": true,
+			"expect": "pass",
+			"command": "node test/onyx/checks/owner-evidence.mts --require tag",
+			"outcome": "fail",
+			"durationMs": 59,
+			"exitCode": 1,
+			"detail": "BLOCKED ON THE OWNER: E4: the tag v0.1.0-alpha.1 does not exist. It is created by publishing the draft release, and only when every other box of Section 12 is checked."
+		}
+	],
+	"passed": false
+}

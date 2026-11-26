@@ -1,12 +1,12 @@
 # Production readiness (D8)
 
-Candidate: the packaged build of `f0f059b0ccd` (module-5 with the fixes of the audit of 2026-11-26), built on the reference machine on 2026-11-26. The soak, the budgets and the module gate's egress audit (R-60) were taken on that build. The accessibility probe and the egress record of 2026-11-24 below were taken on the earlier candidate, the build of `4eb52add73f`; the gate repeats the egress audit live on the current build, and its record replaces the earlier one when the gate is run (see STATE.md). The probe was not repeated: the audit's fixes changed which dialog style an approval uses (the workbench's own, so that Stop can close it), not the accessible names of any control.
+Candidate: the packaged build of `3477aeeaa48` (module-5 with the fixes of the audit of 2026-11-26), built on the reference machine on 2026-11-26; the module gate ran on it. The soak and the budgets were taken on the build of `f0f059b0ccd`, whose application inputs are the same (the later commits change only tests and documents; `candidate-evidence.mts` checks this). The egress audit below is the module gate's, on the candidate. The accessibility probe was taken on the earlier candidate, the build of `4eb52add73f`, and not repeated: the audit's fixes changed which dialog style an approval uses (the workbench's own, so that Stop can close it), not the accessible names of any control.
 
 **Summary.** The egress audit passed (R-60). The accessibility probe found no unnamed or unreachable control on any Onyx surface the suite opens. The budgets are measured and published as measurements. The open-source files are in place. Gitleaks found nothing. The one-hour soak passed on the candidate, after five earlier soaks that found the defects listed in its section. **This is not a clean bill of health:** the dependency audit found high-severity advisories in packages the application ships, all inherited from upstream 1.147.0 and none added by Onyx, and the final sweep therefore lists open P1 candidates that need the owner's decision under DEC-05.
 
 ## Egress audit (R-60)
 
-`node test/onyx/run-egress-audit.mts --app ../VSCode-darwin-arm64/Onyx.app --json-out docs/progress/egress-audit.json`, 2026-11-24, 15:50 to 16:12 UTC. Result in [egress-audit.json](./egress-audit.json): **passed**.
+The module gate's R-60 on the candidate, `node test/onyx/run-egress-audit.mts --app ../VSCode-darwin-arm64/Onyx.app --json-out .build/gate-5/egress-audit.json`, 2026-11-26, 09:34:48 to 09:54:15 UTC, copied to [egress-audit.json](./egress-audit.json): **passed**. The table is from the first audit, on the build of `4eb52add73f` on 2026-11-24; the candidate's differs only in counts: the suite had 73 checks, and in the asked phase Open VSX's file host had 6 connections. Each phase found no direct connection to a non-loopback address.
 
 | Phase | What happened | Hosts reached outside this machine |
 |---|---|---|
