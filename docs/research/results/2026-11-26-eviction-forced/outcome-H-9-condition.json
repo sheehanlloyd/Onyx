@@ -1,0 +1,12 @@
+{
+	"question": "H-9's condition, \"at equal task success\", on agentic runs that are certain to evict (PREREGISTRATION.md, Amendment 5, A5.3)",
+	"outcome": "block-to-low-watermark: a floor: no run of any policy succeeded, so the condition holds only vacuously; placeholder-results: a floor: no run of any policy succeeded, so the condition holds only vacuously",
+	"number": "oldest-results-first: 20 of 40 runs evicted, 0 succeeded, 7 with an edit on record; block-to-low-watermark: 20 of 40 runs evicted, 0 succeeded, 7 with an edit on record; placeholder-results: 20 of 40 runs evicted, 0 succeeded, 7 with an edit on record",
+	"thresholds": "Among runs that evicted, the condition holds for a cache-aware policy when its task success is not lower than oldest-first's by more than 2 points (lower bound of the paired difference at least -0.02). Fewer than 10 evicting runs of any policy: not tested. No success under any policy: a floor, holding only vacuously (PREREGISTRATION.md, Amendment 5, A5.3). H-9's own outcome is unchanged.",
+	"decidedFrom": [
+		"forced-eviction.json",
+		"traces/records.jsonl",
+		"results.jsonl"
+	],
+	"regenerate": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced"
+}
