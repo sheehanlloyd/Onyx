@@ -158,7 +158,7 @@ async function main(): Promise<number> {
 			const index = iterations.length + 1;
 			const logFile = path.join(logDir, `run-${index}.log`);
 			const run = await new Promise<{ status: number | null; stdout: string; timedOut: boolean }>(resolve => {
-				const runner = spawn(process.execPath, [suite], { cwd: repoRoot, env: { ...process.env, ONYX_E2E_APP: app }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+				const runner = spawn(process.execPath, [suite], { cwd: repoRoot, env: { ...process.env, ONYX_E2E_APP: app, ONYX_E2E_ABORT_SCREENSHOT: path.join(logDir, `run-${index}-abort.png`) }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 				let stdout = '';
 				let timedOut = false;
 				const log = fs.createWriteStream(logFile);

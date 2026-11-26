@@ -124,6 +124,9 @@ let sessionsLost = 0;
 /** How often a paste left the chat input empty and was made again (see `send`). */
 let pasteRetries = 0;
 
+/** How often F1 left no visible Command Palette and was pressed again (see `runCommand`). */
+let paletteRetries = 0;
+
 /** Whether the workbench still answers on its debugging port. Synchronous: it is asked from inside `pw`. */
 function workbenchAnswers(): boolean {
 	try {
@@ -572,11 +575,28 @@ async function runCommand(label: string) {
 	// The first-run dialog can come up later than the two moments this runner waits for it at: on a loaded
 	// machine it has appeared a minute in. It is modal, so it is looked for before every command and prompt.
 	await dismissOnboarding(0);
-	pw('press', 'F1');
-	await sleep(800);
+	// Once in a soak (2026-11-26, run 6 of 8), F1 pressed while a run was streaming left no visible Command
+	// Palette, and the fill waited 30 s for it. The palette is now waited for; if it is not there, F1 is
+	// pressed once more, and that is printed and counted. A palette that does not open twice stops the run.
+	for (let attempt = 1; ; attempt++) {
+		pw('press', 'F1');
+		if (await waitUntil(() => paletteVisible(), 5000, 250)) {
+			break;
+		}
+		if (attempt >= 2) {
+			throw new Error(`the Command Palette did not open for "${label}" after F1 was pressed twice`);
+		}
+		paletteRetries++;
+		console.log(`  note: F1 left no visible Command Palette for "${label}"; pressing it again`);
+	}
 	pw('run-code', `async (page) => { await page.fill('.quick-input-box input', ${JSON.stringify('>' + label)}); }`);
 	await sleep(1000);
 	pw('press', 'Enter');
+}
+
+/** Whether the Command Palette's input is on screen. */
+function paletteVisible(): boolean {
+	return pwValue(pw('run-code', 'async (page) => String(await page.locator(".quick-input-widget .quick-input-box input").isVisible())')) === 'true';
 }
 
 /** The run index Onyx persists next to the journal; title/task/status per run. */
@@ -1364,8 +1384,10 @@ try {
 	// What the window showed when the run stopped. The run directory is
 	// removed afterwards unless --keep was passed.
 	try {
-		pw('screenshot', `--filename=${path.join(runDir, 'abort.png')}`);
-		console.error(`screenshot at the abort: ${path.join(runDir, 'abort.png')}${keep ? '' : ' (pass --keep to keep it)'}`);
+		// A caller that keeps its own logs (the soak) names where the screenshot goes, so it outlives the run directory.
+		const screenshot = process.env.ONYX_E2E_ABORT_SCREENSHOT || path.join(runDir, 'abort.png');
+		pw('screenshot', `--filename=${screenshot}`);
+		console.error(`screenshot at the abort: ${screenshot}${keep || process.env.ONYX_E2E_ABORT_SCREENSHOT ? '' : ' (pass --keep to keep it)'}`);
 	} catch {
 		// no attached session to capture
 	}
@@ -1412,5 +1434,5 @@ try {
 
 console.log(failures.length
 	? `\n${failures.length} of ${checksRun} checks failed`
-	: `\nall ${checksRun} checks passed${sessionsLost ? ` (the driver's session was lost and attached again ${sessionsLost} time${sessionsLost === 1 ? '' : 's'}; the workbench was not restarted)` : ''}${pasteRetries ? ` (a paste left the chat input empty and was made again ${pasteRetries} time${pasteRetries === 1 ? '' : 's'})` : ''}`);
+	: `\nall ${checksRun} checks passed${sessionsLost ? ` (the driver's session was lost and attached again ${sessionsLost} time${sessionsLost === 1 ? '' : 's'}; the workbench was not restarted)` : ''}${pasteRetries ? ` (a paste left the chat input empty and was made again ${pasteRetries} time${pasteRetries === 1 ? '' : 's'})` : ''}${paletteRetries ? ` (F1 left no visible Command Palette and was pressed again ${paletteRetries} time${paletteRetries === 1 ? '' : 's'})` : ''}`);
 process.exit(failures.length ? 1 : 0);
