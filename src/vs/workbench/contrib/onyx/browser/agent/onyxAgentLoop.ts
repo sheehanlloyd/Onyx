@@ -296,6 +296,10 @@ export class OnyxAgentLoop {
 		let anyToolRan = false;
 		// Whether this run has staged an edit: under `constrained-edit-first` the answer action is offered only after one.
 		let editStaged = false;
+		// Whether the last turn's edit was refused. The refusal says what to do next, and under the envelope the turn
+		// after it offers no answer action, so that the model takes that step and does not tell the user to (2026-11-26:
+		// the 7B answered the refusal back to the user in five of five sessions).
+		let editRefused = false;
 
 		for (let turn = 0; turn < maxTurns && !token.isCancellationRequested; turn++) {
 			run.setTurnCount(turn + 1);
@@ -352,7 +356,7 @@ export class OnyxAgentLoop {
 			// A campaign's seed and temperature go with the request (L9): the trace header records them as sent.
 			const sampling = { ...(harness.sampling?.seed !== undefined ? { seed: harness.sampling.seed } : {}), ...(harness.sampling?.temperature !== undefined ? { temperature: harness.sampling.temperature } : {}) };
 			const requestOptions = constrained
-				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema, { answer: !editFirst || editStaged }), maxTokens, ...sampling } }
+				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema, { answer: (!editFirst || editStaged) && !editRefused }), maxTokens, ...sampling } }
 				: { tools, modelOptions: { maxTokens, ...sampling } };
 			const requestDigest = digestValue(messages);
 			const traceToolCalls: IOnyxTraceToolCall[] = [];
@@ -545,8 +549,11 @@ export class OnyxAgentLoop {
 					: { ...rawToolUse, name: unwrapped.name, parameters: unwrapped.parameters };
 				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, tools, run, progress, token, anchors ? { schema: anchorSchema } : undefined);
 				run.noteToolResult(toolUse.name, resultText);
-				if (ok && toolUse.name === ONYX_ANCHORED_EDIT_TOOL) {
-					editStaged = true;
+				if (toolUse.name === ONYX_ANCHORED_EDIT_TOOL) {
+					editStaged ||= ok;
+					editRefused = !ok;
+				} else {
+					editRefused = false;
 				}
 				traceToolCalls.push({ name: toolUse.name, argumentsDigest: digestValue(toolUse.parameters), resultDigest: traceDigest(resultText), ok });
 				// Small models drown in raw tool output; keep head and tail
