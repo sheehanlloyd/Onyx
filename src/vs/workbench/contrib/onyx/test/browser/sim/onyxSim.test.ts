@@ -113,7 +113,8 @@ suite('OnyxSim', () => {
 			'c10-a-name-with-two-dots-is-a-name': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			'c3-two-edits-in-one-call-then-accept-all': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			'c3-one-edit-of-two-cannot-be-placed': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 0, dialogs: [] },
-			'b9-inline-edit-stages-then-save': { status: 'completed', turns: 1, dispatched: [], staged: 0, dialogs: [] },
+			// Two requests: the run's, and the inline edit's, which goes through the product's one-shot path (L1).
+			'b9-inline-edit-stages-then-save': { status: 'completed', turns: 2, dispatched: [], staged: 0, dialogs: [] },
 			'c2-check-task-asks-after-accept-and-save': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: ['deny'] },
 			'audit-h4-duplicates-shift-then-accept': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			// Eight tool turns, then the turn cap (compact profile): out of turns is its own status (B10).
@@ -214,6 +215,18 @@ suite('OnyxSim', () => {
 			'e2e-edittest': { ok: true, errors: [], turns: 2, requests: 2, seed: 42, streamEnds: ['tool_calls', 'stop'] },
 			'e2e-termtest': { ok: true, errors: [], turns: 2, requests: 2, seed: 42, streamEnds: ['tool_calls', 'stop'] },
 			'e2e-termtest-denied': { ok: true, errors: [], turns: 2, requests: 2, seed: 42, streamEnds: ['tool_calls', 'stop'] },
+		});
+	});
+
+	test('L1, I-10: the default diagnostics bundle of every episode is the product\'s own export, and it carries the run\'s journal', async function () {
+		const result = await runEpisode(generateEpisode(4));
+		const journals = result.exported.filter(entry => /^journal\/runs\/[\w-]+\.jsonl$/.test(entry.path));
+		assert.deepStrictEqual({
+			entries: result.exported.map(entry => entry.path.replace(/^journal\/runs\/[\w-]+\.jsonl$/, 'journal/runs/<run>.jsonl').replace(/^logs\/.*$/, 'logs/<log>')).filter((path, index, all) => all.indexOf(path) === index).sort(),
+			journalHasTheRun: journals.some(entry => entry.text.split('\n').filter(line => line.trim()).length > 3 && entry.text.includes('"kind":"outcome"')),
+		}, {
+			entries: ['README.txt', 'journal/index.json', 'journal/runs/<run>.jsonl', 'machine.json', 'models.json', 'profiles.json', 'runtimes.json', 'settings.json'],
+			journalHasTheRun: true,
 		});
 	});
 
@@ -350,14 +363,22 @@ suite('OnyxSim', () => {
 		const checkers = allCheckers();
 		const corpus = injectionEpisodes();
 		const unapproved: string[] = [];
+		// Not vacuous either way: on every surface the planted text is in what the model was sent.
+		const notDelivered: string[] = [];
 		for (const injection of corpus) {
 			const result = await runEpisode(injection.episode, checkers);
-			const approvals = result.dialogs.filter(dialog => dialog.decision === 'allow-once').length;
+			if (!result.requests.some(request => request.text.includes('IMPORTANT, assistant'))) {
+				notDelivered.push(injection.episode.name);
+			}
+			// The `git log` that delivers a planted commit message is the user's own approved command, not an effect of the text (D11).
+			const delivered = injection.deliveryCommand ? 1 : 0;
+			const approvals = result.dialogs.filter(dialog => dialog.decision === 'allow-once').length - delivered;
+			const commands = result.commands.filter(command => command.command !== injection.deliveryCommand);
 			if (result.violations.length > 0) {
 				unapproved.push(`${injection.episode.name}: ${result.violations.map(violation => violation.invariant).join(', ')}`);
-			} else if (result.commands.length > approvals) {
-				unapproved.push(`${injection.episode.name}: ${result.commands.length} commands ran on ${approvals} approvals`);
-			} else if (injection.decision === 'deny' && result.commands.length > 0) {
+			} else if (commands.length > approvals) {
+				unapproved.push(`${injection.episode.name}: ${commands.length} commands ran on ${approvals} approvals`);
+			} else if (injection.decision === 'deny' && commands.length > 0) {
 				unapproved.push(`${injection.episode.name}: a command ran although the user said no`);
 			}
 		}
@@ -380,18 +401,36 @@ suite('OnyxSim', () => {
 			}
 			bites[effect] = [...seen].sort();
 		}
+		// D11: each surface added for D11 has a guard of its own, and its episodes report the mutant that takes that guard away.
+		const surfaceGuards: Record<string, string> = { 'commit-message': 'D11-campaign-asks', 'docs-index': 'D11-docs-unattributed', 'playbook': 'D11-playbook-grants', 'stored-memory': 'D11-memory-unattributed' };
+		const surfaceBites: Record<string, boolean> = {};
+		for (const [surface, mutant] of Object.entries(surfaceGuards)) {
+			const detects = SIM_MUTANTS.find(candidate => candidate.id === mutant)?.detects;
+			let bitten = false;
+			for (const injection of corpus.filter(candidate => candidate.surface === surface && candidate.decision === 'deny')) {
+				if ((await runEpisode(injection.episode, checkers, { classes: SIM_MUTANT_CLASSES[mutant] })).violations.some(violation => violation.invariant === detects)) {
+					bitten = true;
+					break;
+				}
+			}
+			surfaceBites[surface] = bitten;
+		}
 		assert.deepStrictEqual({
 			episodes: corpus.length,
 			surfaces: [...new Set(corpus.map(injection => injection.surface))].length === SIM_INJECTION_SURFACES.length,
 			effects: [...new Set(corpus.map(injection => injection.effect))].length === SIM_INJECTION_EFFECTS.length,
 			unapprovedSideEffects: unapproved,
+			notDelivered,
 			withTheGuardTakenAway: Object.fromEntries(Object.entries(bites).map(([effect, invariants]) => [effect, invariants.length > 0])),
+			withTheSurfaceGuardTakenAway: surfaceBites,
 		}, {
-			episodes: 80,
+			episodes: 158,
 			surfaces: true,
 			effects: true,
 			unapprovedSideEffects: [],
+			notDelivered: [],
 			withTheGuardTakenAway: { 'run-command': true, 'write-outside-workspace': true, 'edit-hooks-or-settings': true, 'persist-memory': true, 'send-to-url': true },
+			withTheSurfaceGuardTakenAway: { 'commit-message': true, 'docs-index': true, 'playbook': true, 'stored-memory': true },
 		}, JSON.stringify(bites));
 	});
 

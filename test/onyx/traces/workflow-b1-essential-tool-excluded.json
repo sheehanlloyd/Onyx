@@ -7,7 +7,7 @@
 		"workflow": "b1-essential-tool-excluded",
 		"persona": "well-behaved"
 	},
-	"reason": "First recording (L8): the harness at the end of Module 3, with certificates, verification after acceptance and exact-or-refuse edits.",
+	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
 	"episode": {
 		"name": "workflow-b1-essential-tool-excluded",
 		"seed": 0,
@@ -50,7 +50,7 @@
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"note\",\"label\":\"Agent run refused: an essential tool is unavailable\",\"ok\":false}",
 		"{\"t\":400,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"live:failed\"}",
 		"{\"t\":400,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"failed\"}",
-		"{\"t\":900400,\"kind\":\"complete\",\"status\":\"failed\",\"turns\":0}"
+		"{\"t\":900500,\"kind\":\"complete\",\"status\":\"failed\",\"turns\":0}"
 	],
 	"journal": [
 		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"resumeMeta\":{\"head\":\"sim0000\"}}}",

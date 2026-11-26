@@ -10,8 +10,6 @@ import { CancellationTokenSource } from '../../../../../base/common/cancellation
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../../base/common/observable.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
-import { URI } from '../../../../../base/common/uri.js';
-import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { EditorAction2, registerEditorContribution, EditorContributionInstantiation } from '../../../../../editor/browser/editorExtensions.js';
 import { Position } from '../../../../../editor/common/core/position.js';
@@ -27,11 +25,9 @@ import { registerAction2 } from '../../../../../platform/actions/common/actions.
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { IOnyxReviewHunk } from '../../common/onyxChangeSet.js';
-import { buildInlineEditPrompt, ONYX_INLINE_EDIT_SYSTEM_PROMPT } from '../../common/onyxInlineEdit.js';
 import { IOnyxChangeSetService } from '../changes/onyxChangeSetService.js';
 import { IOnyxWorkspaceAccessService } from '../intelligence/onyxWorkspaceAccess.js';
 import { OnyxInlineEditSession } from './onyxInlineEditSession.js';
-import { runOneShot } from '../agent/onyxOneShot.js';
 import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 
@@ -142,62 +138,27 @@ export class OnyxInlineEditController implements IEditorContribution {
 		this._cancellation = cancellation;
 		this._widget?.setStatus(localize('onyx.inlineEdit.thinking', "Editing locally…"), 'polite');
 
-		const run = this._controlPlaneService.beginRun({
-			sessionResource: URI.from({ scheme: 'onyx-inline-edit', path: `/${generateUuid()}` }),
-			requestId: generateUuid(),
-			title: localize('onyx.inlineEdit.runTitle', "Inline edit: {0}", instruction.slice(0, 60)),
-			task: 'quick-edit',
-			modelKey: 'auto',
-			token: cancellation.token,
-		});
-
+		// The request, from the run to the staging, is the session's (L1: the simulation rig runs the same code).
 		let streamed = 0;
-		try {
-			const reply = await runOneShot(
-				this._modelService,
-				ONYX_INLINE_EDIT_SYSTEM_PROMPT,
-				buildInlineEditPrompt(path, model.getLanguageId(), session.original, instruction),
-				cancellation.token,
-				{
-					run,
-					controlPlane: this._controlPlaneService,
-					onDelta: text => {
-						streamed += text.length;
-						this._widget?.setStatus(localize('onyx.inlineEdit.streaming', "Streaming the edit… {0} characters", streamed));
-					},
-				});
-			if (cancellation.token.isCancellationRequested) {
-				run.complete('cancelled');
-				return;
-			}
-			const outcome = await session.stageReply(reply, run.runId);
-			if (this._session !== session) {
-				// The widget was closed or moved on while the reply was being staged; the proposal, if any, is in Onyx Changes.
-				run.complete(outcome.kind === 'staged' ? 'completed' : 'cancelled');
-				return;
-			}
-			if (outcome.kind === 'staged') {
-				if (outcome.unplacedBlocks > 0) {
-					run.activity({ kind: 'note', label: localize('onyx.inlineEdit.partial', "{0} edit block(s) could not be placed exactly and were left out", outcome.unplacedBlocks), ok: false });
-				}
-				run.activity({ kind: 'note', label: outcome.hunkIds.length === 1 ? localize('onyx.inlineEdit.oneHunk', "Staged 1 hunk for review; the file is unchanged") : localize('onyx.inlineEdit.hunks', "Staged {0} hunks for review; the file is unchanged", outcome.hunkIds.length), ok: true });
-				run.complete('completed');
-				this._beginReview(outcome.path, outcome.generation);
-				return;
-			}
-			// Nothing was staged, and nothing in the buffer changed: say why, and leave the prompt open for another try.
-			run.activity({ kind: 'note', label: outcome.message, ok: false });
-			run.complete(outcome.kind === 'stale' ? 'cancelled' : 'failed');
-			this._state = SessionState.Prompting;
-			this._widget?.setStatus(outcome.message, 'assertive');
-		} catch (error) {
-			run.activity({ kind: 'note', label: localize('onyx.inlineEdit.failed', "Inline edit failed"), reason: error instanceof Error ? error.message : String(error), ok: false });
-			run.complete('failed');
-			if (this._session === session) {
-				this._state = SessionState.Prompting;
-				this._widget?.setStatus(localize('onyx.inlineEdit.error', "The request failed: {0}", error instanceof Error ? error.message : String(error)));
-			}
+		const result = await session.request(instruction, path, model.getLanguageId(), { modelService: this._modelService, controlPlaneService: this._controlPlaneService }, cancellation, text => {
+			streamed += text.length;
+			this._widget?.setStatus(localize('onyx.inlineEdit.streaming', "Streaming the edit… {0} characters", streamed));
+		}, () => this._session === session);
+		if (result.kind === 'cancelled' || this._session !== session) {
+			return;
 		}
+		if (result.kind === 'failed') {
+			this._state = SessionState.Prompting;
+			this._widget?.setStatus(localize('onyx.inlineEdit.error', "The request failed: {0}", result.message));
+			return;
+		}
+		if (result.outcome.kind === 'staged') {
+			this._beginReview(result.outcome.path, result.outcome.generation);
+			return;
+		}
+		// Nothing was staged, and nothing in the buffer changed: the prompt stays open for another try.
+		this._state = SessionState.Prompting;
+		this._widget?.setStatus(result.outcome.message, 'assertive');
 	}
 
 	/** The hunks of the proposal this review is of, while it is still that generation; empty once it is not. */

@@ -9,7 +9,11 @@
  * trajectory as their unit's first, where the others first differ, and
  * whether that was the runtime or the harness.
  *
- *   node test/onyx/lab/analyze-determinism.mts docs/research/results/<date>-<name>
+ *   node test/onyx/lab/analyze-determinism.mts docs/research/results/<date>-<name> [--editing-units]
+ *
+ * `--editing-units` (PREREGISTRATION.md, Amendment 5, A5.2): the decision is on the units whose first
+ * repetition made an edit call, and is written as `outcome-H-6-editing.json`; H-6's own outcome file is
+ * not written, because H-6 is decided by its own campaign. Fewer than 10 such units is inconclusive.
  *
  * It writes `determinism.json` beside the manifest and, when the manifest
  * names H-6, `outcome-H-6.json` by the registered thresholds. The measure
@@ -24,7 +28,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const out = (relative: string) => pathToFileURL(path.join(repoRoot, 'out', relative)).href;
-const directory = process.argv[2] ? path.resolve(process.argv[2]) : undefined;
+const directory = process.argv[2] && !process.argv[2].startsWith('--') ? path.resolve(process.argv[2]) : undefined;
+const editingUnitsOnly = process.argv.includes('--editing-units');
 if (!directory) {
 	console.error('usage: node test/onyx/lab/analyze-determinism.mts <results directory>');
 	process.exit(2);
@@ -38,13 +43,15 @@ const measure: { measureDeterminism(units: readonly { key: string; group: string
 const estimators: { wilsonInterval(successes: number, trials: number): IInterval } = await import(out('vs/workbench/contrib/onyx/common/onyxAttribution.js'));
 
 interface IEvent { readonly kind: string; readonly data: ITurn & { readonly seed?: { readonly honoured: boolean | 'unknown' } } }
-interface IRecord { readonly unit: string; readonly model: string; readonly configuration: string; readonly task: string; readonly seed: number; readonly repetition: number; readonly outcome: string; readonly events?: readonly IEvent[] }
+interface IRecord { readonly unit: string; readonly model: string; readonly configuration: string; readonly task: string; readonly seed: number; readonly repetition: number; readonly outcome: string; readonly events?: readonly IEvent[]; readonly edits?: readonly unknown[] }
 const lines = <T,>(file: string): T[] => fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\n').filter(line => line.trim()).map(line => JSON.parse(line)) : [];
 const records = lines<IRecord>(path.join(directory, 'traces', 'records.jsonl'));
 const scored = new Map(lines<{ unit: string; outcome: string; score: number | null; success: boolean | null }>(path.join(directory, 'results.jsonl')).map(result => [result.unit, result]));
 const manifest: { hypotheses?: string[] } = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
 
 const units = new Map<string, { key: string; group: string; repetitions: { repetition: number; trajectory: ITrajectory }[] }>();
+/** Units whose first repetition made an edit call: an entry in `edits`, or an editFile call in a turn (Amendment 5, A5.2). */
+const editingUnits = new Set<string>();
 let notServed = 0;
 for (const record of records) {
 	if (record.outcome === 'could-not-serve') {
@@ -55,6 +62,9 @@ for (const record of records) {
 	const honoured = turns.map(turn => turn.seed?.honoured ?? 'unknown');
 	const result = scored.get(record.unit);
 	const key = [record.model, record.configuration, record.task, `s${record.seed}`].join('|');
+	if (record.repetition === 1 && ((record.edits?.length ?? 0) > 0 || turns.some(turn => turn.toolCalls.some(call => call.name === 'editFile')))) {
+		editingUnits.add(key);
+	}
 	const unit = units.get(key) ?? { key, group: record.model, repetitions: [] };
 	units.set(key, unit);
 	unit.repetitions.push({
@@ -89,7 +99,28 @@ console.log(`${pooled.identical} of ${pooled.comparisons} repetitions are the sa
 for (const group of groups) {
 	console.log(`  ${group.group}: ${group.identical} of ${group.comparisons}; first diverging turn ${JSON.stringify(group.firstDivergingTurn)}; ${JSON.stringify(group.bySource)}; outcome changed in ${group.divergedWithADifferentOutcome}`);
 }
-if (manifest.hypotheses?.includes('H-6')) {
+if (editingUnitsOnly) {
+	const editing = measure.measureDeterminism(ordered.filter(unit => editingUnits.has(unit.key)));
+	const counts = { units: editingUnits.size, comparisons: editing.reduce((sum, group) => sum + group.comparisons, 0), identical: editing.reduce((sum, group) => sum + group.identical, 0) };
+	const editingShare = estimators.wilsonInterval(counts.identical, counts.comparisons);
+	const editingHarness = editing.flatMap(group => group.harnessDivergences);
+	const outcome = harness.length > 0 ? 'inconclusive' : counts.units < 10 || counts.comparisons === 0 ? 'inconclusive' : measure.decideH6(editingShare);
+	const document = {
+		question: 'H-6 on trajectories that edit (PREREGISTRATION.md, Amendment 5, A5.2)',
+		outcome,
+		number: `${counts.identical} of ${counts.comparisons} repetitions of the ${counts.units} editing units identical to the first (${percent(editingShare.value)}, 95% interval ${percent(editingShare.low)} to ${percent(editingShare.high)}); over all ${pooled.comparisons} comparisons ${pooled.identical} (${percent(share.value)}), which decides nothing`,
+		editingUnits: counts,
+		editingShare,
+		byModel: editing.map(group => ({ group: group.group, units: group.units, comparisons: group.comparisons, identical: group.identical, unitsAllIdentical: group.unitsAllIdentical, firstDivergingTurn: group.firstDivergingTurn, bySource: group.bySource, divergedWithADifferentOutcome: group.divergedWithADifferentOutcome })),
+		allComparisons: { ...pooled, identicalShare: share },
+		thresholds: 'H-6\'s registered thresholds on the comparisons of the editing units (units whose first repetition made an edit call): supported at an identical share of at least 90% with a Wilson lower bound of at least 80%; refuted when the upper bound is below 90%; inconclusive otherwise, and with fewer than 10 editing units. A divergence that is the harness\'s invalidates it (PREREGISTRATION.md, Amendments 3 and 5).',
+		...(harness.length > 0 ? { invalidatedBy: `${harness.length} divergences that are the harness's doing (${editingHarness.length} in editing units)` } : {}),
+		decidedFrom: ['determinism.json', 'traces/records.jsonl', 'results.jsonl'],
+		regenerate: `node test/onyx/lab/analyze-determinism.mts docs/research/results/${path.basename(directory)} --editing-units`,
+	};
+	fs.writeFileSync(path.join(directory, 'outcome-H-6-editing.json'), JSON.stringify(document, undefined, '\t') + '\n');
+	console.log(`H-6 on editing trajectories (Amendment 5): ${outcome}; ${document.number}`);
+} else if (manifest.hypotheses?.includes('H-6')) {
 	const outcome = harness.length > 0 ? 'inconclusive' : pooled.comparisons === 0 ? 'inconclusive' : measure.decideH6(share);
 	fs.writeFileSync(path.join(directory, 'outcome-H-6.json'), JSON.stringify({
 		hypothesis: 'H-6',

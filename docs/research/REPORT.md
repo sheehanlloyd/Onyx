@@ -4,7 +4,7 @@
 
 ## Abstract
 
-Onyx is a code editor whose agent runs on models served on the user's own machine. This report gives the outcome of ten hypotheses about its harness, each registered with its thresholds before its data existed. Three facts come before any result. No model reproduced a real task exactly in any campaign: 0 of 3,182 attempts, single-turn and agentic, on tasks from two repositories. Under the tool-call protocol the product derives for its two pinned models, neither model got an edit as far as the record in any of 320 agent runs on real tasks; in 18 of those runs the smaller model called the edit tool with arguments the tool rejected. Five of the ten hypotheses are inconclusive, and three of those five (H-2, H-7, H-10) are inconclusive at a floor of zero successes, which says nothing about the question asked.
+Onyx is a code editor whose agent runs on models served on the user's own machine. This report gives the outcome of ten hypotheses about its harness, each registered with its thresholds before its data existed. Three facts come before any result. No model reproduced a real task exactly in any campaign: 0 of 3,739 attempts, single-turn and agentic, on tasks from two repositories. Under the tool-call protocol the product derives for its two pinned models, neither model got an edit as far as the record in any of 320 agent runs on real tasks; in 18 of those runs the smaller model called the edit tool with arguments the tool rejected. Five of the ten hypotheses are inconclusive, and three of those five (H-2, H-7, H-10) are inconclusive at a floor of zero successes, which says nothing about the question asked.
 
 Four hypotheses are supported, one is refuted and five are inconclusive. Supported: a seeded simulation campaign detected all 41 mutants of the harness and ran 50,000 episodes with no violation, on its second run (H-1). A fuzzy edit applier placed 28.7 points more blocks than the product's exact-or-refuse applier, and 53.8% of attempts ended silently wrong under it (H-3). At temperature 0 with a fixed seed, 160 of 160 repetitions of short agent trajectories were identical, in the second campaign; the earlier one was invalidated by a harness defect it found (H-6). Evicting context in blocks re-processed an estimated 0.42 of the prompt tokens that the product's policy did in a scripted run; the hypothesis's success condition was met with no eviction occurring and no run succeeding (H-9). Refuted: grounded edits scored 0.021 higher than ungrounded ones, under the registered 0.05 (H-5). Inconclusive: H-2, H-4, H-7, H-8 and H-10.
 
@@ -12,7 +12,7 @@ The measurements are from one machine, one operator, one runtime, three small mo
 
 ## 1 Thesis
 
-Read this section with three facts in mind. No model reproduced a real task exactly in any campaign: 0 of 3,182 attempts. Under the product's own tool-call protocol neither pinned model got an edit on record in 320 agent runs, and 18 of those runs ended with an edit call the tool rejected. Five hypotheses are inconclusive, three of them at a floor of zero successes.
+Read this section with three facts in mind. No model reproduced a real task exactly in any campaign: 0 of 3,739 attempts. Under the product's own tool-call protocol neither pinned model got an edit on record in 320 agent runs, and 18 of those runs ended with an edit call the tool rejected. Five hypotheses are inconclusive, three of them at a floor of zero successes.
 
 The thesis is the one in [README.md](README.md). Local inference changes what a coding harness can be. Trials cost time and nothing else, so a harness can be measured. Weights are pinned by digest, so a measurement names the exact model. The decoder can be constrained, so a protocol can be enforced. The code under test never leaves the machine, so the user's own repository can be the benchmark. Onyx treats the model as an untrusted, measurable component: every guarantee in the harness contract is meant to hold for any model output, and every published number regenerates from committed data.
 
@@ -120,6 +120,9 @@ A manifest names models, seeds, harness configurations and a task set (`test/ony
 | `2026-11-22-rankings-onyx` | H-7 | S | 120 | 120 | 0 | 1,417 | 8.4 to 6.0 | single requests |
 | `2026-11-22-reference-measure` | none | S, in the application | 54 | 54 | 0 | 1,257 | 11.6 to 8.4 | single requests |
 | `2026-11-22-single-turn` | H-3 | S | 240 | 240 | 0 | 1,952 | 7.8 to 9.0 | single requests |
+| `2026-11-26-determinism-edits` | H-6 | A | 200 | 200 | 0 | 3,635 | 7.0 to 9.0 | ran with the fix |
+| `2026-11-26-eviction-forced` | none | A | 120 | 120 | 0 | 952 | 9.0 to 6.3 | ran with the fix |
+| `2026-11-26-protocol` | none | A | 240 | 237 | 0 | 3,526 | 9.8 to 7.0 | ran with the fix |
 <!-- /generated:campaigns -->
 
 "Ran with the defect" means the campaign-engine defect of section 10: for up to a minute after a campaign checked out a task, prompts named the recently committed files of the task before. Two campaigns were run again with the fix and the earlier ones are superseded. H-2's campaign and the injection run were made with the defect and were not run again.
@@ -138,7 +141,7 @@ The scorer can be satisfied. On the one-line tasks of the injection fixture, 3 o
 
 The rig runs the real agent loop, control plane, change-set service, edit tool and terminal tool. It simulates the model stream, the user's dialog decisions, the file system and the clock, and drives them from one seed. Checkers for I-01 to I-14 read its trace. A violation is a seed and a shrunk script. The index of the rig's files is [data/simulation-index.json](data/simulation-index.json).
 
-### 5.7 What was registered, and the four amendments
+### 5.7 What was registered, and the five amendments
 
 [PREREGISTRATION.md](PREREGISTRATION.md) was committed on 2026-11-19 as `5f98a0ca2c7`, before any campaign. It fixes each hypothesis's metric, sample, analysis and thresholds. Intervals are 95% intervals: bootstrap over tasks with 1,000 resamples, or Wilson for proportions with small counts.
 
@@ -149,9 +152,10 @@ The rig runs the real agent loop, control plane, change-set service, edit tool a
 | 2 | 2026-11-22 | the designs of H-3 to H-10 on this machine |
 | 3 | 2026-11-22 | what is counted in H-6 to H-10, the injection run, and two changes of design |
 | 4 | 2026-11-22 | H-6's first campaign is invalid, and why two campaigns are run again |
+| 5 | 2026-11-26 | three campaigns beside H-2, H-6 and H-9, registered before they run |
 <!-- /generated:amendments -->
 
-The reasons, in the amendments' own terms. Amendment 1: the registration expected a model above 7B and none is installed; the instruction and the success rule were left open; one seed is used because at temperature 0 further seeds are repetitions; H-2's factorial is cut from the registered 32 configurations to 12, with two components left out for stated reasons. Amendment 2: the machine was slower than when the samples were registered, so several samples are smaller, and each design says in advance when it will end inconclusive. Amendment 3: it fixes what is counted in H-6 to H-10 and records two changes before their campaigns, the estimate used for H-9 if the runtime does not report evaluated tokens, and H-9's agentic arm at a context of 8,192 tokens. Amendment 4: H-6's earlier campaign is invalid by the registration's own rule; H-6 and H-4 are run again; H-2 and the injection run are not. Each amendment was committed before the campaigns it governs. Amendment 4 was written after H-6's invalid campaign had been analysed, which is what it reports.
+The reasons, in the amendments' own terms. Amendment 1: the registration expected a model above 7B and none is installed; the instruction and the success rule were left open; one seed is used because at temperature 0 further seeds are repetitions; H-2's factorial is cut from the registered 32 configurations to 12, with two components left out for stated reasons. Amendment 2: the machine was slower than when the samples were registered, so several samples are smaller, and each design says in advance when it will end inconclusive. Amendment 3: it fixes what is counted in H-6 to H-10 and records two changes before their campaigns, the estimate used for H-9 if the runtime does not report evaluated tokens, and H-9's agentic arm at a context of 8,192 tokens. Amendment 4: H-6's earlier campaign is invalid by the registration's own rule; H-6 and H-4 are run again; H-2 and the injection run are not. Amendment 5: three campaigns beside H-2, H-6 and H-9, which stay frozen, each with thresholds of its own (section 6.11); it says which counts of the committed records were looked at to choose the designs. Each amendment was committed before the campaigns it governs. Amendment 4 was written after H-6's invalid campaign had been analysed, which is what it reports.
 
 ## 6 Results
 
@@ -303,6 +307,27 @@ Block eviction's ratio is 0.42, under the registered 0.70, with an interval that
 
 No model solved a task, so energy per solved task has no value and the two rankings cannot be compared. Energy per attempt decides nothing by registration. The bound on each block's ends is wide, up to 31% of a block's energy, because the power telemetry refreshes about once a minute. Accuracy against an external meter is not established. The tokens-a-second column is the only throughput in this report taken on a quiet machine.
 
+### 6.11 Amendment 5: three campaigns beside H-2, H-6 and H-9 (2026-11-26)
+
+H-2, H-6 and H-9 keep the outcomes above. These three campaigns were registered in Amendment 5 before they ran, each with its own decision rule, and answer what those three left open. All three ran on 2026-11-26 on the reference machine on mains, from a frozen build of the commit that added the amendment, with the campaign engine fixed. Their analyses were committed before any of their records was read.
+
+**Which protocol leads to an edit on record (A5.1, `2026-11-26-protocol`).** Three tool-call protocols, everything else the product's configuration, both pinned models, H-2's 40 tasks: 240 runs. The primary outcome is a staged edit, an entry of the record's `edits` with `ok: true`; this is stricter than the H-2 table above, which counts any edit call.
+
+| Model | Protocol | Runs with a staged edit | Runs with an edit call | Tasks reproduced | Mean requests |
+|---|---|---|---|---|---|
+| `qwen2.5-coder:7b` | constrained envelope (the product's) | 0 of 40 | 0 | 0 | 2.00 |
+| `qwen2.5-coder:7b` | repaired text | 9 of 40 | 22 | 0 | 3.75 |
+| `qwen2.5-coder:7b` | envelope with no answer until an edit is staged | 15 of 40 | 34 | 0 | 5.28 |
+| `qwen2.5-coder:1.5b` | constrained envelope (the product's) | 0 of 40 | 0 | 0 | 2.08 |
+| `qwen2.5-coder:1.5b` | repaired text | 1 of 40 | 12 | 0 | 3.20 |
+| `qwen2.5-coder:1.5b` | envelope with no answer until an edit is staged | 0 of 40 | 0 | 0 | 7.70 |
+
+For the 7B, repaired text leads the product's protocol by 0.225 [0.100, 0.351] in the share of runs with a staged edit, and the envelope without its answer escape leads it by 0.375 [0.225, 0.525]; between those two the interval includes 0. For the 1.5B no protocol leads: repaired text against the envelope is 0.025 [0.000, 0.075]. No run reproduced a task. The registered rule recommends a protocol to the owner only when it leads for both models, so its answer is to keep the default; for the 7B alone the data point the other way. The default is not changed here: it is the owner's decision (`docs/progress/STATE.md`).
+
+**H-6's thresholds on trajectories that edit (A5.2, `2026-11-26-determinism-edits`).** Repaired text, both models, the first 20 of H-2's tasks, five repetitions: 200 runs. 27 units made an edit call in their first repetition. 104 of their 108 repetitions were the same trajectory as the first: 96.3% [90.9%, 98.6%], which meets H-6's thresholds, so on its registered rule the answer is supported. Over all 160 comparisons, 156 were identical, which decides nothing. The four divergences are all the runtime's, all of the 7B and at a fourth turn, and none changed the outcome; none is the harness's.
+
+**H-9's condition on runs that evict (A5.3, `2026-11-26-eviction-forced`).** H-9's three policies with repaired text at a context of 3,584 tokens, both models, the first 20 of H-2's tasks: 120 runs. Each policy evicted in 20 of its 40 runs, not in every run as the design expected: most of the others answered right after reading the file, at their second request, and the rest fitted by cutting the newest result short and dropping the workspace context, which the analysis does not count as eviction. No run of any policy reproduced a task, and each policy had 7 runs with a staged edit. On the 20 paired units that evicted under both a cache-aware policy and oldest-first, the success difference is zero, which is a floor: the registered condition holds only vacuously, as it did before, now with eviction occurring. Block eviction staged no fewer edits than oldest-first on these runs; whether it costs task success is still not measured, because nothing succeeded.
+
 ## 7 Negative and inconclusive results
 
 **H-5, refuted.** The registered claim was a difference of at least 0.05 in mean score. The measured difference is 0.021. A fair test needed 300 edits a class and scores away from the floor; there were 163 and 36, and the grounded mean is 0.021.
@@ -338,19 +363,22 @@ Three of these five (H-2, H-7, H-10) are at a floor of zero successes. H-4 is at
 | `2026-11-22-rankings-onyx` | 120 | 0 |
 | `2026-11-22-reference-measure` | 54 | 0 |
 | `2026-11-22-single-turn` | 240 | 0 |
-| **All campaigns on real tasks** | **3,182** | **0** |
+| `2026-11-26-determinism-edits` | 200 | 0 |
+| `2026-11-26-eviction-forced` | 120 | 0 |
+| `2026-11-26-protocol` | 237 | 0 |
+| **All campaigns on real tasks** | **3,739** | **0** |
 | `2026-11-22-injection` (fixture tasks, in no total) | 92 | 3 |
 
 | Agent runs on real tasks under the constrained envelope with search-and-replace edits | Runs | Runs with an edit on record | Runs whose edit call the tool rejected |
 |---|---|---|---|
 | H-2's campaign, its four constrained-envelope configurations (the count STATE.md states) | 320 | 0 | 18 |
-| Every configuration with the product's hash `9801945d`, 6 campaigns | 648 | 0 | 15 |
-| Every such configuration, 7 campaigns | 1,008 | 0 | 38 |
+| Every configuration with the product's hash `9801945d`, 7 campaigns | 728 | 0 | 18 |
+| Every such configuration, 8 campaigns | 1,088 | 0 | 41 |
 <!-- /generated:totals -->
 
-**No model reproduced a real task exactly.** The total is 0 of 3,182 attempts over 14 campaigns, single-turn and agentic. It counts attempts, not independent trials: campaigns reuse tasks, H-6 repeats each unit, and 360 of the attempts are from the two superseded campaigns, which leaves 2,822. The total reproduces the figure `docs/progress/STATE.md` states.
+**No model reproduced a real task exactly.** The total is 0 of 3,739 attempts over 17 campaigns, single-turn and agentic. It counts attempts, not independent trials: campaigns reuse tasks, H-6 repeats each unit, and 360 of the attempts are from the two superseded campaigns, which leaves 3,379. The total reproduces the figure `docs/progress/STATE.md` states.
 
-**Under the product's tool-call protocol neither pinned model got an edit on record.** STATE.md states this as 0 of 320 agent runs, and the count reproduces: the 320 are the four constrained-envelope configurations of H-2's campaign, and none of their records carries an edit. Two qualifications come from the raw records. In 18 of the 320 runs the 1.5B model called the edit tool with arguments the tool rejected, so "proposed no edit" is exact only in the sense that no edit reached staging. And three of those four configurations differ from the product's in elision or line numbering. Counting only configurations with the product's exact hash gives 0 of 648 runs with an edit over six campaigns, and counting every constrained-envelope configuration with search-and-replace edits gives 0 of 1,008. Under repaired text the same models do get edits on record, and under constrained anchors they do too; none reproduced a task.
+**Under the product's tool-call protocol neither pinned model got an edit on record.** STATE.md states this as 0 of 320 agent runs, and the count reproduces: the 320 are the four constrained-envelope configurations of H-2's campaign, and none of their records carries an edit. Two qualifications come from the raw records. In 18 of the 320 runs the 1.5B model called the edit tool with arguments the tool rejected, so "proposed no edit" is exact only in the sense that no edit reached staging. And three of those four configurations differ from the product's in elision or line numbering. Counting only configurations with the product's exact hash gives 0 of 728 runs with an edit over seven campaigns, and counting every constrained-envelope configuration with search-and-replace edits gives 0 of 1,088. Under repaired text the same models do get edits on record, and under constrained anchors they do too; none reproduced a task.
 
 The two pinned models are the ones the product's catalog recommends for a laptop of this size. On real single-file changes from this repository, the agent loop with either model completed none.
 
@@ -373,10 +401,10 @@ Each verdict above is the registered rule applied to the data, and none is chang
 - **H-1 rests on a judgement the registration did not provide for.** Its thresholds have no inconclusive outcome and no clause for errors of the rig or the checkers (PREREGISTRATION.md, H-1). The first run printed two violations (seeds 32218 and 46211, both `I-01/disk`); they were judged the rig's own and the rig was changed before the second run, which is the one reported. The mutants and the invariant checkers were written by the same authors, so a blind spot shared by both would not show.
 - **H-3 is close to true by construction.** A fuzzy applier places almost everything exact matching places and more (on these attempts: both placed 410, fuzzy only 388, exact only 14), so condition 1 measures how much more. Condition 2 tests the fuzzy applier's own silently-wrong rate against 0.5%, not against exact-or-refuse; exact-or-refuse's own rate, 26.9% (350 of 1,301), would pass the same condition.
 - **H-5's refutation is forced by the floor.** All 36 ungrounded edits score 0, and 150 of the 163 grounded ones do, the highest 0.4; the difference is the grounded mean, and with no task solved a difference of 0.05 was out of reach whatever grounding is worth.
-- **H-6 measured repetition of short runs with no edit.** All 200 runs proposed no edit (10 edit calls were made, all rejected for their arguments); 190 had two turns and 10 had three. Whether a run that edits repeats is not tested.
-- **H-9's success condition is 0 = 0, and nothing was evicted in the agentic arm.** Every policy succeeded on 0 of 40 tasks, and the largest prompt was 3,384 of 8,192 tokens, so no policy had to evict. The 0.42 ratio comes from the scripted arm and is estimated from prompt-evaluation time, not counted in tokens.
+- **H-6 measured repetition of short runs with no edit.** All 200 runs proposed no edit (10 edit calls were made, all rejected for their arguments); 190 had two turns and 10 had three. Amendment 5 tested runs that edit separately (section 6.11), on one machine and with two models.
+- **H-9's success condition is 0 = 0, and nothing was evicted in the agentic arm.** Every policy succeeded on 0 of 40 tasks, and the largest prompt was 3,384 of 8,192 tokens, so no policy had to evict. The 0.42 ratio comes from the scripted arm and is estimated from prompt-evaluation time, not counted in tokens. Amendment 5's campaign made half the runs evict and the condition is still a floor (section 6.11).
 - **Amendments 2 to 4 were written while neighbouring data existed.** Amendment 2 was committed while H-2's campaign was running, Amendment 3 later in the same campaign and after H-1's two runs, and Amendment 4 after the campaigns that feed H-3, H-4 (its first), H-6 (its first) and H-7 had finished. Each says what had been looked at. Running H-4 again under Amendment 4 sits against the registration's own rule that a hypothesis whose data exists is frozen; the amendment says no H-4 edit had been read or scored.
-- **The product's default protocol got no edit on record.** Under the constrained envelope, which the datasheet selects for both pinned models, neither had an edit on record in 320 runs of H-2 (in 18 the 1.5B's edit call was rejected for its arguments), while under repaired text 79 runs of the 7B and 53 of the 1.5B had one, and under constrained anchors 55 of 80 runs made an edit call (H-4). No protocol reproduced a task. Which protocol the product should default to is a decision for the owner, and it is open.
+- **The product's default protocol got no edit on record.** Under the constrained envelope, which the datasheet selects for both pinned models, neither had an edit on record in 320 runs of H-2 (in 18 the 1.5B's edit call was rejected for its arguments), while under repaired text 79 runs of the 7B and 53 of the 1.5B had one, and under constrained anchors 55 of 80 runs made an edit call (H-4). No protocol reproduced a task. Amendment 5 ran the protocols again with the engine fixed (section 6.11): for the 7B, both alternatives staged edits where the default staged none; for the 1.5B, nothing led. Which protocol the product should default to is a decision for the owner, and it is open.
 
 ## 10 Defects the campaigns found
 

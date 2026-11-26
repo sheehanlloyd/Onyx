@@ -95,7 +95,7 @@ export class OnyxMemoryToolContribution extends Disposable {
 	 */
 	protected async _confirm(text: string, origin: OnyxNoteOrigin, token: CancellationToken = CancellationToken.None): Promise<boolean> {
 		const confirmation = await this._dialogService.prompt<boolean>({
-			type: origin.kind === 'tool-result' ? Severity.Warning : Severity.Info,
+			type: origin.kind === 'tool-result' || (origin.kind === 'context' && origin.source === 'playbooks') ? Severity.Warning : Severity.Info,
 			message: localize('onyx.memory.confirm', "The agent wants to remember a note for this workspace"),
 			detail: [
 				text,
@@ -118,6 +118,10 @@ function originLine(origin: OnyxNoteOrigin): string {
 			return localize('onyx.memory.origin.user', "Where this text came from: your own request.");
 		case 'tool-result':
 			return localize('onyx.memory.origin.toolResult', "Where this text came from: the output of the {0} tool in this run. Text from a file or a command can carry instructions.", origin.tool);
+		case 'context':
+			return origin.source === 'memory'
+				? localize('onyx.memory.origin.memory', "Where this text came from: a note remembered in an earlier session, which this run's prompt carries.")
+				: localize('onyx.memory.origin.playbooks', "Where this text came from: the repository's playbook index, which this run's prompt carries. Text from the repository can carry instructions.");
 		case 'model':
 			return localize('onyx.memory.origin.model', "Where this text came from: the model wrote it; it is not in your request or in anything a tool returned in this run.");
 	}

@@ -1,0 +1,12 @@
+{
+	"question": "Which tool-call protocol leads to an edit on record, with the campaign engine fixed (PREREGISTRATION.md, Amendment 5, A5.1)",
+	"outcome": "keep the default: no arm led to more edits on record than constrained-envelope for both models without losing more than 5 points of task success",
+	"number": "qwen2.5-coder:1.5b: constrained-envelope 0 of 40 with an edit on record (0.0%), 0 succeeded; repaired-text 1 of 40 with an edit on record (2.5%), 0 succeeded; constrained-edit-first 0 of 40 with an edit on record (0.0%), 0 succeeded | qwen2.5-coder:7b: constrained-envelope 0 of 40 with an edit on record (0.0%), 0 succeeded; repaired-text 9 of 40 with an edit on record (22.5%), 0 succeeded; constrained-edit-first 15 of 40 with an edit on record (37.5%), 0 succeeded",
+	"thresholds": "Per model and pair, an arm leads to more edits on record when the paired bootstrap interval of the difference excludes 0. An arm is recommended as the default when, for both models, it leads constrained-envelope and its task success is not lower by more than 5 points (lower bound of the difference at least -0.05). A model with no edit on record in any arm is a floor (PREREGISTRATION.md, Amendment 5, A5.1).",
+	"decidedFrom": [
+		"protocol.json",
+		"traces/records.jsonl",
+		"results.jsonl"
+	],
+	"regenerate": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol"
+}

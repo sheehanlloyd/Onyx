@@ -3,12 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import { EndOfLinePreference, ITextModel } from '../../../../../editor/common/model.js';
 import { localize } from '../../../../../nls.js';
-import { applyEditBlocks, parseInlineEdits } from '../../common/onyxInlineEdit.js';
+import { applyEditBlocks, buildInlineEditPrompt, ONYX_INLINE_EDIT_SYSTEM_PROMPT, parseInlineEdits } from '../../common/onyxInlineEdit.js';
+import { runOneShot } from '../agent/onyxOneShot.js';
 import { IOnyxChangeSetService } from '../changes/onyxChangeSetService.js';
+import { IOnyxControlPlaneService } from '../controlPlane/onyxControlPlaneService.js';
 import { IOnyxWorkspaceAccessService } from '../intelligence/onyxWorkspaceAccess.js';
+import { IOnyxModelService } from '../model/onyxLanguageModelProvider.js';
 
 /** Why a reply was not staged. In every case the user's text is as they left it. */
 export type OnyxInlineStaleReason =
@@ -27,6 +33,18 @@ export type OnyxInlineStageOutcome =
 	| { readonly kind: 'no-edit'; readonly message: string }
 	/** The change set would not take it: the file is outside the workspace, already has changes waiting, or the proposal is too large. */
 	| { readonly kind: 'refused'; readonly message: string };
+
+/** How a request ended: with a staging outcome, cancelled before its reply was used, or failed. */
+export type OnyxInlineRequestResult =
+	| { readonly kind: 'outcome'; readonly outcome: OnyxInlineStageOutcome }
+	| { readonly kind: 'cancelled' }
+	| { readonly kind: 'failed'; readonly message: string };
+
+/** What a request needs besides the session: the model and the control plane its run is on. */
+export interface IOnyxInlineRequestServices {
+	readonly modelService: IOnyxModelService;
+	readonly controlPlaneService: IOnyxControlPlaneService;
+}
 
 /**
  * One inline edit request, from the moment it is made to the moment its
@@ -62,6 +80,59 @@ export class OnyxInlineEditSession {
 		this._baseVersionId = _model.getVersionId();
 		this.original = this._baseText.split('\n').slice(this._startLine - 1, this._endLine).join('\n');
 		this.path = workspaceAccessService.qualify(_model.uri);
+	}
+
+	/**
+	 * The request (B9, L1): a run on the control plane, the model's reply through the product's one-shot
+	 * path, and the reply staged. The editor's controller calls this and draws what comes back; the simulation
+	 * rig calls it too, so everything between the request and the staging, the streaming the user can type
+	 * through included, is the same code in both. `isShown`: whether the editor still shows this request when
+	 * its reply is staged; when it does not, the outcome is in Onyx Changes and nothing is said here.
+	 */
+	async request(instruction: string, path: string, languageId: string, services: IOnyxInlineRequestServices, cancellation: CancellationTokenSource, onDelta?: (text: string) => void, isShown: () => boolean = () => true): Promise<OnyxInlineRequestResult> {
+		const run = services.controlPlaneService.beginRun({
+			sessionResource: URI.from({ scheme: 'onyx-inline-edit', path: `/${generateUuid()}` }),
+			requestId: generateUuid(),
+			title: localize('onyx.inlineEdit.runTitle', "Inline edit: {0}", instruction.slice(0, 60)),
+			task: 'quick-edit',
+			modelKey: 'auto',
+			token: cancellation.token,
+		});
+		try {
+			const reply = await runOneShot(
+				services.modelService,
+				ONYX_INLINE_EDIT_SYSTEM_PROMPT,
+				buildInlineEditPrompt(path, languageId, this.original, instruction),
+				cancellation.token,
+				{ run, controlPlane: services.controlPlaneService, onDelta });
+			if (cancellation.token.isCancellationRequested) {
+				run.complete('cancelled');
+				return { kind: 'cancelled' };
+			}
+			const outcome = await this.stageReply(reply, run.runId);
+			if (!isShown()) {
+				// The widget was closed or moved on while the reply was being staged; the proposal, if any, is in Onyx Changes.
+				run.complete(outcome.kind === 'staged' ? 'completed' : 'cancelled');
+				return { kind: 'outcome', outcome };
+			}
+			if (outcome.kind === 'staged') {
+				if (outcome.unplacedBlocks > 0) {
+					run.activity({ kind: 'note', label: localize('onyx.inlineEdit.partial', "{0} edit block(s) could not be placed exactly and were left out", outcome.unplacedBlocks), ok: false });
+				}
+				run.activity({ kind: 'note', label: outcome.hunkIds.length === 1 ? localize('onyx.inlineEdit.oneHunk', "Staged 1 hunk for review; the file is unchanged") : localize('onyx.inlineEdit.hunks', "Staged {0} hunks for review; the file is unchanged", outcome.hunkIds.length), ok: true });
+				run.complete('completed');
+				return { kind: 'outcome', outcome };
+			}
+			// Nothing was staged, and nothing in the buffer changed: say why.
+			run.activity({ kind: 'note', label: outcome.message, ok: false });
+			run.complete(outcome.kind === 'stale' ? 'cancelled' : 'failed');
+			return { kind: 'outcome', outcome };
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			run.activity({ kind: 'note', label: localize('onyx.inlineEdit.failed', "Inline edit failed"), reason: message, ok: false });
+			run.complete('failed');
+			return { kind: 'failed', message };
+		}
 	}
 
 	/** The request is over: the user cancelled, or the editor shows another file now. A reply that still arrives is not staged. */

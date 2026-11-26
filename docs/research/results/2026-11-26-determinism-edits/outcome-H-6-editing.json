@@ -1,0 +1,68 @@
+{
+	"question": "H-6 on trajectories that edit (PREREGISTRATION.md, Amendment 5, A5.2)",
+	"outcome": "supported",
+	"number": "104 of 108 repetitions of the 27 editing units identical to the first (96.3%, 95% interval 90.9% to 98.6%); over all 160 comparisons 156 (97.5%), which decides nothing",
+	"editingUnits": {
+		"units": 27,
+		"comparisons": 108,
+		"identical": 104
+	},
+	"editingShare": {
+		"value": 0.9629629629629629,
+		"low": 0.9086183563893868,
+		"high": 0.9855044586600972
+	},
+	"byModel": [
+		{
+			"group": "qwen2.5-coder:7b",
+			"units": 13,
+			"comparisons": 52,
+			"identical": 48,
+			"unitsAllIdentical": 12,
+			"firstDivergingTurn": [
+				0,
+				0,
+				0,
+				0,
+				0,
+				4
+			],
+			"bySource": {
+				"runtime": 4,
+				"harness": 0,
+				"length": 0
+			},
+			"divergedWithADifferentOutcome": 0
+		},
+		{
+			"group": "qwen2.5-coder:1.5b",
+			"units": 14,
+			"comparisons": 56,
+			"identical": 56,
+			"unitsAllIdentical": 14,
+			"firstDivergingTurn": [],
+			"bySource": {
+				"runtime": 0,
+				"harness": 0,
+				"length": 0
+			},
+			"divergedWithADifferentOutcome": 0
+		}
+	],
+	"allComparisons": {
+		"comparisons": 160,
+		"identical": 156,
+		"identicalShare": {
+			"value": 0.975,
+			"low": 0.9374901071333326,
+			"high": 0.9902360074537375
+		}
+	},
+	"thresholds": "H-6's registered thresholds on the comparisons of the editing units (units whose first repetition made an edit call): supported at an identical share of at least 90% with a Wilson lower bound of at least 80%; refuted when the upper bound is below 90%; inconclusive otherwise, and with fewer than 10 editing units. A divergence that is the harness's invalidates it (PREREGISTRATION.md, Amendments 3 and 5).",
+	"decidedFrom": [
+		"determinism.json",
+		"traces/records.jsonl",
+		"results.jsonl"
+	],
+	"regenerate": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-26-determinism-edits --editing-units"
+}

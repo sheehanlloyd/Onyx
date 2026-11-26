@@ -53,12 +53,12 @@ function checkCopies(change: { report?: (text: string) => string; readme?: strin
 
 test('R-58: the committed report, numbers and indexes are what the committed data gives, with the analyses run again', () => {
 	const result = check([]);
-	assert.deepStrictEqual({ exit: result.exit, said: /^make-report: checked \d+ numbers, \d+ tables and \d+ indexes; 8 of 9 analyses run/m.test(result.output) }, { exit: 0, said: true }, result.output);
+	assert.deepStrictEqual({ exit: result.exit, said: /^make-report: checked \d+ numbers, \d+ tables and \d+ indexes; 11 of 12 analyses run/m.test(result.output) }, { exit: 0, said: true }, result.output);
 });
 
 test('R-58: unchanged copies pass, a changed number in a generated table fails, and an unsourced number in the prose or the README fails and is named', () => {
 	const unchanged = checkCopies({});
-	const table = checkCopies({ report: text => text.replace('| **3,182** |', '| **3,183** |') });
+	const table = checkCopies({ report: text => text.replace('| **3,739** |', '| **3,740** |') });
 	const prose = checkCopies({ report: text => text.replace('## 1 Thesis\n', '## 1 Thesis\n\nA further 7,919 runs agreed with all of this.\n') });
 	const readme = checkCopies({ readme: '# A project\n\n## Research\n\nThe harness is 87.5% better.\n\n## Build\n' });
 	assert.deepStrictEqual({

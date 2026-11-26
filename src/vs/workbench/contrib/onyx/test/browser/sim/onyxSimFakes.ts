@@ -16,7 +16,9 @@ import { FileSystemProviderCapabilities, FileType, IFileService, IFileSystemProv
 import { InMemoryFileSystemProvider } from '../../../../../../platform/files/common/inMemoryFilesystemProvider.js';
 import { FileSystemFileSearchProvider } from '../../../../../services/search/common/fileSystemFileSearchProvider.js';
 import { IFileMatch, IFileQuery, ISearchComplete, ISearchService, ITextQuery, OneLineRange, QueryType, TextSearchMatch } from '../../../../../services/search/common/search.js';
+import { OnyxBm25Index } from '../../../../../../platform/onyxRuntime/common/onyxBm25.js';
 import { commandEnvironment } from '../../../../../../platform/onyxRuntime/common/onyxCommandExecution.js';
+import { extractDocSnippet } from '../../../../../../platform/onyxRuntime/common/onyxDocsExtract.js';
 import { IOnyxChatParams, IOnyxCommandOptions, IOnyxIndexStats, IOnyxLabHarnessRequest, IOnyxCommandOutputEvent, IOnyxCommandResult, IOnyxCommitCandidate, IOnyxCompletionParams, IOnyxDiff, IOnyxDiscoveredModel, IOnyxDocsHit, IOnyxDocsIndexStats, IOnyxEndpoint, IOnyxMachineProfile, IOnyxPowerState, IOnyxPullProgress, IOnyxRuntimeService, IOnyxStreamEvent, OnyxCommandRefusal, OnyxDiffMode, OnyxContextAliasResult, IOnyxLoadedModel } from '../../../../../../platform/onyxRuntime/common/onyxRuntime.js';
 import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatRequestOptions, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../../../chat/common/tools/languageModelToolsService.js';
@@ -30,7 +32,6 @@ import { IOnyxModelProfile, IOnyxObservedStats } from '../../../common/onyxTypes
 import { IOnyxEnergyService } from '../../../browser/compute/onyxEnergyService.js';
 import { IOnyxPinService } from '../../../browser/intelligence/onyxPinService.js';
 import { IOnyxRequestMeasurement } from '../../../browser/model/onyxLanguageModelProvider.js';
-import { IOnyxDiscoveredPlaybook, IOnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
 import { IOnyxProfileService } from '../../../browser/profiles/onyxProfileService.js';
 import { OnyxSimBoundary, OnyxSimModelTurn, SIM_PROCESS_ENVIRONMENT, SIM_SECRET_ENVIRONMENT_NAMES } from './onyxSimEpisode.js';
 import { digest, OnyxSimTrace } from './onyxSimTrace.js';
@@ -202,8 +203,22 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		return { kind: 'text', text: 'Done.' };
 	}
 
+	/**
+	 * The reply to the next request, when it is an inline edit's (B9, D12): the user asked for it, so it is not
+	 * the script's next turn, and its chunks are `inlineStreaming` boundaries, where the user may keep typing.
+	 */
+	inlineReply: string | undefined;
+	/** How many requests were an inline edit's: one-shot runs, which have no harness configuration and no trace header. */
+	inlineRequests = 0;
+
 	async startChatCompletion(operationId: string, params: IOnyxChatParams): Promise<void> {
 		this.requests.push(params);
+		const inlineReply = this.inlineReply;
+		this.inlineReply = undefined;
+		if (inlineReply !== undefined) {
+			this.inlineRequests++;
+		}
+		const chunkBoundary: OnyxSimBoundary = inlineReply !== undefined ? 'inlineStreaming' : 'betweenChunks';
 		const lastUser = [...params.messages].reverse().find(message => message.role === 'user');
 		// Everything the request carries: message text, the calls the model made, and the tool schemas.
 		const promptChars = params.messages.reduce((total, message) => total + String(message.content ?? '').length + (message.tool_calls ?? []).reduce((sum, call) => sum + call.function.name.length + call.function.arguments.length, 0), 0);
@@ -237,14 +252,14 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			this._emit({ operationId, kind: 'error', message: 'the runtime service was disposed' });
 			return;
 		}
-		const turn = this._constrain(await this._takeTurn(params), params.responseFormat !== undefined);
+		const turn: OnyxSimModelTurn = inlineReply !== undefined ? { kind: 'text', text: inlineReply, chunks: 4 } : this._constrain(await this._takeTurn(params), params.responseFormat !== undefined);
 		const op = this._trace.canonical('op', operationId);
 		const emit = async (event: IOnyxStreamEvent, size: number, finishReason?: string) => {
-			await this._scheduler.boundary('betweenChunks');
+			await this._scheduler.boundary(chunkBoundary);
 			if (this._cancelled.has(operationId)) {
 				return false;
 			}
-			const fault = this._scheduler.takeFault('betweenChunks');
+			const fault = this._scheduler.takeFault(chunkBoundary);
 			if (fault?.kind === 'earlyEndOfStream') {
 				this._trace.record({ kind: 'fault', fault: fault.kind });
 				this._trace.record({ kind: 'chunk', op, delta: 'done', size: 0 });
@@ -430,8 +445,33 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	async worktreeRemove(): Promise<void> { throw new Error('not simulated'); }
 	async applyDiff(): Promise<void> { throw new Error('not simulated'); }
 	async pullModel(): Promise<void> { throw new Error('not simulated'); }
-	async ensureDocsIndex(): Promise<IOnyxDocsIndexStats> { throw new Error('not simulated'); }
-	async searchDocsIndex(): Promise<readonly IOnyxDocsHit[]> { return []; }
+	/**
+	 * The documentation mirror (D11). What the node indexer would walk is supplied by the rig: the workspace's
+	 * markdown, outside dot-directories and build output. The index and the snippets are the product's own
+	 * (`OnyxBm25Index`, `extractDocSnippet`); only the walk of a real disk is not.
+	 */
+	docsCorpus: (() => Promise<readonly { readonly path: string; readonly content: string }[]>) | undefined;
+	private _docs: { readonly index: OnyxBm25Index; readonly contents: ReadonlyMap<string, string> } | undefined;
+	async ensureDocsIndex(): Promise<IOnyxDocsIndexStats> {
+		const index = new OnyxBm25Index();
+		const contents = new Map<string, string>();
+		for (const document of await this.docsCorpus?.() ?? []) {
+			index.addDocument(document.path, document.content);
+			contents.set(document.path, document.content);
+		}
+		this._docs = { index, contents };
+		return { files: index.documentCount, buildMs: 0, truncated: false, builtAt: Date.now() };
+	}
+	async searchDocsIndex(_rootPath: string, _persistPath: string, query: string, limit: number): Promise<readonly IOnyxDocsHit[]> {
+		const docs = this._docs;
+		if (!docs) {
+			return [];
+		}
+		return docs.index.search(query, limit).map(hit => {
+			const snippet = extractDocSnippet(docs.contents.get(hit.path) ?? '', query, 24);
+			return { path: hit.path, score: hit.score, line: snippet.startLine, snippet: snippet.text };
+		});
+	}
 	async updateDocsIndex(): Promise<void> { }
 	analyzeArchitecture(): ReturnType<IOnyxRuntimeService['analyzeArchitecture']> { throw new Error('not simulated'); }
 }
@@ -462,7 +502,9 @@ export class OnyxSimDialogService implements IDialogService {
 	readonly onDidShowDialog = Event.None;
 	private _handledPromptButtons: IPromptBaseButton<unknown>[] = [];
 	/** Every dialog asked, with how it ended. `closedByStop`: the run was stopped while it was open and the stop closed it (B10). */
-	readonly prompts: { readonly message: string; readonly detail: string; readonly buttons: readonly string[]; readonly decision: OnyxSimDialogDecision; readonly granted: boolean; readonly closedByStop: boolean }[] = [];
+	readonly prompts: { readonly message: string; readonly detail: string; readonly buttons: readonly string[]; readonly decision: OnyxSimDialogDecision; readonly granted: boolean; readonly closedByStop: boolean; /** How many tool results the run had returned when the dialog opened (I-14). */ readonly toolResultsBefore: number }[] = [];
+	/** How many tool results there are so far: set by the rig, so a dialog can say what the model had seen when it opened. */
+	toolResultCount: () => number = () => 0;
 	private _pending: OnyxSimDialogDecision | undefined;
 	private _openDialogs = 0;
 
@@ -487,6 +529,7 @@ export class OnyxSimDialogService implements IDialogService {
 	prompt<T>(prompt: IPrompt<T>): Promise<IPromptResult<T>>;
 	async prompt<T>(prompt: IPrompt<T> | IPromptWithCustomCancel<T>): Promise<IPromptResult<T> | IPromptResultWithCancel<T>> {
 		this._openDialogs++;
+		const toolResultsBefore = this.toolResultCount();
 		try {
 			await this._scheduler.boundary('dialogOpen');
 			const detail = typeof prompt.detail === 'string' ? prompt.detail : prompt.detail?.value ?? '';
@@ -494,7 +537,7 @@ export class OnyxSimDialogService implements IDialogService {
 				// The run was stopped while the dialog was open, and the dialog was given the run's token: the
 				// workbench closes it as if its cancel button had been pressed, and nobody answers it (B10).
 				this._pending = undefined;
-				this.prompts.push({ message: prompt.message, detail, buttons: (prompt.buttons ?? []).map(button => button.label), decision: 'dismiss', granted: false, closedByStop: true });
+				this.prompts.push({ message: prompt.message, detail, buttons: (prompt.buttons ?? []).map(button => button.label), decision: 'dismiss', granted: false, closedByStop: true, toolResultsBefore });
 				this._trace.record({ kind: 'dialog', message: prompt.message, decision: 'closed by stop', granted: false });
 				const cancel = prompt.cancelButton;
 				return { result: typeof cancel === 'object' && cancel ? await cancel.run({ checkboxChecked: false }) : undefined };
@@ -503,7 +546,7 @@ export class OnyxSimDialogService implements IDialogService {
 			this._pending = undefined;
 			// A user who wants to run the command presses a button; one who does not, cancels or dismisses.
 			const granted = decision !== 'dismiss' && decision !== 'deny' && (prompt.buttons ?? []).length > 0;
-			this.prompts.push({ message: prompt.message, detail, buttons: (prompt.buttons ?? []).map(button => button.label), decision, granted, closedByStop: false });
+			this.prompts.push({ message: prompt.message, detail, buttons: (prompt.buttons ?? []).map(button => button.label), decision, granted, closedByStop: false, toolResultsBefore });
 			this._trace.record({ kind: 'dialog', message: prompt.message, decision, granted });
 			this._handledPromptButtons = [...(prompt.buttons ?? [])];
 			if (decision === 'dismiss') {
@@ -712,11 +755,6 @@ export class OnyxSimPinService implements IOnyxPinService {
 	readmit(): void { }
 }
 
-export class OnyxSimPlaybookService implements IOnyxPlaybookService {
-	declare readonly _serviceBrand: undefined;
-	readonly playbooks = observableValue<readonly IOnyxDiscoveredPlaybook[]>(this, []);
-	getPlaybook(): IOnyxDiscoveredPlaybook | undefined { return undefined; }
-}
 
 /**
  * The task boundary. A workspace has one test task, as a repository's

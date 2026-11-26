@@ -6,7 +6,7 @@
 	"covers": {
 		"persona": "anchor-liar"
 	},
-	"reason": "First recording (L8): the harness at the end of Module 3, with certificates, verification after acceptance and exact-or-refuse edits.",
+	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
 	"episode": {
 		"name": "persona-anchor-liar",
 		"seed": 6,
@@ -58,6 +58,48 @@
 					"kind": "switchFile",
 					"path": "src/util.ts"
 				}
+			},
+			{
+				"at": "afterRun",
+				"occurrence": 2,
+				"step": {
+					"kind": "typeInTarget",
+					"text": "// reviewed\n",
+					"line": 6
+				}
+			},
+			{
+				"at": "afterRun",
+				"occurrence": 2,
+				"step": {
+					"kind": "acceptAll"
+				}
+			},
+			{
+				"at": "afterRun",
+				"occurrence": 3,
+				"step": {
+					"kind": "inlineEdit",
+					"startLine": 1,
+					"endLine": 3,
+					"reply": "<<<<<<< SEARCH\n\treturn a + b;\n=======\n\treturn b + a; // inline\n>>>>>>> REPLACE"
+				}
+			},
+			{
+				"at": "inlineStreaming",
+				"occurrence": 1,
+				"step": {
+					"kind": "typeInTarget",
+					"text": "const typed = 1;\n",
+					"line": 1
+				}
+			},
+			{
+				"at": "afterRun",
+				"occurrence": 4,
+				"step": {
+					"kind": "acceptAll"
+				}
 			}
 		],
 		"faults": [],
@@ -73,7 +115,7 @@
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"route\",\"label\":\"onyx:localhost:11434/sim-coder:7b\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"trace\",\"label\":\"\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 1\"}",
-		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"remember\",\"usages\"],\"messageCount\":3,\"roles\":[\"system\",\"system\",\"user\"],\"lastUserDigest\":\"13e9031d\",\"promptChars\":832,\"toolsChars\":5867,\"temperature\":0.2,\"maxTokens\":2457}",
+		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":3,\"roles\":[\"system\",\"system\",\"user\"],\"lastUserDigest\":\"13e9031d\",\"promptChars\":830,\"toolsChars\":6348,\"temperature\":0.2,\"maxTokens\":2457}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":26}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":26}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"text\",\"size\":26}",
@@ -93,7 +135,7 @@
 		"{\"t\":401,\"kind\":\"shown\",\"size\":189}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 2\"}",
-		"{\"t\":401,\"kind\":\"request\",\"turn\":2,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"remember\",\"usages\"],\"messageCount\":5,\"roles\":[\"system\",\"system\",\"user\",\"assistant\",\"tool\"],\"lastUserDigest\":\"13e9031d\",\"promptChars\":1291,\"toolsChars\":5867,\"temperature\":0.2,\"maxTokens\":2457}",
+		"{\"t\":401,\"kind\":\"request\",\"turn\":2,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":5,\"roles\":[\"system\",\"system\",\"user\",\"assistant\",\"tool\"],\"lastUserDigest\":\"13e9031d\",\"promptChars\":1289,\"toolsChars\":6348,\"temperature\":0.2,\"maxTokens\":2457}",
 		"{\"t\":402,\"kind\":\"chunk\",\"op\":\"op#2\",\"delta\":\"text\",\"size\":19}",
 		"{\"t\":402,\"kind\":\"chunk\",\"op\":\"op#2\",\"delta\":\"text\",\"size\":19}",
 		"{\"t\":402,\"kind\":\"shown\",\"size\":7}",
@@ -102,20 +144,42 @@
 		"{\"t\":402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
 		"{\"t\":402,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"live:completed\"}",
 		"{\"t\":402,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"completed\"}",
-		"{\"t\":900400,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":2}"
+		"{\"t\":1402,\"kind\":\"userAction\",\"action\":\"typeInTarget\",\"detail\":\"a08aa152@6\"}",
+		"{\"t\":1402,\"kind\":\"userAction\",\"action\":\"acceptAll\"}",
+		"{\"t\":1402,\"kind\":\"buffer\",\"path\":\"src/math.ts\",\"digest\":\"0216d400\",\"cause\":\"afterRun\"}",
+		"{\"t\":1452,\"kind\":\"userAction\",\"action\":\"inlineEdit\"}",
+		"{\"t\":1452,\"kind\":\"activity\",\"run\":\"run#2\",\"activity\":\"turn\",\"label\":\"Model turn 1\"}",
+		"{\"t\":1452,\"kind\":\"request\",\"turn\":3,\"model\":\"sim-coder:7b\",\"tools\":[],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"f308f563\",\"promptChars\":554,\"toolsChars\":0,\"temperature\":0.2,\"maxTokens\":4096}",
+		"{\"t\":1453,\"kind\":\"userAction\",\"action\":\"typeInTarget\",\"detail\":\"c955c60d@1\"}",
+		"{\"t\":1453,\"kind\":\"buffer\",\"path\":\"src/math.ts\",\"digest\":\"b242ceb8\",\"cause\":\"inlineStreaming\"}",
+		"{\"t\":1453,\"kind\":\"chunk\",\"op\":\"op#3\",\"delta\":\"text\",\"size\":20}",
+		"{\"t\":1453,\"kind\":\"chunk\",\"op\":\"op#3\",\"delta\":\"text\",\"size\":20}",
+		"{\"t\":1453,\"kind\":\"chunk\",\"op\":\"op#3\",\"delta\":\"text\",\"size\":20}",
+		"{\"t\":1453,\"kind\":\"chunk\",\"op\":\"op#3\",\"delta\":\"text\",\"size\":18}",
+		"{\"t\":1453,\"kind\":\"chunk\",\"op\":\"op#3\",\"delta\":\"usage\",\"size\":0}",
+		"{\"t\":1453,\"kind\":\"chunk\",\"op\":\"op#3\",\"delta\":\"done\",\"size\":0,\"finishReason\":\"stop\"}",
+		"{\"t\":1453,\"kind\":\"activity\",\"run\":\"run#2\",\"activity\":\"note\",\"label\":\"The file changed while the model was working, so its edit no longer fits what you see. Nothing was changed — press ⏎ to ask again with the current text.\",\"ok\":false}",
+		"{\"t\":1453,\"kind\":\"status\",\"run\":\"run#2\",\"status\":\"live:cancelled\"}",
+		"{\"t\":1453,\"kind\":\"status\",\"run\":\"run#2\",\"status\":\"cancelled\"}",
+		"{\"t\":1503,\"kind\":\"userAction\",\"action\":\"acceptAll\"}",
+		"{\"t\":900500,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":3}"
 	],
 	"journal": [
 		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"resumeMeta\":{\"head\":\"sim0000\"}}}",
 		"{\"t\":0,\"kind\":\"note\",\"data\":{\"kind\":\"route\",\"label\":\"onyx:localhost:11434/sim-coder:7b\",\"reason\":\"8 tools exposed, full prompt, constrained decoding\",\"at\":400}}",
-		"{\"t\":0,\"kind\":\"trace\",\"data\":{\"kind\":\"trace\",\"v\":2,\"runId\":\"run-400-0\",\"startedAt\":400,\"harness\":{\"configurationHash\":\"1023f873\",\"configuration\":{\"toolCallProtocol\":\"constrained-envelope\",\"editProtocol\":\"search-replace\",\"promptStyle\":\"full\",\"toolResultChars\":16000,\"evictionPolicy\":\"oldest-results-first\",\"contextTokens\":16384,\"turnCap\":16,\"verificationFeedback\":true,\"readToolLineNumbering\":true,\"toolSlotPolicy\":\"essentials-first\",\"maxTools\":8},\"source\":\"default\"},\"model\":{\"identifier\":\"onyx:localhost:11434/sim-coder:7b\",\"digest\":null},\"runtime\":{\"name\":\"ollama\",\"version\":null,\"baseUrl\":\"http://localhost:11434/v1\"},\"sampling\":{\"temperature\":0.2,\"seed\":null,\"maxTokens\":2457,\"responseFormat\":true},\"tools\":[{\"name\":\"readFile\",\"schemaHash\":\"a4f6a52c\"},{\"name\":\"listDirectory\",\"schemaHash\":\"8d12134d\"},{\"name\":\"findFiles\",\"schemaHash\":\"55c9f85c\"},{\"name\":\"grep\",\"schemaHash\":\"47df4d84\"},{\"name\":\"editFile\",\"schemaHash\":\"d380d775\"},{\"name\":\"terminal\",\"schemaHash\":\"96733edf\"},{\"name\":\"remember\",\"schemaHash\":\"c734ee5b\"},{\"name\":\"usages\",\"schemaHash\":\"fb44bbbd\"}],\"context\":{\"budgetedTokens\":16384,\"source\":\"default\",\"requestedTokens\":null,\"reportedTokens\":null,\"verifiedTokens\":null,\"mechanism\":null}}}",
+		"{\"t\":0,\"kind\":\"trace\",\"data\":{\"kind\":\"trace\",\"v\":2,\"runId\":\"run-400-0\",\"startedAt\":400,\"harness\":{\"configurationHash\":\"1023f873\",\"configuration\":{\"toolCallProtocol\":\"constrained-envelope\",\"editProtocol\":\"search-replace\",\"promptStyle\":\"full\",\"toolResultChars\":16000,\"evictionPolicy\":\"oldest-results-first\",\"contextTokens\":16384,\"turnCap\":16,\"verificationFeedback\":true,\"readToolLineNumbering\":true,\"toolSlotPolicy\":\"essentials-first\",\"maxTools\":8},\"source\":\"default\"},\"model\":{\"identifier\":\"onyx:localhost:11434/sim-coder:7b\",\"digest\":null},\"runtime\":{\"name\":\"ollama\",\"version\":null,\"baseUrl\":\"http://localhost:11434/v1\"},\"sampling\":{\"temperature\":0.2,\"seed\":null,\"maxTokens\":2457,\"responseFormat\":true},\"tools\":[{\"name\":\"readFile\",\"schemaHash\":\"a4f6a52c\"},{\"name\":\"listDirectory\",\"schemaHash\":\"8d12134d\"},{\"name\":\"findFiles\",\"schemaHash\":\"55c9f85c\"},{\"name\":\"grep\",\"schemaHash\":\"47df4d84\"},{\"name\":\"editFile\",\"schemaHash\":\"d380d775\"},{\"name\":\"terminal\",\"schemaHash\":\"96733edf\"},{\"name\":\"docs\",\"schemaHash\":\"65d06434\"},{\"name\":\"remember\",\"schemaHash\":\"c734ee5b\"}],\"context\":{\"budgetedTokens\":16384,\"source\":\"default\",\"requestedTokens\":null,\"reportedTokens\":null,\"verifiedTokens\":null,\"mechanism\":null}}}",
 		"{\"t\":0,\"kind\":\"turn\",\"data\":{\"kind\":\"turn\",\"label\":\"Model turn 1\",\"at\":400}}",
-		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"turn\":1,\"model\":\"onyx:localhost:11434/sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"remember\",\"usages\"],\"messages\":[{\"role\":0,\"content\":[{\"type\":\"text\",\"value\":\"You are Onyx, an AI software engineering agent working in the user's editor. Work efficiently and keep responses focused.\\nWorkspace: /ws. OS: macOS.\\nYou can call tools to read, search, edit and run code (readFile, listDirectory, findFiles, grep, editFile, terminal, remember, usages). Prefer inspecting the workspace over guessing. Plan multi-step work briefly before acting, act step by step, and verify the result of your edits when a suitable tool is available.\\nFollow the existing code style of the workspace. Make minimal, correct changes and explain what you did at the end.\"}]},{\"role\":0,\"content\":[{\"type\":\"text\",\"value\":\"Respond with exactly one JSON object per turn: {\\\"action\\\":\\\"tool\\\",\\\"tool\\\":\\\"<name>\\\",\\\"arguments\\\":{...}} to call a tool, or {\\\"action\\\":\\\"answer\\\",\\\"answer\\\":\\\"<your final answer>\\\"} when done. No other text.\"}]},{\"role\":1,\"content\":[{\"type\":\"text\",\"value\":\"Change addNumbers to add the arguments in the other order.\"}]}]}}",
+		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"turn\":1,\"model\":\"onyx:localhost:11434/sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messages\":[{\"role\":0,\"content\":[{\"type\":\"text\",\"value\":\"You are Onyx, an AI software engineering agent working in the user's editor. Work efficiently and keep responses focused.\\nWorkspace: /ws. OS: macOS.\\nYou can call tools to read, search, edit and run code (readFile, listDirectory, findFiles, grep, editFile, terminal, docs, remember). Prefer inspecting the workspace over guessing. Plan multi-step work briefly before acting, act step by step, and verify the result of your edits when a suitable tool is available.\\nFollow the existing code style of the workspace. Make minimal, correct changes and explain what you did at the end.\"}]},{\"role\":0,\"content\":[{\"type\":\"text\",\"value\":\"Respond with exactly one JSON object per turn: {\\\"action\\\":\\\"tool\\\",\\\"tool\\\":\\\"<name>\\\",\\\"arguments\\\":{...}} to call a tool, or {\\\"action\\\":\\\"answer\\\",\\\"answer\\\":\\\"<your final answer>\\\"} when done. No other text.\"}]},{\"role\":1,\"content\":[{\"type\":\"text\",\"value\":\"Change addNumbers to add the arguments in the other order.\"}]}]}}",
 		"{\"t\":1,\"kind\":\"toolCall\",\"data\":{\"kind\":\"toolCall\",\"label\":\"editFile\",\"at\":401}}",
 		"{\"t\":1,\"kind\":\"toolResult\",\"data\":{\"kind\":\"toolResult\",\"label\":\"editFile\",\"ok\":false,\"reason\":\"Edit refused for src/math.ts (staged content included). The \\\"search\\\" text is not in the file exactly as quoted. The first line that does not match is line 2 of…\",\"at\":401}}",
-		"{\"t\":1,\"kind\":\"traceTurn\",\"data\":{\"kind\":\"traceTurn\",\"v\":2,\"turn\":1,\"requestDigest\":\"db3479b5\",\"responseText\":\"\",\"streamEnd\":\"stop\",\"toolCalls\":[{\"name\":\"editFile\",\"argumentsDigest\":\"24048b6a\",\"resultDigest\":\"b61aa6e9\",\"ok\":false}],\"seed\":{\"requested\":null,\"honoured\":\"unknown\"}}}",
+		"{\"t\":1,\"kind\":\"traceTurn\",\"data\":{\"kind\":\"traceTurn\",\"v\":2,\"turn\":1,\"requestDigest\":\"43d6c3c6\",\"responseText\":\"\",\"streamEnd\":\"stop\",\"toolCalls\":[{\"name\":\"editFile\",\"argumentsDigest\":\"24048b6a\",\"resultDigest\":\"b61aa6e9\",\"ok\":false}],\"seed\":{\"requested\":null,\"honoured\":\"unknown\"}}}",
 		"{\"t\":1,\"kind\":\"turn\",\"data\":{\"kind\":\"turn\",\"label\":\"Model turn 2\",\"at\":401}}",
-		"{\"t\":1,\"kind\":\"promptSnapshot\",\"data\":{\"turn\":2,\"model\":\"onyx:localhost:11434/sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"remember\",\"usages\"],\"messages\":[{\"role\":0,\"content\":[{\"type\":\"text\",\"value\":\"You are Onyx, an AI software engineering agent working in the user's editor. Work efficiently and keep responses focused.\\nWorkspace: /ws. OS: macOS.\\nYou can call tools to read, search, edit and run code (readFile, listDirectory, findFiles, grep, editFile, terminal, remember, usages). Prefer inspecting the workspace over guessing. Plan multi-step work briefly before acting, act step by step, and verify the result of your edits when a suitable tool is available.\\nFollow the existing code style of the workspace. Make minimal, correct changes and explain what you did at the end.\"}]},{\"role\":0,\"content\":[{\"type\":\"text\",\"value\":\"Respond with exactly one JSON object per turn: {\\\"action\\\":\\\"tool\\\",\\\"tool\\\":\\\"<name>\\\",\\\"arguments\\\":{...}} to call a tool, or {\\\"action\\\":\\\"answer\\\",\\\"answer\\\":\\\"<your final answer>\\\"} when done. No other text.\"}]},{\"role\":1,\"content\":[{\"type\":\"text\",\"value\":\"Change addNumbers to add the arguments in the other order.\"}]},{\"role\":2,\"content\":[{\"type\":\"tool_use\",\"name\":\"editFile\",\"toolCallId\":\"onyx_constrained_0\",\"parameters\":{\"path\":\"src/math.ts\",\"search\":\"export function addNumbers(a: number, b: number): number {\\n\\treturn a + b + 1;\",\"replace\":\"\\treturn b + a; // edited-by-sim\"}}]},{\"role\":1,\"content\":[{\"type\":\"tool_result\",\"toolCallId\":\"onyx_constrained_0\",\"value\":\"Error: Error: Edit refused for src/math.ts (staged content included). The \\\"search\\\" text is not in the file exactly as quoted. The first line that does not match is line 2 of it: \\\"\\\\treturn a + b + 1;\\\". Nothing was changed. Quote the lines exactly as they are in the file, including indentation.\"}]}]}}",
-		"{\"t\":2,\"kind\":\"traceTurn\",\"data\":{\"kind\":\"traceTurn\",\"v\":2,\"turn\":2,\"requestDigest\":\"098caf2f\",\"responseText\":\"Edited.\",\"streamEnd\":\"stop\",\"toolCalls\":[],\"seed\":{\"requested\":null,\"honoured\":\"unknown\"}}}",
-		"{\"t\":2,\"kind\":\"outcome\",\"data\":{\"status\":\"completed\"}}"
+		"{\"t\":1,\"kind\":\"promptSnapshot\",\"data\":{\"turn\":2,\"model\":\"onyx:localhost:11434/sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messages\":[{\"role\":0,\"content\":[{\"type\":\"text\",\"value\":\"You are Onyx, an AI software engineering agent working in the user's editor. Work efficiently and keep responses focused.\\nWorkspace: /ws. OS: macOS.\\nYou can call tools to read, search, edit and run code (readFile, listDirectory, findFiles, grep, editFile, terminal, docs, remember). Prefer inspecting the workspace over guessing. Plan multi-step work briefly before acting, act step by step, and verify the result of your edits when a suitable tool is available.\\nFollow the existing code style of the workspace. Make minimal, correct changes and explain what you did at the end.\"}]},{\"role\":0,\"content\":[{\"type\":\"text\",\"value\":\"Respond with exactly one JSON object per turn: {\\\"action\\\":\\\"tool\\\",\\\"tool\\\":\\\"<name>\\\",\\\"arguments\\\":{...}} to call a tool, or {\\\"action\\\":\\\"answer\\\",\\\"answer\\\":\\\"<your final answer>\\\"} when done. No other text.\"}]},{\"role\":1,\"content\":[{\"type\":\"text\",\"value\":\"Change addNumbers to add the arguments in the other order.\"}]},{\"role\":2,\"content\":[{\"type\":\"tool_use\",\"name\":\"editFile\",\"toolCallId\":\"onyx_constrained_0\",\"parameters\":{\"path\":\"src/math.ts\",\"search\":\"export function addNumbers(a: number, b: number): number {\\n\\treturn a + b + 1;\",\"replace\":\"\\treturn b + a; // edited-by-sim\"}}]},{\"role\":1,\"content\":[{\"type\":\"tool_result\",\"toolCallId\":\"onyx_constrained_0\",\"value\":\"Error: Error: Edit refused for src/math.ts (staged content included). The \\\"search\\\" text is not in the file exactly as quoted. The first line that does not match is line 2 of it: \\\"\\\\treturn a + b + 1;\\\". Nothing was changed. Quote the lines exactly as they are in the file, including indentation.\"}]}]}}",
+		"{\"t\":2,\"kind\":\"traceTurn\",\"data\":{\"kind\":\"traceTurn\",\"v\":2,\"turn\":2,\"requestDigest\":\"be2c81e0\",\"responseText\":\"Edited.\",\"streamEnd\":\"stop\",\"toolCalls\":[],\"seed\":{\"requested\":null,\"honoured\":\"unknown\"}}}",
+		"{\"t\":2,\"kind\":\"outcome\",\"data\":{\"status\":\"completed\"}}",
+		"{\"t\":0,\"kind\":\"turn\",\"data\":{\"kind\":\"turn\",\"label\":\"Model turn 1\",\"at\":1452}}",
+		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"turn\":1,\"model\":\"onyx:auto\",\"tools\":[],\"messages\":[{\"role\":0,\"content\":[{\"type\":\"text\",\"value\":\"You are Onyx, editing code locally. The user selected a piece of code and gives one instruction.\\nReply ONLY with one or more edit blocks in exactly this format:\\n<<<<<<< SEARCH\\n(lines copied exactly from the selection)\\n=======\\n(the replacement lines)\\n>>>>>>> REPLACE\\nRules: copy SEARCH lines character-for-character from the selection. Keep each block small. Do not explain. Do not use markdown fences.\"}]},{\"role\":1,\"content\":[{\"type\":\"text\",\"value\":\"File: src/math.ts (plaintext)\\nSelected code:\\nexport function addNumbers(a: number, b: number): number {\\n\\treturn a + b;\\n}\\n\\nInstruction: Swap the operands.\"}]}]}}",
+		"{\"t\":1,\"kind\":\"note\",\"data\":{\"kind\":\"note\",\"label\":\"The file changed while the model was working, so its edit no longer fits what you see. Nothing was changed — press ⏎ to ask again with the current text.\",\"ok\":false,\"at\":1453}}",
+		"{\"t\":1,\"kind\":\"outcome\",\"data\":{\"status\":\"cancelled\"}}"
 	]
 }

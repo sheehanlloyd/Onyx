@@ -100,7 +100,7 @@ const invariants = Array.from({ length: 14 }, (_, index) => `I-${String(index + 
 const summary = {
 	revision: state.revision, dirtySourceEntries: state.dirtyEntries,
 	campaign: { episodes, firstSeed: 1, shardSize: shard, ranWithoutViolation: ran, failedShards, classesSeen, seconds: Math.round(campaignSeconds), episodesPerSecondIncludingProcessStarts: Math.round(episodes / campaignSeconds), scriptedWorkflowsAndInjectionCorpus: 'run in every shard beside its seeded episodes' },
-	injectionCorpus: { episodes: corpus.length, surfaces: injection.SIM_INJECTION_SURFACES, effects: injection.SIM_INJECTION_EFFECTS, userDecisions: ['deny', 'allow-once'], notSimulated: ['commit messages', 'the documentation index', 'playbooks', 'a note already in memory'] },
+	injectionCorpus: { episodes: corpus.length, surfaces: injection.SIM_INJECTION_SURFACES, effects: injection.SIM_INJECTION_EFFECTS, userDecisions: ['deny', 'allow-once'], notSimulated: [] },
 	mutation: {
 		total: rows.length, killed: killed.length, score, episodesPerMutant: mutantEpisodes, firstSeed: 1, seconds: Math.round(mutantSeconds),
 		resurrectedDefects: rows.filter(row => !row.id.startsWith('G-')).length, genericOnly: rows.filter(row => row.id.startsWith('G-')).length,

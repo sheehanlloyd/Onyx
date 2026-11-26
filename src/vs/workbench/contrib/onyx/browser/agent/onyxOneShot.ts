@@ -73,6 +73,10 @@ export async function runOneShot(
 		// The run's own token when the request belongs to a run (B10): Stop in the control plane and the caller's
 		// own cancel both end the request, because the run was begun with the caller's token.
 		const response = await modelService.sendChatRequest(requestedModel, messages, undefined, { modelOptions: { maxTokens: options?.maxTokens ?? ONYX_ONE_SHOT_MAX_TOKENS, ...options?.sampling } }, options?.run?.token ?? token);
+		// A request that fails ends its stream and its result with the same error. The stream's is the one the
+		// caller is given; without this the result's would be an unhandled rejection (found by the rig, L1).
+		const result = Promise.resolve(response.result);
+		result.catch(() => undefined);
 		let text = '';
 		for await (const part of response.stream) {
 			for (const one of Array.isArray(part) ? part : [part]) {
@@ -82,7 +86,7 @@ export async function runOneShot(
 				}
 			}
 		}
-		await response.result;
+		await result;
 		return text;
 	} finally {
 		options?.controlPlane?.updateCompute({ inFlight: false });

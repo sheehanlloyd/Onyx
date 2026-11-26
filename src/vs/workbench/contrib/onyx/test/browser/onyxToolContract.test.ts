@@ -123,12 +123,13 @@ suite('OnyxToolContract', () => {
 			// Asking by name does not admit a tool the opt-in has not.
 			askedWithoutTheOptIn: await advertised({ prompt: 'Open the docs page in the browser' }),
 		}, {
-			defaultEightSlots: [...ONYX_ESSENTIAL_TOOLS, 'remember', 'usages'],
-			defaultManySlots: [...ONYX_ESSENTIAL_TOOLS, 'remember', 'usages', 'testFailure'],
-			networkManySlots: [...ONYX_ESSENTIAL_TOOLS, 'remember', 'usages', 'testFailure', 'openBrowserPage', 'readPage', 'vscode_fetchWebPage_internal'],
-			networkEightSlots: [...ONYX_ESSENTIAL_TOOLS, 'remember', 'usages'],
+			// The documentation mirror and the playbooks are Onyx's own optional tools; the rig has registered them since D11.
+			defaultEightSlots: [...ONYX_ESSENTIAL_TOOLS, 'docs', 'remember'],
+			defaultManySlots: [...ONYX_ESSENTIAL_TOOLS, 'docs', 'remember', 'playbook', 'usages', 'testFailure'],
+			networkManySlots: [...ONYX_ESSENTIAL_TOOLS, 'docs', 'remember', 'playbook', 'usages', 'testFailure', 'openBrowserPage', 'readPage', 'vscode_fetchWebPage_internal'],
+			networkEightSlots: [...ONYX_ESSENTIAL_TOOLS, 'docs', 'remember'],
 			networkEightSlotsAsked: [...ONYX_ESSENTIAL_TOOLS, 'openBrowserPage', 'readPage'],
-			askedWithoutTheOptIn: [...ONYX_ESSENTIAL_TOOLS, 'remember', 'usages'],
+			askedWithoutTheOptIn: [...ONYX_ESSENTIAL_TOOLS, 'docs', 'remember'],
 		});
 	});
 

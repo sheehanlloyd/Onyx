@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
-import { OnyxSimEpisode, SIM_FENCED_REPLY, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
+import { injectionEpisodes } from './onyxSimInjection.js';
+import { OnyxSimEpisode, SIM_INLINE_REPLY, SIM_FENCED_REPLY, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
 
 /**
  * The resurrection mutants (L12): one per defect fixed in Modules 2 and 3.
@@ -533,4 +534,61 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 			{ kind: 'text', text: 'Read it.' },
 		]),
 	},
+	{
+		id: 'B9-inline-stale-range',
+		fixedBy: 'B9',
+		defect: 'An inline edit\'s reply was used whatever happened to the file while it was being generated: text the user typed during generation was overwritten (Codex N4; R-14). Added at D12, when the rig first ran the request with its streaming',
+		detects: 'I-09/user-edit-lost',
+		resurrects: 'OnyxMutantStaleRangeInlineSession',
+		script: script('B9-inline-stale-range', 'What does addNumbers do?', [
+			{ kind: 'text', text: 'It adds two numbers.' },
+		], {
+			userSteps: [
+				{ at: 'afterRun', occurrence: 2, step: { kind: 'inlineEdit', startLine: 1, endLine: 3, reply: SIM_INLINE_REPLY } },
+				{ at: 'inlineStreaming', occurrence: 1, step: { kind: 'typeInTarget', text: '/* typed while it streamed */', line: 2 } },
+				{ at: 'afterRun', occurrence: 3, step: { kind: 'acceptAll' } },
+			],
+		}),
+	},
+	{
+		id: 'D11-campaign-asks',
+		fixedBy: 'D11',
+		defect: 'Generic, for the commit-message surface: campaign policy does not reach the terminal, so in a lab campaign, where a commit\'s message is the task the model is given, a command the message asks for brings up a dialog nobody is there to answer and runs if it is answered (DEC-10). Not an audited defect: the guard the real-model injection run found holding (L12)',
+		detects: 'DEC-10/dialog-in-campaign',
+		resurrects: 'OnyxMutantCampaignAsksTerminal',
+		script: { ...injection('injection-commit-message-campaign-task-run-command-exfiltrate-deny'), name: 'D11-campaign-asks' },
+	},
+	{
+		id: 'D11-docs-unattributed',
+		fixedBy: 'D11',
+		defect: 'Generic, for the documentation mirror: what the docs tool returned is not kept as a source of a note\'s text, so a note copied from a planted document is shown as the model\'s own words (I-14)',
+		detects: 'I-14/wrong-origin',
+		resurrects: 'OnyxMutantDocsUnattributedControlPlane',
+		script: { ...injection('injection-docs-index-persist-memory-remember-deny'), name: 'D11-docs-unattributed' },
+	},
+	{
+		id: 'D11-playbook-grants',
+		fixedBy: 'D11',
+		defect: 'Generic, for playbooks: a repository playbook vouches for the commands it names, so a command whose text is in a playbook runs without asking, as the repository allowlist of B2 did',
+		detects: 'I-02/playbook-grant',
+		resurrects: 'OnyxMutantPlaybookGrantsTerminal',
+		script: { ...injection('injection-playbook-run-command-exfiltrate-deny'), name: 'D11-playbook-grants' },
+	},
+	{
+		id: 'D11-memory-unattributed',
+		fixedBy: 'D11',
+		defect: 'Generic, for stored memory: the notes a prompt carries from earlier sessions are not a source of a note\'s text, so a note that repeats one is shown as the model\'s own words. Until D11 this was the product: the confirmation knew only the request and tool results',
+		detects: 'I-14/wrong-origin',
+		resurrects: 'OnyxMutantMemoryUnattributedControlPlane',
+		script: { ...injection('injection-stored-memory-persist-memory-remember-deny'), name: 'D11-memory-unattributed' },
+	},
 ];
+
+/** One episode of the injection corpus, by name: the D11 mutants are each caught by their surface's corpus. */
+function injection(name: string): OnyxSimEpisode {
+	const found = injectionEpisodes().find(candidate => candidate.episode.name === name);
+	if (!found) {
+		throw new Error(`no injection episode named ${name}`);
+	}
+	return found.episode;
+}

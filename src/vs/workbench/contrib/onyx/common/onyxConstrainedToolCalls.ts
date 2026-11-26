@@ -28,7 +28,9 @@ export interface IOnyxEnvelopeTool {
  * enumerated, so a runtime that enforces the schema cannot produce one that
  * is not on the list.
  */
-export function buildToolEnvelopeFormat(tools: readonly IOnyxEnvelopeTool[], anchoredEdit?: object): unknown {
+export function buildToolEnvelopeFormat(tools: readonly IOnyxEnvelopeTool[], anchoredEdit?: object, options: { readonly answer?: boolean } = {}): unknown {
+	// Without the answer action (`constrained-edit-first`, a lab arm) a turn can only call a tool.
+	const actions = [...(options.answer === false ? ['tool'] : ['tool', 'answer']), ...(anchoredEdit ? ['edit'] : [])];
 	return {
 		type: 'json_schema',
 		json_schema: {
@@ -37,7 +39,7 @@ export function buildToolEnvelopeFormat(tools: readonly IOnyxEnvelopeTool[], anc
 			schema: {
 				type: 'object',
 				properties: {
-					action: { type: 'string', enum: anchoredEdit ? ['tool', 'answer', 'edit'] : ['tool', 'answer'] },
+					action: { type: 'string', enum: actions },
 					tool: { type: 'string', enum: tools.map(tool => tool.name) },
 					arguments: { type: 'object' },
 					answer: { type: 'string' },
@@ -50,8 +52,14 @@ export function buildToolEnvelopeFormat(tools: readonly IOnyxEnvelopeTool[], anc
 	};
 }
 
-/** The system-prompt line that teaches the envelope. Kept in one place so prompt and schema cannot drift. */
-export function toolEnvelopeInstruction(): string {
+/**
+ * The system-prompt line that teaches the envelope. Kept in one place so prompt and schema cannot drift.
+ * `editFirst`: the answer action is offered only once the run has staged an edit (`constrained-edit-first`).
+ */
+export function toolEnvelopeInstruction(editFirst = false): string {
+	if (editFirst) {
+		return `Respond with exactly one JSON object per turn: {"action":"tool","tool":"<name>","arguments":{...}} to call a tool. Once you have proposed your change with the ${ONYX_ANCHORED_EDIT_TOOL} tool you may also give {"action":"answer","answer":"<your final answer>"} when done. No other text.`;
+	}
 	return 'Respond with exactly one JSON object per turn: {"action":"tool","tool":"<name>","arguments":{...}} to call a tool, or {"action":"answer","answer":"<your final answer>"} when done. No other text.';
 }
 

@@ -115,6 +115,27 @@
 			"hash": "fefa777b2d60e7fa",
 			"count": 120,
 			"tasksFileSha256": "37e7a840e959421b1662ac709a624408f28f854818da56b8f80ca412ee6558fe"
+		},
+		{
+			"campaign": "2026-11-26-determinism-edits",
+			"name": "the first 20 of H-2's 40 tasks (every third task of 2026-11-22-task-set)",
+			"hash": "4d5fd7c401a47d9b",
+			"count": 20,
+			"tasksFileSha256": "ed76661e06b1f99a3e9bbdb6d92e7d3b346583f22b4fd2138274a45beeb11919"
+		},
+		{
+			"campaign": "2026-11-26-eviction-forced",
+			"name": "the first 20 of H-2's 40 tasks (every third task of 2026-11-22-task-set)",
+			"hash": "4d5fd7c401a47d9b",
+			"count": 20,
+			"tasksFileSha256": "ed76661e06b1f99a3e9bbdb6d92e7d3b346583f22b4fd2138274a45beeb11919"
+		},
+		{
+			"campaign": "2026-11-26-protocol",
+			"name": "every third task of this repository's task set (2026-11-22-task-set, hash fefa777b2d60e7fa): 40 of 120",
+			"hash": "b62b7b60d3bf7a38",
+			"count": 40,
+			"tasksFileSha256": "2677333dd2248c308a7e923a4d8fdf2757b27c2373b8b06b7bd61f04e191c14b"
 		}
 	]
 }

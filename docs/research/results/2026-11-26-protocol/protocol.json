@@ -1,0 +1,295 @@
+{
+	"question": "Which tool-call protocol leads to an edit on record, with the campaign engine fixed (PREREGISTRATION.md, Amendment 5, A5.1)",
+	"records": 240,
+	"notAttempted": 0,
+	"perModel": [
+		{
+			"model": "qwen2.5-coder:1.5b",
+			"arms": [
+				{
+					"arm": "constrained-envelope",
+					"runs": 40,
+					"editOnRecord": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"editCall": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"success": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"meanRequests": 2.075
+				},
+				{
+					"arm": "repaired-text",
+					"runs": 40,
+					"editOnRecord": {
+						"count": 1,
+						"share": {
+							"value": 0.025,
+							"low": 0.0044268315026814095,
+							"high": 0.1288136896347409
+						}
+					},
+					"editCall": {
+						"count": 12,
+						"share": {
+							"value": 0.3,
+							"low": 0.18074845229746528,
+							"high": 0.45430018818144935
+						}
+					},
+					"success": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"meanRequests": 3.2
+				},
+				{
+					"arm": "constrained-edit-first",
+					"runs": 40,
+					"editOnRecord": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"editCall": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"success": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"meanRequests": 7.7
+				}
+			],
+			"pairs": [
+				{
+					"first": "repaired-text",
+					"second": "constrained-envelope",
+					"pairedTasks": 40,
+					"editOnRecordDifference": {
+						"value": 0.025,
+						"low": 0,
+						"high": 0.075
+					},
+					"successDifference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"moreEditsOnRecord": "neither"
+				},
+				{
+					"first": "constrained-edit-first",
+					"second": "constrained-envelope",
+					"pairedTasks": 40,
+					"editOnRecordDifference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"successDifference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"moreEditsOnRecord": "neither"
+				},
+				{
+					"first": "constrained-edit-first",
+					"second": "repaired-text",
+					"pairedTasks": 40,
+					"editOnRecordDifference": {
+						"value": -0.025,
+						"low": -0.075,
+						"high": 0
+					},
+					"successDifference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"moreEditsOnRecord": "neither"
+				}
+			],
+			"floor": false
+		},
+		{
+			"model": "qwen2.5-coder:7b",
+			"arms": [
+				{
+					"arm": "constrained-envelope",
+					"runs": 40,
+					"editOnRecord": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"editCall": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"success": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"meanRequests": 2
+				},
+				{
+					"arm": "repaired-text",
+					"runs": 40,
+					"editOnRecord": {
+						"count": 9,
+						"share": {
+							"value": 0.225,
+							"low": 0.12316091323540743,
+							"high": 0.37503096742310027
+						}
+					},
+					"editCall": {
+						"count": 22,
+						"share": {
+							"value": 0.55,
+							"low": 0.39829091798932054,
+							"high": 0.6929469218909508
+						}
+					},
+					"success": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"meanRequests": 3.75
+				},
+				{
+					"arm": "constrained-edit-first",
+					"runs": 40,
+					"editOnRecord": {
+						"count": 15,
+						"share": {
+							"value": 0.375,
+							"low": 0.24222979167233266,
+							"high": 0.5296756086269889
+						}
+					},
+					"editCall": {
+						"count": 34,
+						"share": {
+							"value": 0.85,
+							"low": 0.709276756335103,
+							"high": 0.9293881228267964
+						}
+					},
+					"success": {
+						"count": 0,
+						"share": {
+							"value": 0,
+							"low": 0,
+							"high": 0.08762160119728664
+						}
+					},
+					"meanRequests": 5.275
+				}
+			],
+			"pairs": [
+				{
+					"first": "repaired-text",
+					"second": "constrained-envelope",
+					"pairedTasks": 40,
+					"editOnRecordDifference": {
+						"value": 0.225,
+						"low": 0.1,
+						"high": 0.3506249999999994
+					},
+					"successDifference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"moreEditsOnRecord": "repaired-text"
+				},
+				{
+					"first": "constrained-edit-first",
+					"second": "constrained-envelope",
+					"pairedTasks": 40,
+					"editOnRecordDifference": {
+						"value": 0.375,
+						"low": 0.225,
+						"high": 0.525
+					},
+					"successDifference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"moreEditsOnRecord": "constrained-edit-first"
+				},
+				{
+					"first": "constrained-edit-first",
+					"second": "repaired-text",
+					"pairedTasks": 40,
+					"editOnRecordDifference": {
+						"value": 0.15,
+						"low": -0.025,
+						"high": 0.325
+					},
+					"successDifference": {
+						"value": 0,
+						"low": 0,
+						"high": 0
+					},
+					"moreEditsOnRecord": "neither"
+				}
+			],
+			"floor": false
+		}
+	],
+	"recommendation": "keep the default: no arm led to more edits on record than constrained-envelope for both models without losing more than 5 points of task success",
+	"howItIsCounted": "An edit on record: an entry of the record's edits with ok true. An edit call: any entry of edits. Success: labTaskSucceeded, from results.jsonl. Differences are paired by task, bootstrap over tasks, 1,000 resamples, seed 1; shares have Wilson intervals."
+}

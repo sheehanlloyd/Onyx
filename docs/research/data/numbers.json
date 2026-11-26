@@ -76,6 +76,33 @@
 			]
 		},
 		{
+			"name": "protocol",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-26-protocol/protocol.json",
+				"docs/research/results/2026-11-26-protocol/outcome-protocol.json"
+			]
+		},
+		{
+			"name": "determinism-edits",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-26-determinism-edits --editing-units",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-26-determinism-edits/determinism.json",
+				"docs/research/results/2026-11-26-determinism-edits/outcome-H-6-editing.json"
+			]
+		},
+		{
+			"name": "forced-eviction",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"run": "on every run without --skip-analyses",
+			"outputsComparedByteForByte": [
+				"docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+				"docs/research/results/2026-11-26-eviction-forced/outcome-H-9-condition.json"
+			]
+		},
+		{
 			"name": "edits",
 			"command": "node test/onyx/lab/analyze-edits.mts --out docs/research/results/2026-11-22-edit-mechanisms --campaign docs/research/results/2026-11-22-single-turn --campaign docs/research/results/2026-11-22-confidence --campaign docs/research/results/2026-11-22-attribution --anchors docs/research/results/2026-11-22-anchors-2",
 			"run": "only by `node test/onyx/lab/make-report.mts --slow`",
@@ -741,6 +768,87 @@
 			"value": 1952,
 			"unit": "seconds",
 			"source": "docs/research/results/2026-11-22-single-turn/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-26-determinism-edits.attempted",
+			"value": 200,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-26-determinism-edits/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-26-determinism-edits.succeeded",
+			"value": 0,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-26-determinism-edits/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-26-determinism-edits.seconds",
+			"value": 3635,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-26-determinism-edits/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-26-eviction-forced.attempted",
+			"value": 120,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-26-eviction-forced/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-26-eviction-forced.succeeded",
+			"value": 0,
+			"denominator": 120,
+			"source": "docs/research/results/2026-11-26-eviction-forced/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-26-eviction-forced.seconds",
+			"value": 952,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-26-eviction-forced/campaign.json",
+			"path": "machineSeconds",
+			"derivation": "committed"
+		},
+		{
+			"id": "campaign.2026-11-26-protocol.attempted",
+			"value": 237,
+			"denominator": 240,
+			"source": "docs/research/results/2026-11-26-protocol/results.jsonl",
+			"path": "rows whose outcome is \"attempted\"",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts",
+			"note": "the denominator is the units recorded; equal to the sum of summary.json rows, which is checked"
+		},
+		{
+			"id": "campaign.2026-11-26-protocol.succeeded",
+			"value": 0,
+			"denominator": 237,
+			"source": "docs/research/results/2026-11-26-protocol/results.jsonl",
+			"path": "rows whose success is true",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "campaign.2026-11-26-protocol.seconds",
+			"value": 3526,
+			"unit": "seconds",
+			"source": "docs/research/results/2026-11-26-protocol/campaign.json",
 			"path": "machineSeconds",
 			"derivation": "committed"
 		},
@@ -3122,17 +3230,17 @@
 		{
 			"id": "totals.exactReproductions",
 			"value": 0,
-			"denominator": 3182,
+			"denominator": 3739,
 			"source": "docs/research/results/*/results.jsonl",
 			"path": "successes over attempts, summed over every campaign on real tasks",
 			"derivation": "recount",
 			"command": "node test/onyx/lab/make-report.mts",
-			"note": "sums 14 campaigns: 2026-11-22-anchors 160, 2026-11-22-anchors-2 160, 2026-11-22-attribution 960, 2026-11-22-confidence 600, 2026-11-22-determinism 200, 2026-11-22-determinism-2 200, 2026-11-22-energy 216, 2026-11-22-engine-tier-a 8, 2026-11-22-engine-tier-s 24, 2026-11-22-eviction-agentic 120, 2026-11-22-rankings-brew 120, 2026-11-22-rankings-onyx 120, 2026-11-22-reference-measure 54, 2026-11-22-single-turn 240. Left out: 2026-11-22-injection (fixture tasks). Includes the two superseded campaigns and the two engine campaigns. Attempts are not independent: campaigns reuse tasks, and H-6 repeats each unit five times"
+			"note": "sums 17 campaigns: 2026-11-22-anchors 160, 2026-11-22-anchors-2 160, 2026-11-22-attribution 960, 2026-11-22-confidence 600, 2026-11-22-determinism 200, 2026-11-22-determinism-2 200, 2026-11-22-energy 216, 2026-11-22-engine-tier-a 8, 2026-11-22-engine-tier-s 24, 2026-11-22-eviction-agentic 120, 2026-11-22-rankings-brew 120, 2026-11-22-rankings-onyx 120, 2026-11-22-reference-measure 54, 2026-11-22-single-turn 240, 2026-11-26-determinism-edits 200, 2026-11-26-eviction-forced 120, 2026-11-26-protocol 237. Left out: 2026-11-22-injection (fixture tasks). Includes the two superseded campaigns and the two engine campaigns. Attempts are not independent: campaigns reuse tasks, and H-6 repeats each unit five times"
 		},
 		{
 			"id": "totals.attemptsInSupersededCampaigns",
 			"value": 360,
-			"denominator": 3182,
+			"denominator": 3739,
 			"source": "docs/research/results/*/results.jsonl",
 			"path": "attempts of 2026-11-22-anchors and 2026-11-22-determinism",
 			"derivation": "recount",
@@ -3140,7 +3248,7 @@
 		},
 		{
 			"id": "totals.attemptsOutsideSupersededCampaigns",
-			"value": 2822,
+			"value": 3379,
 			"source": "docs/research/results/*/results.jsonl",
 			"path": "attempts on real tasks less those of the superseded campaigns",
 			"derivation": "recount",
@@ -3148,7 +3256,7 @@
 		},
 		{
 			"id": "totals.realTaskCampaigns",
-			"value": 14,
+			"value": 17,
 			"source": "docs/research/results/*/results.jsonl",
 			"path": "campaigns on real tasks with a results.jsonl",
 			"derivation": "recount",
@@ -3193,17 +3301,17 @@
 		{
 			"id": "product.exactConfiguration.runsWithAnEdit",
 			"value": 0,
-			"denominator": 648,
+			"denominator": 728,
 			"source": "docs/research/results/*/traces/records.jsonl",
 			"path": "records with an edit, over the records of every configuration whose hash is 9801945d, the one H-6's manifest names \"product\"",
 			"derivation": "recount",
 			"command": "node test/onyx/lab/make-report.mts",
-			"note": "sums 2026-11-22-anchors/search-replace 80, 2026-11-22-anchors-2/search-replace 80, 2026-11-22-attribution/constrained-elide-numbered 80, 2026-11-22-determinism/product 200, 2026-11-22-determinism-2/product 200, 2026-11-22-engine-tier-a/shipping 8"
+			"note": "sums 2026-11-22-anchors/search-replace 80, 2026-11-22-anchors-2/search-replace 80, 2026-11-22-attribution/constrained-elide-numbered 80, 2026-11-22-determinism/product 200, 2026-11-22-determinism-2/product 200, 2026-11-22-engine-tier-a/shipping 8, 2026-11-26-protocol/constrained-envelope 80"
 		},
 		{
 			"id": "product.exactConfiguration.runsWithARejectedEditCall",
-			"value": 15,
-			"denominator": 648,
+			"value": 18,
+			"denominator": 728,
 			"source": "docs/research/results/*/traces/records.jsonl",
 			"path": "as above, records with a rejected editFile call",
 			"derivation": "recount",
@@ -3212,17 +3320,17 @@
 		{
 			"id": "product.constrainedSearchReplace.runsWithAnEdit",
 			"value": 0,
-			"denominator": 1008,
+			"denominator": 1088,
 			"source": "docs/research/results/*/traces/records.jsonl",
 			"path": "records with an edit, over every constrained-envelope, search-and-replace configuration on real tasks",
 			"derivation": "recount",
 			"command": "node test/onyx/lab/make-report.mts",
-			"note": "sums 2026-11-22-anchors/search-replace 80, 2026-11-22-anchors-2/search-replace 80, 2026-11-22-attribution/constrained-elide-numbered 80, 2026-11-22-attribution/constrained-elide-plain 80, 2026-11-22-attribution/constrained-whole-numbered 80, 2026-11-22-attribution/constrained-whole-plain 80, 2026-11-22-determinism/product 200, 2026-11-22-determinism-2/product 200, 2026-11-22-engine-tier-a/shipping 8, 2026-11-22-eviction-agentic/oldest-results-first 40, 2026-11-22-eviction-agentic/block-to-low-watermark 40, 2026-11-22-eviction-agentic/placeholder-results 40. H-9's arms run at half the product's context and two of them under another eviction policy"
+			"note": "sums 2026-11-22-anchors/search-replace 80, 2026-11-22-anchors-2/search-replace 80, 2026-11-22-attribution/constrained-elide-numbered 80, 2026-11-22-attribution/constrained-elide-plain 80, 2026-11-22-attribution/constrained-whole-numbered 80, 2026-11-22-attribution/constrained-whole-plain 80, 2026-11-22-determinism/product 200, 2026-11-22-determinism-2/product 200, 2026-11-22-engine-tier-a/shipping 8, 2026-11-22-eviction-agentic/oldest-results-first 40, 2026-11-22-eviction-agentic/block-to-low-watermark 40, 2026-11-22-eviction-agentic/placeholder-results 40, 2026-11-26-protocol/constrained-envelope 80. H-9's arms run at half the product's context and two of them under another eviction policy"
 		},
 		{
 			"id": "product.constrainedSearchReplace.runsWithARejectedEditCall",
-			"value": 38,
-			"denominator": 1008,
+			"value": 41,
+			"denominator": 1088,
 			"source": "docs/research/results/*/traces/records.jsonl",
 			"path": "as above, records with a rejected editFile call",
 			"derivation": "recount",
@@ -3316,6 +3424,533 @@
 			"path": "the largest `promptTokens` of any request",
 			"derivation": "recount",
 			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "a5.protocol.small.envelope.editOnRecord",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 0 / editOnRecord / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.small.envelope.editCalls",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 0 / editCall / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.small.envelope.succeeded",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 0 / success / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.small.envelope.meanRequests",
+			"value": 2.08,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 0 / meanRequests",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 2 decimals"
+		},
+		{
+			"id": "a5.protocol.small.repaired.editOnRecord",
+			"value": 1,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 1 / editOnRecord / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.small.repaired.editCalls",
+			"value": 12,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 1 / editCall / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.small.repaired.succeeded",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 1 / success / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.small.repaired.meanRequests",
+			"value": 3.2,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 1 / meanRequests",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 2 decimals"
+		},
+		{
+			"id": "a5.protocol.small.editFirst.editOnRecord",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 2 / editOnRecord / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.small.editFirst.editCalls",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 2 / editCall / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.small.editFirst.succeeded",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 2 / success / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.small.editFirst.meanRequests",
+			"value": 7.7,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / arms / 2 / meanRequests",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 2 decimals"
+		},
+		{
+			"id": "a5.protocol.small.repairedLessEnvelope",
+			"value": 0.025,
+			"interval": [
+				0,
+				0.075
+			],
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / pairs / 0 / editOnRecordDifference",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "a5.protocol.small.editFirstLessEnvelope",
+			"value": 0,
+			"interval": [
+				0,
+				0
+			],
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / pairs / 1 / editOnRecordDifference",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "a5.protocol.small.editFirstLessRepaired",
+			"value": -0.025,
+			"interval": [
+				-0.075,
+				0
+			],
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 0 / pairs / 2 / editOnRecordDifference",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "a5.protocol.large.envelope.editOnRecord",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 0 / editOnRecord / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.large.envelope.editCalls",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 0 / editCall / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.large.envelope.succeeded",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 0 / success / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.large.envelope.meanRequests",
+			"value": 2,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 0 / meanRequests",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 2 decimals"
+		},
+		{
+			"id": "a5.protocol.large.repaired.editOnRecord",
+			"value": 9,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 1 / editOnRecord / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.large.repaired.editCalls",
+			"value": 22,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 1 / editCall / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.large.repaired.succeeded",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 1 / success / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.large.repaired.meanRequests",
+			"value": 3.75,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 1 / meanRequests",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 2 decimals"
+		},
+		{
+			"id": "a5.protocol.large.editFirst.editOnRecord",
+			"value": 15,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 2 / editOnRecord / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.large.editFirst.editCalls",
+			"value": 34,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 2 / editCall / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.large.editFirst.succeeded",
+			"value": 0,
+			"denominator": 40,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 2 / success / count",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.protocol.large.editFirst.meanRequests",
+			"value": 5.28,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / arms / 2 / meanRequests",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 2 decimals"
+		},
+		{
+			"id": "a5.protocol.large.repairedLessEnvelope",
+			"value": 0.225,
+			"interval": [
+				0.1,
+				0.351
+			],
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / pairs / 0 / editOnRecordDifference",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "a5.protocol.large.editFirstLessEnvelope",
+			"value": 0.375,
+			"interval": [
+				0.225,
+				0.525
+			],
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / pairs / 1 / editOnRecordDifference",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "a5.protocol.large.editFirstLessRepaired",
+			"value": 0.15,
+			"interval": [
+				-0.025,
+				0.325
+			],
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "perModel / 1 / pairs / 2 / editOnRecordDifference",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 1, rounded to 3 decimals"
+		},
+		{
+			"id": "a5.protocol.records",
+			"value": 240,
+			"source": "docs/research/results/2026-11-26-protocol/protocol.json",
+			"path": "records",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-protocol.mts docs/research/results/2026-11-26-protocol",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.determinism.editingUnits",
+			"value": 27,
+			"source": "docs/research/results/2026-11-26-determinism-edits/outcome-H-6-editing.json",
+			"path": "editingUnits / units",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-26-determinism-edits --editing-units",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.determinism.editingComparisons",
+			"value": 108,
+			"source": "docs/research/results/2026-11-26-determinism-edits/outcome-H-6-editing.json",
+			"path": "editingUnits / comparisons",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-26-determinism-edits --editing-units",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.determinism.editingIdentical",
+			"value": 104,
+			"source": "docs/research/results/2026-11-26-determinism-edits/outcome-H-6-editing.json",
+			"path": "editingUnits / identical",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-26-determinism-edits --editing-units",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.determinism.editingShare",
+			"value": 96.3,
+			"interval": [
+				90.9,
+				98.6
+			],
+			"unit": "percent",
+			"source": "docs/research/results/2026-11-26-determinism-edits/outcome-H-6-editing.json",
+			"path": "editingShare",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-26-determinism-edits --editing-units",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses",
+			"note": "times 100, rounded to 1 decimals"
+		},
+		{
+			"id": "a5.determinism.allComparisons",
+			"value": 160,
+			"source": "docs/research/results/2026-11-26-determinism-edits/outcome-H-6-editing.json",
+			"path": "allComparisons / comparisons",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-26-determinism-edits --editing-units",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.determinism.allIdentical",
+			"value": 156,
+			"source": "docs/research/results/2026-11-26-determinism-edits/outcome-H-6-editing.json",
+			"path": "allComparisons / identical",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-determinism.mts docs/research/results/2026-11-26-determinism-edits --editing-units",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.oldest.runs",
+			"value": 40,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 0 / runs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.oldest.evicted",
+			"value": 20,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 0 / runsThatEvicted",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.oldest.succeeded",
+			"value": 0,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 0 / succeeded",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.oldest.editOnRecord",
+			"value": 7,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 0 / editOnRecord",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.block.runs",
+			"value": 40,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 1 / runs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.block.evicted",
+			"value": 20,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 1 / runsThatEvicted",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.block.succeeded",
+			"value": 0,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 1 / succeeded",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.block.editOnRecord",
+			"value": 7,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 1 / editOnRecord",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.placeholder.runs",
+			"value": 40,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 2 / runs",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.placeholder.evicted",
+			"value": 20,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 2 / runsThatEvicted",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.placeholder.succeeded",
+			"value": 0,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 2 / succeeded",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.placeholder.editOnRecord",
+			"value": 7,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "policies / 2 / editOnRecord",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.block.pairedUnits",
+			"value": 20,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "conditions / 0 / pairedUnits",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.placeholder.pairedUnits",
+			"value": 20,
+			"source": "docs/research/results/2026-11-26-eviction-forced/forced-eviction.json",
+			"path": "conditions / 1 / pairedUnits",
+			"derivation": "analysis",
+			"command": "node test/onyx/lab/analyze-forced-eviction.mts docs/research/results/2026-11-26-eviction-forced",
+			"rerun": "on every run of `node test/onyx/lab/make-report.mts` without --skip-analyses"
+		},
+		{
+			"id": "a5.eviction.contextTokens",
+			"value": 3584,
+			"unit": "tokens",
+			"source": "docs/research/PREREGISTRATION.md",
+			"path": "\"a context of 3,584 tokens\"",
+			"derivation": "registered"
 		}
 	]
 }

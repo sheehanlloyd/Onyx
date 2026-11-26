@@ -35,7 +35,9 @@ export interface IOnyxHarnessConfig {
 	 * tool-call channel. `repaired-text`: that channel, and a call the model
 	 * wrote as text is recognised and run. `constrained-envelope`: every turn
 	 * is decoded against the tool-or-answer schema, with the text repair
-	 * behind it.
+	 * behind it. `constrained-edit-first` (a lab arm only, Amendment 5): the
+	 * same envelope, except that it has no answer action until the run has
+	 * staged an edit, so a turn can end the run only after one.
 	 */
 	readonly toolCallProtocol: OnyxToolCallProtocol;
 	/**
@@ -64,10 +66,15 @@ export interface IOnyxHarnessConfig {
 	readonly maxTools: number;
 }
 
-export type OnyxToolCallProtocol = 'native' | 'repaired-text' | 'constrained-envelope';
+export type OnyxToolCallProtocol = 'native' | 'repaired-text' | 'constrained-envelope' | 'constrained-edit-first';
 export type OnyxEditProtocol = 'search-replace' | 'constrained-anchors';
 export type { OnyxEvictionPolicy };
 export type OnyxToolSlotPolicy = 'essentials-first';
+
+/** Whether a protocol decodes every turn against the envelope schema. */
+export function isConstrainedProtocol(protocol: OnyxToolCallProtocol): boolean {
+	return protocol === 'constrained-envelope' || protocol === 'constrained-edit-first';
+}
 
 /** Below this share of well-formed tool calls a model's turns are constrained, when its runtime can enforce a schema. */
 export const ONYX_CONSTRAIN_BELOW_TOOL_CALL_QUALITY = 0.75;
@@ -123,7 +130,7 @@ export interface IOnyxLabSampling {
 	readonly temperature?: number;
 }
 
-const PROTOCOLS: readonly OnyxToolCallProtocol[] = ['native', 'repaired-text', 'constrained-envelope'];
+const PROTOCOLS: readonly OnyxToolCallProtocol[] = ['native', 'repaired-text', 'constrained-envelope', 'constrained-edit-first'];
 const PROMPT_STYLES: readonly OnyxPromptStyle[] = ['compact', 'full'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {

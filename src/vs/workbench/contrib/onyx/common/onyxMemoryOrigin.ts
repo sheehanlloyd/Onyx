@@ -17,7 +17,21 @@ export type OnyxNoteOrigin =
 	| { readonly kind: 'user' }
 	/** The text, or a run of its words, is in what the named tool returned during this run. */
 	| { readonly kind: 'tool-result'; readonly tool: string }
+	/**
+	 * The text is in what this run's prompt carried from the workspace (D11): a note remembered in an earlier
+	 * session, or the index of the repository's playbooks. Neither is a tool's result, and neither is the
+	 * model's own; the user is told which it is.
+	 */
+	| { readonly kind: 'context'; readonly source: OnyxContextSource }
 	| { readonly kind: 'model' };
+
+/** Workspace text a prompt carries besides the request: remembered notes, and the playbook index. */
+export type OnyxContextSource = 'memory' | 'playbooks';
+
+export interface IOnyxContextText {
+	readonly source: OnyxContextSource;
+	readonly text: string;
+}
 
 export interface IOnyxRunText {
 	readonly tool: string;
@@ -54,10 +68,16 @@ function sharesText(note: string, source: string): boolean {
  * A tool result outranks the user's request: when the text is in both, the
  * warning that it also arrived from a tool is the one worth showing.
  */
-export function describeNoteOrigin(note: string, userRequest: string, toolResults: readonly IOnyxRunText[]): OnyxNoteOrigin {
+export function describeNoteOrigin(note: string, userRequest: string, toolResults: readonly IOnyxRunText[], contextTexts: readonly IOnyxContextText[] = []): OnyxNoteOrigin {
 	for (let index = toolResults.length - 1; index >= 0; index--) {
 		if (sharesText(note, toolResults[index].text)) {
 			return { kind: 'tool-result', tool: toolResults[index].tool };
+		}
+	}
+	// What the prompt carried from the workspace outranks the request for the same reason a tool result does.
+	for (let index = contextTexts.length - 1; index >= 0; index--) {
+		if (sharesText(note, contextTexts[index].text)) {
+			return { kind: 'context', source: contextTexts[index].source };
 		}
 	}
 	if (sharesText(note, userRequest)) {

@@ -20,7 +20,7 @@ import { ILanguageModelToolsService, IToolData } from '../../../chat/common/tool
 import { IOnyxBudgetedMessage, IOnyxTurnPlan, isContextOverflowError, OnyxBudgetedKind, OnyxEvictionPolicy, outputCapTokens, planTurn } from '../../common/onyxContextBudget.js';
 import { elideMiddle } from '../../common/onyxContextCompression.js';
 import { runtimeEnforcesSchema } from '../../common/onyxDatasheet.js';
-import { IOnyxResolvedHarness } from '../../common/onyxHarnessConfig.js';
+import { IOnyxResolvedHarness, isConstrainedProtocol } from '../../common/onyxHarnessConfig.js';
 import { buildToolEnvelopeFormat, OnyxEnvelopeAnswerStream, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters, ONYX_ANCHORED_EDIT_TOOL } from '../../common/onyxConstrainedToolCalls.js';
 import { IOnyxAssistantTextStream, OnyxAssistantTextStream, OnyxPlainTextStream } from '../../common/onyxTextToolCalls.js';
 import { classifyStreamEnd, digestValue, IOnyxTraceHeader, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
@@ -223,14 +223,16 @@ export class OnyxAgentLoop {
 		// tool_calls channel, on a runtime that can enforce a JSON schema), every turn is constrained to the
 		// tool/answer envelope. A constrained turn can be wrong, but it cannot be malformed. A run with no
 		// tools has no call to constrain.
-		const constrained = tools.length > 0 && configuration.toolCallProtocol === 'constrained-envelope';
+		const constrained = tools.length > 0 && isConstrainedProtocol(configuration.toolCallProtocol);
+		// The envelope with no answer action until an edit is staged (Amendment 5, a lab arm only).
+		const editFirst = constrained && configuration.toolCallProtocol === 'constrained-edit-first';
 		// Whether a call the model wrote as text is recognised and run. Only the bare native protocol does not.
 		const repairsText = configuration.toolCallProtocol !== 'native';
 		// Constrained anchors (L7, experimental, a lab arm): the anchors of an edit are chosen from an
 		// enumeration, which means something only where a schema is decoded against and the runtime was
 		// measured to enforce it. Without either the protocol is unavailable, and the run says so.
 		const anchorsUnavailable = configuration.editProtocol !== 'constrained-anchors' ? undefined
-			: !constrained ? 'this run does not decode against a schema (its tool-call protocol is not constrained-envelope)'
+			: !constrained ? 'this run does not decode against a schema (its tool-call protocol is not constrained)'
 				: !(profile.runtimeEnforcesSchema === true && profile.provenance?.schemaEnforcement === 'measured') ? 'the model\'s datasheet does not show that the runtime enforces an enumeration; measure the model first'
 					: !tools.some(tool => tool.name === ONYX_ANCHORED_EDIT_TOOL) ? 'the edit tool is not part of this run' : undefined;
 		const anchors = configuration.editProtocol === 'constrained-anchors' && anchorsUnavailable === undefined;
@@ -266,6 +268,10 @@ export class OnyxAgentLoop {
 		const promptBuilder = this._instantiationService.createInstance(OnyxPromptBuilder);
 		const built = await promptBuilder.build(request, history, profile, tools.map(t => t.name));
 		run.setContextBudget(built.budget);
+		// What the prompt carries from the workspace besides the request: a note copied from it is shown as coming from there (I-14, D11).
+		for (const context of built.contextTexts) {
+			run.noteContext(context.source, context.text);
+		}
 		const messages: IChatMessage[] = built.messages;
 		// What each message is to the context budget (B13). The builder returns the system prompt first and the
 		// request last, with earlier turns and the retrieved workspace context between; whatever the run adds
@@ -275,7 +281,7 @@ export class OnyxAgentLoop {
 		if (constrained) {
 			// After the main system prompt, before any history: the envelope
 			// instruction must match the schema the runtime will enforce.
-			const instruction: IChatMessage = { role: ChatMessageRole.System, content: [{ type: 'text', value: anchors ? `${toolEnvelopeInstruction()} ${anchorEditInstruction()}` : toolEnvelopeInstruction() }] };
+			const instruction: IChatMessage = { role: ChatMessageRole.System, content: [{ type: 'text', value: anchors ? `${toolEnvelopeInstruction(editFirst)} ${anchorEditInstruction()}` : toolEnvelopeInstruction(editFirst) }] };
 			messages.splice(1, 0, instruction);
 			kinds.set(instruction, 'system');
 		}
@@ -288,6 +294,8 @@ export class OnyxAgentLoop {
 		let overflowRetried = false;
 
 		let anyToolRan = false;
+		// Whether this run has staged an edit: under `constrained-edit-first` the answer action is offered only after one.
+		let editStaged = false;
 
 		for (let turn = 0; turn < maxTurns && !token.isCancellationRequested; turn++) {
 			run.setTurnCount(turn + 1);
@@ -344,7 +352,7 @@ export class OnyxAgentLoop {
 			// A campaign's seed and temperature go with the request (L9): the trace header records them as sent.
 			const sampling = { ...(harness.sampling?.seed !== undefined ? { seed: harness.sampling.seed } : {}), ...(harness.sampling?.temperature !== undefined ? { temperature: harness.sampling.temperature } : {}) };
 			const requestOptions = constrained
-				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema), maxTokens, ...sampling } }
+				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema, { answer: !editFirst || editStaged }), maxTokens, ...sampling } }
 				: { tools, modelOptions: { maxTokens, ...sampling } };
 			const requestDigest = digestValue(messages);
 			const traceToolCalls: IOnyxTraceToolCall[] = [];
@@ -530,6 +538,9 @@ export class OnyxAgentLoop {
 					: { ...rawToolUse, name: unwrapped.name, parameters: unwrapped.parameters };
 				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, tools, run, progress, token, anchors ? { schema: anchorSchema } : undefined);
 				run.noteToolResult(toolUse.name, resultText);
+				if (ok && toolUse.name === ONYX_ANCHORED_EDIT_TOOL) {
+					editStaged = true;
+				}
 				traceToolCalls.push({ name: toolUse.name, argumentsDigest: digestValue(toolUse.parameters), resultDigest: traceDigest(resultText), ok });
 				// Small models drown in raw tool output; keep head and tail
 				// (signatures and errors) and mark the elided middle.

@@ -1,0 +1,67 @@
+{
+	"question": "H-9's condition, \"at equal task success\", on agentic runs that are certain to evict (PREREGISTRATION.md, Amendment 5, A5.3)",
+	"records": 120,
+	"notAttempted": 0,
+	"policies": [
+		{
+			"policy": "oldest-results-first",
+			"runs": 40,
+			"runsThatEvicted": 20,
+			"editOnRecord": 7,
+			"succeeded": 0,
+			"meanPromptTokensPerRequest": 1709.3333333333333,
+			"largestPromptTokens": 2635
+		},
+		{
+			"policy": "block-to-low-watermark",
+			"runs": 40,
+			"runsThatEvicted": 20,
+			"editOnRecord": 7,
+			"succeeded": 0,
+			"meanPromptTokensPerRequest": 1697.679487179487,
+			"largestPromptTokens": 2635
+		},
+		{
+			"policy": "placeholder-results",
+			"runs": 40,
+			"runsThatEvicted": 20,
+			"editOnRecord": 7,
+			"succeeded": 0,
+			"meanPromptTokensPerRequest": 1791.4551724137932,
+			"largestPromptTokens": 2635
+		}
+	],
+	"conditions": [
+		{
+			"policy": "block-to-low-watermark",
+			"pairedUnits": 20,
+			"successDifference": {
+				"value": 0,
+				"low": 0,
+				"high": 0
+			},
+			"editOnRecordDifference": {
+				"value": 0,
+				"low": 0,
+				"high": 0
+			},
+			"condition": "a floor: no run of any policy succeeded, so the condition holds only vacuously"
+		},
+		{
+			"policy": "placeholder-results",
+			"pairedUnits": 20,
+			"successDifference": {
+				"value": 0,
+				"low": 0,
+				"high": 0
+			},
+			"editOnRecordDifference": {
+				"value": 0,
+				"low": 0,
+				"high": 0
+			},
+			"condition": "a floor: no run of any policy succeeded, so the condition holds only vacuously"
+		}
+	],
+	"howItIsCounted": "A run evicted when its record has an eviction or replacement note. The condition is decided among runs that evicted, paired by model and task where oldest-first evicted too: the success difference (policy minus oldest-first) with a bootstrap interval over the pairs, 1,000 resamples, seed 1. promptTokens is the runtime's prompt_tokens, which counts the whole prompt and decides nothing."
+}

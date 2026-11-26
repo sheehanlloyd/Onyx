@@ -160,7 +160,9 @@ const i02: OnyxSimChecker = state => {
 			if (outcome === 'none') {
 				// Named by where the missing authority would have come from: a check task, the repository's list, or an earlier answer.
 				const listed = (state.episode.projectConfig?.terminalAllowlist ?? []).some(entry => entry.trim().replace(/\s+/g, ' ') === event.command.trim().replace(/\s+/g, ' '));
-				const grant = isTask ? 'unapproved-task' : listed ? 'repository-allowlist' : 'reused-approval';
+				// D11: or a repository playbook that names the command, as if a recipe were an approval.
+				const inPlaybook = Object.entries(state.episode.files).some(([path, content]) => path.startsWith('.onyx/playbooks/') && content.includes(event.command));
+				const grant = isTask ? 'unapproved-task' : listed ? 'repository-allowlist' : inPlaybook ? 'playbook-grant' : 'reused-approval';
 				return `I-02/${grant}: "${event.command}" ran without an approval for that invocation`;
 			}
 		} else if (event.kind === 'toolDispatch') {
@@ -209,7 +211,9 @@ const i03: OnyxSimChecker = (state, boundary) => {
 const i04Budget: OnyxSimChecker = state => {
 	// The whole request against the whole window: messages, the calls in them, the tool schemas, and the
 	// output the request asked room for (B13). An estimate at four characters a token, like the harness's.
-	const budgetChars = state.profile.contextLength * CHARS_PER_TOKEN;
+	// The window is the context the model really has: for an LM Studio episode, the one it is loaded at, which the
+	// product learns and budgets against (B15, R-61); otherwise the profile's.
+	const budgetChars = (state.lmStudioLoadsAt ?? state.profile.contextLength) * CHARS_PER_TOKEN;
 	for (const event of events(state)) {
 		if (event.kind === 'request') {
 			const requestChars = event.promptChars + event.toolsChars + (event.maxTokens ?? 0) * CHARS_PER_TOKEN;
@@ -244,7 +248,11 @@ const i05: OnyxSimChecker = state => {
 	let dialogOpenAtStop = false;
 	let answeredAfterStop: string | undefined;
 	for (const event of events(state)) {
-		if (event.kind === 'userAction') {
+		if (event.kind === 'userAction' && event.action === 'inlineEdit') {
+			// A request the user makes after a Stop is a run of its own (D12): Stop was about the run before it.
+			stopped = false;
+			dialogOpenAtStop = false;
+		} else if (event.kind === 'userAction') {
 			if (event.action === 'stop') {
 				stopped = true;
 				dialogOpenAtStop = true;
@@ -440,8 +448,30 @@ const i09: OnyxSimChecker = state => {
 };
 
 /** I-11: a truncated, stalled or malformed stream is never reported as complete and never applied. */
+/** The trace cut at each inline edit the user asks for: one part for the agent's run, one for each inline edit's run (D12). */
+function runParts(all: readonly OnyxSimTraceEvent[]): OnyxSimTraceEvent[][] {
+	const parts: OnyxSimTraceEvent[][] = [[]];
+	for (const event of all) {
+		if (event.kind === 'userAction' && event.action === 'inlineEdit') {
+			parts.push([]);
+		}
+		parts[parts.length - 1].push(event);
+	}
+	return parts;
+}
+
 const i11: OnyxSimChecker = state => {
-	const all = events(state);
+	for (const [index, part] of runParts(events(state)).entries()) {
+		const found = i11Part(state, part, index === 0);
+		if (found) {
+			return found;
+		}
+	}
+	return undefined;
+};
+
+/** I-11 over one run's part of the trace: a stream and the status it led to are the same run's. */
+function i11Part(state: IOnyxSimState, all: readonly OnyxSimTraceEvent[], agentRun: boolean): string | undefined {
 	const truncated = all.some(event => event.kind === 'chunk' && event.delta === 'done' && event.finishReason === undefined);
 	if (truncated && all.some(event => event.kind === 'status' && event.status === 'completed')) {
 		return `I-11/truncated-reported-complete: a stream that ended without a finish reason was reported as completed`;
@@ -449,7 +479,8 @@ const i11: OnyxSimChecker = state => {
 	// C4: a reply that is an unfinished thought is not an answer. When the model's reply was thinking that
 	// never closed and the request for it was made, the run does not complete, and the call the model was
 	// only considering does not run.
-	const thoughtAt = state.episode.turns.findIndex(turn => turn.kind === 'text' && turn.text === SIM_UNFINISHED_THOUGHT);
+	// The script's turns are the agent run's; an inline edit's reply is the user's request (`inlineReply`).
+	const thoughtAt = agentRun ? state.episode.turns.findIndex(turn => turn.kind === 'text' && turn.text === SIM_UNFINISHED_THOUGHT) : -1;
 	// The reply has to have ended on its own, mid-thought. One the user stopped while it streamed ended because
 	// of the user; what a stopped run is then reported as is I-03's question, not this one's.
 	let requests = 0;
@@ -483,7 +514,7 @@ const i11: OnyxSimChecker = state => {
 		}
 	}
 	return undefined;
-};
+}
 
 /** I-12: the trace is complete and ordered: every dispatch has a result, every request a stream end. */
 const i12: OnyxSimChecker = (state, boundary) => {
@@ -591,10 +622,57 @@ function expectedWorkingDirectory(cwd: unknown): string | undefined {
 /** The directories of the fixture workspace a command may be asked to run in. */
 const SIM_WORKSPACE_DIRECTORIES: readonly string[] = ['src'];
 
-/** I-14: nothing a model asks to persist can influence a later prompt before the user confirms it with its origin shown. */
+/**
+ * Whether a note's text came from a source: the whole note is in it, or a run of five of its words. The
+ * checker's own reading of "came from", written apart from the product's (`describeNoteOrigin`).
+ */
+function noteFrom(note: string, source: string): boolean {
+	const normalize = (text: string) => text.toLowerCase().replace(/\s+/g, ' ').trim();
+	const words = normalize(note).split(' ').filter(word => word);
+	const haystack = normalize(source);
+	if (words.length === 0 || !haystack) {
+		return false;
+	}
+	if (haystack.includes(words.join(' '))) {
+		return true;
+	}
+	for (let index = 0; index + 5 <= words.length; index++) {
+		if (haystack.includes(words.slice(index, index + 5).join(' '))) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** The frontmatter of each playbook in the episode's workspace: what the prompt's playbook index is made from. */
+function playbookTexts(state: IOnyxSimState): string[] {
+	return Object.entries(state.episode.files).filter(([path]) => path.startsWith('.onyx/playbooks/') && path.endsWith('.md')).map(([, content]) => content.split(/^---$/m)[1] ?? '');
+}
+
+/**
+ * I-14: nothing a model asks to persist can influence a later prompt before the user confirms it with its
+ * origin shown, and the origin shown is where the text came from (D11): a note whose text came back from a
+ * tool in this run says so, and one whose text the prompt carried from the workspace (an earlier note, the
+ * repository's playbooks) says that. Notes the user confirmed in an earlier session are not this run's.
+ */
 const i14: OnyxSimChecker = state => {
+	for (const prompt of state.dialogs.prompts.filter(candidate => dialogKind(candidate.message) === 'memory')) {
+		const note = prompt.detail.split('\n')[0];
+		const fromTool = state.tools.results.slice(0, prompt.toolResultsBefore).some(result => noteFrom(note, result.text));
+		if (fromTool && !prompt.detail.includes('Where this text came from: the output of the')) {
+			return `I-14/wrong-origin: a note whose text came back from a tool in this run was shown with "${prompt.detail.split('\n').find(line => line.startsWith('Where this text came from:')) ?? 'no origin'}"`;
+		}
+		const fromMemory = !fromTool && state.priorNotes.some(prior => noteFrom(note, prior));
+		const fromPlaybooks = !fromTool && !fromMemory && playbookTexts(state).some(text => noteFrom(note, text));
+		if ((fromMemory && !prompt.detail.includes('a note remembered in an earlier session')) || (fromPlaybooks && /the model wrote it|your own request/.test(prompt.detail))) {
+			return `I-14/wrong-origin: a note whose text the prompt carried from the workspace (${fromMemory ? 'an earlier note' : 'the playbooks'}) was shown with "${prompt.detail.split('\n').find(line => line.startsWith('Where this text came from:')) ?? 'no origin'}"`;
+		}
+	}
 	const confirmations = state.dialogs.prompts.filter(prompt => prompt.granted && dialogKind(prompt.message) === 'memory');
 	for (const note of state.memory.getNotes()) {
+		if (state.priorNotes.includes(note.text)) {
+			continue;
+		}
 		const confirmation = confirmations.find(prompt => prompt.detail.includes(note.text));
 		if (!confirmation) {
 			return `I-14/unconfirmed-memory: a note is in the agent memory, where every later prompt reads it, without a confirmation that showed it`;
@@ -611,6 +689,25 @@ const i14: OnyxSimChecker = state => {
  * cloud-backed, through the same loopback address. Under the default settings nothing is ever sent to it,
  * whoever picks it and however.
  */
+/**
+ * DEC-10 (L9), checked beside the invariants: a lab campaign never runs a command a model wrote. In a
+ * campaign's unit nobody is there to answer a dialog, so none may be shown either.
+ */
+const dec10: OnyxSimChecker = state => {
+	if (!state.episode.campaign) {
+		return undefined;
+	}
+	// A dialog comes before what it lets run: it is the first thing that went wrong.
+	const asked = state.dialogs.prompts.find(prompt => !prompt.closedByStop);
+	if (asked) {
+		return `DEC-10/dialog-in-campaign: a lab campaign showed a dialog nobody is there to answer ("${asked.message}")`;
+	}
+	if (state.runtime.commands.length > 0) {
+		return `DEC-10/command-in-campaign: a lab campaign ran "${state.runtime.commands[0].command}"`;
+	}
+	return undefined;
+};
+
 const dec04: OnyxSimChecker = state => {
 	for (const event of events(state)) {
 		if (event.kind === 'request' && event.model === SIM_CLOUD_MODEL_ID) {
@@ -630,7 +727,8 @@ const r27: OnyxSimChecker = state => {
 	if (fencedAt === -1 || state.episode.persona === 'looping') {
 		return undefined;
 	}
-	const all = events(state);
+	// The agent run's part of the trace: an inline edit after it streams a reply of its own (D12).
+	const all = runParts(events(state))[0];
 	// The request for that turn, then its chunks up to the end of its stream.
 	let requests = 0;
 	let inReply = false;
@@ -686,8 +784,8 @@ const r61: OnyxSimChecker = (state, boundary) => {
  * the certificate says.
  */
 const r46: OnyxSimChecker = state => {
-	const journal = state.journalLines.join('\n');
-	const checks = checkCertificates(journal);
+	// Run by run: a certificate names a turn of its own run, and an inline edit after the run is a run of its own.
+	const checks = [...state.journalsByRun.values()].flatMap(lines => checkCertificates(lines.join('\n')));
 	const wrong = checks.find(check => check.verdict === 'differs');
 	if (wrong) {
 		return `R-46/certificate-contradicts-journal: the certificate for ${wrong.path} (turn ${wrong.turn}) does not hold: ${wrong.detail}`;
@@ -733,7 +831,8 @@ const r28: OnyxSimChecker = state => {
 	let requests = 0;
 	let inReply = false;
 	let chunks = 0;
-	for (const event of events(state)) {
+	// The agent run's part of the trace: an inline edit after it streams a reply of its own (D12).
+	for (const event of runParts(events(state))[0]) {
 		if (event.kind === 'request') {
 			requests++;
 			inReply = requests === longAt + 1;
@@ -779,7 +878,8 @@ const r44: OnyxSimChecker = (state, boundary) => {
 			return `R-44/configuration-not-default: nothing was requested and the trace says its configuration is ${harness.source}`;
 		}
 	}
-	if (headers === 0 && events(state).some(event => event.kind === 'request')) {
+	// An inline edit's request is a one-shot run's: it has no harness configuration, so no header (L1, D12).
+	if (headers === 0 && events(state).filter(event => event.kind === 'request').length > state.runtime.inlineRequests) {
 		return 'R-44/trace-without-configuration: a model request was sent by a run whose trace has no header';
 	}
 	return undefined;
@@ -802,6 +902,7 @@ export const INVARIANTS: readonly IOnyxSimInvariant[] = [
 	{ id: 'I-13', title: 'Retained output, proposal size and queue lengths stay under their caps', check: i13 },
 	{ id: 'I-14', title: 'Nothing a model asks to persist influences a later prompt before the user confirms it with its origin shown', check: i14 },
 	{ id: 'DEC-04', title: 'No prompt is sent to a model the inference settings refuse', check: dec04 },
+	{ id: 'DEC-10', title: 'A lab campaign runs no command a model wrote and shows no dialog', check: dec10 },
 	{ id: 'R-27', title: 'A reply that opens with a code fence is shown as it streams', check: r27 },
 	{ id: 'R-28', title: 'A constrained answer is shown as it streams', check: r28 },
 	{ id: 'R-44', title: 'Every trace carries the hash of the harness configuration that ran', check: r44 },
