@@ -387,9 +387,10 @@ export class OnyxAssistantTextStream implements IOnyxAssistantTextStream {
 			return;
 		}
 		this._deciding = false;
-		this._text += this._held;
-		this._emit(this._held);
+		// What was held is prose, as far as its start goes; the rest of it still goes through the check for a call at its end.
+		const held = this._held;
 		this._held = '';
+		this._appendProse(held);
 	}
 
 	/**

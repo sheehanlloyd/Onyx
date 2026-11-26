@@ -101,6 +101,8 @@ suite('OnyxFencedStreaming', () => {
 		assert.deepStrictEqual({
 			// What the 7B wrote in the trial: prose, then a call as JSON on a line of its own.
 			afterProse: run(`${prose}{"name": "readFile", "arguments": {"path": "src/math.ts"}}`),
+			// The same reply arriving in one chunk, as a runtime that buffers sends it.
+			inOneChunk: run(`${prose}{"name": "readFile", "arguments": {"path": "src/math.ts"}}`, 10_000),
 			fenced: run(`${prose}\`\`\`json\n{"name": "readFile", "arguments": {"path": "src/math.ts"}}\n\`\`\``),
 			openAiShape: run(`${prose}{"type": "function", "function": {"name": "readFile", "arguments": "{\\"path\\": \\"src/math.ts\\"}"}}`),
 			// Not calls, and shown as they are.
@@ -112,6 +114,7 @@ suite('OnyxFencedStreaming', () => {
 			codeFence: run('Here it is:\n\n\`\`\`ts\nconst x = { a: 1 };\n\`\`\`'),
 		}, {
 			afterProse: { shown: prose, call: 'readFile {"path":"src/math.ts"}' },
+			inOneChunk: { shown: prose, call: 'readFile {"path":"src/math.ts"}' },
 			fenced: { shown: prose, call: 'readFile {"path":"src/math.ts"}' },
 			openAiShape: { shown: prose, call: 'readFile {"path":"src/math.ts"}' },
 			packageJson: { shown: 'The manifest should read:\n\n{"name": "my-app", "version": "1.0.0"}', call: undefined },
