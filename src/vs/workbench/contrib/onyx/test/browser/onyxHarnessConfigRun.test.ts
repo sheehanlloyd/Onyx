@@ -135,6 +135,20 @@ suite('OnyxHarnessConfigRun', () => {
 		});
 	});
 
+	test('Amendment 5: under constrained-edit-first the envelope has no answer action until the run has staged an edit, and the product\'s envelope always has one', async function () {
+		this.timeout(60_000);
+		const edit: OnyxSimModelTurn = { kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;', replace: '\treturn b + a;' } };
+		const constrainedEpisode = { ...episode([READ, edit, DONE]), constrained: true };
+		const actions = (result: IOnyxSimResult) => result.requests.map(request => ((request.responseFormat as { json_schema?: { schema?: { properties?: { action?: { enum?: string[] } } } } } | undefined)?.json_schema?.schema?.properties?.action?.enum ?? []).join('|'));
+		const editFirst = await runEpisode(constrainedEpisode, [], asked({ toolCallProtocol: 'constrained-edit-first' }));
+		const envelope = await runEpisode(constrainedEpisode, [], asked({ toolCallProtocol: 'constrained-envelope' }));
+		assert.deepStrictEqual({ editFirst: actions(editFirst), envelope: actions(envelope), editFirstStaged: editFirst.stagedPaths }, {
+			editFirst: ['tool', 'tool', 'tool|answer'],
+			envelope: ['tool|answer', 'tool|answer', 'tool|answer'],
+			editFirstStaged: ['src/math.ts'],
+		});
+	});
+
 	test('R-44: every trace carries the hash of the configuration that ran; a packaged build refuses a requested configuration, runs the default one and says so', async function () {
 		this.timeout(60_000);
 		const fiveReads = episode([READ, READ, READ, READ, READ, DONE]);

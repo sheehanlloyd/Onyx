@@ -92,7 +92,7 @@ suite('OnyxHarnessConfig', () => {
 			packaged: { source: 'default', requested: 'no-repair', refused: PACKAGED, changed: {}, hashIsOfWhatRan: true },
 			packagedAskingForTheDefault: PACKAGED,
 			// One wrong field refuses the whole request: the field that was right is not applied either.
-			wrongValues: { source: 'default', requested: 'no-repair', refused: 'turnCap must be a whole number from 1 to 64; toolCallProtocol must be one of native, repaired-text, constrained-envelope', changed: {}, hashIsOfWhatRan: true },
+			wrongValues: { source: 'default', requested: 'no-repair', refused: 'turnCap must be a whole number from 1 to 64; toolCallProtocol must be one of native, repaired-text, constrained-envelope, constrained-edit-first', changed: {}, hashIsOfWhatRan: true },
 			unknownField: 'approvalBypass is not a field of the harness configuration',
 			notAnObject: 'the configuration is not an object',
 			anEditProtocolThatDoesNotExist: 'editProtocol must be one of search-replace, constrained-anchors',

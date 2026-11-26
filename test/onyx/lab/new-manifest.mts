@@ -103,7 +103,7 @@ const manifest = {
 	createdAt: new Date().toISOString(),
 	models: manifestModels,
 	seeds: seeds.length ? seeds : [1],
-	sampling: { temperature: Number(flag('--temperature') ?? 0), maxTokens: Number(flag('--max-tokens') ?? 4096), ...(process.argv.includes('--logprobs') ? { logprobs: true } : {}), responseFormat: tier === 'A' && harnessConfigurations.some(entry => entry.configuration.toolCallProtocol === 'constrained-envelope') },
+	sampling: { temperature: Number(flag('--temperature') ?? 0), maxTokens: Number(flag('--max-tokens') ?? 4096), ...(process.argv.includes('--logprobs') ? { logprobs: true } : {}), responseFormat: tier === 'A' && harnessConfigurations.some(entry => entry.configuration.toolCallProtocol === 'constrained-envelope' || entry.configuration.toolCallProtocol === 'constrained-edit-first') },
 	harnessConfigurations,
 	taskSet: { name: taskSet.name, hash: taskSet.hash, count: taskSet.tasks.length },
 	repetitions,
