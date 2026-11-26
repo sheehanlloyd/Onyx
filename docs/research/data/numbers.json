@@ -3227,6 +3227,95 @@
 			"path": "as above, records with a rejected editFile call",
 			"derivation": "recount",
 			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "limits.h3.placedByBoth",
+			"value": 410,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/attempts.jsonl",
+			"path": "attempts placed by both exact-unique and fuzzy",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "limits.h3.placedByFuzzyOnly",
+			"value": 388,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/attempts.jsonl",
+			"path": "attempts placed by fuzzy and not by exact-unique",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "limits.h3.placedByExactOnly",
+			"value": 14,
+			"denominator": 1301,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/attempts.jsonl",
+			"path": "attempts placed by exact-unique and not by fuzzy",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "limits.h5.groundedScoringZero",
+			"value": 150,
+			"denominator": 163,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/attempts.jsonl",
+			"path": "grounded edits whose exact-unique score is 0",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "limits.h5.groundedHighestScore",
+			"value": 0.4,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/attempts.jsonl",
+			"path": "the highest exact-unique score of a grounded edit",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "limits.h5.ungroundedScoringZero",
+			"value": 36,
+			"denominator": 36,
+			"source": "docs/research/results/2026-11-22-edit-mechanisms/attempts.jsonl",
+			"path": "ungrounded edits whose exact-unique score is 0",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "limits.h6.runsWithTwoTurns",
+			"value": 190,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-22-determinism-2/traces/records.jsonl",
+			"path": "records with two requests",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "limits.h6.runsWithThreeTurns",
+			"value": 10,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-22-determinism-2/traces/records.jsonl",
+			"path": "records with three requests",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "limits.h6.runsWithAnEdit",
+			"value": 0,
+			"denominator": 200,
+			"source": "docs/research/results/2026-11-22-determinism-2/traces/records.jsonl",
+			"path": "records with a non-empty `edits` list",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
+		},
+		{
+			"id": "limits.h9.largestAgenticPrompt",
+			"value": 3384,
+			"unit": "tokens",
+			"source": "docs/research/results/2026-11-22-eviction-agentic/traces/records.jsonl",
+			"path": "the largest `promptTokens` of any request",
+			"derivation": "recount",
+			"command": "node test/onyx/lab/make-report.mts"
 		}
 	]
 }

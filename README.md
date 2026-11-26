@@ -28,7 +28,7 @@
 </p>
 
 - **Nothing changes without you.** A model's edit is staged and placed only where its quoted text matches your file exactly, once; otherwise it is refused and your file is untouched. Every shell command asks, every time, with Run Once or Deny.
-- **It measures instead of assuming.** A model's advertised abilities configure nothing. A one-minute datasheet measured on your Mac does, and `Onyx: Measure Models for This Repository` scores your models on tasks from your own git history, on your machine.
+- **It measures instead of assuming.** A model's advertised abilities configure nothing. A one-minute datasheet measured on your Mac does, and `Onyx: Measure Models for This Repository` scores your models on tasks from your own git history, on your machine. What the datasheet chooses is not yet shown to be the best choice: for both pinned models it selects the constrained envelope, under which neither got an edit on record in H-2's 160 runs each, while the repaired-text protocol had an edit on record in 79 runs (7B) and 53 (1.5B) ([REPORT.md](./docs/research/REPORT.md), "Limits of these verdicts").
 - **The evidence is in the repository, including the unflattering part.** A written harness contract, a simulation that checks it, ten pre-registered hypotheses with their outcomes, and a command for every number. With the two small models it is tested with, the agent rarely proposes an edit on a real task. [Research](#research) says how rarely.
 
 > **Status: experimental alpha, not yet released.** There is no download yet: a signed build needs an Apple Developer account the project does not have. Onyx is a fork of [Code - OSS](https://github.com/microsoft/vscode), tested on macOS 14 or later on Apple silicon with Ollama and two pinned models; everything else is best effort. [ROADMAP.md](./ROADMAP.md) says what is done and what is waiting.
@@ -69,9 +69,9 @@ Until then, [build from source](#building-from-source). Updating, rolling back a
 Onyx treats the model as an untrusted, measurable component, and the repository carries the measurements. Ten hypotheses were registered before their data existed ([PREREGISTRATION.md](./docs/research/PREREGISTRATION.md)): four are supported, one is refuted and five are inconclusive. The full account is [docs/research/REPORT.md](./docs/research/REPORT.md); every number below regenerates from committed data with the commands in [REPRODUCE.md](./docs/research/REPRODUCE.md). One machine, three small models, two repositories.
 
 1. **No model reproduced a real task.** Across every campaign, 0 of 3,182 attempts reproduced a task exactly, and under the product's own configuration neither pinned model got an edit as far as staging in 320 agent runs (in 18 the edit call was rejected for its arguments) ([L13](./docs/progress/L13.md), [results](./docs/research/results/)).
-2. **The harness's guarantees held under simulation.** 50,000 of 50,000 seeded episodes ran without a violation of the contract, and 41 of 41 test-only mutants were detected: 36 audited defects put back and 5 generic ones ([assurance](./docs/research/results/2026-11-22-assurance/)).
-3. **A fuzzy edit applier places more edits and is often silently wrong.** It placed 28.7 points more blocks than exact-or-refuse, and 53.8% of attempts under it ended silently wrong ([edit mechanisms](./docs/research/results/2026-11-22-edit-mechanisms/)).
-4. **Agent runs on a local runtime repeated exactly.** With temperature 0 and a fixed seed, 160 of 160 repetitions were identical; an earlier campaign, 146 of 160, was invalidated by a harness defect it found ([determinism](./docs/research/results/2026-11-22-determinism-2/)).
+2. **The harness's guarantees held under simulation.** On the second run, 50,000 of 50,000 seeded episodes ran without a violation of the contract; the first run printed two violations, which were judged to be the rig's own and fixed in the rig, a judgement the registration did not provide for. 41 of 41 test-only mutants were detected: 36 audited defects put back and 5 generic ones. The mutants and the checkers were written by the same authors ([assurance](./docs/research/results/2026-11-22-assurance/)).
+3. **A fuzzy edit applier places more edits and is often silently wrong.** It placed 28.7 points more blocks than exact-or-refuse, and 53.8% of attempts under it ended silently wrong; in 319 of its 798 placements the text it replaced was not text the model had quoted. Exact-or-refuse is not free of the problem: under the same definition 26.9% of attempts (350 of 1,301) ended silently wrong under it too, by changing a line the author had not ([edit mechanisms](./docs/research/results/2026-11-22-edit-mechanisms/)).
+4. **Agent runs on a local runtime repeated exactly.** With temperature 0 and a fixed seed, 160 of 160 repetitions were identical, on one machine, in runs of two or three turns in which no edit was proposed; an earlier campaign, 146 of 160, was invalidated by a harness defect it found ([determinism](./docs/research/results/2026-11-22-determinism-2/)).
 
 What these do not show: that the product is useful as an agent with small models (the first finding says it mostly is not), that the results hold on other hardware or with larger models, or anything about LM Studio for these hypotheses: every campaign ran on Ollama. LM Studio is measured in the [benchmark results](#benchmark-results) only.
 
@@ -94,7 +94,9 @@ What these do not show: that the product is useful as an agent with small models
   you keep.
 - **Routing on measured behaviour.** Quick edits go to fast small models,
   implementation and debugging to your strongest tool-callers, based on measured
-  tok/s, tool-call reliability and accept rates.
+  tok/s, tool-call reliability and accept rates. Whether the router picks well is
+  not measured yet: the reference run has 0 of 0 tournaments and 0 of 0 routed
+  runs with a recorded outcome ([L11](./docs/progress/L11.md)).
 - **A model library sized to your Mac.** `Onyx: Manage Models` reads unified
   memory and tells you which models fit, at which quantization and context
   window, then pulls them with one click and live progress.
@@ -198,9 +200,11 @@ model is verified to be local, because nothing verifies it.
   correct across files — while the local model only *proposes names*. Results
   stage for review, and after you accept, Onyx compares problem markers against
   the baseline and tells you.
-- **Verification after every run.** When the agent finishes editing, Onyx diffs
-  workspace problems against the pre-run baseline and can run your project's own build or
-  test task, posting the verdict to the timeline.
+- **Verification of what you accepted.** When you accept a hunk, Onyx waits for
+  fresh diagnostics of that file and compares them with the problems it had just
+  before, and, on the saved file, can run your project's own build or test task
+  (asking first), posting the verdict to the timeline. Staged and not accepted is
+  "not applied": nothing is verified before you accept it.
 
 ### It adapts to your repository
 
@@ -230,7 +234,9 @@ model is verified to be local, because nothing verifies it.
   message and must reproduce the change. Scores are F1 over the lines the author
   added and removed, capped when the model deletes a line the author kept, and
   they feed the router, so the routing adapts to measurements
-  on *your* code, with the evidence in a document you can read.
+  on *your* code, with the evidence in a document you can read. On the tasks of
+  this repository no model has reproduced a change yet, so those scores are low
+  for every model and have not yet been shown to rank them.
 - **Playbooks your repository checks in.** `.onyx/playbooks/*.md` are named,
   versionable recipes with validated frontmatter. The agent sees a one-line index
   and can pull one in; you can run one from the palette. Broken playbooks show up
@@ -393,9 +399,10 @@ requests for both Ollama qwen models and the LM Studio 7B, 4 of 6 for the LM
 Studio 1.5B and 3 of 6 for the 0.5B. With `response_format: json_schema`
 constraining the turn, every model reached 6 of 6 except the Ollama 1.5B, 5 of 6.
 
-The repair path is the only reason most of these models can call tools at all.
-That is a result about the models, not about Onyx, and it is why the tool loop
-was built to assume the channel will fail.
+Without the repair path or the constrained envelope, most of these models do not
+call tools at all. These are 6 requests per arm, and an unused tool channel is a
+property of the runtime's chat template for the model as much as of the model:
+it is why the tool loop was built to assume the channel will fail.
 
 ### Speculative decoding
 
@@ -566,7 +573,7 @@ To build the application bundle yourself, `pnpm run gulp vscode-darwin-arm64-min
 ## Testing
 
 ```bash
-./scripts/test.sh --grep Onyx      # the Onyx unit tests, including parser fuzzing and the simulation smoke
+./scripts/test.sh --grep Onyx      # the Onyx unit tests, including parser fuzzing, the simulation smoke and the trace replay
 node test/onyx/mock-ollama.mts     # an OpenAI-compatible mock, no model needed
 node test/onyx/run-e2e.mts         # the end-to-end suite against a real workbench; it prints its own count
 node test/onyx/run-benchmarks.mts  # the benchmark charts' numbers, re-measured
@@ -582,7 +589,9 @@ What runs where — [.github/workflows/onyx-ci.yml](./.github/workflows/onyx-ci.
   benchmarks (every safety invariant in them is an assertion that fails the
   job), and the harness's own self-checks (`test/onyx/checks/`), which include
   the fresh-output protocol: a probe regression is transpiled before it is
-  observed to fail and again before it is observed to pass.
+  observed to fail and again before it is observed to pass. The simulation smoke
+  (2,000 seeded episodes) and the replay of the committed trace corpus
+  (`test/onyx/traces/`) are steps of their own in the same job.
 - **On manual dispatch:** the same jobs and the module gate. The packaged-app smoke has its own
   workflow, the full simulation campaign runs nightly, and the release workflow runs only by hand.
 - **The harness contract.** What the agent must never do, for every model output, user action and

@@ -38,7 +38,7 @@ The contract is fourteen invariants, I-01 to I-14 ([HARNESS-CONTRACT.md](HARNESS
 | I-02 | No command is dispatched without an affirmative approval recorded for that exact invocation | after tool dispatch |
 | I-03 | Every run ends in exactly one terminal status, within its turn and time budget, and that status never changes afterwards | every boundary and end |
 | I-04 | No request exceeds the effective context budget, and every request carries an output cap | at request time |
-| I-05 | After Stop, no further tool is dispatched and no further proposal is staged | every boundary |
+| I-05 | After Stop, no further tool is dispatched and no further proposal is staged, and an approval dialog open at the Stop is closed by it | every boundary |
 | I-06 | Only tools in the capability contract are dispatched; an unknown or schema-invalid call produces an error result, never a dispatch | after tool dispatch; at request time |
 | I-07 | No tool reads or writes outside the workspace roots, including through symlinks, absolute paths and traversal | after tool dispatch |
 | I-08 | An edit that cannot be placed exactly and uniquely changes nothing and produces a visible reason | after stage |
@@ -366,6 +366,18 @@ The two pinned models are the ones the product's catalog recommends for a laptop
 - **No external check of the instruments.** Energy was not compared with a meter. Seeds are not known to be honoured.
 - **No model-graded scores.** This removes one source of error and means nothing here measures whether an inexact edit was nonetheless acceptable.
 
+### 9.1 Limits of these verdicts
+
+Each verdict above is the registered rule applied to the data, and none is changed here. This is what each one does not carry, read from the same committed records (2026-11-26).
+
+- **H-1 rests on a judgement the registration did not provide for.** Its thresholds have no inconclusive outcome and no clause for errors of the rig or the checkers (PREREGISTRATION.md, H-1). The first run printed two violations (seeds 32218 and 46211, both `I-01/disk`); they were judged the rig's own and the rig was changed before the second run, which is the one reported. The mutants and the invariant checkers were written by the same authors, so a blind spot shared by both would not show.
+- **H-3 is close to true by construction.** A fuzzy applier places almost everything exact matching places and more (on these attempts: both placed 410, fuzzy only 388, exact only 14), so condition 1 measures how much more. Condition 2 tests the fuzzy applier's own silently-wrong rate against 0.5%, not against exact-or-refuse; exact-or-refuse's own rate, 26.9% (350 of 1,301), would pass the same condition.
+- **H-5's refutation is forced by the floor.** All 36 ungrounded edits score 0, and 150 of the 163 grounded ones do, the highest 0.4; the difference is the grounded mean, and with no task solved a difference of 0.05 was out of reach whatever grounding is worth.
+- **H-6 measured repetition of short runs with no edit.** All 200 runs proposed no edit (10 edit calls were made, all rejected for their arguments); 190 had two turns and 10 had three. Whether a run that edits repeats is not tested.
+- **H-9's success condition is 0 = 0, and nothing was evicted in the agentic arm.** Every policy succeeded on 0 of 40 tasks, and the largest prompt was 3,384 of 8,192 tokens, so no policy had to evict. The 0.42 ratio comes from the scripted arm and is estimated from prompt-evaluation time, not counted in tokens.
+- **Amendments 2 to 4 were written while neighbouring data existed.** Amendment 2 was committed while H-2's campaign was running, Amendment 3 later in the same campaign and after H-1's two runs, and Amendment 4 after the campaigns that feed H-3, H-4 (its first), H-6 (its first) and H-7 had finished. Each says what had been looked at. Running H-4 again under Amendment 4 sits against the registration's own rule that a hypothesis whose data exists is frozen; the amendment says no H-4 edit had been read or scored.
+- **The product's default protocol got no edit on record.** Under the constrained envelope, which the datasheet selects for both pinned models, neither had an edit on record in 320 runs of H-2 (in 18 the 1.5B's edit call was rejected for its arguments), while under repaired text 79 runs of the 7B and 53 of the 1.5B had one, and under constrained anchors 55 of 80 runs made an edit call (H-4). No protocol reproduced a task. Which protocol the product should default to is a decision for the owner, and it is open.
+
 ## 10 Defects the campaigns found
 
 Each was fixed with a regression test. All three are defects of the measuring apparatus or of the product's request path, found by reading campaign records.
@@ -380,7 +392,7 @@ The injection run with real models, made with defect 3: in 80 runs of tasks carr
 
 ## 11 Related work
 
-[RELATED.md](RELATED.md) is a dated check of prior work for each of the ten items, made on 2026-11-22, with what was read in full and what was not. Its last section gives the narrowest description each item supports, and section 2 above follows it. In short: simulation testing with mutation scoring, factorial attribution with Shapley values, task mining from history with date rules, the refuse-or-misapply trade for edit application, grammar-constrained decoding, record-and-replay, localized confidence for edits, cache-aware eviction, repetition at temperature 0 on local runtimes, and energy per solved task all exist in prior work. This project's results are measurements in one setting. RELATED.md supplies no grounds for wording about priority, and none is used here.
+[RELATED.md](RELATED.md) is a dated check of prior work for each of the ten items, made on 2026-11-22, with what was read in full and what was not. Its last section gives the narrowest description each item supports, and section 2 above follows it. In short: simulation testing with mutation scoring, factorial attribution with Shapley values, task mining from history with date rules, the refuse-or-misapply trade for edit application (measured on synthetic file drift in arXiv 2609.11957), grammar-constrained decoding, record-and-replay, localized confidence for edits, cache-aware eviction, repetition at temperature 0 on local runtimes, and energy per solved task all exist in prior work. This project's results are measurements in one setting. RELATED.md supplies no grounds for wording about priority, and none is used here.
 
 ## 12 Reproduction
 

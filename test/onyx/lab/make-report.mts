@@ -1147,6 +1147,35 @@ function fillBlocks(report: string): string {
 
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'onyx-report-'));
 let exitCode = 0;
+/**
+ * The numbers of REPORT.md's "Limits of these verdicts" (9.1), counted from the
+ * per-attempt and per-run rows. Added after an audit on 2026-11-26; no
+ * registered verdict depends on them.
+ */
+function buildLimits(): void {
+	const edits = `${RESULTS}/2026-11-22-edit-mechanisms/attempts.jsonl`;
+	const rows = readJsonLines(edits);
+	const placed = (row: Json, applier: string) => field(field(field(row, 'appliers'), applier), 'applied') === true;
+	recount('limits.h3.placedByBoth', rows.filter(row => placed(row, 'exact-unique') && placed(row, 'fuzzy')).length, edits, 'attempts placed by both exact-unique and fuzzy', { denominator: rows.length });
+	recount('limits.h3.placedByFuzzyOnly', rows.filter(row => !placed(row, 'exact-unique') && placed(row, 'fuzzy')).length, edits, 'attempts placed by fuzzy and not by exact-unique', { denominator: rows.length });
+	recount('limits.h3.placedByExactOnly', rows.filter(row => placed(row, 'exact-unique') && !placed(row, 'fuzzy')).length, edits, 'attempts placed by exact-unique and not by fuzzy', { denominator: rows.length });
+	const scored = (grounding: string) => rows.filter(row => field(row, 'grounding') === grounding).map(row => Number(field(field(field(row, 'appliers'), 'exact-unique'), 'score') ?? 0));
+	const grounded = scored('grounded');
+	const ungrounded = scored('ungrounded');
+	recount('limits.h5.groundedScoringZero', grounded.filter(score => score === 0).length, edits, 'grounded edits whose exact-unique score is 0', { denominator: grounded.length });
+	recount('limits.h5.groundedHighestScore', Math.max(...grounded), edits, 'the highest exact-unique score of a grounded edit');
+	recount('limits.h5.ungroundedScoringZero', ungrounded.filter(score => score === 0).length, edits, 'ungrounded edits whose exact-unique score is 0', { denominator: ungrounded.length });
+	const determinism = `${RESULTS}/2026-11-22-determinism-2/traces/records.jsonl`;
+	const runs = readJsonLines(determinism);
+	const requests = (record: Json) => { const list = field(record, 'requests'); return Array.isArray(list) ? list.length : 0; };
+	recount('limits.h6.runsWithTwoTurns', runs.filter(record => requests(record) === 2).length, determinism, 'records with two requests', { denominator: runs.length });
+	recount('limits.h6.runsWithThreeTurns', runs.filter(record => requests(record) === 3).length, determinism, 'records with three requests', { denominator: runs.length });
+	recount('limits.h6.runsWithAnEdit', runs.filter(record => { const list = field(record, 'edits'); return Array.isArray(list) && list.length > 0; }).length, determinism, 'records with a non-empty `edits` list', { denominator: runs.length });
+	const eviction = `${RESULTS}/2026-11-22-eviction-agentic/traces/records.jsonl`;
+	const prompts = readJsonLines(eviction).flatMap(record => { const list = field(record, 'requests'); return Array.isArray(list) ? list.map(request => Number(field(request, 'promptTokens') ?? 0)) : []; });
+	recount('limits.h9.largestAgenticPrompt', Math.max(...prompts), eviction, 'the largest `promptTokens` of any request', { unit: 'tokens' });
+}
+
 try {
 	if (!skipAnalyses) {
 		runAnalyses(temporary);
@@ -1160,6 +1189,7 @@ try {
 	buildInjection();
 	buildTaskSet();
 	buildTotals(counts);
+	buildLimits();
 	buildData();
 
 	const numbersText = serialize({

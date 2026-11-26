@@ -27,7 +27,7 @@ What changed: nothing the model says is taken as a fact about the workspace. An 
 | Question | Result | Decision |
 |---|---|---|
 | Does a fuzzy applier place more edits than exact-or-refuse, and at what cost? (H-3) | It places 28.7 points more blocks, and 53.8% of attempts under it end silently wrong | Exact-or-refuse stays the only applier in the product |
-| Do constrained anchors help? (H-4) | Inconclusive: no task had an edit call in both arms | Anchors stay opt-in, a lab option |
+| Do constrained anchors help? (H-4) | Inconclusive: no task had an edit call in both arms | Anchors stay a lab arm only; no user setting turns them on |
 | Is an edit grounded in a certificate better? (H-5) | Refuted at the registered threshold: 0.021 higher, under 0.05 | Certificates are kept as a record of what was checked, not as a quality claim |
 | Can a hunk carry a calibrated confidence? (H-8) | Inconclusive: 6 correct of 120 labelled hunks | No confidence badge ships |
 | Does block eviction save prompt re-processing? (H-9) | Supported on scripted runs, by an estimate; no eviction happened in agent runs | The policy is a lab option; the product default is unchanged |
