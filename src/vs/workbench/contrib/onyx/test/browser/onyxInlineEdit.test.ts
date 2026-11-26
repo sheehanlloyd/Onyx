@@ -240,8 +240,8 @@ suite('OnyxInlineEdit', () => {
 			const file = 'export function addNumbers(a: number, b: number): number {\n\treturn a + b;\n}\n';
 			const applied = applyEditBlocks(file, [{ search: '  return a + b;\n}', replace: '  return a + b;\n}\n\nexport const x = 1;' }]);
 			assert.deepStrictEqual({ text: applied.text, appliedCount: applied.appliedCount, indentation: applied.refusals[0]?.indentationDiffers, message: applied.refusals[0] ? describeEditRefusal(applied.refusals[0]) : '' }, {
-				text: file, appliedCount: 0, indentation: { fileIndents: 'tabs' },
-				message: 'The "search" text is in the file only with different indentation: the file indents these lines with tabs. Nothing was changed. Quote the lines exactly as the file has them, tabs included, and indent the new lines the same way.',
+				text: file, appliedCount: 0, indentation: { fileIndents: 'tabs', fileLines: ['\treturn a + b;', '}'] },
+				message: 'The "search" text is in the file only with different indentation: the file indents these lines with tabs. Nothing was changed. As the file has them, the lines are "\\treturn a + b;", "}": quote those exactly, and indent the new lines the same way.',
 			});
 		});
 
