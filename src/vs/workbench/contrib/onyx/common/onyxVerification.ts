@@ -91,11 +91,18 @@ export type OnyxVerificationState =
 	| 'running'
 	/**
 	 * Fresh diagnostics arrived for the accepted content, and none of them is a
-	 * new problem; or the file had no problems before, has none after, and no
-	 * report came in the wait (`unreported`): a language service that finds a
-	 * clean file still clean reports nothing, because nothing changed.
+	 * new problem; or the file had no problems before, has none after, no
+	 * report came in the wait (`unreported`), and a language service answers
+	 * for the file (`languageService`): one that finds a clean file still clean
+	 * reports nothing, because nothing changed.
 	 */
 	| 'verified'
+	/**
+	 * No problem before, none after, no report in the wait, and no language
+	 * service answers for the file's language (C2): nothing looked at the
+	 * accepted content, so the absence of a report says nothing about it.
+	 */
+	| 'not checked'
 	/** Fresh diagnostics arrived, and some are problems that were not there before the acceptance. */
 	| 'new problems'
 	/** No fresh diagnostics arrived in time for a file that had problems before: nothing is known about the accepted content. */
@@ -116,6 +123,8 @@ export interface IOnyxVerificationResult {
 	readonly diff: IOnyxProblemDiff | null;
 	/** For `verified`: no diagnostics report arrived; the verdict rests on no problem before, none after, and none reported. */
 	readonly unreported?: boolean;
+	/** For an unreported `verified`: what the language service attached to the file answers for it (`symbols`, `definitions`, `hovers`, `references`). */
+	readonly languageService?: readonly string[];
 	/** What a project check found for this content, when one ran, and what it ran on. */
 	readonly check: IOnyxCheckOutcome | null;
 }
@@ -143,8 +152,9 @@ function describeVerificationState(result: IOnyxVerificationResult): string {
 		case 'running': return `Verification: running — waiting for diagnostics of the accepted content of ${file}`;
 		case 'timed out': return `Verification: timed out — no fresh diagnostics for ${file} arrived, so nothing is known about what was accepted`;
 		case 'stale': return `Verification: stale — ${file} changed after the acceptance; the result was for content that is no longer there`;
+		case 'not checked': return `Verification: not checked — no problems were reported for ${file}, but no language service answers for its language, so nothing looked at the accepted content`;
 		case 'verified': return result.unreported
-			? `Verification: verified — no problems in ${file} before or after the acceptance, and none reported while waiting (a clean file that stays clean gets no new report)`
+			? `Verification: verified — no problems in ${file} before or after the acceptance, and none reported while waiting; a language service answers for the file (${(result.languageService ?? []).join(', ')}), and a clean file that stays clean gets no new report`
 			: `Verification: verified — no new problems in ${file} after the acceptance (${result.diff?.after ?? 0} in all${result.diff?.resolved.length ? `, ${result.diff.resolved.length} resolved` : ''})`;
 		case 'new problems': {
 			const introduced = result.diff?.introduced ?? [];

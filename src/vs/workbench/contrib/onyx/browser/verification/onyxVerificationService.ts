@@ -9,6 +9,7 @@ import { isEqual } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { EndOfLinePreference } from '../../../../../editor/common/model.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
+import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
 import { IInstantiationService, createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IMarker, IMarkerService, MarkerSeverity } from '../../../../../platform/markers/common/markers.js';
 import { ITextFileService } from '../../../../services/textfile/common/textfiles.js';
@@ -54,6 +55,7 @@ export class OnyxVerificationService extends Disposable implements IOnyxVerifica
 		@ITextFileService private readonly _textFileService: ITextFileService,
 		@IOnyxControlPlaneService private readonly _controlPlaneService: IOnyxControlPlaneService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
 	) {
 		super();
 		// Staged and not accepted: there is nothing to verify, and the result says so.
@@ -104,6 +106,24 @@ export class OnyxVerificationService extends Disposable implements IOnyxVerifica
 
 	private _set(result: IOnyxVerificationResult): void {
 		this._resultsObs.set([...this._resultsObs.get().filter(other => other.path !== result.path), result], undefined);
+	}
+
+	/**
+	 * What a language service answers for the file: the features registered for it that only a language
+	 * service provides. Empty when none is attached to the file's language, so nothing reports on it (C2).
+	 */
+	private _languageServiceFor(uri: URI): string[] {
+		const model = this._modelService.getModel(uri);
+		if (!model) {
+			return [];
+		}
+		const features = this._languageFeaturesService;
+		return [
+			features.documentSymbolProvider.has(model) ? 'symbols' : undefined,
+			features.definitionProvider.has(model) ? 'definitions' : undefined,
+			features.hoverProvider.has(model) ? 'hovers' : undefined,
+			features.referenceProvider.has(model) ? 'references' : undefined,
+		].filter((feature): feature is string => feature !== undefined);
 	}
 
 	private _problems(path: string, uri: URI): IOnyxProblem[] {
@@ -166,7 +186,11 @@ export class OnyxVerificationService extends Disposable implements IOnyxVerifica
 			waiting.dispose();
 			const now = this._problems(path, uri);
 			if (state === 'timed out' && before.length === 0 && now.length === 0 && this._contentHash(uri) === contentHash) {
-				publish({ ...result, state: 'verified', diff: diffProblems(before, now), unreported: true }, true);
+				// No report, no problem before or after: "verified" only when a language service answers for the file (C2).
+				const languageService = this._languageServiceFor(uri);
+				publish(languageService.length > 0
+					? { ...result, state: 'verified', diff: diffProblems(before, now), unreported: true, languageService }
+					: { ...result, state: 'not checked', diff: diffProblems(before, now) }, true);
 			} else if (state === 'timed out') {
 				publish({ ...result, state: 'timed out' }, true);
 			} else {

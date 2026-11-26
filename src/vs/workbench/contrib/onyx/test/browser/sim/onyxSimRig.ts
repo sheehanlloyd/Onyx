@@ -11,6 +11,7 @@ import { DisposableStore, IReference } from '../../../../../../base/common/lifec
 import { URI } from '../../../../../../base/common/uri.js';
 import { autorun } from '../../../../../../base/common/observable.js';
 import { ITextModel } from '../../../../../../editor/common/model.js';
+import { ILanguageFeaturesService } from '../../../../../../editor/common/services/languageFeatures.js';
 import { IModelService } from '../../../../../../editor/common/services/model.js';
 import { ITextModelService, IResolvedTextEditorModel } from '../../../../../../editor/common/services/resolverService.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
@@ -292,6 +293,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly verification: IOnyxVerificationService;
 	/** The window's diagnostics, for a test to report problems as a language service would. */
 	readonly markers: IMarkerService;
+	/** The window's language features, for a test to attach a language service to a file (C2). */
+	readonly languageFeatures: ILanguageFeaturesService;
 	/** The product's own path service, for callers that turn a file's address into the path the tools use. */
 	readonly workspaceAccess: IOnyxWorkspaceAccessService;
 	private readonly _loop: OnyxAgentLoop;
@@ -413,6 +416,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this.verification = this._disposables.add(instantiationService.createInstance(OnyxVerificationService));
 		instantiationService.stub(IOnyxVerificationService, this.verification);
 		this.markers = instantiationService.get(IMarkerService);
+		this.languageFeatures = instantiationService.get(ILanguageFeaturesService);
 		// The product's playbook service over the in-memory disk (D11): it reads `.onyx/playbooks/*.md` the way the product does.
 		instantiationService.stub(IOnyxPlaybookService, this._disposables.add(instantiationService.createInstance(OnyxPlaybookService)));
 		this._disposables.add(instantiationService.createInstance(OnyxReadFileToolContribution));

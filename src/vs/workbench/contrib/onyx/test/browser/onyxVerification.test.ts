@@ -109,22 +109,31 @@ suite('OnyxVerification', () => {
 		});
 	});
 
-	test('C2, R-21: a clean file that stays clean after the acceptance ends as "verified", saying no report came, not as "timed out"', async () => {
-		const result = await withRig(async rig => {
+	test('C2, R-21: a clean file that stays clean is "verified" when a language service answers for it, and "not checked" when none does; neither is "timed out"', async () => {
+		const clean = (attach: boolean) => withRig(async rig => {
+			// A language service for the file: what one registers besides its diagnostics.
+			const attached = attach ? rig.languageFeatures.documentSymbolProvider.register({ scheme: 'file' }, { provideDocumentSymbols: () => [] }) : undefined;
 			const run = rig.controlPlane.beginRun({ sessionResource: URI.parse('onyx-test://verification'), requestId: 'r3', title: 'verification', task: 'quick-edit', modelKey: 'auto' });
-			// No problem before, and the language service has nothing to report after: the marker service fires
-			// no event when an empty set stays empty, so no report ever comes.
+			// No problem before, and nothing to report after: the marker service fires no event when an empty set
+			// stays empty, so no report ever comes, whether or not a language service looked.
 			await rig.changeSet.stage(PATH, [ADD], run.runId);
 			await rig.changeSet.acceptFile(PATH);
 			const running = state(rig);
 			await timeout(16_000);
 			const verdict = rig.verification.resultFor(PATH)!;
 			run.complete('completed');
-			return { running, state: verdict.state, unreported: verdict.unreported, counts: [verdict.diff?.before, verdict.diff?.after], timeline: notes(rig, run.runId) };
+			attached?.dispose();
+			return { running, state: verdict.state, unreported: verdict.unreported, languageService: verdict.languageService, counts: [verdict.diff?.before, verdict.diff?.after], timeline: notes(rig, run.runId) };
 		});
-		assert.deepStrictEqual(result, {
-			running: 'running', state: 'verified', unreported: true, counts: [0, 0],
-			timeline: ['Verification: verified — no problems in src/math.ts before or after the acceptance, and none reported while waiting (a clean file that stays clean gets no new report)'],
+		assert.deepStrictEqual({ withALanguageService: await clean(true), withNone: await clean(false) }, {
+			withALanguageService: {
+				running: 'running', state: 'verified', unreported: true, languageService: ['symbols'], counts: [0, 0],
+				timeline: ['Verification: verified — no problems in src/math.ts before or after the acceptance, and none reported while waiting; a language service answers for the file (symbols), and a clean file that stays clean gets no new report'],
+			},
+			withNone: {
+				running: 'running', state: 'not checked', unreported: undefined, languageService: undefined, counts: [0, 0],
+				timeline: ['Verification: not checked — no problems were reported for src/math.ts, but no language service answers for its language, so nothing looked at the accepted content'],
+			},
 		});
 	});
 

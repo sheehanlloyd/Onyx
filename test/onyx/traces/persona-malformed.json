@@ -6,7 +6,7 @@
 	"covers": {
 		"persona": "malformed"
 	},
-	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
+	"reason": "C2: an accepted clean file that no language service answers for ends not checked instead of verified; the rig has no language service",
 	"episode": {
 		"name": "persona-malformed",
 		"seed": 8,
@@ -112,7 +112,7 @@
 		"{\"t\":1402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"acceptance\",\"label\":\"\"}",
 		"{\"t\":1402,\"kind\":\"buffer\",\"path\":\"src/math.ts\",\"digest\":\"f3167904\",\"cause\":\"afterRun\"}",
 		"{\"t\":16402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"editCertificateOutcome\",\"label\":\"\"}",
-		"{\"t\":16402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"note\",\"label\":\"Verification: verified — no problems in src/math.ts before or after the acceptance, and none reported while waiting (a clean file that stays clean gets no new report)\",\"ok\":true}",
+		"{\"t\":16402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"note\",\"label\":\"Verification: not checked — no problems were reported for src/math.ts, but no language service answers for its language, so nothing looked at the accepted content\"}",
 		"{\"t\":900500,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":2}"
 	],
 	"journal": [
@@ -132,7 +132,7 @@
 		"{\"t\":2,\"kind\":\"outcome\",\"data\":{\"status\":\"completed\"}}",
 		"{\"t\":1002,\"kind\":\"editCertificateOutcome\",\"data\":{\"kind\":\"editCertificateOutcome\",\"path\":\"src/math.ts\",\"generation\":1,\"appliedContentHash\":\"f3167904\",\"verification\":\"running\"}}",
 		"{\"t\":1002,\"kind\":\"acceptance\",\"data\":{\"kind\":\"acceptance\",\"path\":\"src/math.ts\",\"hunk\":\"g1.h1\",\"added\":[\"9dffbfb4\"]}}",
-		"{\"t\":16002,\"kind\":\"editCertificateOutcome\",\"data\":{\"kind\":\"editCertificateOutcome\",\"path\":\"src/math.ts\",\"generation\":1,\"appliedContentHash\":\"f3167904\",\"verification\":\"verified\"}}",
-		"{\"t\":16002,\"kind\":\"note\",\"data\":{\"kind\":\"note\",\"label\":\"Verification: verified — no problems in src/math.ts before or after the acceptance, and none reported while waiting (a clean file that stays clean gets no new report)\",\"ok\":true,\"location\":{\"path\":\"src/math.ts\",\"line\":1},\"at\":16402}}"
+		"{\"t\":16002,\"kind\":\"editCertificateOutcome\",\"data\":{\"kind\":\"editCertificateOutcome\",\"path\":\"src/math.ts\",\"generation\":1,\"appliedContentHash\":\"f3167904\",\"verification\":\"not checked\"}}",
+		"{\"t\":16002,\"kind\":\"note\",\"data\":{\"kind\":\"note\",\"label\":\"Verification: not checked — no problems were reported for src/math.ts, but no language service answers for its language, so nothing looked at the accepted content\",\"location\":{\"path\":\"src/math.ts\",\"line\":1},\"at\":16402}}"
 	]
 }
