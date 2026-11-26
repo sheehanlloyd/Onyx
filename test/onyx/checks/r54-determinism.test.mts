@@ -111,7 +111,7 @@ test('R-54: after a campaign checks out its next task, the first request names t
 		const run = spawnSync(process.execPath, [launcher, manifest, '--repo', repository], { encoding: 'utf8', timeout: 15 * 60_000 });
 		const chats = await mock.debug('/debug/recent-chats') as { messages: { role: string; content: string }[] }[];
 		// One request a unit: the mock answers a plain instruction in one turn. The background message is the second.
-		const background = chats.map(chat => chat.messages.find(message => message.role === 'user' && message.content.includes('Workspace context'))?.content ?? '');
+		const background = chats.map(chat => chat.messages.find(message => message.role === 'system' && message.content.includes('Workspace context'))?.content ?? '');
 		assert.deepStrictEqual({
 			exit: run.status,
 			requests: chats.length,
