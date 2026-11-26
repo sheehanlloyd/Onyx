@@ -95,6 +95,39 @@ test('R-57: a failing check, a missing check and a named exception each report a
 	}, run.stdout);
 });
 
+test('R-57: a unit-test check that ran no test fails: a --grep that matches nothing exits 0 and proves nothing', () => {
+	// Stand-ins for scripts/test.sh: the runner recognises a unit-test run by the script's name and `--grep`.
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onyx-r57-grep-'));
+	try {
+		const standIn = (name: string, output: string, exitCode = 0) => {
+			const file = path.join(dir, name, 'test.sh');
+			fs.mkdirSync(path.dirname(file));
+			fs.writeFileSync(file, `#!/bin/sh\nprintf '%s\\n' ${JSON.stringify(output)}\nexit ${exitCode}\n`, { mode: 0o755 });
+			return file;
+		};
+		const run = runGate({
+			'module-1.json': {
+				module: 1,
+				checks: [
+					{ id: 'matched', layer: 'unit', command: [standIn('matched', '  12 passing (3s)'), '--grep', 'OnyxReal'] },
+					{ id: 'renamed-suite', layer: 'unit', command: [standIn('renamed', '  0 passing (1ms)'), '--grep', 'OnyxRenamed'] },
+					{ id: 'printed-nothing', layer: 'unit', command: [standIn('silent', ''), '--grep', 'OnyxGone'] },
+					{ id: 'only-pending', layer: 'unit', command: [standIn('pending', '  0 passing (1ms)\n  2 pending'), '--grep', 'OnyxSkipped'] },
+					{ id: 'not-a-unit-run', layer: 'node', command: ['true', '--grep', 'anything'] },
+				],
+			},
+		});
+		const outcomes = Object.fromEntries((run.results?.results ?? []).map(result => [result.id, result.outcome]));
+		assert.deepStrictEqual({ status: run.status, outcomes, saysWhy: run.stdout.includes('no test matched --grep OnyxRenamed') }, {
+			status: 1,
+			outcomes: { matched: 'pass', 'renamed-suite': 'fail', 'printed-nothing': 'fail', 'only-pending': 'fail', 'not-a-unit-run': 'pass' },
+			saysWhy: true,
+		}, run.stdout);
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 test('R-57: an exception that unexpectedly passes, or has no owner, blocks the gate', () => {
 	const run = runGate({
 		'module-1.json': {

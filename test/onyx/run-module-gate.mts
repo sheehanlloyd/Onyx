@@ -19,7 +19,9 @@
  * failed, is missing, or was skipped without a declared reason. A baseline
  * exception is a check with `"expect": "fail"` and an `owner`; it prints as an
  * expected failure and is never counted as a pass. If it passes, the gate
- * fails too: the exception no longer applies and must be removed.
+ * fails too: the exception no longer applies and must be removed. A unit-test
+ * check (`scripts/test.sh --grep …`) that ran no test fails: a `--grep` that
+ * matches nothing, such as one naming a suite that was renamed, exits 0.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -170,10 +172,28 @@ function runCheck(moduleIndex: number, check: IGateCheck, scopeStates: Map<strin
 	if (result.error) {
 		return done('fail', { exitCode, detail: `${result.error.message}; ${tail}` });
 	}
+	// A check that ran no test proved nothing, whatever it expected.
+	if (exitCode === 0 && unitTestsRun(argv, `${result.stdout ?? ''}${result.stderr ?? ''}`) === 0) {
+		return done('fail', { exitCode, detail: `no test matched ${argv.slice(argv.indexOf('--grep'), argv.indexOf('--grep') + 2).join(' ')}; ${tail}` });
+	}
 	if (expect === 'fail') {
 		return exitCode === 0 ? done('unexpected-pass', { exitCode, detail: tail }) : done('expected-failure', { exitCode, detail: tail });
 	}
 	return exitCode === 0 ? done('pass', { exitCode, detail: tail }) : done('fail', { exitCode, detail: tail });
+}
+
+/**
+ * How many tests a unit-test run reports as run (passing and failing), or
+ * undefined when the command is not a unit-test run. Mocha prints "N passing"
+ * and, when some failed, "N failing"; a run that matched no test prints
+ * "0 passing" or nothing at all.
+ */
+function unitTestsRun(argv: readonly string[], output: string): number | undefined {
+	if (path.basename(argv[0] ?? '') !== 'test.sh' || !argv.includes('--grep')) {
+		return undefined;
+	}
+	const count = (word: string) => [...output.matchAll(new RegExp(`(?<count>\\d+) ${word}\\b`, 'g'))].reduce((sum, match) => sum + Number(match.groups?.count ?? 0), 0);
+	return count('passing') + count('failing');
 }
 
 function label(result: IGateResult): string {
