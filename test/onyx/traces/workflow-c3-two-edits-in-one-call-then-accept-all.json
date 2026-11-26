@@ -7,7 +7,7 @@
 		"workflow": "c3-two-edits-in-one-call-then-accept-all",
 		"persona": "well-behaved"
 	},
-	"reason": "the edit path: the edit tool's description says how to add code to a file, a tool call written as JSON after prose is run, and a reply that holds a call that was not run ends the run as failed",
+	"reason": "the edit path: the edit tool's description and refusals say how to add code and how to quote, and under the envelope no answer is offered after a refused edit until an edit is staged",
 	"episode": {
 		"name": "workflow-c3-two-edits-in-one-call-then-accept-all",
 		"seed": 0,
@@ -65,7 +65,7 @@
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"route\",\"label\":\"onyx:localhost:11434/sim-coder:7b\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"trace\",\"label\":\"\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 1\"}",
-		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"0a8cde7c\",\"promptChars\":621,\"toolsChars\":6484,\"temperature\":0.2,\"maxTokens\":2457}",
+		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"0a8cde7c\",\"promptChars\":621,\"toolsChars\":6532,\"temperature\":0.2,\"maxTokens\":2457}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"toolCall\",\"size\":0}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"toolCall\",\"size\":90}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"toolCall\",\"size\":89}",
@@ -80,7 +80,7 @@
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"toolResult\",\"label\":\"editFile\",\"ok\":true}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 2\"}",
-		"{\"t\":401,\"kind\":\"request\",\"turn\":2,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":4,\"roles\":[\"system\",\"user\",\"assistant\",\"tool\"],\"lastUserDigest\":\"0a8cde7c\",\"promptChars\":946,\"toolsChars\":6484,\"temperature\":0.2,\"maxTokens\":2457}",
+		"{\"t\":401,\"kind\":\"request\",\"turn\":2,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":4,\"roles\":[\"system\",\"user\",\"assistant\",\"tool\"],\"lastUserDigest\":\"0a8cde7c\",\"promptChars\":946,\"toolsChars\":6532,\"temperature\":0.2,\"maxTokens\":2457}",
 		"{\"t\":402,\"kind\":\"chunk\",\"op\":\"op#2\",\"delta\":\"text\",\"size\":18}",
 		"{\"t\":402,\"kind\":\"shown\",\"size\":18}",
 		"{\"t\":402,\"kind\":\"chunk\",\"op\":\"op#2\",\"delta\":\"usage\",\"size\":0}",

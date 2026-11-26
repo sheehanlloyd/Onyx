@@ -58,9 +58,9 @@ suite('OnyxChangeSet', () => {
 				composed: composed.ok ? 'staged' : composed.error,
 			}, {
 				firstLineUniqueRestInvented: 'Edit refused for src/math.ts (staged content included). The "search" text is not in the file exactly as quoted. The first line that does not match is line 2 of it: "\\tconsole.log(a);". Nothing was changed. Quote the lines exactly as they are in the file, including indentation.',
-				reindented: 'Edit refused for src/math.ts (staged content included). The "search" text is not in the file exactly as quoted. The first line that does not match is line 1 of it: "    return a + b;". Nothing was changed. Quote the lines exactly as they are in the file, including indentation.',
-				ambiguous: 'Edit refused for src/math.ts (staged content included). The "search" text occurs 2 times in the file, so it does not say which place to change. Nothing was changed. Quote more of the surrounding lines so that the text occurs exactly once.',
-				composed: 'Edit refused for src/math.ts (staged content included). The "search" text is not in the file exactly as quoted. The first line that does not match is line 1 of it: "  return a + b + 0;". Nothing was changed. Quote the lines exactly as they are in the file, including indentation.',
+				reindented: 'Edit refused for src/math.ts (staged content included). The "search" text is in the file only with different indentation: the file indents these lines with tabs. Nothing was changed. Quote the lines exactly as the file has them, tabs included, and indent the new lines the same way.',
+				ambiguous: 'Edit refused for src/math.ts (staged content included). The "search" text occurs 2 times in the file, so it does not say which place to change. Nothing was changed. Quote more of the surrounding lines so that the text occurs exactly once: for a closing "}", quote the line before it as well.',
+				composed: 'Edit refused for src/math.ts (staged content included). The "search" text is in the file only with different indentation: the file indents these lines with tabs. Nothing was changed. Quote the lines exactly as the file has them, tabs included, and indent the new lines the same way.',
 			});
 		});
 

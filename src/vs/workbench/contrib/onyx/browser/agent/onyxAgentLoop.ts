@@ -296,9 +296,10 @@ export class OnyxAgentLoop {
 		let anyToolRan = false;
 		// Whether this run has staged an edit: under `constrained-edit-first` the answer action is offered only after one.
 		let editStaged = false;
-		// Whether the last turn's edit was refused. The refusal says what to do next, and under the envelope the turn
-		// after it offers no answer action, so that the model takes that step and does not tell the user to (2026-11-26:
-		// the 7B answered the refusal back to the user in five of five sessions).
+		// Whether an edit was refused and none has been staged since. The refusal says what to do next; under the
+		// envelope no answer action is offered until an edit is staged (or the turn cap ends the run), so that the model
+		// takes those steps instead of telling the user to (2026-11-26: the 7B answered the refusal back to the user in
+		// five of five sessions, and, given one more turn, read the file and answered that the function "has been added").
 		let editRefused = false;
 
 		for (let turn = 0; turn < maxTurns && !token.isCancellationRequested; turn++) {
@@ -552,8 +553,6 @@ export class OnyxAgentLoop {
 				if (toolUse.name === ONYX_ANCHORED_EDIT_TOOL) {
 					editStaged ||= ok;
 					editRefused = !ok;
-				} else {
-					editRefused = false;
 				}
 				traceToolCalls.push({ name: toolUse.name, argumentsDigest: digestValue(toolUse.parameters), resultDigest: traceDigest(resultText), ok });
 				// Small models drown in raw tool output; keep head and tail

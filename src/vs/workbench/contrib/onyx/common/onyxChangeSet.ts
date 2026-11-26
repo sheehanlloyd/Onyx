@@ -57,7 +57,7 @@ export function proposeEdits(existing: IOnyxProposedFile | undefined, path: stri
 	if (blocks.some(block => block.search.trim() === '')) {
 		// The edit tool changes only what it is shown, so an empty "search" on a file that exists is refused, and the
 		// model is told the two calls that do what it most likely wanted (2026-11-26: the 7B's first try at "add a function").
-		return { ok: false, error: `File ${path} already exists, so an empty "search" is refused: an edit changes only lines it quotes. Next: call readFile on ${path}; then call editFile with "search" set to lines copied exactly from it. To add code, quote the line it goes after (for example a function's closing "}") as "search", and give that same line followed by the new code as "replace".` };
+		return { ok: false, error: `File ${path} already exists, so an empty "search" is refused: an edit changes only lines it quotes. Next: call readFile on ${path}; then call editFile with "search" set to lines copied exactly from it. To add code, quote the last two lines of the code it goes after (enough to occur only once, indentation included) as "search", and give those same lines followed by the new code as "replace".` };
 	}
 	const applied = applyEditBlocks(currentContent, blocks);
 	if (applied.failed.length > 0) {
