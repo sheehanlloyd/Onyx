@@ -338,6 +338,7 @@ async function main(): Promise<number> {
 	}
 
 	const after = condition();
+	fs.mkdirSync(path.dirname(path.resolve(jsonOut!)), { recursive: true });
 	fs.writeFileSync(path.resolve(jsonOut!), JSON.stringify({
 		ranAt: new Date().toISOString(),
 		product: { nameShort: product.nameShort, commit: product.commit },

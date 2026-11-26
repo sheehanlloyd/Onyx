@@ -251,6 +251,7 @@ async function main(): Promise<number> {
 		notShown: 'one window used for many hours: each suite run is a new process that lives for minutes, and the long-lived instance is idle',
 		passed,
 	};
+	fs.mkdirSync(path.dirname(path.resolve(jsonOut!)), { recursive: true });
 	fs.writeFileSync(path.resolve(jsonOut!), JSON.stringify(summary, undefined, '\t'));
 	console.log(`\n${iterations.length} suite runs in ${summary.minutesRun} minutes, ${failedRuns.length} failed; renderer peak ${summary.rendererPeakMb.min} to ${summary.rendererPeakMb.max} MB; idle renderer ${summary.idleInstance.rendererMbAfterTwoMinutes} → ${summary.idleInstance.rendererMbAtEnd} MB; left behind ${leaks.length}; crash reports ${crashes.length}`);
 	console.log(`power at the end: ${summary.power.atEnd.source}, ${summary.power.atEnd.battery}, powermode ${summary.power.atEnd.powermode}`);

@@ -136,6 +136,7 @@ const benchFailures: { modelKey: string; commit: string; error: string }[] = [];
 function writeReport() {
 	provenance.load.atEnd = Math.round(os.loadavg()[0] * 100) / 100;
 	if (jsonOut) {
+		fs.mkdirSync(path.dirname(path.resolve(jsonOut)), { recursive: true });
 		fs.writeFileSync(jsonOut, JSON.stringify({ provenance, results, attempts: benchAttempts, failures: benchFailures, skipped, violations }, undefined, '\t'));
 	}
 }

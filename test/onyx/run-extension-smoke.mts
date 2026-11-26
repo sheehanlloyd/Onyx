@@ -194,6 +194,7 @@ async function main(): Promise<number> {
 	}
 	const passed = results.every(result => result.installed && result.activated);
 	if (jsonOut) {
+		fs.mkdirSync(path.dirname(path.resolve(jsonOut)), { recursive: true });
 		fs.writeFileSync(path.resolve(jsonOut), JSON.stringify({
 			ranAt: new Date().toISOString(),
 			product: { nameShort: product.nameShort, commit: product.commit },

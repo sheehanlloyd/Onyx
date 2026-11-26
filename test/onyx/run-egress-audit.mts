@@ -308,6 +308,7 @@ async function main(): Promise<number> {
 		releaseListWasAsked: askedHosts.includes('api.github.com'),
 	};
 	const passed = violations.length === 0 && expectations.suitePassed && expectations.galleryWasAsked && expectations.releaseListWasAsked;
+	fs.mkdirSync(path.dirname(path.resolve(jsonOut!)), { recursive: true });
 	fs.writeFileSync(path.resolve(jsonOut!), JSON.stringify({
 		regression: 'R-60',
 		ranAt: new Date().toISOString(),

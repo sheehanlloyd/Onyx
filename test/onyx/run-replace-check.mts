@@ -189,6 +189,7 @@ async function main(): Promise<number> {
 	fs.rmSync(runDir, { recursive: true, force: true });
 	const failed = checks.filter(entry => !entry.ok);
 	if (jsonOut) {
+		fs.mkdirSync(path.dirname(path.resolve(jsonOut)), { recursive: true });
 		fs.writeFileSync(path.resolve(jsonOut), JSON.stringify({ ranAt: new Date().toISOString(), original: commitOf(original), replacement: commitOf(replacement), sameBuild: original === replacement, preservedFiles: before.size, runJournals: journalRuns.length, checks, passed: failed.length === 0 }, undefined, '\t'));
 	}
 	console.log(failed.length ? `replace check: ${failed.length} of ${checks.length} checks FAILED` : `replace check: all ${checks.length} checks passed`);
