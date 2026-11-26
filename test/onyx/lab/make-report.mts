@@ -504,8 +504,8 @@ function buildMethods(): void {
 	]));
 
 	const amendments = [...fs.readFileSync(path.join(repoRoot, PREREGISTRATION), 'utf8').matchAll(/^### Amendment (?<number>\d), (?<date>\d{4}-\d{2}-\d{2}): (?<title>.+)$/gm)];
-	if (amendments.length !== 4) {
-		problems.push(`${PREREGISTRATION}: expected four amendments, found ${amendments.length}`);
+	if (amendments.length !== 5) {
+		problems.push(`${PREREGISTRATION}: expected five amendments, found ${amendments.length}`);
 	}
 	blocks.set('amendments', table(['Amendment', 'Date', 'Subject, as its heading says'], amendments.map(match => [match.groups?.number ?? '', match.groups?.date ?? '', match.groups?.title ?? ''])));
 }

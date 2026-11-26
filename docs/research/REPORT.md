@@ -149,6 +149,7 @@ The rig runs the real agent loop, control plane, change-set service, edit tool a
 | 2 | 2026-11-22 | the designs of H-3 to H-10 on this machine |
 | 3 | 2026-11-22 | what is counted in H-6 to H-10, the injection run, and two changes of design |
 | 4 | 2026-11-22 | H-6's first campaign is invalid, and why two campaigns are run again |
+| 5 | 2026-11-26 | three campaigns beside H-2, H-6 and H-9, registered before they run |
 <!-- /generated:amendments -->
 
 The reasons, in the amendments' own terms. Amendment 1: the registration expected a model above 7B and none is installed; the instruction and the success rule were left open; one seed is used because at temperature 0 further seeds are repetitions; H-2's factorial is cut from the registered 32 configurations to 12, with two components left out for stated reasons. Amendment 2: the machine was slower than when the samples were registered, so several samples are smaller, and each design says in advance when it will end inconclusive. Amendment 3: it fixes what is counted in H-6 to H-10 and records two changes before their campaigns, the estimate used for H-9 if the runtime does not report evaluated tokens, and H-9's agentic arm at a context of 8,192 tokens. Amendment 4: H-6's earlier campaign is invalid by the registration's own rule; H-6 and H-4 are run again; H-2 and the injection run are not. Each amendment was committed before the campaigns it governs. Amendment 4 was written after H-6's invalid campaign had been analysed, which is what it reports.
