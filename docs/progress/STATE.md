@@ -1,7 +1,7 @@
 # Onyx plan state
 Plan version: v4.2 in the owner's checkout (unchanged since 2026-11-22). Module 5 was implemented from it.
-Current module: 5      Status: **the agent's work of Module 5 is done; the gate does not pass, and cannot until the owner acts** ("Waiting on the owner", below). Modules 1 to 4: complete and merged (Module 4 as 78718eb281f, sheehanlloyd/Onyx#5); the LM Studio measurements merged as d4b97cab187 (sheehanlloyd/Onyx#7).
-Revision: branch `module-5`, cut from `main` at 78718eb281f, `main` merged in again at d4b97cab187 (sheehanlloyd/Onyx#7, LM Studio measurements); one pull request into `main`, sheehanlloyd/Onyx#6, marked ready, not merged. The candidate is the packaged build of this branch at 3477aeeaa48 (the soak and the budgets were taken on the build of f0f059b0ccd, which has the same application inputs).
+Current module: 5      Status: **the agent's work is done, the follow-up of 2026-11-26 included; the gate does not pass, and cannot until the owner acts** ("Waiting on the owner", below). Nothing is left for an agent. Modules 1 to 4: complete and merged (Module 4 as 78718eb281f, sheehanlloyd/Onyx#5); the LM Studio measurements merged as d4b97cab187 (sheehanlloyd/Onyx#7).
+Revision: since 2026-11-26, branch `followup-open-gaps`, cut from `main` at 6950bdb5fb8 (sheehanlloyd/Onyx#6 merged), one pull request, sheehanlloyd/Onyx#8, marked ready and not merged; the candidate is the packaged build of 05a3fa30460 (section "Follow-up of 2026-11-26"). Before it: branch `module-5`, cut from `main` at 78718eb281f, `main` merged in again at d4b97cab187 (sheehanlloyd/Onyx#7, LM Studio measurements); one pull request into `main`, sheehanlloyd/Onyx#6, marked ready, not merged. The candidate is the packaged build of this branch at 3477aeeaa48 (the soak and the budgets were taken on the build of f0f059b0ccd, which has the same application inputs).
 Isolated checkout: the work clone `onyx-work` in a plain developer folder; packaged builds beside it; the four private planning documents excluded there via `.git/info/exclude` and never committed
 Pre-registration commit: 5f98a0ca2c7 (an ancestor of this revision and of `main`)
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc
@@ -25,6 +25,23 @@ Toolchain: Node 24.22.1 pinned in `.nvmrc` (this machine ran 24.22.3); pnpm 12.1
 14. **Tag and publish** `v0.1.0-alpha.1` by publishing the draft release, last, when every box of Section 12 is checked. Then post the launch drafts.
 
 Also for the owner, not blocking: review and merge sheehanlloyd/Onyx#6. The nightly assurance workflow was dispatched from `main` once on 2026-11-22 as Module 4 asked (run 45083489213, green) and again on 2026-11-26 (run 45751025520 on d4b97cab187, green: 50,000 of 50,000 episodes, 42 of 42 mutants).
+
+## Follow-up of 2026-11-26 (`followup-open-gaps` → sheehanlloyd/Onyx#8)
+The gaps left open after Module 5, so that only the owner's items remain. Report: `followup-2026-11-26.md`, with the table of the eight items, commits and tests.
+| Item | Done | Where |
+|---|---|---|
+| D11, four injection surfaces with a mutant each; the 50,000-episode campaign again | done | R-52, 158 episodes over nine surfaces; mutants D11-*; the campaign clean on 60c7e34d34b, in the soak and in the gate |
+| D12, the three findings not rediscovered | done: 10 of 10 | seeds 1013 (N2), 1017 (N4), 1103 (N11), no scenario |
+| L1, the rig's uncovered parts | done in part | in: the inline request, the Changes view, the diagnostics export; out, with the reason: the inline widget, child processes, a language service |
+| C2, verified only when a language service answers | done | OnyxVerification, C2 test; new state "not checked" |
+| Accessibility probe on the current build | done | `accessibility-probe.json`, build of 7b44eaa5c38 |
+| Amendment 5 and its three campaigns | done | REPORT.md 6.11; owner list item 3; prior verdicts unchanged |
+| The onyx-lmstudio worktree | removed by its session before this branch | `git worktree list` |
+| Docs, gates, soak, CI, PR ready | done | below |
+Product defects found and fixed by the follow-up: a note copied from a remembered note or the playbook index shown as the model's own words; a one-shot request asking 4,096 output tokens whatever the model's context; a failed one-shot's unhandled rejection.
+Gate: `ONYX_PACKAGED_APP=../VSCode-darwin-arm64/Onyx.app node test/onyx/run-module-gate.mts --module 5`, 2026-11-26, 18:20:24 to 19:21:09 UTC, on 05a3fa30460 with a clean source tree and fresh output, the packaged application rebuilt from the same revision first; exit 1; `docs/progress/gate-module-5.json`. Verbatim summary: "101 checks: 95 passed, 0 expected failure(s), 0 skipped, 6 blocking", "module 5 gate: FAILED". Blocking, each blocked on the owner: R-39, D5-clean-install, E1-pilot, DEC-01-identity, DEC-09-approvals, E4-tag. Modules 1 to 4 within it: 23, 24, 21 and 19 checks, every one passed; R-52-campaign (50,000 episodes, 48 mutants) and R-60 (egress, live) passed.
+Candidate evidence: the soak (passed, 16:57 to 18:11 UTC, on mains, Low Power Mode off, no sleep) and the budgets (about 18:13 to 18:17 UTC) and the accessibility probe (16:48 to 16:56 UTC) on the build of 7b44eaa5c38, whose application inputs are the candidate's; the egress audit in the gate on the candidate. The research campaigns ran 13:53 to 16:09 UTC on mains with a private Ollama, stopped after; it was started once more for the budgets and stopped.
+CI: Onyx CI and the packaged smoke green on 05a3fa30460; the commit that adds this record runs them again.
 
 ## Module 5
 Items done (an agent's part; what remains of each is the owner's, above):

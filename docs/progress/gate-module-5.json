@@ -1,17 +1,17 @@
 {
 	"module": 5,
-	"revision": "3477aeeaa484f63ca6ed71eca74a7387f08e1ac2",
-	"dirtyDigest": "d2b7cc694cd54835a249973011442738a90cf1266111c3d05e726c9e65ea4f98",
+	"revision": "05a3fa304601f7daffd20002f29bde9bfb5a84f3",
+	"dirtyDigest": "83388d5347660888fcbca9acd801d6647995f6f79155ce2cd9cc8648faeb22cc",
 	"dirtyEntries": 0,
-	"ranAt": "2026-11-26T09:54:20.087Z",
+	"ranAt": "2026-11-26T19:21:09.296Z",
 	"platform": "darwin-arm64",
 	"node": "v24.22.3",
 	"packageManager": "pnpm 12.16.0",
 	"build": {
 		"command": "pnpm run transpile-client",
-		"startedAt": "2026-11-26T08:57:20.493Z",
-		"completedAt": "2026-11-26T08:57:25.058Z",
-		"durationMs": 4565,
+		"startedAt": "2026-11-26T18:18:39.130Z",
+		"completedAt": "2026-11-26T18:18:43.956Z",
+		"durationMs": 4826,
 		"exitCode": 0
 	},
 	"results": [
@@ -25,7 +25,7 @@
 			"expect": "pass",
 			"command": "pnpm run typecheck-client",
 			"outcome": "pass",
-			"durationMs": 6338,
+			"durationMs": 6369,
 			"exitCode": 0,
 			"detail": "$ tsc --project ./src/tsconfig.json --noEmit --skipLibCheck"
 		},
@@ -39,7 +39,7 @@
 			"expect": "pass",
 			"command": "pnpm run valid-layers-check",
 			"outcome": "pass",
-			"durationMs": 15847,
+			"durationMs": 15537,
 			"exitCode": 0,
 			"detail": "$ node build/checker/layersChecker.ts && node build/checker/layersTypeCheck.ts"
 		},
@@ -53,9 +53,9 @@
 			"expect": "pass",
 			"command": "pnpm run oxlint src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx",
 			"outcome": "pass",
-			"durationMs": 1114,
+			"durationMs": 1112,
 			"exitCode": 0,
-			"detail": "oxlint: checking 3 requested targets. ⏎ oxlint: checked 315 files in 933ms with 1 process (the slowest took 642ms). ⏎ $ node build/oxlint.ts src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx"
+			"detail": "oxlint: checking 3 requested targets. ⏎ oxlint: checked 317 files in 925ms with 1 process (the slowest took 635ms). ⏎ $ node build/oxlint.ts src/vs/platform/onyxRuntime src/vs/workbench/contrib/onyx test/onyx"
 		},
 		{
 			"module": 1,
@@ -67,7 +67,7 @@
 			"expect": "pass",
 			"command": "pnpm run stylelint",
 			"outcome": "pass",
-			"durationMs": 863,
+			"durationMs": 826,
 			"exitCode": 0,
 			"detail": "/contrib/onyx/browser/media/onyxControlPlane.css(713,1): Unknown variable: --vscode-fontWeight-semibold ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(735,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(749,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(758,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxControlPlane.css(799,1): Unknown variable: --vscode-fontSize-caption1 ⏎ src/vs/workbench/contrib/onyx/browser/media/onyxInlineEdit.css(51,1): Unknown variable: --vscode-fontSize-caption1"
 		},
@@ -81,9 +81,9 @@
 			"expect": "pass",
 			"command": "node test/onyx/run-hygiene.mts",
 			"outcome": "pass",
-			"durationMs": 2843,
+			"durationMs": 2849,
 			"exitCode": 0,
-			"detail": "  ok   identity-urls        4 files ⏎   ok   image-manifest       28 images ⏎   ok   inherited-automation 17 entries ⏎   ok   sync-duplicates      1046 files ⏎  ⏎ hygiene: all checks passed"
+			"detail": "  ok   identity-urls        4 files ⏎   ok   image-manifest       28 images ⏎   ok   inherited-automation 17 entries ⏎   ok   sync-duplicates      1079 files ⏎  ⏎ hygiene: all checks passed"
 		},
 		{
 			"module": 1,
@@ -95,9 +95,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep Onyx",
 			"outcome": "pass",
-			"durationMs": 34810,
+			"durationMs": 52131,
 			"exitCode": 0,
-			"detail": "\u001b[36m \u001b[0m\u001b[36m 3 pending\u001b[0m ⏎  ⏎ (node:36969) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:36969) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:36969) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 3 pending\u001b[0m ⏎  ⏎ (node:19363) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:19363) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:19363) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 1,
@@ -111,7 +111,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/run-benchmarks.mts --skip-models",
 			"outcome": "pass",
-			"durationMs": 9766,
+			"durationMs": 9448,
 			"exitCode": 0,
 			"detail": " ⏎ Not measured here ⏎ ----------------- ⏎   real-model sections skipped (--skip-models) ⏎  ⏎ Re-run any time: node test/onyx/run-benchmarks.mts"
 		},
@@ -127,9 +127,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r37-inventory.test.mts",
 			"outcome": "pass",
-			"durationMs": 433,
+			"durationMs": 409,
 			"exitCode": 0,
-			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 404.525083"
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 381.288791"
 		},
 		{
 			"module": 1,
@@ -141,9 +141,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/harness-paths.test.mts",
 			"outcome": "pass",
-			"durationMs": 99,
+			"durationMs": 100,
 			"exitCode": 0,
-			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 70.731708"
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 69.444958"
 		},
 		{
 			"module": 1,
@@ -155,9 +155,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/hygiene.test.mts",
 			"outcome": "pass",
-			"durationMs": 414,
+			"durationMs": 403,
 			"exitCode": 0,
-			"detail": "ℹ pass 5 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 386.321042"
+			"detail": "ℹ pass 5 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 374.57575"
 		},
 		{
 			"module": 1,
@@ -171,9 +171,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r23-benchmark-asserts.test.mts",
 			"outcome": "pass",
-			"durationMs": 19129,
+			"durationMs": 18910,
 			"exitCode": 0,
-			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 19100.057917"
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 18880.638042"
 		},
 		{
 			"module": 1,
@@ -187,9 +187,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r35-fresh-output.test.mts",
 			"outcome": "pass",
-			"durationMs": 37504,
+			"durationMs": 36735,
 			"exitCode": 0,
-			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 37475.445791"
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 36714.990375"
 		},
 		{
 			"module": 1,
@@ -203,9 +203,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r57-module-gate.test.mts",
 			"outcome": "pass",
-			"durationMs": 3087,
+			"durationMs": 3039,
 			"exitCode": 0,
-			"detail": "ℹ pass 7 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 3057.943917"
+			"detail": "ℹ pass 7 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 3012.875958"
 		},
 		{
 			"module": 1,
@@ -217,7 +217,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/run-e2e.mts",
 			"outcome": "pass",
-			"durationMs": 493630,
+			"durationMs": 493570,
 			"exitCode": 0,
 			"detail": "  ok   no draft_model is ever sent on the wire ⏎   ok   the architecture map renders modules with timing ⏎   ok   hot modules get a local-model summary ⏎   ok   explain-failure explains when no session is paused ⏎  ⏎ all 73 checks passed"
 		},
@@ -231,7 +231,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/checks/item-reports.mts A1 A2 A3 A4 A5 A6 A7 A8 A9 A10 A11 A12",
 			"outcome": "pass",
-			"durationMs": 168,
+			"durationMs": 180,
 			"exitCode": 0,
 			"detail": "all 12 reports have the template's fields and name a commit of this repository"
 		},
@@ -245,7 +245,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/run-packaged-smoke.mts --app $ONYX_PACKAGED_APP --mode baseline --json-out docs/progress/packaged-smoke-baseline.json",
 			"outcome": "pass",
-			"durationMs": 31602,
+			"durationMs": 31584,
 			"exitCode": 0,
 			"detail": "  ok   the request carried a tool list ⏎   observed tools (8): readFile, listDirectory, findFiles, grep, editFile, terminal, repoSymbols, docs ⏎   missing essentials: none ⏎ wrote docs/progress/packaged-smoke-baseline.json ⏎  ⏎ baseline mode: infrastructure checks passed; this mode records tools and gaps and claims nothing about read or edit capability"
 		},
@@ -263,7 +263,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/run-packaged-smoke.mts --app $ONYX_PACKAGED_APP --mode release --json-out docs/progress/packaged-smoke-release.json",
 			"outcome": "pass",
-			"durationMs": 108043,
+			"durationMs": 109207,
 			"exitCode": 0,
 			"detail": "  ok   R-44: no mutant and nothing of the simulation rig is in the product bundle ⏎   ok   the Agent Host did not start: no agenthost log in this profile ⏎   ok   asking for the Agents window opens no second workbench and starts no Agent Host ⏎ wrote docs/progress/packaged-smoke-release.json ⏎  ⏎ release mode: all 26 checks passed"
 		},
@@ -280,9 +280,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxSim",
 			"outcome": "pass",
-			"durationMs": 24988,
+			"durationMs": 41996,
 			"exitCode": 0,
-			"detail": "\u001b[36m \u001b[0m\u001b[36m 2 pending\u001b[0m ⏎  ⏎ (node:50551) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:50551) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:50551) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 2 pending\u001b[0m ⏎  ⏎ (node:33203) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:33203) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:33203) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 1,
@@ -297,9 +297,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxSim",
 			"outcome": "pass",
-			"durationMs": 35939,
+			"durationMs": 58492,
 			"exitCode": 0,
-			"detail": "\u001b[36m \u001b[0m\u001b[36m 2 pending\u001b[0m ⏎  ⏎ (node:50912) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:50912) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:50912) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 2 pending\u001b[0m ⏎  ⏎ (node:33803) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:33803) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:33803) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 1,
@@ -311,9 +311,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/sim-episodes.test.mts",
 			"outcome": "pass",
-			"durationMs": 665,
+			"durationMs": 672,
 			"exitCode": 0,
-			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 630.269875"
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 635.295875"
 		},
 		{
 			"module": 1,
@@ -325,9 +325,9 @@
 			"expect": "pass",
 			"command": "node test/onyx/sim/export-episodes.mts --check",
 			"outcome": "pass",
-			"durationMs": 71,
+			"durationMs": 81,
 			"exitCode": 0,
-			"detail": "episodes: 30 files in sync ⏎ baseline: 0 exceptions in sync ⏎ mutants: 43 descriptors in sync"
+			"detail": "episodes: 30 files in sync ⏎ baseline: 0 exceptions in sync ⏎ mutants: 48 descriptors in sync"
 		},
 		{
 			"module": 1,
@@ -341,9 +341,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r43-provenance.test.mts",
 			"outcome": "pass",
-			"durationMs": 1162,
+			"durationMs": 1164,
 			"exitCode": 0,
-			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 1131.602584"
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 1132.054042"
 		},
 		{
 			"module": 1,
@@ -357,9 +357,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxTrace|OnyxRuntimeService",
 			"outcome": "pass",
-			"durationMs": 8241,
+			"durationMs": 8644,
 			"exitCode": 0,
-			"detail": "\u001b[36m \u001b[0m\u001b[36m 1 pending\u001b[0m ⏎  ⏎ (node:51461) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:51461) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:51461) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 1 pending\u001b[0m ⏎  ⏎ (node:34677) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:34677) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:34677) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -374,9 +374,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxReadTools",
 			"outcome": "pass",
-			"durationMs": 7814,
+			"durationMs": 7574,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 8 passing\u001b[0m\u001b[90m (507ms)\u001b[0m ⏎  ⏎ (node:51589) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:51589) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:51589) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 8 passing\u001b[0m\u001b[90m (375ms)\u001b[0m ⏎  ⏎ (node:34816) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:34816) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:34816) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -390,9 +390,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxToolSlots",
 			"outcome": "pass",
-			"durationMs": 7875,
+			"durationMs": 7796,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (473ms)\u001b[0m ⏎  ⏎ (node:51715) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:51715) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:51715) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (443ms)\u001b[0m ⏎  ⏎ (node:34932) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:34932) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:34932) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -409,9 +409,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxTerminalApproval|OnyxTerminalPolicy",
 			"outcome": "pass",
-			"durationMs": 7950,
+			"durationMs": 7816,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 19 passing\u001b[0m\u001b[90m (514ms)\u001b[0m ⏎  ⏎ (node:51842) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:51842) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:51842) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 19 passing\u001b[0m\u001b[90m (531ms)\u001b[0m ⏎  ⏎ (node:35050) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:35050) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:35050) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -425,9 +425,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxTerminalPolicy|OnyxShellWords|OnyxTerminalApproval",
 			"outcome": "pass",
-			"durationMs": 7919,
+			"durationMs": 7667,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 22 passing\u001b[0m\u001b[90m (520ms)\u001b[0m ⏎  ⏎ (node:51969) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:51969) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:51969) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 22 passing\u001b[0m\u001b[90m (409ms)\u001b[0m ⏎  ⏎ (node:35178) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:35178) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:35178) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -441,9 +441,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxCommandExecution|OnyxTerminalExecution",
 			"outcome": "pass",
-			"durationMs": 10526,
+			"durationMs": 10293,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 8 passing\u001b[0m\u001b[90m (3s)\u001b[0m ⏎  ⏎ (node:52086) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52086) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52086) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 8 passing\u001b[0m\u001b[90m (3s)\u001b[0m ⏎  ⏎ (node:35296) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:35296) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:35296) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -457,9 +457,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxCommandRunner",
 			"outcome": "pass",
-			"durationMs": 7824,
+			"durationMs": 7500,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (436ms)\u001b[0m ⏎  ⏎ (node:52360) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52360) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52360) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (265ms)\u001b[0m ⏎  ⏎ (node:35570) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:35570) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:35570) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -473,9 +473,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r40-runner-seam.test.mts",
 			"outcome": "pass",
-			"durationMs": 140,
+			"durationMs": 139,
 			"exitCode": 0,
-			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 111.779"
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 110.840333"
 		},
 		{
 			"module": 2,
@@ -489,9 +489,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxContextBudget",
 			"outcome": "pass",
-			"durationMs": 8422,
+			"durationMs": 8273,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (826ms)\u001b[0m ⏎  ⏎ (node:52495) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52495) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52495) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (997ms)\u001b[0m ⏎  ⏎ (node:35704) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:35704) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:35704) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -505,9 +505,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxInferenceLocation",
 			"outcome": "pass",
-			"durationMs": 7843,
+			"durationMs": 7512,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (416ms)\u001b[0m ⏎  ⏎ (node:52627) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52627) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52627) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (251ms)\u001b[0m ⏎  ⏎ (node:35832) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:35832) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:35832) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -521,9 +521,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxStreamTermination|OnyxWorkspaceIndexer|OnyxStreamEndings",
 			"outcome": "pass",
-			"durationMs": 8644,
+			"durationMs": 8337,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 11 passing\u001b[0m\u001b[90m (1s)\u001b[0m ⏎  ⏎ (node:52753) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52753) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52753) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 11 passing\u001b[0m\u001b[90m (1s)\u001b[0m ⏎  ⏎ (node:35949) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:35949) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:35949) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -537,9 +537,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxReasoning",
 			"outcome": "pass",
-			"durationMs": 7920,
+			"durationMs": 7771,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (328ms)\u001b[0m ⏎  ⏎ (node:52891) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:52891) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:52891) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (491ms)\u001b[0m ⏎  ⏎ (node:36082) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:36082) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:36082) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -553,9 +553,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxFencedStreaming",
 			"outcome": "pass",
-			"durationMs": 7843,
+			"durationMs": 7511,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (420ms)\u001b[0m ⏎  ⏎ (node:53013) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53013) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53013) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (249ms)\u001b[0m ⏎  ⏎ (node:36211) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:36211) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:36211) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -569,9 +569,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxStreamEndings",
 			"outcome": "pass",
-			"durationMs": 7890,
+			"durationMs": 7770,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (441ms)\u001b[0m ⏎  ⏎ (node:53139) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53139) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53139) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (451ms)\u001b[0m ⏎  ⏎ (node:36327) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:36327) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:36327) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -585,9 +585,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxConstrainedStreaming",
 			"outcome": "pass",
-			"durationMs": 7863,
+			"durationMs": 7776,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (417ms)\u001b[0m ⏎  ⏎ (node:53265) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53265) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53265) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (440ms)\u001b[0m ⏎  ⏎ (node:36456) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:36456) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:36456) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -599,9 +599,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxWorkspaceIndexer C7|OnyxIndexOptions",
 			"outcome": "pass",
-			"durationMs": 7857,
+			"durationMs": 7608,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 6 passing\u001b[0m\u001b[90m (430ms)\u001b[0m ⏎  ⏎ (node:53391) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53391) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53391) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 6 passing\u001b[0m\u001b[90m (307ms)\u001b[0m ⏎  ⏎ (node:36574) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:36574) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:36574) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -615,9 +615,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxDiagnosticsExport",
 			"outcome": "pass",
-			"durationMs": 7824,
+			"durationMs": 7559,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (423ms)\u001b[0m ⏎  ⏎ (node:53515) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53515) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53515) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (274ms)\u001b[0m ⏎  ⏎ (node:36702) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:36702) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:36702) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -633,9 +633,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxToolContract",
 			"outcome": "pass",
-			"durationMs": 7875,
+			"durationMs": 7865,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (474ms)\u001b[0m ⏎  ⏎ (node:53641) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53641) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53641) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (495ms)\u001b[0m ⏎  ⏎ (node:36819) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:36819) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:36819) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -647,9 +647,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxChatDefaults",
 			"outcome": "pass",
-			"durationMs": 7809,
+			"durationMs": 7702,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (418ms)\u001b[0m ⏎  ⏎ (node:53767) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53767) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53767) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (367ms)\u001b[0m ⏎  ⏎ (node:36948) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:36948) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:36948) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -663,9 +663,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxHarnessConfig|OnyxLabManifest",
 			"outcome": "pass",
-			"durationMs": 9770,
+			"durationMs": 10646,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 7 passing\u001b[0m\u001b[90m (2s)\u001b[0m ⏎  ⏎ (node:53883) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:53883) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:53883) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 8 passing\u001b[0m\u001b[90m (3s)\u001b[0m ⏎  ⏎ (node:37068) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:37068) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:37068) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -681,7 +681,7 @@
 			"outcome": "pass",
 			"durationMs": 125,
 			"exitCode": 0,
-			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 95.261167"
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 95.857042"
 		},
 		{
 			"module": 2,
@@ -695,9 +695,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxDatasheet|OnyxLoadedModels",
 			"outcome": "pass",
-			"durationMs": 7848,
+			"durationMs": 7829,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 16 passing\u001b[0m\u001b[90m (503ms)\u001b[0m ⏎  ⏎ (node:54036) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:54036) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:54036) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 16 passing\u001b[0m\u001b[90m (552ms)\u001b[0m ⏎  ⏎ (node:37233) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:37233) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:37233) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 2,
@@ -709,7 +709,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/sim/run-campaign.mts --episodes 20000 --seed 1 --shard 2000",
 			"outcome": "pass",
-			"durationMs": 139100,
+			"durationMs": 161533,
 			"exitCode": 0,
 			"detail": "  ok   seeds 14001 to 16000 ⏎   ok   seeds 16001 to 18000 ⏎   ok   seeds 18001 to 20000 ⏎  ⏎ campaign: 20000 of 20000 episodes ran with no violation class outside the baseline table ⏎ classes seen (all in the table): none"
 		},
@@ -723,9 +723,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/module2-gate.test.mts",
 			"outcome": "pass",
-			"durationMs": 97,
+			"durationMs": 100,
 			"exitCode": 0,
-			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 68.985542"
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 71.406542"
 		},
 		{
 			"module": 2,
@@ -737,9 +737,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxSim mutants",
 			"outcome": "pass",
-			"durationMs": 37681,
+			"durationMs": 67799,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (30s)\u001b[0m ⏎  ⏎ (node:56243) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:56243) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:56243) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (1m)\u001b[0m ⏎  ⏎ (node:39782) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:39782) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:39782) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -753,9 +753,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxContextAllocation|OnyxContextAlias|OnyxDatasheetProbes|OnyxTrace",
 			"outcome": "pass",
-			"durationMs": 8819,
+			"durationMs": 8780,
 			"exitCode": 0,
-			"detail": "\u001b[36m \u001b[0m\u001b[36m 1 pending\u001b[0m ⏎  ⏎ (node:56772) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:56772) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:56772) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 1 pending\u001b[0m ⏎  ⏎ (node:40759) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:40759) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:40759) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -771,9 +771,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxInlineEdit|OnyxChangeSet",
 			"outcome": "pass",
-			"durationMs": 8005,
+			"durationMs": 7739,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 62 passing\u001b[0m\u001b[90m (577ms)\u001b[0m ⏎  ⏎ (node:56909) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:56909) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:56909) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 62 passing\u001b[0m\u001b[90m (562ms)\u001b[0m ⏎  ⏎ (node:40887) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:40887) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:40887) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -791,9 +791,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxChangeSet|OnyxSim the scripted user steps",
 			"outcome": "pass",
-			"durationMs": 7959,
+			"durationMs": 7765,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 34 passing\u001b[0m\u001b[90m (546ms)\u001b[0m ⏎  ⏎ (node:57036) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57036) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57036) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 34 passing\u001b[0m\u001b[90m (562ms)\u001b[0m ⏎  ⏎ (node:41015) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:41015) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:41015) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -807,9 +807,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxChangeSetService R-13",
 			"outcome": "pass",
-			"durationMs": 7862,
+			"durationMs": 7557,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (489ms)\u001b[0m ⏎  ⏎ (node:57169) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57169) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57169) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (339ms)\u001b[0m ⏎  ⏎ (node:41143) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:41143) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:41143) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -824,9 +824,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxInlineEditSession",
 			"outcome": "pass",
-			"durationMs": 7839,
+			"durationMs": 7467,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 7 passing\u001b[0m\u001b[90m (443ms)\u001b[0m ⏎  ⏎ (node:57285) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57285) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57285) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 7 passing\u001b[0m\u001b[90m (263ms)\u001b[0m ⏎  ⏎ (node:41261) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:41261) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:41261) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -840,9 +840,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxSim R-15",
 			"outcome": "pass",
-			"durationMs": 7795,
+			"durationMs": 7485,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (449ms)\u001b[0m ⏎  ⏎ (node:57411) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57411) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57411) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (281ms)\u001b[0m ⏎  ⏎ (node:41378) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:41378) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:41378) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -856,9 +856,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxChangeSetService C1|OnyxChangeSet .* C1",
 			"outcome": "pass",
-			"durationMs": 7829,
+			"durationMs": 7548,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (434ms)\u001b[0m ⏎  ⏎ (node:57526) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57526) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57526) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (289ms)\u001b[0m ⏎  ⏎ (node:41497) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:41497) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:41497) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -872,9 +872,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxVerification|OnyxTerminalApproval",
 			"outcome": "pass",
-			"durationMs": 7878,
+			"durationMs": 7758,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 12 passing\u001b[0m\u001b[90m (527ms)\u001b[0m ⏎  ⏎ (node:57653) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57653) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57653) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 12 passing\u001b[0m\u001b[90m (548ms)\u001b[0m ⏎  ⏎ (node:41623) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:41623) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:41623) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -886,9 +886,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxChangeSetService C3|OnyxSim the end-to-end mock scenarios",
 			"outcome": "pass",
-			"durationMs": 7894,
+			"durationMs": 7748,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (528ms)\u001b[0m ⏎  ⏎ (node:57781) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57781) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57781) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (554ms)\u001b[0m ⏎  ⏎ (node:41740) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:41740) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:41740) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -902,9 +902,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxRepoBench",
 			"outcome": "pass",
-			"durationMs": 7822,
+			"durationMs": 7452,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 9 passing\u001b[0m\u001b[90m (403ms)\u001b[0m ⏎  ⏎ (node:57896) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:57896) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:57896) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 9 passing\u001b[0m\u001b[90m (234ms)\u001b[0m ⏎  ⏎ (node:41868) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:41868) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:41868) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -916,9 +916,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r43-provenance.test.mts test/onyx/checks/c8-published-charts.test.mts",
 			"outcome": "pass",
-			"durationMs": 1184,
+			"durationMs": 1182,
 			"exitCode": 0,
-			"detail": "ℹ pass 4 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 1152.268708"
+			"detail": "ℹ pass 4 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 1148.000875"
 		},
 		{
 			"module": 3,
@@ -934,7 +934,7 @@
 			"outcome": "pass",
 			"durationMs": 359,
 			"exitCode": 0,
-			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 312.892667"
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 313.150709"
 		},
 		{
 			"module": 3,
@@ -949,9 +949,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxInlineEdit computeLineHunks|OnyxChangeSet .*R-38|OnyxChangeSetService R-38",
 			"outcome": "pass",
-			"durationMs": 7920,
+			"durationMs": 7465,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 6 passing\u001b[0m\u001b[90m (458ms)\u001b[0m ⏎  ⏎ (node:58067) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58067) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58067) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 6 passing\u001b[0m\u001b[90m (294ms)\u001b[0m ⏎  ⏎ (node:42029) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:42029) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:42029) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -965,9 +965,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep R-30",
 			"outcome": "pass",
-			"durationMs": 7803,
+			"durationMs": 7473,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (434ms)\u001b[0m ⏎  ⏎ (node:58199) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58199) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58199) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (260ms)\u001b[0m ⏎  ⏎ (node:42147) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:42147) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:42147) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -981,9 +981,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxEditCertificate",
 			"outcome": "pass",
-			"durationMs": 7973,
+			"durationMs": 7567,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (359ms)\u001b[0m ⏎  ⏎ (node:58314) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58314) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58314) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 4 passing\u001b[0m\u001b[90m (312ms)\u001b[0m ⏎  ⏎ (node:42262) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:42262) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:42262) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -997,9 +997,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxAnchorEdit|OnyxHarnessConfig",
 			"outcome": "pass",
-			"durationMs": 9816,
+			"durationMs": 10633,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 11 passing\u001b[0m\u001b[90m (2s)\u001b[0m ⏎  ⏎ (node:58440) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58440) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58440) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 12 passing\u001b[0m\u001b[90m (3s)\u001b[0m ⏎  ⏎ (node:42379) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:42379) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:42379) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -1013,9 +1013,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxTraceReplay",
 			"outcome": "pass",
-			"durationMs": 7931,
+			"durationMs": 7849,
 			"exitCode": 0,
-			"detail": "\u001b[36m \u001b[0m\u001b[36m 1 pending\u001b[0m ⏎  ⏎ (node:58589) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58589) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58589) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[36m \u001b[0m\u001b[36m 1 pending\u001b[0m ⏎  ⏎ (node:42562) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:42562) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:42562) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 3,
@@ -1029,9 +1029,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r48-trace-corpus.test.mts",
 			"outcome": "pass",
-			"durationMs": 100,
+			"durationMs": 103,
 			"exitCode": 0,
-			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 72.45975"
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 74.918959"
 		},
 		{
 			"module": 3,
@@ -1047,7 +1047,7 @@
 			"outcome": "pass",
 			"durationMs": 103,
 			"exitCode": 0,
-			"detail": "ℹ pass 5 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 75.705292"
+			"detail": "ℹ pass 5 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 74.111542"
 		},
 		{
 			"module": 3,
@@ -1059,7 +1059,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/sim/run-campaign.mts --episodes 20000 --seed 1 --shard 2000",
 			"outcome": "pass",
-			"durationMs": 139625,
+			"durationMs": 161074,
 			"exitCode": 0,
 			"detail": "  ok   seeds 14001 to 16000 ⏎   ok   seeds 16001 to 18000 ⏎   ok   seeds 18001 to 20000 ⏎  ⏎ campaign: 20000 of 20000 episodes ran with no violation class outside the baseline table ⏎ classes seen (all in the table): none"
 		},
@@ -1073,9 +1073,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxSim mutants",
 			"outcome": "pass",
-			"durationMs": 37737,
+			"durationMs": 67998,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (30s)\u001b[0m ⏎  ⏎ (node:60810) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:60810) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:60810) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (1m)\u001b[0m ⏎  ⏎ (node:45100) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:45100) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:45100) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 4,
@@ -1089,9 +1089,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxLab",
 			"outcome": "pass",
-			"durationMs": 7985,
+			"durationMs": 8358,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 11 passing\u001b[0m\u001b[90m (241ms)\u001b[0m ⏎  ⏎ (node:61350) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:61350) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:61350) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 11 passing\u001b[0m\u001b[90m (238ms)\u001b[0m ⏎  ⏎ (node:46070) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:46070) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:46070) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 4,
@@ -1105,9 +1105,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r49-lab-campaign.test.mts",
 			"outcome": "pass",
-			"durationMs": 21470,
+			"durationMs": 21429,
 			"exitCode": 0,
-			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 21441.721625"
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 21400.87675"
 		},
 		{
 			"module": 4,
@@ -1121,9 +1121,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r49-lab-campaign-app.test.mts",
 			"outcome": "pass",
-			"durationMs": 48617,
+			"durationMs": 48128,
 			"exitCode": 0,
-			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 48590.027208"
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 48096.708084"
 		},
 		{
 			"module": 4,
@@ -1137,9 +1137,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxLabTasks|OnyxRepoBench",
 			"outcome": "pass",
-			"durationMs": 7485,
+			"durationMs": 7351,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 13 passing\u001b[0m\u001b[90m (252ms)\u001b[0m ⏎  ⏎ (node:65243) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:65243) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:65243) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 13 passing\u001b[0m\u001b[90m (228ms)\u001b[0m ⏎  ⏎ (node:49948) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:49948) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:49948) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 4,
@@ -1153,9 +1153,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxOracle|OnyxCommandRunner",
 			"outcome": "pass",
-			"durationMs": 7925,
+			"durationMs": 7731,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 8 passing\u001b[0m\u001b[90m (612ms)\u001b[0m ⏎  ⏎ (node:65359) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:65359) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:65359) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 8 passing\u001b[0m\u001b[90m (600ms)\u001b[0m ⏎  ⏎ (node:50063) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:50063) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:50063) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 4,
@@ -1169,9 +1169,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r50-lab-tasks.test.mts",
 			"outcome": "pass",
-			"durationMs": 1870,
+			"durationMs": 1851,
 			"exitCode": 0,
-			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 1843.263792"
+			"detail": "ℹ pass 3 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 1821.758459"
 		},
 		{
 			"module": 4,
@@ -1185,9 +1185,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxScorecard",
 			"outcome": "pass",
-			"durationMs": 7751,
+			"durationMs": 7325,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (409ms)\u001b[0m ⏎  ⏎ (node:66103) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:66103) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:66103) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (223ms)\u001b[0m ⏎  ⏎ (node:50799) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:50799) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:50799) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 4,
@@ -1201,9 +1201,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxSim R-52",
 			"outcome": "pass",
-			"durationMs": 7972,
+			"durationMs": 8248,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (695ms)\u001b[0m ⏎  ⏎ (node:66221) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:66221) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:66221) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 1 passing\u001b[0m\u001b[90m (1s)\u001b[0m ⏎  ⏎ (node:50917) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:50917) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:50917) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 4,
@@ -1217,9 +1217,9 @@
 			"expect": "pass",
 			"command": "node test/onyx/sim/write-assurance.mts --out .build/gate-assurance/0000-00-00-gate",
 			"outcome": "pass",
-			"durationMs": 387677,
+			"durationMs": 471755,
 			"exitCode": 0,
-			"detail": "campaign: 50000 of 50000 episodes with no violation, in 349 s; exit 0 ⏎ mutants: 43 of 43 killed, in 38 s; the test's exit 0 ⏎ H-1: supported; wrote .build/gate-assurance/0000-00-00-gate"
+			"detail": "campaign: 50000 of 50000 episodes with no violation, in 403 s; exit 0 ⏎ mutants: 48 of 48 killed, in 67 s; the test's exit 0 ⏎ H-1: supported; wrote .build/gate-assurance/0000-00-00-gate"
 		},
 		{
 			"module": 4,
@@ -1233,9 +1233,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxAttribution",
 			"outcome": "pass",
-			"durationMs": 8623,
+			"durationMs": 8631,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (564ms)\u001b[0m ⏎  ⏎ (node:72109) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:72109) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:72109) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (512ms)\u001b[0m ⏎  ⏎ (node:58072) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58072) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58072) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 4,
@@ -1247,9 +1247,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/h7-rankings.test.mts",
 			"outcome": "pass",
-			"durationMs": 379,
+			"durationMs": 366,
 			"exitCode": 0,
-			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 351.945167"
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 338.269375"
 		},
 		{
 			"module": 4,
@@ -1261,9 +1261,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/l14-appliers.test.mts",
 			"outcome": "pass",
-			"durationMs": 955,
+			"durationMs": 977,
 			"exitCode": 0,
-			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 924.688"
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 948.327375"
 		},
 		{
 			"module": 4,
@@ -1277,9 +1277,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxDeterminism",
 			"outcome": "pass",
-			"durationMs": 7824,
+			"durationMs": 7393,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (408ms)\u001b[0m ⏎  ⏎ (node:72274) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:72274) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:72274) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 2 passing\u001b[0m\u001b[90m (218ms)\u001b[0m ⏎  ⏎ (node:58250) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:58250) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:58250) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 4,
@@ -1293,9 +1293,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r54-determinism.test.mts",
 			"outcome": "pass",
-			"durationMs": 29248,
+			"durationMs": 29241,
 			"exitCode": 0,
-			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 29220.179708"
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 29213.14425"
 		},
 		{
 			"module": 4,
@@ -1309,9 +1309,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxCalibration",
 			"outcome": "pass",
-			"durationMs": 8432,
+			"durationMs": 8150,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (991ms)\u001b[0m ⏎  ⏎ (node:74459) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:74459) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:74459) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 3 passing\u001b[0m\u001b[90m (967ms)\u001b[0m ⏎  ⏎ (node:60428) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:60428) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:60428) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 4,
@@ -1325,9 +1325,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r55-confidence.test.mts",
 			"outcome": "pass",
-			"durationMs": 2155,
+			"durationMs": 2127,
 			"exitCode": 0,
-			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 2124.474458"
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 2097.764"
 		},
 		{
 			"module": 4,
@@ -1342,9 +1342,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxContextBudget",
 			"outcome": "pass",
-			"durationMs": 8299,
+			"durationMs": 8164,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (950ms)\u001b[0m ⏎  ⏎ (node:74981) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:74981) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:74981) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (980ms)\u001b[0m ⏎  ⏎ (node:60939) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:60939) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:60939) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 4,
@@ -1356,9 +1356,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/l18-energy.test.mts",
 			"outcome": "pass",
-			"durationMs": 156,
+			"durationMs": 158,
 			"exitCode": 0,
-			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 128.829167"
+			"detail": "ℹ pass 1 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 131.03375"
 		},
 		{
 			"module": 4,
@@ -1372,9 +1372,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/module4-gate.test.mts",
 			"outcome": "pass",
-			"durationMs": 17809,
+			"durationMs": 17622,
 			"exitCode": 0,
-			"detail": "ℹ pass 8 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 17779.461291"
+			"detail": "ℹ pass 8 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 17593.218"
 		},
 		{
 			"module": 5,
@@ -1388,9 +1388,9 @@
 			"expect": "pass",
 			"command": "node test/onyx/run-extension-smoke.mts --app $ONYX_PACKAGED_APP --json-out .build/gate-5/extension-smoke.json",
 			"outcome": "pass",
-			"durationMs": 22379,
+			"durationMs": 21994,
 			"exitCode": 0,
-			"detail": "extension smoke · Onyx 3477aeeaa48 · gallery https://open-vsx.org/vscode/gallery ⏎   ok   Python    ms-python.python@2026.10.0 — installed, activated ⏎   ok   ESLint    dbaeumer.vscode-eslint@3.0.34 — installed, activated ⏎   ok   Prettier  esbenp.prettier-vscode@12.4.0 — installed, activated ⏎   ok   GitLens   eamodio.gitlens@19.7.0 — installed, activated ⏎ extension smoke: all 4 installed and activated"
+			"detail": "extension smoke · Onyx 05a3fa30460 · gallery https://open-vsx.org/vscode/gallery ⏎   ok   Python    ms-python.python@2026.10.0 — installed, activated ⏎   ok   ESLint    dbaeumer.vscode-eslint@3.0.34 — installed, activated ⏎   ok   Prettier  esbenp.prettier-vscode@12.4.0 — installed, activated ⏎   ok   GitLens   eamodio.gitlens@19.7.0 — installed, activated ⏎ extension smoke: all 4 installed and activated"
 		},
 		{
 			"module": 5,
@@ -1402,9 +1402,9 @@
 			"expect": "pass",
 			"command": "./scripts/test.sh --grep OnyxUpdateCheck",
 			"outcome": "pass",
-			"durationMs": 7860,
+			"durationMs": 7419,
 			"exitCode": 0,
-			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (426ms)\u001b[0m ⏎  ⏎ (node:76415) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:76415) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:76415) ExperimentalWarning: WASI is an experimental feature and might change at any time"
+			"detail": "\u001b[92m \u001b[0m\u001b[32m 5 passing\u001b[0m\u001b[90m (224ms)\u001b[0m ⏎  ⏎ (node:62363) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead. ⏎ (Use `Onyx Helper (Renderer) --trace-deprecation ...` to show where the warning was created) ⏎ (node:62363) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead. ⏎ (node:62363) ExperimentalWarning: WASI is an experimental feature and might change at any time"
 		},
 		{
 			"module": 5,
@@ -1416,7 +1416,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/run-replace-check.mts --app $ONYX_PACKAGED_APP --json-out .build/gate-5/replace-check.json",
 			"outcome": "pass",
-			"durationMs": 148483,
+			"durationMs": 148883,
 			"exitCode": 0,
 			"detail": "  ok   update: the settings file and every journal file are byte for byte what they were ⏎   ok   rollback: the earlier application opens a window on the same data ⏎   ok   rollback: the settings file and every journal file are byte for byte what they were ⏎   ok   uninstall: deleting the application leaves settings and journals where they were ⏎   ok   uninstall: removing the data folders removes the data and leaves the workspace alone ⏎ replace check: all 8 checks passed"
 		},
@@ -1430,9 +1430,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/module5-docs.test.mts",
 			"outcome": "pass",
-			"durationMs": 323,
+			"durationMs": 325,
 			"exitCode": 0,
-			"detail": "ℹ pass 10 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 292.779958"
+			"detail": "ℹ pass 10 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 290.068792"
 		},
 		{
 			"module": 5,
@@ -1446,9 +1446,9 @@
 			"expect": "pass",
 			"command": "node --test test/onyx/checks/r58-report.test.mts",
 			"outcome": "pass",
-			"durationMs": 3180,
+			"durationMs": 3397,
 			"exitCode": 0,
-			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 3154.606333"
+			"detail": "ℹ pass 2 ⏎ ℹ fail 0 ⏎ ℹ cancelled 0 ⏎ ℹ skipped 0 ⏎ ℹ todo 0 ⏎ ℹ duration_ms 3369.122125"
 		},
 		{
 			"module": 5,
@@ -1462,9 +1462,9 @@
 			"expect": "pass",
 			"command": "node test/onyx/run-egress-audit.mts --app $ONYX_PACKAGED_APP --json-out .build/gate-5/egress-audit.json",
 			"outcome": "pass",
-			"durationMs": 1171372,
+			"durationMs": 1172198,
 			"exitCode": 0,
-			"detail": "idle: through the proxy {}; direct non-loopback 0; loopback ports 11434, 49157, 49158, 65532 ⏎  ⏎ asked: through the proxy {\"open-vsx.org:443\":3,\"openvsx.eclipsecontent.org:443\":6,\"api.github.com:443\":1}; direct non-loopback 0; loopback ports 11434, 49158 ⏎  ⏎ expected requests seen: gallery true, release list true; suite passed true ⏎ egress audit: PASSED, no connection outside the allowed set"
+			"detail": "idle: through the proxy {}; direct non-loopback 0; loopback ports 11434, 53471, 53480, 53481 ⏎  ⏎ asked: through the proxy {\"open-vsx.org:443\":3,\"openvsx.eclipsecontent.org:443\":8,\"api.github.com:443\":1}; direct non-loopback 0; loopback ports 11434, 53481 ⏎  ⏎ expected requests seen: gallery true, release list true; suite passed true ⏎ egress audit: PASSED, no connection outside the allowed set"
 		},
 		{
 			"module": 5,
@@ -1478,7 +1478,7 @@
 			"outcome": "pass",
 			"durationMs": 80,
 			"exitCode": 0,
-			"detail": "ok: docs/progress/soak.json passed at f0f059b0ccd, and the application's inputs have not changed since"
+			"detail": "ok: docs/progress/soak.json passed at 7b44eaa5c38, and the application's inputs have not changed since"
 		},
 		{
 			"module": 5,
@@ -1490,9 +1490,9 @@
 			"expect": "pass",
 			"command": "node test/onyx/checks/candidate-evidence.mts --require budgets",
 			"outcome": "pass",
-			"durationMs": 73,
+			"durationMs": 69,
 			"exitCode": 0,
-			"detail": "ok: docs/progress/budgets.json passed at f0f059b0ccd, and the application's inputs have not changed since"
+			"detail": "ok: docs/progress/budgets.json passed at 7b44eaa5c38, and the application's inputs have not changed since"
 		},
 		{
 			"module": 5,
@@ -1520,7 +1520,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/checks/owner-evidence.mts --require clean-install",
 			"outcome": "fail",
-			"durationMs": 53,
+			"durationMs": 54,
 			"exitCode": 1,
 			"detail": "BLOCKED ON THE OWNER: D5: carry out docs/RUNBOOK-clean-install.md on the signed candidate with a fresh macOS user account, and commit the filled record as docs/progress/clean-install-<date>.md with the recording linked."
 		},
@@ -1534,7 +1534,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/checks/owner-evidence.mts --require pilot",
 			"outcome": "fail",
-			"durationMs": 50,
+			"durationMs": 53,
 			"exitCode": 1,
 			"detail": "BLOCKED ON THE OWNER: E1: run the pilot (docs/pilot/README.md) and commit its report as docs/pilot/<date>.md with the raw sheets. E2 then closes every P0 and P1 it found."
 		},
@@ -1548,7 +1548,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/checks/owner-evidence.mts --require identity",
 			"outcome": "fail",
-			"durationMs": 53,
+			"durationMs": 52,
 			"exitCode": 1,
 			"detail": "BLOCKED ON THE OWNER: DEC-01: pick the product name (docs/naming/README.md; \"Onyx\" is a valid answer and makes D7 not applicable) and the logo direction (docs/brand/README.md), and record both in docs/progress/owner-decisions.json."
 		},
@@ -1576,7 +1576,7 @@
 			"expect": "pass",
 			"command": "node test/onyx/checks/owner-evidence.mts --require tag",
 			"outcome": "fail",
-			"durationMs": 59,
+			"durationMs": 62,
 			"exitCode": 1,
 			"detail": "BLOCKED ON THE OWNER: E4: the tag v0.1.0-alpha.1 does not exist. It is created by publishing the draft release, and only when every other box of Section 12 is checked."
 		}
