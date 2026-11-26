@@ -65,6 +65,137 @@ export function parseTextToolCall(modelReply: string, offeredToolNames: readonly
 	return { name, parameters: extractParameters(parsed) };
 }
 
+/** The keys a tool call written as JSON may carry, and nothing else, when prose comes before it. */
+const TRAILING_CALL_KEYS = new Set([...NAME_KEYS, ...CALL_KEYS, 'type', 'id']);
+
+/**
+ * A tool call a model wrote as JSON at the end of a reply, after some prose:
+ * "Let me read the file. {"name": "readFile", "arguments": {...}}", with or
+ * without a `json` fence around the object. Stricter than a whole-message call,
+ * because prose may quote JSON: the object must be the last thing in the reply,
+ * must parse, must name a tool on offer, must carry nothing but the keys a call
+ * has, and its arguments must be an object. Returns the prose before it too.
+ */
+export function parseTrailingToolCall(modelReply: string, offeredToolNames: readonly string[]): { readonly prose: string; readonly call: IOnyxTextToolCall } | undefined {
+	const thought = stripReasoning(modelReply);
+	if (thought.unterminated) {
+		return undefined;
+	}
+	const text = thought.text.trimEnd();
+	const fenced = /```(?:json)?[ \t]*\n(?<body>\{[\s\S]*\})\s*```$/.exec(text);
+	const start = fenced ? fenced.index : lastObjectStart(text);
+	if (start === undefined || start < 0) {
+		return undefined;
+	}
+	const body = fenced?.groups?.body ?? text.slice(start);
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		return undefined;
+	}
+	if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+		return undefined;
+	}
+	const record = parsed as Record<string, unknown>;
+	if (Object.keys(record).some(key => !TRAILING_CALL_KEYS.has(key))) {
+		return undefined;
+	}
+	const name = firstString(record, ['name', 'tool', 'tool_name', 'function_name']) ?? nestedFunctionName(record);
+	const holder = record.function && typeof record.function === 'object' ? record.function as Record<string, unknown> : record;
+	const argumentsValue = ['arguments', 'parameters', 'args', 'input', 'parameter'].map(key => holder[key]).find(value => value !== undefined);
+	const argumentsOk = argumentsValue === undefined || (typeof argumentsValue === 'object' && argumentsValue !== null && !Array.isArray(argumentsValue)) || (typeof argumentsValue === 'string' && isJsonObject(argumentsValue));
+	if (!name || !offeredToolNames.includes(name) || !argumentsOk) {
+		return undefined;
+	}
+	return { prose: text.slice(0, start).trimEnd(), call: { name, parameters: extractParameters(record) } };
+}
+
+/**
+ * Whether a reply's text holds a tool call that is still only text: a JSON object naming a tool on offer
+ * as a call does, or the envelope's tool action. A run must not end "completed" on one (it was not run).
+ */
+export function findUnexecutedToolCall(reply: string, offeredToolNames: readonly string[]): string | undefined {
+	// A call inside the model's thinking is a thought, not a call (C4), here as in the text repair.
+	const text = stripReasoning(reply).text;
+	for (let index = text.indexOf('{'); index !== -1 && index < text.length; index = text.indexOf('{', index + 1)) {
+		const end = matchingBrace(text, index);
+		if (end === undefined) {
+			continue;
+		}
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(text.slice(index, end + 1));
+		} catch {
+			continue;
+		}
+		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+			continue;
+		}
+		const record = parsed as Record<string, unknown>;
+		const name = record.action === 'tool' ? firstString(record, ['tool']) : firstString(record, ['name', 'tool', 'tool_name', 'function_name']) ?? nestedFunctionName(record);
+		const callShaped = record.action === 'tool' || ['arguments', 'parameters', 'args', 'input', 'function'].some(key => record[key] !== undefined);
+		if (name && callShaped && offeredToolNames.includes(name)) {
+			return name;
+		}
+	}
+	return undefined;
+}
+
+/** Whether the text ends inside a code block: an odd number of lines open a fence. */
+function insideFence(text: string): boolean {
+	return (text.match(/^[ \t]*```/gm) ?? []).length % 2 === 1;
+}
+
+function isJsonObject(text: string): boolean {
+	try {
+		const value = JSON.parse(text);
+		return typeof value === 'object' && value !== null && !Array.isArray(value);
+	} catch {
+		return false;
+	}
+}
+
+/** Where the JSON object that ends the text begins: the `{` whose matching brace is the text's last character. */
+function lastObjectStart(text: string): number | undefined {
+	if (!text.endsWith('}')) {
+		return undefined;
+	}
+	for (let index = text.lastIndexOf('{'); index !== -1; index = index === 0 ? -1 : text.lastIndexOf('{', index - 1)) {
+		if (matchingBrace(text, index) === text.length - 1) {
+			// The object has to begin a line of its own, or follow prose after a space: not the middle of a word.
+			return index === 0 || /\s/.test(text[index - 1]) ? index : undefined;
+		}
+	}
+	return undefined;
+}
+
+/** The index of the brace that closes the one at `open`, strings and escapes respected; undefined when it does not close. */
+function matchingBrace(text: string, open: number): number | undefined {
+	let depth = 0;
+	let inString = false;
+	for (let index = open; index < text.length; index++) {
+		const character = text[index];
+		if (inString) {
+			if (character === '\\') {
+				index++;
+			} else if (character === '"') {
+				inString = false;
+			}
+		} else if (character === '"') {
+			inString = true;
+		} else if (character === '{') {
+			depth++;
+		} else if (character === '}') {
+			depth--;
+			if (depth === 0) {
+				return index;
+			}
+		}
+	}
+	return undefined;
+}
+
 /**
  * Whether the reply so far can still be a tool call written as text, and so
  * should not be shown yet (C5, R-27).
@@ -238,6 +369,8 @@ export class OnyxAssistantTextStream implements IOnyxAssistantTextStream {
 	private _held = '';
 	private _deciding = true;
 	private _text = '';
+	/** After prose: a line that may open a tool call written at the end of the reply, held until that is decided. */
+	private _tail = '';
 
 	constructor(
 		private readonly _offeredToolNames: readonly string[],
@@ -246,8 +379,7 @@ export class OnyxAssistantTextStream implements IOnyxAssistantTextStream {
 
 	append(chunk: string): void {
 		if (!this._deciding) {
-			this._text += chunk;
-			this._emit(chunk);
+			this._appendProse(chunk);
 			return;
 		}
 		this._held += chunk;
@@ -255,9 +387,38 @@ export class OnyxAssistantTextStream implements IOnyxAssistantTextStream {
 			return;
 		}
 		this._deciding = false;
-		this._text += this._held;
-		this._emit(this._held);
+		// What was held is prose, as far as its start goes; the rest of it still goes through the check for a call at its end.
+		const held = this._held;
 		this._held = '';
+		this._appendProse(held);
+	}
+
+	/**
+	 * Prose streams, except from a line that can still open a tool call written as JSON after it (a `{`, or a
+	 * fence that can be `json`): that much is held until it is known, and if the reply ends on a call there,
+	 * the call runs and is not shown as text.
+	 */
+	private _appendProse(chunk: string): void {
+		const pending = this._tail + chunk;
+		const lineStarts: number[] = [];
+		for (let index = 0; index < pending.length; index++) {
+			if (index === 0 ? this._text.length === 0 || this._text.endsWith('\n') : pending[index - 1] === '\n') {
+				lineStarts.push(index);
+			}
+		}
+		const hold = lineStarts.find(start => {
+			const line = pending.slice(start);
+			if (/^[ \t]*`/.test(line) && insideFence(this._text + pending.slice(0, start))) {
+				return false; // the fence that closes a code block, not one that opens a call
+			}
+			return /^[ \t]*[{`]/.test(line) || line.trim() === '' ? this._withhold(line) : false;
+		});
+		const shown = hold === undefined ? pending : pending.slice(0, hold);
+		this._tail = hold === undefined ? '' : pending.slice(hold);
+		if (shown) {
+			this._text += shown;
+			this._emit(shown);
+		}
 	}
 
 	/** Whether the reply so far is still withheld. */
@@ -276,7 +437,18 @@ export class OnyxAssistantTextStream implements IOnyxAssistantTextStream {
 	 * a perfectly valid constrained turn as a failure.
 	 */
 	finish(): { readonly text: string; readonly toolCall: IOnyxTextToolCall | undefined; readonly raw: string } {
-		const raw = this._text + this._held;
+		const raw = this._text + this._held + this._tail;
+		if (this._tail) {
+			// Only what was held: a call that began in text already shown is not taken back from the transcript.
+			const trailing = parseTrailingToolCall(this._tail, this._offeredToolNames);
+			if (trailing) {
+				this._tail = '';
+				return { text: this._text, toolCall: trailing.call, raw };
+			}
+			this._text += this._tail;
+			this._emit(this._tail);
+			this._tail = '';
+		}
 		if (!this._held) {
 			return { text: this._text, toolCall: undefined, raw };
 		}

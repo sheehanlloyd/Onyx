@@ -61,6 +61,8 @@ interface IMutableStats {
 	tokensPerSecond: number;
 	timeToFirstTokenMs: number;
 	toolCallParseFailureRate: number;
+	/** Requests that carried a tool call on the tool channel, or one that failed to parse: what the failure rate is a rate of. */
+	toolCallSamples: number;
 	acceptRate: number;
 	acceptSampleCount: number;
 	fimLatencyMs: number;
@@ -117,8 +119,11 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 	getProfile(modelKey: string, discovered: IOnyxDiscoveredModel): IOnyxModelProfile {
 		const stats = this._stats.get(modelKey);
 		let profile = seedProfile(discovered, stats?.observedContextTokens);
-		if (stats && stats.sampleCount >= 3) {
-			// Observed parse failures outweigh the size-class guess in both directions.
+		// Observed parse failures outweigh the size-class guess in both directions, once there are tool calls to
+		// go on. Requests alone are not: a constrained turn's call is decoded from text and is never on the tool
+		// channel, so a model kept in the envelope showed a failure rate of zero after three requests, was judged a
+		// reliable caller, and left the envelope in the middle of a session (2026-11-26).
+		if (stats && stats.toolCallSamples >= 3) {
 			const observedQuality = 1 - stats.toolCallParseFailureRate;
 			const toolCallQuality = profile.toolCallQuality * 0.4 + observedQuality * 0.6;
 			profile = {
@@ -182,6 +187,7 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 		if (measurement.toolCallCount + measurement.toolCallParseFailures > 0) {
 			const failureShare = measurement.toolCallParseFailures / (measurement.toolCallCount + measurement.toolCallParseFailures);
 			stats.toolCallParseFailureRate = ema(stats.toolCallParseFailureRate, failureShare);
+			stats.toolCallSamples++;
 		}
 		this._didChange();
 	}
@@ -255,7 +261,7 @@ export class OnyxProfileService extends Disposable implements IOnyxProfileServic
 }
 
 function emptyStats(): IMutableStats {
-	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0, benchScores: {}, benchSamples: {}, benchMetric: ONYX_BENCH_METRIC };
+	return { sampleCount: 0, tokensPerSecond: 0, timeToFirstTokenMs: 0, toolCallParseFailureRate: 0, toolCallSamples: 0, acceptRate: 0.5, acceptSampleCount: 0, fimLatencyMs: 0, fimSampleCount: 0, ttftColdMs: 0, ttftColdSamples: 0, ttftWarmMs: 0, ttftWarmSamples: 0, constrainedTurns: 0, constrainedFailures: 0, benchScores: {}, benchSamples: {}, benchMetric: ONYX_BENCH_METRIC };
 }
 
 function ema(previous: number, sample: number): number {

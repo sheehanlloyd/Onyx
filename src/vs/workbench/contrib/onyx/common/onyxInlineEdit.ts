@@ -204,6 +204,8 @@ export interface IOnyxEditRefusal {
 	readonly firstUnmatchedLineNumber?: number;
 	/** For `missing`: the text would match if its line endings were the file's. It is refused all the same. */
 	readonly lineEndingsDiffer?: boolean;
+	/** For `missing`: the text would match, once, if its lines were indented as the file's are: how the file indents them. It is refused all the same. */
+	readonly indentationDiffers?: { readonly fileIndents: 'tabs' | 'spaces'; /** Those lines as the file has them. */ readonly fileLines: readonly string[] };
 }
 
 export interface IOnyxAppliedEdit {
@@ -267,19 +269,48 @@ export function placeEditBlock(text: string, block: IOnyxEditBlock): { readonly 
 	}
 	const unix = (value: string) => value.replace(/\r\n/g, '\n');
 	const lineEndingsDiffer = (text.includes('\r\n') !== block.search.includes('\r\n')) && unix(text).includes(unix(block.search));
-	return { ok: false, refusal: { block, reason: 'missing', occurrences: 0, firstUnmatchedLine: searchLines[Math.min(matched, searchLines.length - 1)], firstUnmatchedLineNumber: Math.min(matched, searchLines.length - 1) + 1, ...(lineEndingsDiffer ? { lineEndingsDiffer } : {}) } };
+	const indentationDiffers = lineEndingsDiffer ? undefined : indentationOnly(text, block.search);
+	return { ok: false, refusal: { block, reason: 'missing', occurrences: 0, firstUnmatchedLine: searchLines[Math.min(matched, searchLines.length - 1)], firstUnmatchedLineNumber: Math.min(matched, searchLines.length - 1) + 1, ...(lineEndingsDiffer ? { lineEndingsDiffer } : {}), ...(indentationDiffers ? { indentationDiffers } : {}) } };
 }
 
 /** A refusal in words the model can act on. Not localized: it is a tool result, read by the model. */
+/**
+ * Whether the SEARCH text would be in the text exactly once if only the leading whitespace of each line were
+ * ignored, and how the file indents those lines. Only to say so in the refusal: the edit is refused all the same.
+ */
+function indentationOnly(text: string, search: string): { readonly fileIndents: 'tabs' | 'spaces'; readonly fileLines: readonly string[] } | undefined {
+	const strip = (lines: readonly string[]) => lines.map(line => line.replace(/^[ \t]+/, ''));
+	const searchLines = strip(search.replace(/\r\n/g, '\n').split('\n'));
+	const textLines = text.replace(/\r\n/g, '\n').split('\n');
+	const stripped = strip(textLines);
+	let found: number | undefined;
+	for (let start = 0; start + searchLines.length <= stripped.length; start++) {
+		if (searchLines.every((line, offset) => stripped[start + offset] === line)) {
+			if (found !== undefined) {
+				return undefined;
+			}
+			found = start;
+		}
+	}
+	if (found === undefined) {
+		return undefined;
+	}
+	const fileLines = textLines.slice(found, found + searchLines.length);
+	const indented = fileLines.find(line => /^[ \t]/.test(line));
+	return indented ? { fileIndents: indented.startsWith('\t') ? 'tabs' : 'spaces', fileLines } : undefined;
+}
+
 export function describeEditRefusal(refusal: IOnyxEditRefusal): string {
 	switch (refusal.reason) {
 		case 'empty-search':
 			return 'The "search" text is empty. Nothing was changed. Quote the lines to change.';
 		case 'ambiguous':
-			return `The "search" text occurs ${refusal.occurrences} times in the file, so it does not say which place to change. Nothing was changed. Quote more of the surrounding lines so that the text occurs exactly once.`;
+			return `The "search" text occurs ${refusal.occurrences} times in the file, so it does not say which place to change. Nothing was changed. Quote more of the surrounding lines so that the text occurs exactly once: for a closing "}", quote the line before it as well.`;
 		case 'missing':
 			return refusal.lineEndingsDiffer
 				? 'The "search" text is in the file only with different line endings. Nothing was changed. Quote the lines with the line endings the file has.'
+				: refusal.indentationDiffers
+					? `The "search" text is in the file only with different indentation: the file indents these lines with ${refusal.indentationDiffers.fileIndents}. Nothing was changed. As the file has them, the lines are ${refusal.indentationDiffers.fileLines.slice(0, 12).map(line => JSON.stringify(line)).join(', ')}: quote those exactly, and indent the new lines the same way.`
 				: `The "search" text is not in the file exactly as quoted. The first line that does not match is line ${refusal.firstUnmatchedLineNumber ?? 1} of it: ${JSON.stringify(refusal.firstUnmatchedLine ?? '')}. Nothing was changed. Quote the lines exactly as they are in the file, including indentation.`;
 	}
 }

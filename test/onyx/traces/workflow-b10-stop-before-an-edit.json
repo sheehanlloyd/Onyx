@@ -7,7 +7,7 @@
 		"workflow": "b10-stop-before-an-edit",
 		"persona": "well-behaved"
 	},
-	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
+	"reason": "the edit path: the edit tool's description and refusals say how to add code and how to quote, and under the envelope no answer is offered after a refused edit until an edit is staged",
 	"episode": {
 		"name": "workflow-b10-stop-before-an-edit",
 		"seed": 0,
@@ -52,7 +52,7 @@
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"route\",\"label\":\"onyx:localhost:11434/sim-coder:7b\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"trace\",\"label\":\"\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 1\"}",
-		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"c1121764\",\"promptChars\":595,\"toolsChars\":6348,\"temperature\":0.2,\"maxTokens\":2457}",
+		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\"],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"c1121764\",\"promptChars\":595,\"toolsChars\":6532,\"temperature\":0.2,\"maxTokens\":2457}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"toolCall\",\"size\":0}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"toolCall\",\"size\":47}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"toolCall\",\"size\":47}",

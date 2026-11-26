@@ -233,7 +233,16 @@ suite('OnyxInlineEdit', () => {
 			const overlapping = applyEditBlocks('aaa', [{ search: 'aa', replace: 'b' }]);
 			assert.deepStrictEqual(
 				{ text: applied.text, appliedCount: applied.appliedCount, refusal: { reason: applied.refusals[0]?.reason, occurrences: applied.refusals[0]?.occurrences }, message: applied.refusals[0] ? describeEditRefusal(applied.refusals[0]) : '', overlapping: { text: overlapping.text, reason: overlapping.refusals[0]?.reason } },
-				{ text: twice, appliedCount: 0, refusal: { reason: 'ambiguous', occurrences: 2 }, message: 'The "search" text occurs 2 times in the file, so it does not say which place to change. Nothing was changed. Quote more of the surrounding lines so that the text occurs exactly once.', overlapping: { text: 'aaa', reason: 'ambiguous' } });
+				{ text: twice, appliedCount: 0, refusal: { reason: 'ambiguous', occurrences: 2 }, message: 'The "search" text occurs 2 times in the file, so it does not say which place to change. Nothing was changed. Quote more of the surrounding lines so that the text occurs exactly once: for a closing "}", quote the line before it as well.', overlapping: { text: 'aaa', reason: 'ambiguous' } });
+		});
+
+		test('a SEARCH that differs from the file only in indentation is refused, and the refusal says how the file indents (2026-11-26)', () => {
+			const file = 'export function addNumbers(a: number, b: number): number {\n\treturn a + b;\n}\n';
+			const applied = applyEditBlocks(file, [{ search: '  return a + b;\n}', replace: '  return a + b;\n}\n\nexport const x = 1;' }]);
+			assert.deepStrictEqual({ text: applied.text, appliedCount: applied.appliedCount, indentation: applied.refusals[0]?.indentationDiffers, message: applied.refusals[0] ? describeEditRefusal(applied.refusals[0]) : '' }, {
+				text: file, appliedCount: 0, indentation: { fileIndents: 'tabs', fileLines: ['\treturn a + b;', '}'] },
+				message: 'The "search" text is in the file only with different indentation: the file indents these lines with tabs. Nothing was changed. As the file has them, the lines are "\\treturn a + b;", "}": quote those exactly, and indent the new lines the same way.',
+			});
 		});
 
 		test('R-33: indentation in Python and YAML, tabs against spaces, trailing spaces, whitespace inside a multiline string and line endings are never normalized to make a match', () => {

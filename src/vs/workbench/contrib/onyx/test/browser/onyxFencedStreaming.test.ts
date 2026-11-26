@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { OnyxAssistantTextStream } from '../../common/onyxTextToolCalls.js';
+import { findUnexecutedToolCall, OnyxAssistantTextStream, parseTrailingToolCall } from '../../common/onyxTextToolCalls.js';
 
 /**
  * C5, R-27: what is withheld from the transcript while a reply streams. A
@@ -85,5 +85,51 @@ suite('OnyxFencedStreaming', () => {
 			plainObject: { firstShownAfter: 16, shownBeforeTheEnd: plainObject.length, everythingShown: true, call: undefined },
 			undecided: { firstShownAfter: 408, call: undefined },
 		});
+	});
+	test('a tool call written as JSON after prose is run and not shown; JSON in an answer that is not a call is shown and not run (2026-11-26)', () => {
+		const tools = ['readFile', 'editFile', 'terminal'];
+		const run = (text: string, size = 7) => {
+			let shown = '';
+			const assistant = new OnyxAssistantTextStream(tools, emitted => { shown += emitted; });
+			for (let offset = 0; offset < text.length; offset += size) {
+				assistant.append(text.slice(offset, offset + size));
+			}
+			const result = assistant.finish();
+			return { shown, call: result.toolCall ? `${result.toolCall.name} ${JSON.stringify(result.toolCall.parameters)}` : undefined };
+		};
+		const prose = 'Understood! Let\'s read the file and find the correct lines to replace.\n\n';
+		assert.deepStrictEqual({
+			// What the 7B wrote in the trial: prose, then a call as JSON on a line of its own.
+			afterProse: run(`${prose}{"name": "readFile", "arguments": {"path": "src/math.ts"}}`),
+			// The same reply arriving in one chunk, as a runtime that buffers sends it.
+			inOneChunk: run(`${prose}{"name": "readFile", "arguments": {"path": "src/math.ts"}}`, 10_000),
+			fenced: run(`${prose}\`\`\`json\n{"name": "readFile", "arguments": {"path": "src/math.ts"}}\n\`\`\``),
+			openAiShape: run(`${prose}{"type": "function", "function": {"name": "readFile", "arguments": "{\\"path\\": \\"src/math.ts\\"}"}}`),
+			// Not calls, and shown as they are.
+			packageJson: run('The manifest should read:\n\n{"name": "my-app", "version": "1.0.0"}'),
+			aToolNotOnOffer: run(`${prose}{"name": "deleteFile", "arguments": {"path": "src/math.ts"}}`),
+			extraKeys: run(`${prose}{"name": "readFile", "arguments": {"path": "a"}, "note": "an example"}`),
+			notAtTheEnd: run(`${prose}{"name": "readFile", "arguments": {"path": "a"}}\n\nThat is how a call looks.`),
+			argumentsNotAnObject: run(`${prose}{"name": "readFile", "arguments": ["a"]}`),
+			codeFence: run('Here it is:\n\n\`\`\`ts\nconst x = { a: 1 };\n\`\`\`'),
+		}, {
+			afterProse: { shown: prose, call: 'readFile {"path":"src/math.ts"}' },
+			inOneChunk: { shown: prose, call: 'readFile {"path":"src/math.ts"}' },
+			fenced: { shown: prose, call: 'readFile {"path":"src/math.ts"}' },
+			openAiShape: { shown: prose, call: 'readFile {"path":"src/math.ts"}' },
+			packageJson: { shown: 'The manifest should read:\n\n{"name": "my-app", "version": "1.0.0"}', call: undefined },
+			aToolNotOnOffer: { shown: `${prose}{"name": "deleteFile", "arguments": {"path": "src/math.ts"}}`, call: undefined },
+			extraKeys: { shown: `${prose}{"name": "readFile", "arguments": {"path": "a"}, "note": "an example"}`, call: undefined },
+			notAtTheEnd: { shown: `${prose}{"name": "readFile", "arguments": {"path": "a"}}\n\nThat is how a call looks.`, call: undefined },
+			argumentsNotAnObject: { shown: `${prose}{"name": "readFile", "arguments": ["a"]}`, call: undefined },
+			codeFence: { shown: 'Here it is:\n\n\`\`\`ts\nconst x = { a: 1 };\n\`\`\`', call: undefined },
+		});
+		assert.deepStrictEqual({
+			trailing: parseTrailingToolCall('Reading it. {"tool": "readFile", "arguments": {"path": "a"}}', tools)?.prose,
+			unexecutedNamed: findUnexecutedToolCall('I will call {"name": "readFile", "arguments": {"path": "a"}} and then edit.', tools),
+			unexecutedEnvelope: findUnexecutedToolCall('{"action":"tool","tool":"terminal","arguments":{"command":"ls"}}', tools),
+			notACall: findUnexecutedToolCall('Use {"name": "my-app"} in package.json.', tools),
+			noArguments: findUnexecutedToolCall('The readFile tool: {"name": "readFile"}.', tools),
+		}, { trailing: 'Reading it.', unexecutedNamed: 'readFile', unexecutedEnvelope: 'terminal', notACall: undefined, noArguments: undefined });
 	});
 });

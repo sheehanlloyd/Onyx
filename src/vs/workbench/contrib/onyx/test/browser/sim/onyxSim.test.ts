@@ -243,6 +243,19 @@ suite('OnyxSim', () => {
 		}, { roles: ['system', 'system', 'user'], contextBeforeTheThanks: true, dispatched: 0, status: 'completed' });
 	});
 
+	test('a tool call the model writes as JSON after prose is run; one that cannot be run ends the run as failed, not completed (2026-11-26)', async function () {
+		const episode = (turns: OnyxSimEpisode['turns']): OnyxSimEpisode => ({ name: 'text-call', seed: 0, persona: 'well-behaved', prompt: 'Add a subtractNumbers function next to addNumbers.', files: SIM_FILES, target: SIM_TARGET_FILE, turns, dialogDefault: 'deny', userSteps: [], faults: [] });
+		const repaired = await runEpisode(episode([{ kind: 'text', text: 'Understood! Let\'s read the file first.\n\n{"name": "readFile", "arguments": {"path": "src/math.ts"}}' }, { kind: 'text', text: 'It has addNumbers and multiply.' }]));
+		const unexecuted = await runEpisode(episode([{ kind: 'text', text: 'I will call {"name": "readFile", "arguments": {"path": "src/math.ts"}} and then edit it.' }]));
+		assert.deepStrictEqual({
+			repaired: { dispatched: repaired.toolResults.map(result => result.toolId), status: repaired.status },
+			unexecuted: { dispatched: unexecuted.toolResults.length, status: unexecuted.status, said: /as text instead of making it/.test(unexecuted.errorMessage ?? '') },
+		}, {
+			repaired: { dispatched: ['onyx_readFile'], status: 'completed' },
+			unexecuted: { dispatched: 0, status: 'failed', said: true },
+		});
+	});
+
 	test('shrinking keeps the violation and makes the script smaller', async () => {
 		// A stand-in violation: any command dispatched at all. The looping persona's
 		// long turn list and random user steps are the noise the shrinker removes.

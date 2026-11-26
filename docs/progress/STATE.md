@@ -7,6 +7,8 @@ Pre-registration commit: 5f98a0ca2c7 (an ancestor of this revision and of `main`
 Upstream base: release 1.147.0 = 8a14f0cc1b0, merged as ed8f992f0cc
 Toolchain: Node 24.22.1 pinned in `.nvmrc` (this machine ran 24.22.3); pnpm 12.16.0 from corepack; lint is oxlint running the `eslint.config.js` rules
 
+**Research figures predate the prompt and repair changes of 2026-11-26.** Every campaign in `docs/research/results/` ran before the workspace context became a system message (sheehanlloyd/Onyx#9), before a tool call written after prose was repaired, before observed tool-call quality needed tool-call observations, and before the edit tool's refusals said how to quote and the envelope withheld its answer after a refused edit (branch `edit-path`). Their numbers describe the harness as it was then; none was rerun. On the edit path the change is large for the 7B: the same "add a function" request staged a correct edit in 0 of 5 sessions before and 4 of 5 after (`chat-trial-2026-11-26.md`).
+
 ## Waiting on the owner (in this order)
 
 1. **Pick the product name.** `docs/naming/README.md`: 16 candidates researched on 2026-11-22, four survive (dubitant, lydstone, tentamen, stetit), none of 4 or 5 letters. Preliminary research, not legal clearance; trademark registers could not be queried. Keeping "Onyx" is a valid answer and makes D7 not applicable. Record it in `docs/progress/owner-decisions.json`.

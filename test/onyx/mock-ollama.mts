@@ -291,6 +291,19 @@ async function streamCompletion(res: http.ServerResponse, body: any) {
 	const wantsTool = wantsSymbols || wantsMemory || wantsEdit || wantsMultiEdit || wantsTerminal || wantsDocs || wantsPlaybook || (body.tools?.length && /TOOLTEST/.test(lastUser?.content ?? '') && !hasToolResult);
 
 	await sleep(120); // simulated TTFT
+	// PROSECALLTEST: a sentence, then a readFile call written as JSON on a line of its own, as text (2026-11-26: what
+	// the 7B does). After the tool result, a plain answer.
+	if (/PROSECALLTEST/.test(lastUser?.content ?? '') && body.tools?.length) {
+		const reply = hasToolResult ? 'The file holds the arithmetic helpers.' : 'Let me read the file first.\n\n{"name": "readFile", "arguments": {"path": "src/math.ts"}}';
+		for (const piece of reply.match(/[\s\S]{1,9}/g) ?? []) {
+			send(chunk({ content: piece }));
+		}
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
+		send({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [], usage: { prompt_tokens: 420, completion_tokens: 25 } });
+		res.write('data: [DONE]\n\n');
+		res.end();
+		return;
+	}
 	if (wantsReadEdit) {
 		if (!readTool) {
 			for (const word of 'I have no read tool: readFile was not offered, so I cannot read the file before editing it.'.split(' ')) {

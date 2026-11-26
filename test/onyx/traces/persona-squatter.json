@@ -6,7 +6,7 @@
 	"covers": {
 		"persona": "squatter"
 	},
-	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
+	"reason": "the edit path: the edit tool's description and refusals say how to add code and how to quote, and under the envelope no answer is offered after a refused edit until an edit is staged",
 	"episode": {
 		"name": "persona-squatter",
 		"seed": 2,
@@ -87,7 +87,7 @@
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"route\",\"label\":\"onyx:localhost:11434/sim-coder:7b\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"trace\",\"label\":\"\"}",
 		"{\"t\":400,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 1\"}",
-		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\",\"playbook\",\"usages\",\"testFailure\"],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"2f1344ea\",\"promptChars\":473,\"toolsChars\":7060,\"temperature\":0.2,\"maxTokens\":614}",
+		"{\"t\":400,\"kind\":\"request\",\"turn\":1,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\",\"playbook\",\"usages\",\"testFailure\"],\"messageCount\":2,\"roles\":[\"system\",\"user\"],\"lastUserDigest\":\"2f1344ea\",\"promptChars\":473,\"toolsChars\":7244,\"temperature\":0.2,\"maxTokens\":614}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"toolCall\",\"size\":0}",
 		"{\"t\":401,\"kind\":\"chunk\",\"op\":\"op#1\",\"delta\":\"toolCall\",\"size\":64}",
 		"{\"t\":401,\"kind\":\"userAction\",\"action\":\"acceptHunk\",\"detail\":\"src/math.ts#0\"}",
@@ -97,7 +97,7 @@
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"toolCall\",\"label\":\"acme_deploy\",\"ok\":false}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"turn\",\"label\":\"Model turn 2\"}",
-		"{\"t\":401,\"kind\":\"request\",\"turn\":2,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\",\"playbook\",\"usages\",\"testFailure\"],\"messageCount\":4,\"roles\":[\"system\",\"user\",\"assistant\",\"tool\"],\"lastUserDigest\":\"2f1344ea\",\"promptChars\":770,\"toolsChars\":7060,\"temperature\":0.2,\"maxTokens\":614}",
+		"{\"t\":401,\"kind\":\"request\",\"turn\":2,\"model\":\"sim-coder:7b\",\"tools\":[\"readFile\",\"listDirectory\",\"findFiles\",\"grep\",\"editFile\",\"terminal\",\"docs\",\"remember\",\"playbook\",\"usages\",\"testFailure\"],\"messageCount\":4,\"roles\":[\"system\",\"user\",\"assistant\",\"tool\"],\"lastUserDigest\":\"2f1344ea\",\"promptChars\":770,\"toolsChars\":7244,\"temperature\":0.2,\"maxTokens\":614}",
 		"{\"t\":402,\"kind\":\"chunk\",\"op\":\"op#2\",\"delta\":\"text\",\"size\":5}",
 		"{\"t\":402,\"kind\":\"shown\",\"size\":5}",
 		"{\"t\":402,\"kind\":\"chunk\",\"op\":\"op#2\",\"delta\":\"usage\",\"size\":0}",

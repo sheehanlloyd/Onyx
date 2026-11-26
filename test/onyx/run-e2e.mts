@@ -1158,6 +1158,18 @@ async function main() {
 	const notesAfterDenial = readRuns().flatMap(run => run.events).filter(event => event.kind === 'note').map(event => String(event.data?.label ?? ''));
 	check('R-04: the denied command was not dispatched', notesAfterDenial.filter(label => label.startsWith('Running: echo onyx-e2e-terminal-ok')).length === 1 && notesAfterDenial.includes('Command denied by the user'), notesAfterDenial.slice(-6).join(' | '));
 
+	// --- A tool call written as JSON after a sentence (2026-11-26): it runs, and the JSON is not shown.
+	const runsBeforeProse = readRuns().length;
+	await send('PROSECALLTEST what is in src/math.ts?');
+	await waitUntil(() => readRuns().length > runsBeforeProse && readRuns().slice(runsBeforeProse).some(run => run.events.some(event => event.kind === 'outcome')), 40_000);
+	const proseRun = readRuns().slice(runsBeforeProse).find(run => run.events.some(event => event.kind === 'outcome'));
+	const proseShown = pw('run-code', 'async (page) => page.evaluate(() => { const items = document.querySelectorAll(".interactive-item-container.interactive-response"); return items[items.length - 1]?.textContent ?? ""; })');
+	check('a tool call the model writes as JSON after prose is run, and the JSON is not shown', !!proseRun
+		&& proseRun.events.some(event => event.kind === 'toolCall' && event.data?.label === 'readFile')
+		&& proseRun.events.some(event => event.kind === 'outcome' && event.data?.status === 'completed')
+		&& proseShown.includes('Let me read the file first') && !proseShown.includes('"arguments"'),
+	JSON.stringify({ found: !!proseRun, calls: proseRun?.events.filter(event => event.kind === 'toolCall').map(event => event.data?.label), shown: proseShown.slice(0, 200) }));
+
 	// --- Offline docs mirror: the docs tool finds the workspace's own docs.
 	await send('DOCTEST clamp helper bounds');
 	await sleep(10000);

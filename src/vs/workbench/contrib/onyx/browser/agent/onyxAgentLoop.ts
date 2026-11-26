@@ -22,7 +22,7 @@ import { elideMiddle } from '../../common/onyxContextCompression.js';
 import { runtimeEnforcesSchema } from '../../common/onyxDatasheet.js';
 import { IOnyxResolvedHarness, isConstrainedProtocol } from '../../common/onyxHarnessConfig.js';
 import { buildToolEnvelopeFormat, OnyxEnvelopeAnswerStream, parseToolEnvelope, toolEnvelopeInstruction, unwrapEnvelopeParameters, ONYX_ANCHORED_EDIT_TOOL } from '../../common/onyxConstrainedToolCalls.js';
-import { IOnyxAssistantTextStream, OnyxAssistantTextStream, OnyxPlainTextStream } from '../../common/onyxTextToolCalls.js';
+import { findUnexecutedToolCall, IOnyxAssistantTextStream, OnyxAssistantTextStream, OnyxPlainTextStream } from '../../common/onyxTextToolCalls.js';
 import { classifyStreamEnd, digestValue, IOnyxTraceHeader, IOnyxTraceToolCall, ONYX_TRACE_VERSION, traceDigest } from '../../common/onyxTrace.js';
 import { IOnyxPlaybookService } from '../playbooks/onyxPlaybookService.js';
 import { IOnyxTerminalService } from '../terminal/onyxTerminalTool.js';
@@ -296,6 +296,11 @@ export class OnyxAgentLoop {
 		let anyToolRan = false;
 		// Whether this run has staged an edit: under `constrained-edit-first` the answer action is offered only after one.
 		let editStaged = false;
+		// Whether an edit was refused and none has been staged since. The refusal says what to do next; under the
+		// envelope no answer action is offered until an edit is staged (or the turn cap ends the run), so that the model
+		// takes those steps instead of telling the user to (2026-11-26: the 7B answered the refusal back to the user in
+		// five of five sessions, and, given one more turn, read the file and answered that the function "has been added").
+		let editRefused = false;
 
 		for (let turn = 0; turn < maxTurns && !token.isCancellationRequested; turn++) {
 			run.setTurnCount(turn + 1);
@@ -352,7 +357,7 @@ export class OnyxAgentLoop {
 			// A campaign's seed and temperature go with the request (L9): the trace header records them as sent.
 			const sampling = { ...(harness.sampling?.seed !== undefined ? { seed: harness.sampling.seed } : {}), ...(harness.sampling?.temperature !== undefined ? { temperature: harness.sampling.temperature } : {}) };
 			const requestOptions = constrained
-				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema, { answer: !editFirst || editStaged }), maxTokens, ...sampling } }
+				? { tools, modelOptions: { responseFormat: buildToolEnvelopeFormat(tools, anchorSchema, { answer: (!editFirst || editStaged) && !editRefused }), maxTokens, ...sampling } }
 				: { tools, modelOptions: { maxTokens, ...sampling } };
 			const requestDigest = digestValue(messages);
 			const traceToolCalls: IOnyxTraceToolCall[] = [];
@@ -521,6 +526,13 @@ export class OnyxAgentLoop {
 				if (configuration.verificationFeedback) {
 					this._reportVerification(run, anyToolRan);
 				}
+				// A reply that holds a tool call the harness did not run is not a finished answer: it ends as what it is.
+				const unexecuted = findUnexecutedToolCall(assistantText, tools.map(tool => tool.name));
+				if (unexecuted) {
+					run.activity({ kind: 'note', label: localize('onyx.agent.unexecutedToolCall.note', "The model wrote a call to {0} as text, and it was not run", unexecuted), ok: false });
+					run.complete('failed');
+					return { errorDetails: { message: localize('onyx.agent.unexecutedToolCall', "The model wrote a call to the {0} tool as text instead of making it, and Onyx did not run it, so nothing was read or changed by it. Try again, or rephrase the request.", unexecuted) } };
+				}
 				run.complete('completed');
 				return {};
 			}
@@ -538,8 +550,9 @@ export class OnyxAgentLoop {
 					: { ...rawToolUse, name: unwrapped.name, parameters: unwrapped.parameters };
 				const { text: resultText, ok } = await this._invokeTool(request, toolUse, toolIdsByName, tools, run, progress, token, anchors ? { schema: anchorSchema } : undefined);
 				run.noteToolResult(toolUse.name, resultText);
-				if (ok && toolUse.name === ONYX_ANCHORED_EDIT_TOOL) {
-					editStaged = true;
+				if (toolUse.name === ONYX_ANCHORED_EDIT_TOOL) {
+					editStaged ||= ok;
+					editRefused = !ok;
 				}
 				traceToolCalls.push({ name: toolUse.name, argumentsDigest: digestValue(toolUse.parameters), resultDigest: traceDigest(resultText), ok });
 				// Small models drown in raw tool output; keep head and tail

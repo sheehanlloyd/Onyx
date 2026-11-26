@@ -149,6 +149,20 @@ suite('OnyxHarnessConfigRun', () => {
 		});
 	});
 
+	test('under the envelope, no answer is offered from a refused edit until an edit is staged: the model takes the steps the refusal names instead of telling the user to (2026-11-26)', async function () {
+		this.timeout(60_000);
+		const emptySearch: OnyxSimModelTurn = { kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '', replace: 'export function subtractNumbers(a: number, b: number): number {\n\treturn a - b;\n}\n' } };
+		const anchored: OnyxSimModelTurn = { kind: 'toolCall', tool: 'editFile', arguments: { path: 'src/math.ts', search: '\treturn a + b;\n}', replace: '\treturn a + b;\n}\n\nexport function subtractNumbers(a: number, b: number): number {\n\treturn a - b;\n}' } };
+		const result = await runEpisode({ ...episode([emptySearch, READ, anchored, DONE]), constrained: true }, [], asked({ toolCallProtocol: 'constrained-envelope' }));
+		const actions = result.requests.map(request => ((request.responseFormat as { json_schema?: { schema?: { properties?: { action?: { enum?: string[] } } } } } | undefined)?.json_schema?.schema?.properties?.action?.enum ?? []).join('|'));
+		assert.deepStrictEqual({ actions, refused: result.toolResults[0]?.ok, toldWhatToDo: /Next: call readFile on src\/math\.ts/.test(result.toolResults[0]?.text ?? ''), staged: result.stagedPaths }, {
+			actions: ['tool|answer', 'tool', 'tool', 'tool|answer'],
+			refused: false,
+			toldWhatToDo: true,
+			staged: ['src/math.ts'],
+		});
+	});
+
 	test('R-44: every trace carries the hash of the configuration that ran; a packaged build refuses a requested configuration, runs the default one and says so', async function () {
 		this.timeout(60_000);
 		const fiveReads = episode([READ, READ, READ, READ, READ, DONE]);
