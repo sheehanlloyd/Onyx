@@ -6,7 +6,7 @@
 	"covers": {
 		"persona": "schema-violator"
 	},
-	"reason": "D11: the rig now registers the product's docs and playbook tools, so the docs tool takes a spare tool slot; with the two registrations removed every trace replays unchanged",
+	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
 	"episode": {
 		"name": "persona-schema-violator",
 		"seed": 4,
@@ -62,6 +62,24 @@
 				"step": {
 					"kind": "closeWindow"
 				}
+			},
+			{
+				"at": "afterRun",
+				"occurrence": 2,
+				"step": {
+					"kind": "typeInTarget",
+					"text": "/* mine */",
+					"line": 6
+				}
+			},
+			{
+				"at": "afterRun",
+				"occurrence": 2,
+				"step": {
+					"kind": "acceptHunk",
+					"path": "src/math.ts",
+					"hunk": 0
+				}
 			}
 		],
 		"faults": []
@@ -94,8 +112,10 @@
 		"{\"t\":402,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"live:completed\"}",
 		"{\"t\":402,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"completed\"}",
 		"{\"t\":1402,\"kind\":\"userAction\",\"action\":\"typeInTarget\",\"detail\":\"0f0c6cdd@5\"}",
-		"{\"t\":1402,\"kind\":\"buffer\",\"path\":\"src/math.ts\",\"digest\":\"396ee9d3\",\"cause\":\"afterRun\"}",
-		"{\"t\":900400,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":2}"
+		"{\"t\":1402,\"kind\":\"userAction\",\"action\":\"typeInTarget\",\"detail\":\"822487a6@6\"}",
+		"{\"t\":1402,\"kind\":\"userAction\",\"action\":\"acceptHunk\",\"detail\":\"src/math.ts#0\"}",
+		"{\"t\":1402,\"kind\":\"buffer\",\"path\":\"src/math.ts\",\"digest\":\"ff73b642\",\"cause\":\"afterRun\"}",
+		"{\"t\":900500,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":2}"
 	],
 	"journal": [
 		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"resumeMeta\":{\"head\":\"sim0000\"}}}",

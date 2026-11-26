@@ -542,19 +542,23 @@ export class OnyxModelService extends Disposable implements IOnyxModelService {
 				this._runtimeService.cancel(operationId);
 			}));
 
+			const wireMessages = toWireMessages(messages);
+			const wireTools = tools.length ? toWireTools(tools.slice(0, model.profile.maxTools)) : undefined;
 			this._runtimeService.startChatCompletion(operationId, {
 				baseUrl: model.discovered.baseUrl,
 				apiKey: model.apiKey,
 				// The verified context alias when there is one: the same weights, with the context that was asked for (B15).
 				model: model.wireModel ?? model.discovered.id,
-				messages: toWireMessages(messages),
-				tools: tools.length ? toWireTools(tools.slice(0, model.profile.maxTools)) : undefined,
+				messages: wireMessages,
+				tools: wireTools,
 				// What the request itself asks for comes first: a campaign fixes the seed and the temperature of its
 				// runs (L9), and the trace records what was sent. Otherwise the model's profile decides.
 				temperature: typeof options.modelOptions?.temperature === 'number' ? options.modelOptions.temperature : model.profile.temperature,
 				seed: typeof options.modelOptions?.seed === 'number' ? options.modelOptions.seed : model.profile.seed,
-				// The output cap the loop set aside room for (B13). A caller that sets none sends none.
-				maxTokens: typeof options.modelOptions?.maxTokens === 'number' && options.modelOptions.maxTokens > 0 ? options.modelOptions.maxTokens : undefined,
+				// The output cap the loop set aside room for (B13). A caller that sets none sends none. A caller with no
+				// budget of its own (a one-shot: an inline edit, a commit message) asks for a fixed cap, and it is never
+				// more than the model's context has left once the prompt is in it (I-04; found by the rig, L1).
+				maxTokens: typeof options.modelOptions?.maxTokens === 'number' && options.modelOptions.maxTokens > 0 ? Math.min(options.modelOptions.maxTokens, outputRoom(model.profile.contextLength, wireMessages, wireTools)) : undefined,
 				// Residency: ask Ollama to hold the weights between requests, so
 				// the next request pays prompt-processing, not model loading.
 				keepAlive: model.discovered.runtime === 'ollama' ? this._keepAliveFor(model) : undefined,
@@ -650,3 +654,12 @@ function runtimeLabel(runtime: IOnyxDiscoveredModel['runtime']): string {
 	}
 }
 
+/**
+ * What is left of a model's context for its reply once the prompt is in it, in tokens at four characters
+ * each, as the harness estimates (I-04). At least one: a prompt that does not fit is the caller's to refuse.
+ */
+function outputRoom(contextTokens: number, messages: readonly { readonly content?: unknown; readonly tool_calls?: readonly { readonly function: { readonly name: string; readonly arguments: string } }[] }[], tools: readonly unknown[] | undefined): number {
+	const promptChars = messages.reduce((total, message) => total + String(message.content ?? '').length + (message.tool_calls ?? []).reduce((sum, call) => sum + call.function.name.length + call.function.arguments.length, 0), 0);
+	const toolChars = tools?.length ? JSON.stringify(tools).length : 0;
+	return Math.max(1, contextTokens - Math.ceil((promptChars + toolChars) / 4));
+}

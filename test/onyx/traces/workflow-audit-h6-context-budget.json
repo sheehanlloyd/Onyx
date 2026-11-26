@@ -7,7 +7,7 @@
 		"workflow": "audit-h6-context-budget",
 		"persona": "well-behaved"
 	},
-	"reason": "D11: the rig now registers the product's docs and playbook tools, so the docs tool takes a spare tool slot; with the two registrations removed every trace replays unchanged",
+	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
 	"episode": {
 		"name": "workflow-audit-h6-context-budget",
 		"seed": 0,
@@ -480,7 +480,7 @@
 		"{\"t\":493,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
 		"{\"t\":493,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"live:budget-exhausted\"}",
 		"{\"t\":493,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"budget-exhausted\"}",
-		"{\"t\":900400,\"kind\":\"complete\",\"status\":\"budget-exhausted\",\"turns\":8}"
+		"{\"t\":900500,\"kind\":\"complete\",\"status\":\"budget-exhausted\",\"turns\":8}"
 	],
 	"journal": [
 		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"resumeMeta\":{\"head\":\"sim0000\"}}}",

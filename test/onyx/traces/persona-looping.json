@@ -6,7 +6,7 @@
 	"covers": {
 		"persona": "looping"
 	},
-	"reason": "D11: the rig now registers the product's docs and playbook tools, so the docs tool takes a spare tool slot; with the two registrations removed every trace replays unchanged",
+	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
 	"episode": {
 		"name": "persona-looping",
 		"seed": 18,
@@ -258,6 +258,24 @@
 				"step": {
 					"kind": "stop"
 				}
+			},
+			{
+				"at": "afterRun",
+				"occurrence": 2,
+				"step": {
+					"kind": "typeInTarget",
+					"text": "// reviewed\n",
+					"line": 2
+				}
+			},
+			{
+				"at": "afterRun",
+				"occurrence": 2,
+				"step": {
+					"kind": "acceptHunk",
+					"path": "src/math.ts",
+					"hunk": 1
+				}
 			}
 		],
 		"faults": [
@@ -331,7 +349,10 @@
 		"{\"t\":403,\"kind\":\"toolResult\",\"call\":\"call#1\",\"tool\":\"editFile\",\"ok\":false,\"resultDigest\":\"845df81c\"}",
 		"{\"t\":403,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"toolResult\",\"label\":\"editFile\",\"ok\":false}",
 		"{\"t\":403,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
-		"{\"t\":900400,\"kind\":\"complete\",\"status\":\"cancelled\",\"turns\":3}"
+		"{\"t\":1403,\"kind\":\"userAction\",\"action\":\"typeInTarget\",\"detail\":\"a08aa152@2\"}",
+		"{\"t\":1403,\"kind\":\"userAction\",\"action\":\"acceptHunk\",\"detail\":\"src/math.ts#1\"}",
+		"{\"t\":1403,\"kind\":\"buffer\",\"path\":\"src/math.ts\",\"digest\":\"669baa2a\",\"cause\":\"afterRun\"}",
+		"{\"t\":900500,\"kind\":\"complete\",\"status\":\"cancelled\",\"turns\":3}"
 	],
 	"journal": [
 		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"resumeMeta\":{\"head\":\"sim0000\"}}}",

@@ -7,7 +7,7 @@
 		"workflow": "b10-stop-before-a-command",
 		"persona": "well-behaved"
 	},
-	"reason": "D11: the rig now registers the product's docs and playbook tools, so the docs tool takes a spare tool slot; with the two registrations removed every trace replays unchanged",
+	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
 	"episode": {
 		"name": "workflow-b10-stop-before-a-command",
 		"seed": 0,
@@ -64,7 +64,7 @@
 		"{\"t\":401,\"kind\":\"toolResult\",\"call\":\"call#1\",\"tool\":\"terminal\",\"ok\":false,\"resultDigest\":\"845df81c\"}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"toolResult\",\"label\":\"terminal\",\"ok\":false}",
 		"{\"t\":401,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
-		"{\"t\":900400,\"kind\":\"complete\",\"status\":\"cancelled\",\"turns\":1}"
+		"{\"t\":900500,\"kind\":\"complete\",\"status\":\"cancelled\",\"turns\":1}"
 	],
 	"journal": [
 		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"resumeMeta\":{\"head\":\"sim0000\"}}}",

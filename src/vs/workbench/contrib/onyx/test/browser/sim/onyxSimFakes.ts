@@ -203,8 +203,17 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 		return { kind: 'text', text: 'Done.' };
 	}
 
+	/**
+	 * The reply to the next request, when it is an inline edit's (B9, D12): the user asked for it, so it is not
+	 * the script's next turn, and its chunks are `inlineStreaming` boundaries, where the user may keep typing.
+	 */
+	inlineReply: string | undefined;
+
 	async startChatCompletion(operationId: string, params: IOnyxChatParams): Promise<void> {
 		this.requests.push(params);
+		const inlineReply = this.inlineReply;
+		this.inlineReply = undefined;
+		const chunkBoundary: OnyxSimBoundary = inlineReply !== undefined ? 'inlineStreaming' : 'betweenChunks';
 		const lastUser = [...params.messages].reverse().find(message => message.role === 'user');
 		// Everything the request carries: message text, the calls the model made, and the tool schemas.
 		const promptChars = params.messages.reduce((total, message) => total + String(message.content ?? '').length + (message.tool_calls ?? []).reduce((sum, call) => sum + call.function.name.length + call.function.arguments.length, 0), 0);
@@ -238,14 +247,14 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 			this._emit({ operationId, kind: 'error', message: 'the runtime service was disposed' });
 			return;
 		}
-		const turn = this._constrain(await this._takeTurn(params), params.responseFormat !== undefined);
+		const turn: OnyxSimModelTurn = inlineReply !== undefined ? { kind: 'text', text: inlineReply, chunks: 4 } : this._constrain(await this._takeTurn(params), params.responseFormat !== undefined);
 		const op = this._trace.canonical('op', operationId);
 		const emit = async (event: IOnyxStreamEvent, size: number, finishReason?: string) => {
-			await this._scheduler.boundary('betweenChunks');
+			await this._scheduler.boundary(chunkBoundary);
 			if (this._cancelled.has(operationId)) {
 				return false;
 			}
-			const fault = this._scheduler.takeFault('betweenChunks');
+			const fault = this._scheduler.takeFault(chunkBoundary);
 			if (fault?.kind === 'earlyEndOfStream') {
 				this._trace.record({ kind: 'fault', fault: fault.kind });
 				this._trace.record({ kind: 'chunk', op, delta: 'done', size: 0 });
@@ -564,7 +573,6 @@ export class OnyxSimDialogService implements IDialogService {
 
 	async confirm(_confirmation: IConfirmation): Promise<IConfirmationResult> {
 		this._openDialogs++;
-		const toolResultsBefore = this.toolResultCount();
 		try {
 			await this._scheduler.boundary('dialogOpen');
 			return { confirmed: this._default !== 'deny' && this._default !== 'dismiss' };

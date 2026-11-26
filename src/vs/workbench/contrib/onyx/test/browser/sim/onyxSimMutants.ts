@@ -601,6 +601,20 @@ class OnyxMutantPlaybookGrantsTerminal extends OnyxTerminalService {
 	}
 }
 
+/**
+ * B9, Codex N4 as the audit found it: the reply is used whatever happened to the file while it was being
+ * generated. The session no longer checks that the file is still the text the request was made from, so a
+ * reply staged after the user typed proposes the old text back, and accepting it takes their typing away.
+ */
+class OnyxMutantStaleRangeInlineSession extends OnyxInlineEditSession {
+	constructor(private readonly _file: ITextModel, lineRange: Range, changeSetService: IOnyxChangeSetService, workspaceAccessService: IOnyxWorkspaceAccessService) {
+		super(_file, lineRange, changeSetService, workspaceAccessService);
+	}
+	override isCurrent(): boolean {
+		return !this._file.isDisposed();
+	}
+}
+
 /** Mutant id (as in `SIM_MUTANTS`) to the product classes it replaces. */
 export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProductClasses>>> = {
 	'B1-naive-read-path': { WorkspaceAccess: OnyxMutantNaiveWorkspaceAccess },
@@ -646,6 +660,7 @@ export const SIM_MUTANT_CLASSES: Readonly<Record<string, Partial<IOnyxSimProduct
 	'G-I03-never-finishes': { ControlPlaneService: OnyxMutantNeverFinishesControlPlane },
 	'G-I07-stage-anywhere': { ChangeSetService: OnyxMutantStageAnywhereChangeSet },
 	'G-I12-unjournaled-dispatch': { AgentLoop: OnyxMutantUnjournaledDispatchLoop },
+	'B9-inline-stale-range': { InlineEditSession: OnyxMutantStaleRangeInlineSession },
 	'D11-campaign-asks': { TerminalService: OnyxMutantCampaignAsksTerminal },
 	'D11-docs-unattributed': { ControlPlaneService: OnyxMutantDocsUnattributedControlPlane },
 	'D11-playbook-grants': { TerminalService: OnyxMutantPlaybookGrantsTerminal },

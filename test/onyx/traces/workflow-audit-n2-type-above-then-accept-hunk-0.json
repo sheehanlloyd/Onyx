@@ -7,7 +7,7 @@
 		"workflow": "audit-n2-type-above-then-accept-hunk-0",
 		"persona": "well-behaved"
 	},
-	"reason": "D11: the rig now registers the product's docs and playbook tools, so the docs tool takes a spare tool slot; with the two registrations removed every trace replays unchanged",
+	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
 	"episode": {
 		"name": "workflow-audit-n2-type-above-then-accept-hunk-0",
 		"seed": 0,
@@ -120,7 +120,7 @@
 		"{\"t\":1402,\"kind\":\"buffer\",\"path\":\"src/math.ts\",\"digest\":\"b91603f9\",\"cause\":\"afterRun\"}",
 		"{\"t\":16402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"editCertificateOutcome\",\"label\":\"\"}",
 		"{\"t\":16402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"note\",\"label\":\"Verification: verified — no problems in src/math.ts before or after the acceptance, and none reported while waiting (a clean file that stays clean gets no new report). Partial: 1 hunk is still staged and not part of this\",\"ok\":true}",
-		"{\"t\":900400,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":2}"
+		"{\"t\":900500,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":2}"
 	],
 	"journal": [
 		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"resumeMeta\":{\"head\":\"sim0000\"}}}",

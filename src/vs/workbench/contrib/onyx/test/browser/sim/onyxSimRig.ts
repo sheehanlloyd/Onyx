@@ -18,6 +18,8 @@ import { TestConfigurationService } from '../../../../../../platform/configurati
 import { IDialogService } from '../../../../../../platform/dialogs/common/dialogs.js';
 import { ExtensionIdentifier } from '../../../../../../platform/extensions/common/extensions.js';
 import { FileService } from '../../../../../../platform/files/common/fileService.js';
+import { InMemoryFileSystemProvider } from '../../../../../../platform/files/common/inMemoryFilesystemProvider.js';
+import { IWorkbenchEnvironmentService } from '../../../../../services/environment/common/environmentService.js';
 import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { IEnvironmentService } from '../../../../../../platform/environment/common/environment.js';
@@ -60,6 +62,15 @@ import { IOnyxModelService, OnyxModelService } from '../../../browser/model/onyx
 import { IOnyxPlaybookService, OnyxPlaybookService } from '../../../browser/playbooks/onyxPlaybookService.js';
 import { OnyxPlaybookToolContribution } from '../../../browser/playbooks/onyxPlaybookTool.js';
 import { OnyxDocsToolContribution } from '../../../browser/intelligence/onyxDocsTool.js';
+import { OnyxChangesViewPane } from '../../../browser/changes/onyxChangesView.js';
+import { OnyxDiagnosticsExport } from '../../../browser/diagnostics/onyxDiagnosticsExport.js';
+import { IOnyxOutcomeService, OnyxOutcomeService } from '../../../browser/outcomes/onyxOutcomeService.js';
+import { IOnyxDiagnosticsOptions } from '../../../common/onyxDiagnostics.js';
+import '../../../browser/controlPlane/onyxControlPlane.contribution.js';
+import { IViewDescriptorService } from '../../../../../common/views.js';
+import { ViewDescriptorService } from '../../../../../services/views/browser/viewDescriptorService.js';
+import { ServiceCollection } from '../../../../../../platform/instantiation/common/serviceCollection.js';
+import { OnyxAcceptOutcome } from '../../../browser/changes/onyxChangeSetService.js';
 import { IOnyxHarnessConfigService, OnyxHarnessConfigService } from '../../../browser/agent/onyxHarnessConfigService.js';
 import { IOnyxContextAllocationService, OnyxContextAllocationService } from '../../../browser/models/onyxContextAllocationService.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
@@ -209,6 +220,8 @@ export interface IOnyxSimResult {
 	readonly servedTurns: readonly OnyxSimModelTurn[];
 	/** For an LM Studio episode: the size of every prompt it cut without an error, in tokens (B15). */
 	readonly silentlyCut: readonly number[];
+	/** The default diagnostics bundle the product's export built at the end (L1), entry by entry. */
+	readonly exported: readonly { readonly path: string; readonly text: string }[];
 }
 
 /**
@@ -237,6 +250,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private readonly _profiles: OnyxSimProfileService;
 	readonly commandsOutlivingWindow: string[] = [];
 	defaultExport: string | undefined;
+	/** The entries of that bundle, by path: what the export check reads to know it is not vacuous. */
+	defaultExportEntries: readonly { readonly path: string; readonly text: string }[] = [];
 	private readonly _redactorClass: typeof OnyxDiagnosticsRedactor;
 	readonly sanctionedBuffer = new Map<string, string>();
 	readonly sanctionedDisk = new Map<string, string>();
@@ -272,6 +287,8 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private readonly _storageService: TestStorageService;
 	private readonly _changeSetClass: typeof OnyxChangeSetService;
 	private readonly _inlineEditSessionClass: typeof OnyxInlineEditSession;
+	private readonly _modelServiceForInline: IOnyxModelService;
+	private _changesView: { readonly root: HTMLElement; readonly accepts: Promise<OnyxAcceptOutcome>[] } | undefined;
 	readonly verification: IOnyxVerificationService;
 	/** The window's diagnostics, for a test to report problems as a language service would. */
 	readonly markers: IMarkerService;
@@ -322,6 +339,11 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		this.search = this._disposables.add(new OnyxSimSearchService(fileService));
 
 		const instantiationService = workbenchInstantiationService({ fileService: () => fileService }, this._disposables);
+		// The user-data disk (L1): where the product keeps its journal store and its logs, in memory like the workspace.
+		const userData = (instantiationService.get(IWorkbenchEnvironmentService) as IWorkbenchEnvironmentService).userRoamingDataHome;
+		if (!fileService.hasProvider(userData)) {
+			this._disposables.add(fileService.registerProvider(userData.scheme, this._disposables.add(new InMemoryFileSystemProvider())));
+		}
 		instantiationService.stub(IWorkspaceContextService, new TestContextService(testWorkspace(simWorkspaceUri())));
 		instantiationService.stub(IOnyxRuntimeService, this.runtime);
 		this.runtime.labHarness = options.labHarness?.request;
@@ -365,12 +387,15 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 
 		this.controlPlane = this._disposables.add(new classes.ControlPlaneService());
 		instantiationService.stub(IOnyxControlPlaneService, this.controlPlane);
+		// The product's journal store (L1): every run's events are written where a diagnostics export reads them.
+		instantiationService.stub(IOnyxOutcomeService, this._disposables.add(instantiationService.createInstance(OnyxOutcomeService)));
 		// No endpoint is configured in the rig, so there is no key to store or read.
 		instantiationService.stub(IOnyxEndpointSecretService, { _serviceBrand: undefined, onDidChange: Event.None, setApiKey: async () => { }, configuredApiKeys: async () => new Map<string, string>() });
 		// The real allocation service over the simulated runtime (B15): nothing was asked of that runtime, so
 		// every model is requested under its own name at the server's allocation.
 		instantiationService.stub(IOnyxContextAllocationService, this._disposables.add(instantiationService.createInstance(OnyxContextAllocationService)));
 		const modelService: IOnyxModelService = this._disposables.add(instantiationService.createInstance(classes.ModelService));
+		this._modelServiceForInline = modelService;
 		instantiationService.stub(IOnyxModelService, modelService);
 		this._languageModels = new OnyxSimLanguageModelsService(modelService);
 		instantiationService.stub(ILanguageModelsService, this._languageModels);
@@ -613,9 +638,10 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			}
 			case 'acceptHunk': {
 				const staged = this.changeSet.files.get().find(file => file.proposal.path === action.path);
-				// The user accepts the hunk that is on show at that place, by the id it is shown with (B7).
+				// The user presses the accept button of the hunk on show at that place in Onyx Changes: the product's
+				// view, rendered (L1). Which hunk that button accepts is the view's doing (Codex N2, B7).
 				const hunk = staged?.hunks[action.hunk];
-				if (hunk && (await this.changeSet.acceptHunk(action.path, hunk.id)).applied) {
+				if (hunk && (await this._pressInChangesView(action.path, action.hunk, 'accept'))?.applied) {
 					this.userAccepts++;
 					this.acceptedHunks.push({ path: action.path, hunk: action.hunk, newLines: hunk?.newLines ?? [] });
 					this._sanction(action.path);
@@ -623,10 +649,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 				break;
 			}
 			case 'rejectHunk': {
-				const hunk = this.changeSet.files.get().find(file => file.proposal.path === action.path)?.hunks[action.hunk];
-				if (hunk) {
-					this.changeSet.rejectHunk(action.path, hunk.id);
-				}
+				await this._pressInChangesView(action.path, action.hunk, 'reject');
 				break;
 			}
 			case 'acceptAll': {
@@ -703,10 +726,20 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 				}
 				break;
 			case 'inlineEdit': {
-				// The product's own session, from request to staged reply; the reply is the simulated model's.
+				// The product's own request, as the editor's controller makes it (L1): a run, the reply through the
+				// product's one-shot path from the simulated runtime, streamed in chunks the user can type between
+				// (`inlineStreaming`, D12), then staged by the session against the text the request was made from.
 				const model = await this._open(this.episode.target);
-				const session = new this._inlineEditSessionClass(model, new Range(action.startLine, 1, action.endLine, model.getLineMaxColumn(action.endLine)), this.changeSet, this.workspaceAccess);
-				await session.stageReply(action.reply);
+				const endLine = Math.min(action.endLine, model.getLineCount());
+				const session = new this._inlineEditSessionClass(model, new Range(action.startLine, 1, endLine, model.getLineMaxColumn(endLine)), this.changeSet, this.workspaceAccess);
+				this.runtime.inlineReply = action.reply;
+				const request = new CancellationTokenSource();
+				try {
+					await session.request('Swap the operands.', this.episode.target, model.getLanguageId(), { modelService: this._modelServiceForInline, controlPlaneService: this.controlPlane }, request);
+				} finally {
+					this.runtime.inlineReply = undefined;
+					request.dispose();
+				}
 				break;
 			}
 			case 'undo': {
@@ -880,6 +913,59 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		await this._languageModels.refresh();
 	}
 
+	/**
+	 * Presses a hunk's accept or reject button in the product's Onyx Changes view, as a user does: the file's
+	 * row is expanded if it is not, and the button is the one on the hunk shown at that place. Returns what an
+	 * accept came to, or undefined when there was no such button. The view is rendered on first use.
+	 */
+	private async _pressInChangesView(path: string, index: number, action: 'accept' | 'reject'): Promise<OnyxAcceptOutcome | undefined> {
+		const view = this._changesView ??= this._renderChangesView();
+		const fileRow = () => [...view.root.querySelectorAll<HTMLElement>('.onyx-change-file')].find(row => row.querySelector('.onyx-change-file-path')?.textContent === path);
+		const header = fileRow()?.querySelector<HTMLElement>('.onyx-change-file-header');
+		if (!header) {
+			return undefined;
+		}
+		if (header.getAttribute('aria-expanded') !== 'true') {
+			header.click();
+		}
+		const button = [...fileRow()?.querySelectorAll<HTMLButtonElement>(`.onyx-change-hunk:not(.onyx-change-conflict) button.codicon-${action === 'accept' ? 'check' : 'close'}`) ?? []][index];
+		if (!button) {
+			return undefined;
+		}
+		view.accepts.length = 0;
+		button.click();
+		return view.accepts.length ? await view.accepts[0] : undefined;
+	}
+
+	/** Onyx Changes, rendered into a detached element over this rig's change set. What its accept buttons return is kept, to be awaited. */
+	private _renderChangesView(): { readonly root: HTMLElement; readonly accepts: Promise<OnyxAcceptOutcome>[] } {
+		const accepts: Promise<OnyxAcceptOutcome>[] = [];
+		const changeSet = this.changeSet;
+		// The view's change set is this rig's, seen through a wrapper that only keeps what an accept returns.
+		const observed = new Proxy(changeSet, {
+			get(target, property) {
+				if (property === 'acceptHunk') {
+					return (path: string, hunkId: string) => {
+						const outcome = target.acceptHunk(path, hunkId);
+						accepts.push(outcome);
+						return outcome;
+					};
+				}
+				const value = Reflect.get(target, property, target);
+				return typeof value === 'function' ? value.bind(target) : value;
+			},
+		});
+		// The view's container and descriptor are the product's own registration (`onyxControlPlane.contribution`).
+		const descriptors = this._disposables.add(this._instantiationService.createInstance(ViewDescriptorService));
+		const scoped = this._instantiationService.createChild(new ServiceCollection([IOnyxChangeSetService, observed], [IViewDescriptorService, descriptors]));
+		this._disposables.add(scoped);
+		const view = this._disposables.add(scoped.createInstance(OnyxChangesViewPane, { id: OnyxChangesViewPane.ID, title: 'Onyx Changes', expanded: true }));
+		const root = document.createElement('div');
+		view.render();
+		root.appendChild(view.element);
+		return { root, accepts };
+	}
+
 	/** The workspace's markdown as the documentation indexer walks it: no dot-directories, no build output or dependencies. */
 	private async _markdownFiles(): Promise<{ path: string; content: string }[]> {
 		const excluded = new Set(['node_modules', 'out', 'dist', 'build', 'target', 'coverage', 'vendor']);
@@ -1025,8 +1111,19 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			await timeout(1000);
 		}
 		await watchdog;
-		// What a default diagnostics export would say about this run: the journal, through the product's redactor.
-		this.defaultExport = new this._redactorClass({ includeContent: false, secrets: [] }).journal(this.journalLines.map(line => JSON.parse(line) as unknown)).text;
+		// What a default diagnostics export would contain (L1): the product's own export, every entry of its bundle
+		// (journals from the product's journal store, profiles, models, machine, runtimes, settings, logs), built with
+		// this rig's redactor class so that a mutant redactor is the one used.
+		await timeout(100);
+		const redactorClass = this._redactorClass;
+		const exporter = this._instantiationService.createInstance(class extends OnyxDiagnosticsExport {
+			protected override _createRedactor(options: IOnyxDiagnosticsOptions): OnyxDiagnosticsRedactor {
+				return new redactorClass(options);
+			}
+		});
+		const decoder = new TextDecoder();
+		this.defaultExportEntries = (await exporter.collect(false)).map(entry => ({ path: entry.path, text: decoder.decode(entry.data) }));
+		this.defaultExport = this.defaultExportEntries.map(entry => `== ${entry.path}\n${entry.text}`).join('\n');
 		await this._observe('end');
 		for (const message of this._languageModels.streamErrors) {
 			this.trace.record({ kind: 'fault', fault: 'streamError', detail: message });
@@ -1060,6 +1157,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			stagedPaths: this.changeSet.files.get().map(file => file.proposal.path),
 			servedTurns: [...this.runtime.servedTurns],
 			silentlyCut: [...this.runtime.silentlyCut],
+			exported: this.defaultExportEntries,
 			followUpPromptText: this._followUpFirstRequest === undefined ? undefined : (this.runtime.requests[this._followUpFirstRequest]?.messages ?? []).map(message => String(message.content ?? '')).join('\n'),
 		};
 	}

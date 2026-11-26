@@ -35,7 +35,9 @@ export type OnyxSimPersonaKind =
 /** Where the scheduler may let the user or the environment act. */
 export type OnyxSimBoundary = 'betweenChunks' | 'beforeToolDispatch' | 'afterToolDispatch' | 'dialogOpen' | 'afterStage' | 'afterRun'
 	/** A dispatched command has started and has not finished (B5). */
-	| 'commandRunning';
+	| 'commandRunning'
+	/** Between two chunks of an inline edit's reply, while the user can go on typing (B9, D12). */
+	| 'inlineStreaming';
 
 export type OnyxSimUserAction =
 	| { readonly kind: 'typeInTarget'; readonly text: string; readonly line: number }
@@ -202,6 +204,9 @@ export const SIM_FILES: Readonly<Record<string, string>> = {
 const PERSONAS: readonly OnyxSimPersonaKind[] = ['well-behaved', 'malformed', 'truncating', 'looping', 'obedient', 'anchor-liar', 'flooder', 'squatter', 'staller', 'schema-violator'];
 
 const EDIT_SEARCH = '\treturn a + b;';
+
+/** An inline edit's reply to a request on the first function (B9, D12). */
+export const SIM_INLINE_REPLY = '<<<<<<< SEARCH\n\treturn a + b;\n=======\n\treturn b + a; // inline\n>>>>>>> REPLACE';
 const EDIT_REPLACE = '\treturn b + a; // edited-by-sim';
 
 function editCall(search: string, replace: string, path = SIM_TARGET_FILE): OnyxSimModelTurn {
@@ -418,6 +423,31 @@ export function generateEpisode(seed: number): OnyxSimEpisode {
 	// so that the episodes it does not touch keep every other draw.
 	const runtimeRandom = random.fork('runtime');
 	const lmStudio = runtimeRandom.chance(0.06) ? runtimeRandom.pick([4096, 8192]) : undefined;
+	// The reviewing user (D12): reviews what was left in the editor and edits the file while doing so. Its own
+	// stream, drawn last, so that the episodes it does not touch keep every other draw. It is what the three
+	// audit findings the campaign had not rediscovered need: a model that stages two hunks in one file and a user
+	// who types on one of them before accepting (Codex N2), and an inline edit the user keeps typing through
+	// while its reply streams, then accepts (Codex N4).
+	const reviewRandom = random.fork('review');
+	let reviewedTurns = turns;
+	const twoHunks = persona === 'well-behaved' && reviewRandom.chance(0.5);
+	if (twoHunks) {
+		reviewedTurns = [{ kind: 'toolCalls', calls: [{ tool: 'editFile', arguments: { path: SIM_TARGET_FILE, search: EDIT_SEARCH, replace: '\treturn b + a; // hunk 0' } }, { tool: 'editFile', arguments: { path: SIM_TARGET_FILE, search: '\treturn a * b;', replace: '\treturn b * a; // hunk 1' } }] }, answer('Staged two hunks.')];
+	}
+	// A user reviews more often when there is more to review.
+	if (reviewRandom.chance(twoHunks ? 0.9 : 0.3)) {
+		// Types on a line of the file (the first hunk's, the second's, or another), then accepts what is shown.
+		userSteps.push({ at: 'afterRun', occurrence: 2, step: { kind: 'typeInTarget', text: reviewRandom.pick(['/* mine */', '// reviewed\n']), line: reviewRandom.pick([2, 2, 2, 6, 1, 9]) } });
+		userSteps.push({ at: 'afterRun', occurrence: 2, step: reviewRandom.chance(0.75) ? { kind: 'acceptHunk', path: SIM_TARGET_FILE, hunk: reviewRandom.int(0, 1) } : { kind: 'acceptAll' } });
+	}
+	if (reviewRandom.chance(0.12)) {
+		// An inline edit of the first function, typed through while it streams, and then accepted, saved or left.
+		userSteps.push({ at: 'afterRun', occurrence: 3, step: { kind: 'inlineEdit', startLine: 1, endLine: 3, reply: SIM_INLINE_REPLY } });
+		if (reviewRandom.chance(0.7)) {
+			userSteps.push({ at: 'inlineStreaming', occurrence: reviewRandom.int(1, 3), step: { kind: 'typeInTarget', text: reviewRandom.pick(['/* typed while it streamed */', 'const typed = 1;\n']), line: reviewRandom.int(1, 3) } });
+		}
+		userSteps.push({ at: 'afterRun', occurrence: 4, step: reviewRandom.pick<OnyxSimUserAction>([{ kind: 'acceptAll' }, { kind: 'acceptAll' }, { kind: 'save' }, { kind: 'autosaveTick' }]) });
+	}
 	const episode: OnyxSimEpisode = {
 		name: `seed-${seed}`,
 		seed,
@@ -425,7 +455,7 @@ export function generateEpisode(seed: number): OnyxSimEpisode {
 		prompt,
 		files: SIM_FILES,
 		target: SIM_TARGET_FILE,
-		turns,
+		turns: reviewedTurns,
 		dialogDefault,
 		userSteps,
 		faults,

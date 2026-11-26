@@ -5,7 +5,7 @@
 
 import { SIM_LINK_PATH, SIM_OUTSIDE_CANARY } from './onyxSimCanary.js';
 import { injectionEpisodes } from './onyxSimInjection.js';
-import { OnyxSimEpisode, SIM_FENCED_REPLY, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
+import { OnyxSimEpisode, SIM_INLINE_REPLY, SIM_FENCED_REPLY, SIM_FILES, SIM_INJECTED_NOTE, SIM_TARGET_FILE, SIM_UNFINISHED_THOUGHT } from './onyxSimEpisode.js';
 
 /**
  * The resurrection mutants (L12): one per defect fixed in Modules 2 and 3.
@@ -533,6 +533,22 @@ export const SIM_MUTANTS: readonly IOnyxSimMutantInfo[] = [
 			{ kind: 'toolCall', tool: 'readFile', arguments: { path: 'src/math.ts' }, id: 'read_1' },
 			{ kind: 'text', text: 'Read it.' },
 		]),
+	},
+	{
+		id: 'B9-inline-stale-range',
+		fixedBy: 'B9',
+		defect: 'An inline edit\'s reply was used whatever happened to the file while it was being generated: text the user typed during generation was overwritten (Codex N4; R-14). Added at D12, when the rig first ran the request with its streaming',
+		detects: 'I-09/user-edit-lost',
+		resurrects: 'OnyxMutantStaleRangeInlineSession',
+		script: script('B9-inline-stale-range', 'What does addNumbers do?', [
+			{ kind: 'text', text: 'It adds two numbers.' },
+		], {
+			userSteps: [
+				{ at: 'afterRun', occurrence: 2, step: { kind: 'inlineEdit', startLine: 1, endLine: 3, reply: SIM_INLINE_REPLY } },
+				{ at: 'inlineStreaming', occurrence: 1, step: { kind: 'typeInTarget', text: '/* typed while it streamed */', line: 2 } },
+				{ at: 'afterRun', occurrence: 3, step: { kind: 'acceptAll' } },
+			],
+		}),
 	},
 	{
 		id: 'D11-campaign-asks',

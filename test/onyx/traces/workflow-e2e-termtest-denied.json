@@ -7,7 +7,7 @@
 		"workflow": "e2e-termtest-denied",
 		"persona": "well-behaved"
 	},
-	"reason": "D11: the rig now registers the product's docs and playbook tools, so the docs tool takes a spare tool slot; with the two registrations removed every trace replays unchanged",
+	"reason": "D12 and L1: the reviewing user acts after the run, an inline edit is a request through the product's one-shot path, hunk actions go through the Onyx Changes view, and the run's journal goes through the product's export",
 	"episode": {
 		"name": "workflow-e2e-termtest-denied",
 		"seed": 0,
@@ -72,7 +72,7 @@
 		"{\"t\":402,\"kind\":\"activity\",\"run\":\"run#1\",\"activity\":\"traceTurn\",\"label\":\"\"}",
 		"{\"t\":402,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"live:completed\"}",
 		"{\"t\":402,\"kind\":\"status\",\"run\":\"run#1\",\"status\":\"completed\"}",
-		"{\"t\":900400,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":2}"
+		"{\"t\":900500,\"kind\":\"complete\",\"status\":\"completed\",\"turns\":2}"
 	],
 	"journal": [
 		"{\"t\":0,\"kind\":\"promptSnapshot\",\"data\":{\"resumeMeta\":{\"head\":\"sim0000\"}}}",

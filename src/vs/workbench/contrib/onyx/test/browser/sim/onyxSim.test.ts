@@ -113,7 +113,8 @@ suite('OnyxSim', () => {
 			'c10-a-name-with-two-dots-is-a-name': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			'c3-two-edits-in-one-call-then-accept-all': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			'c3-one-edit-of-two-cannot-be-placed': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 0, dialogs: [] },
-			'b9-inline-edit-stages-then-save': { status: 'completed', turns: 1, dispatched: [], staged: 0, dialogs: [] },
+			// Two requests: the run's, and the inline edit's, which goes through the product's one-shot path (L1).
+			'b9-inline-edit-stages-then-save': { status: 'completed', turns: 2, dispatched: [], staged: 0, dialogs: [] },
 			'c2-check-task-asks-after-accept-and-save': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: ['deny'] },
 			'audit-h4-duplicates-shift-then-accept': { status: 'completed', turns: 2, dispatched: ['editFile'], staged: 1, dialogs: [] },
 			// Eight tool turns, then the turn cap (compact profile): out of turns is its own status (B10).
@@ -214,6 +215,18 @@ suite('OnyxSim', () => {
 			'e2e-edittest': { ok: true, errors: [], turns: 2, requests: 2, seed: 42, streamEnds: ['tool_calls', 'stop'] },
 			'e2e-termtest': { ok: true, errors: [], turns: 2, requests: 2, seed: 42, streamEnds: ['tool_calls', 'stop'] },
 			'e2e-termtest-denied': { ok: true, errors: [], turns: 2, requests: 2, seed: 42, streamEnds: ['tool_calls', 'stop'] },
+		});
+	});
+
+	test('L1, I-10: the default diagnostics bundle of every episode is the product\'s own export, and it carries the run\'s journal', async function () {
+		const result = await runEpisode(generateEpisode(4));
+		const journals = result.exported.filter(entry => /^journal\/runs\/[\w-]+\.jsonl$/.test(entry.path));
+		assert.deepStrictEqual({
+			entries: result.exported.map(entry => entry.path.replace(/^journal\/runs\/[\w-]+\.jsonl$/, 'journal/runs/<run>.jsonl').replace(/^logs\/.*$/, 'logs/<log>')).filter((path, index, all) => all.indexOf(path) === index).sort(),
+			journalHasTheRun: journals.some(entry => entry.text.split('\n').filter(line => line.trim()).length > 3 && entry.text.includes('"kind":"outcome"')),
+		}, {
+			entries: ['README.txt', 'journal/index.json', 'journal/runs/<run>.jsonl', 'machine.json', 'models.json', 'profiles.json', 'runtimes.json', 'settings.json'],
+			journalHasTheRun: true,
 		});
 	});
 
