@@ -79,7 +79,7 @@ export interface IOnyxExecutionRequest {
  * dialog cannot, so a dialog that a run can stop is always drawn in the
  * window, whatever `window.dialogStyle` says.
  */
-function closableBy(token: CancellationToken | undefined): { readonly token?: CancellationToken; readonly custom?: boolean } {
+export function closableBy(token: CancellationToken | undefined): { readonly token?: CancellationToken; readonly custom?: boolean } {
 	return token && token !== CancellationToken.None ? { token, custom: true } : {};
 }
 
