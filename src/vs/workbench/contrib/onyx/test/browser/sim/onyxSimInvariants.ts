@@ -211,7 +211,9 @@ const i03: OnyxSimChecker = (state, boundary) => {
 const i04Budget: OnyxSimChecker = state => {
 	// The whole request against the whole window: messages, the calls in them, the tool schemas, and the
 	// output the request asked room for (B13). An estimate at four characters a token, like the harness's.
-	const budgetChars = state.profile.contextLength * CHARS_PER_TOKEN;
+	// The window is the context the model really has: for an LM Studio episode, the one it is loaded at, which the
+	// product learns and budgets against (B15, R-61); otherwise the profile's.
+	const budgetChars = (state.lmStudioLoadsAt ?? state.profile.contextLength) * CHARS_PER_TOKEN;
 	for (const event of events(state)) {
 		if (event.kind === 'request') {
 			const requestChars = event.promptChars + event.toolsChars + (event.maxTokens ?? 0) * CHARS_PER_TOKEN;
@@ -246,7 +248,11 @@ const i05: OnyxSimChecker = state => {
 	let dialogOpenAtStop = false;
 	let answeredAfterStop: string | undefined;
 	for (const event of events(state)) {
-		if (event.kind === 'userAction') {
+		if (event.kind === 'userAction' && event.action === 'inlineEdit') {
+			// A request the user makes after a Stop is a run of its own (D12): Stop was about the run before it.
+			stopped = false;
+			dialogOpenAtStop = false;
+		} else if (event.kind === 'userAction') {
 			if (event.action === 'stop') {
 				stopped = true;
 				dialogOpenAtStop = true;
@@ -442,8 +448,30 @@ const i09: OnyxSimChecker = state => {
 };
 
 /** I-11: a truncated, stalled or malformed stream is never reported as complete and never applied. */
+/** The trace cut at each inline edit the user asks for: one part for the agent's run, one for each inline edit's run (D12). */
+function runParts(all: readonly OnyxSimTraceEvent[]): OnyxSimTraceEvent[][] {
+	const parts: OnyxSimTraceEvent[][] = [[]];
+	for (const event of all) {
+		if (event.kind === 'userAction' && event.action === 'inlineEdit') {
+			parts.push([]);
+		}
+		parts[parts.length - 1].push(event);
+	}
+	return parts;
+}
+
 const i11: OnyxSimChecker = state => {
-	const all = events(state);
+	for (const [index, part] of runParts(events(state)).entries()) {
+		const found = i11Part(state, part, index === 0);
+		if (found) {
+			return found;
+		}
+	}
+	return undefined;
+};
+
+/** I-11 over one run's part of the trace: a stream and the status it led to are the same run's. */
+function i11Part(state: IOnyxSimState, all: readonly OnyxSimTraceEvent[], agentRun: boolean): string | undefined {
 	const truncated = all.some(event => event.kind === 'chunk' && event.delta === 'done' && event.finishReason === undefined);
 	if (truncated && all.some(event => event.kind === 'status' && event.status === 'completed')) {
 		return `I-11/truncated-reported-complete: a stream that ended without a finish reason was reported as completed`;
@@ -451,7 +479,8 @@ const i11: OnyxSimChecker = state => {
 	// C4: a reply that is an unfinished thought is not an answer. When the model's reply was thinking that
 	// never closed and the request for it was made, the run does not complete, and the call the model was
 	// only considering does not run.
-	const thoughtAt = state.episode.turns.findIndex(turn => turn.kind === 'text' && turn.text === SIM_UNFINISHED_THOUGHT);
+	// The script's turns are the agent run's; an inline edit's reply is the user's request (`inlineReply`).
+	const thoughtAt = agentRun ? state.episode.turns.findIndex(turn => turn.kind === 'text' && turn.text === SIM_UNFINISHED_THOUGHT) : -1;
 	// The reply has to have ended on its own, mid-thought. One the user stopped while it streamed ended because
 	// of the user; what a stopped run is then reported as is I-03's question, not this one's.
 	let requests = 0;
@@ -485,7 +514,7 @@ const i11: OnyxSimChecker = state => {
 		}
 	}
 	return undefined;
-};
+}
 
 /** I-12: the trace is complete and ordered: every dispatch has a result, every request a stream end. */
 const i12: OnyxSimChecker = (state, boundary) => {
@@ -698,7 +727,8 @@ const r27: OnyxSimChecker = state => {
 	if (fencedAt === -1 || state.episode.persona === 'looping') {
 		return undefined;
 	}
-	const all = events(state);
+	// The agent run's part of the trace: an inline edit after it streams a reply of its own (D12).
+	const all = runParts(events(state))[0];
 	// The request for that turn, then its chunks up to the end of its stream.
 	let requests = 0;
 	let inReply = false;
@@ -754,8 +784,8 @@ const r61: OnyxSimChecker = (state, boundary) => {
  * the certificate says.
  */
 const r46: OnyxSimChecker = state => {
-	const journal = state.journalLines.join('\n');
-	const checks = checkCertificates(journal);
+	// Run by run: a certificate names a turn of its own run, and an inline edit after the run is a run of its own.
+	const checks = [...state.journalsByRun.values()].flatMap(lines => checkCertificates(lines.join('\n')));
 	const wrong = checks.find(check => check.verdict === 'differs');
 	if (wrong) {
 		return `R-46/certificate-contradicts-journal: the certificate for ${wrong.path} (turn ${wrong.turn}) does not hold: ${wrong.detail}`;
@@ -801,7 +831,8 @@ const r28: OnyxSimChecker = state => {
 	let requests = 0;
 	let inReply = false;
 	let chunks = 0;
-	for (const event of events(state)) {
+	// The agent run's part of the trace: an inline edit after it streams a reply of its own (D12).
+	for (const event of runParts(events(state))[0]) {
 		if (event.kind === 'request') {
 			requests++;
 			inReply = requests === longAt + 1;
@@ -847,7 +878,8 @@ const r44: OnyxSimChecker = (state, boundary) => {
 			return `R-44/configuration-not-default: nothing was requested and the trace says its configuration is ${harness.source}`;
 		}
 	}
-	if (headers === 0 && events(state).some(event => event.kind === 'request')) {
+	// An inline edit's request is a one-shot run's: it has no harness configuration, so no header (L1, D12).
+	if (headers === 0 && events(state).filter(event => event.kind === 'request').length > state.runtime.inlineRequests) {
 		return 'R-44/trace-without-configuration: a model request was sent by a run whose trace has no header';
 	}
 	return undefined;

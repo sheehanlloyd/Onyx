@@ -208,11 +208,16 @@ export class OnyxSimRuntimeService extends Disposable implements IOnyxRuntimeSer
 	 * the script's next turn, and its chunks are `inlineStreaming` boundaries, where the user may keep typing.
 	 */
 	inlineReply: string | undefined;
+	/** How many requests were an inline edit's: one-shot runs, which have no harness configuration and no trace header. */
+	inlineRequests = 0;
 
 	async startChatCompletion(operationId: string, params: IOnyxChatParams): Promise<void> {
 		this.requests.push(params);
 		const inlineReply = this.inlineReply;
 		this.inlineReply = undefined;
+		if (inlineReply !== undefined) {
+			this.inlineRequests++;
+		}
 		const chunkBoundary: OnyxSimBoundary = inlineReply !== undefined ? 'inlineStreaming' : 'betweenChunks';
 		const lastUser = [...params.messages].reverse().find(message => message.role === 'user');
 		// Everything the request carries: message text, the calls the model made, and the tool schemas.

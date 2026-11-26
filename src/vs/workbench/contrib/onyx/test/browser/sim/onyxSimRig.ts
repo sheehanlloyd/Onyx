@@ -143,6 +143,8 @@ export interface IOnyxSimState {
 	readonly defaultExport: string | undefined;
 	/** Every journal event the control plane recorded so far, one JSON line each. */
 	readonly journalLines: readonly string[];
+	/** The same lines run by run: a run's journal is checked against itself (an inline edit is a run of its own). */
+	readonly journalsByRun: ReadonlyMap<string, readonly string[]>;
 	/** For an LM Studio episode (B15): the context it loads the model at, and every prompt it cut without an error. */
 	readonly lmStudioLoadsAt: number | undefined;
 	readonly silentlyCutPrompts: readonly number[];
@@ -267,6 +269,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	readonly profile: IOnyxModelProfile;
 	/** Every journal event the control plane recorded, as the outcome service would write it (one JSON line each). */
 	readonly journalLines: string[] = [];
+	readonly journalsByRun = new Map<string, string[]>();
 
 	get lmStudioLoadsAt(): number | undefined {
 		return this.episode.lmStudioLoadsAt;
@@ -453,6 +456,9 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 
 		this._disposables.add(this.controlPlane.onDidRecordEvent(({ runId, event }) => {
 			this.journalLines.push(JSON.stringify(event));
+			const ofRun = this.journalsByRun.get(runId) ?? [];
+			ofRun.push(JSON.stringify(event));
+			this.journalsByRun.set(runId, ofRun);
 			const run = this.trace.canonical('run', runId);
 			if (event.kind === 'outcome') {
 				this.trace.record({ kind: 'status', run, status: String((event.data as { status: string }).status) });
@@ -761,6 +767,12 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 								this.acceptedHunks.splice(index, 1);
 							}
 						}
+						// The same for the user's own typing: what an undo took out of the buffer, the user took back (D12).
+						for (let index = this.typedTexts.length - 1; index >= 0; index--) {
+							if (!after.includes(this.typedTexts[index])) {
+								this.typedTexts.splice(index, 1);
+							}
+						}
 					}
 				}
 				break;
@@ -823,7 +835,9 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			if (previous !== undefined && staged.hunks.length <= 0) {
 				continue;
 			}
-			this.stageEvents.push({ path: staged.proposal.path, hunks: staged.hunks.length, proposedChars: staged.proposal.proposed.length, proposedLines: staged.proposal.proposed.split('\n').length, realLocation: this._provider.realLocation(this._uri(staged.proposal.path).path), runId: staged.runId, search, blocks, baseAtStage: staged.proposal.base, proposedBefore: previous });
+			// An inline edit's proposal is the user's request, not the last edit call's: it has no SEARCH text of the model's (D12).
+			const inline = staged.edits.at(-1)?.certificate.protocol === 'inline';
+			this.stageEvents.push({ path: staged.proposal.path, hunks: staged.hunks.length, proposedChars: staged.proposal.proposed.length, proposedLines: staged.proposal.proposed.split('\n').length, realLocation: this._provider.realLocation(this._uri(staged.proposal.path).path), runId: staged.runId, search: inline ? undefined : search, blocks: inline ? [] : blocks, baseAtStage: staged.proposal.base, proposedBefore: previous });
 			this.trace.record({ kind: 'stage', path: staged.proposal.path, hunks: staged.hunks.length, ok: true });
 		}
 		for (const path of [...this._lastProposed.keys()]) {
