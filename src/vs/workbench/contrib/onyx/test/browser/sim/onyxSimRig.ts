@@ -223,6 +223,8 @@ export interface IOnyxSimResult {
 	readonly silentlyCut: readonly number[];
 	/** The default diagnostics bundle the product's export built at the end (L1), entry by entry. */
 	readonly exported: readonly { readonly path: string; readonly text: string }[];
+	/** Everything the chat was shown, in order. */
+	readonly shownText: string;
 }
 
 /**
@@ -290,6 +292,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 	private readonly _changeSetClass: typeof OnyxChangeSetService;
 	private readonly _inlineEditSessionClass: typeof OnyxInlineEditSession;
 	private readonly _modelServiceForInline: IOnyxModelService;
+	private _shownText = '';
 	private _changesView: { readonly root: HTMLElement; readonly accepts: Promise<OnyxAcceptOutcome>[] } | undefined;
 	readonly verification: IOnyxVerificationService;
 	/** The window's diagnostics, for a test to report problems as a language service would. */
@@ -1079,6 +1082,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 		// What reaches the transcript, and when in the stream it does (C5).
 		const progress = (parts: IChatProgress[]) => {
 			const size = parts.reduce((total, part) => total + (part.kind === 'markdownContent' ? part.content.value.length : 0), 0);
+			this._shownText += parts.map(part => part.kind === 'markdownContent' ? part.content.value : '').join('');
 			if (size > 0) {
 				this.trace.record({ kind: 'shown', size });
 			}
@@ -1174,6 +1178,7 @@ export class OnyxSimRig implements IOnyxSimScheduler, IOnyxSimState {
 			servedTurns: [...this.runtime.servedTurns],
 			silentlyCut: [...this.runtime.silentlyCut],
 			exported: this.defaultExportEntries,
+			shownText: this._shownText,
 			followUpPromptText: this._followUpFirstRequest === undefined ? undefined : (this.runtime.requests[this._followUpFirstRequest]?.messages ?? []).map(message => String(message.content ?? '')).join('\n'),
 		};
 	}

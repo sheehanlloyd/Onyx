@@ -9,6 +9,8 @@ import { stripReasoning } from './onyxReasoning.js';
 export interface IOnyxTextToolCall {
 	readonly name: string;
 	readonly parameters: object;
+	/** It was written in a code fence after prose: the shape an example takes too, so the caller may decline it. */
+	readonly fenced?: boolean;
 }
 
 /**
@@ -108,7 +110,7 @@ export function parseTrailingToolCall(modelReply: string, offeredToolNames: read
 	if (!name || !offeredToolNames.includes(name) || !argumentsOk) {
 		return undefined;
 	}
-	return { prose: text.slice(0, start).trimEnd(), call: { name, parameters: extractParameters(record) } };
+	return { prose: text.slice(0, start).trimEnd(), call: { name, parameters: extractParameters(record), ...(fenced ? { fenced: true } : {}) } };
 }
 
 /**
@@ -116,8 +118,9 @@ export function parseTrailingToolCall(modelReply: string, offeredToolNames: read
  * as a call does, or the envelope's tool action. A run must not end "completed" on one (it was not run).
  */
 export function findUnexecutedToolCall(reply: string, offeredToolNames: readonly string[]): string | undefined {
-	// A call inside the model's thinking is a thought, not a call (C4), here as in the text repair.
-	const text = stripReasoning(reply).text;
+	// A call inside the model's thinking is a thought, not a call (C4), here as in the text repair. One inside a code
+	// fence is shown as code: an answer may quote a call as an example, and the user may have asked for one.
+	const text = stripReasoning(reply).text.replace(/```[\s\S]*?(```|$)/g, '');
 	for (let index = text.indexOf('{'); index !== -1 && index < text.length; index = text.indexOf('{', index + 1)) {
 		const end = matchingBrace(text, index);
 		if (end === undefined) {

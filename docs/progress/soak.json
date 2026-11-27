@@ -1,18 +1,18 @@
 {
-	"ranAt": "2026-11-26T16:57:17.088Z",
+	"ranAt": "2026-11-26T23:14:06.333Z",
 	"product": {
 		"nameShort": "Onyx",
-		"commit": "7b44eaa5c38721fb5d54f82ea79d3dc065f6129e"
+		"commit": "5d07499ac2c9284bc6bdd5ca28f52480c779c457"
 	},
 	"power": {
 		"atStart": {
-			"at": "2026-11-26T16:57:17.105Z",
+			"at": "2026-11-26T23:14:06.349Z",
 			"source": "AC Power",
 			"battery": "100%; charged",
 			"powermode": "2"
 		},
 		"atEnd": {
-			"at": "2026-11-26T18:11:35.276Z",
+			"at": "2026-11-27T00:28:54.173Z",
 			"source": "AC Power",
 			"battery": "100%; charged",
 			"powermode": "2"
@@ -22,467 +22,467 @@
 		"model": "Mac16,8",
 		"memoryGb": 24,
 		"loadAverageAtEnd": [
-			3.4248046875,
-			3.7421875,
-			3.556640625
+			3.51318359375,
+			3.5185546875,
+			3.1005859375
 		]
 	},
 	"minutesRequested": 60,
-	"minutesRun": 74.3,
+	"minutesRun": 74.8,
 	"suiteRuns": 8,
 	"failedRuns": 0,
 	"iterations": [
 		{
 			"index": 1,
-			"seconds": 496,
+			"seconds": 503,
 			"exitCode": 0,
-			"result": "all 73 checks passed",
+			"result": "all 75 checks passed",
 			"failures": [],
 			"log": ".build/soak-runs/run-1.log",
-			"peakRendererMb": 900,
-			"peakTotalMb": 1729,
+			"peakRendererMb": 875,
+			"peakTotalMb": 1707,
 			"leftBehind": []
 		},
 		{
 			"index": 2,
-			"seconds": 496,
+			"seconds": 501,
 			"exitCode": 0,
-			"result": "all 73 checks passed",
+			"result": "all 75 checks passed",
 			"failures": [],
 			"log": ".build/soak-runs/run-2.log",
-			"peakRendererMb": 893,
-			"peakTotalMb": 1727,
+			"peakRendererMb": 755,
+			"peakTotalMb": 1635,
 			"leftBehind": []
 		},
 		{
 			"index": 3,
-			"seconds": 496,
+			"seconds": 500,
 			"exitCode": 0,
-			"result": "all 73 checks passed",
+			"result": "all 75 checks passed",
 			"failures": [],
 			"log": ".build/soak-runs/run-3.log",
-			"peakRendererMb": 900,
-			"peakTotalMb": 1735,
+			"peakRendererMb": 796,
+			"peakTotalMb": 1634,
 			"leftBehind": []
 		},
 		{
 			"index": 4,
-			"seconds": 496,
+			"seconds": 501,
 			"exitCode": 0,
-			"result": "all 73 checks passed",
+			"result": "all 75 checks passed",
 			"failures": [],
 			"log": ".build/soak-runs/run-4.log",
-			"peakRendererMb": 912,
-			"peakTotalMb": 1745,
+			"peakRendererMb": 741,
+			"peakTotalMb": 1629,
 			"leftBehind": []
 		},
 		{
 			"index": 5,
-			"seconds": 496,
+			"seconds": 501,
 			"exitCode": 0,
-			"result": "all 73 checks passed",
+			"result": "all 75 checks passed",
 			"failures": [],
 			"log": ".build/soak-runs/run-5.log",
-			"peakRendererMb": 905,
-			"peakTotalMb": 1741,
+			"peakRendererMb": 906,
+			"peakTotalMb": 1740,
 			"leftBehind": []
 		},
 		{
 			"index": 6,
-			"seconds": 496,
+			"seconds": 501,
 			"exitCode": 0,
-			"result": "all 73 checks passed",
+			"result": "all 75 checks passed",
 			"failures": [],
 			"log": ".build/soak-runs/run-6.log",
-			"peakRendererMb": 897,
-			"peakTotalMb": 1728,
+			"peakRendererMb": 745,
+			"peakTotalMb": 1635,
 			"leftBehind": []
 		},
 		{
 			"index": 7,
-			"seconds": 495,
+			"seconds": 500,
 			"exitCode": 0,
-			"result": "all 73 checks passed",
+			"result": "all 75 checks passed",
 			"failures": [],
 			"log": ".build/soak-runs/run-7.log",
-			"peakRendererMb": 746,
-			"peakTotalMb": 1607,
+			"peakRendererMb": 837,
+			"peakTotalMb": 1632,
 			"leftBehind": []
 		},
 		{
 			"index": 8,
-			"seconds": 496,
+			"seconds": 501,
 			"exitCode": 0,
-			"result": "all 73 checks passed",
+			"result": "all 75 checks passed",
 			"failures": [],
 			"log": ".build/soak-runs/run-8.log",
-			"peakRendererMb": 670,
-			"peakTotalMb": 1492,
+			"peakRendererMb": 765,
+			"peakTotalMb": 1655,
 			"leftBehind": []
 		}
 	],
 	"rendererPeakMb": {
-		"min": 670,
-		"max": 912,
-		"firstRun": 900,
-		"lastRun": 670
+		"min": 741,
+		"max": 906,
+		"firstRun": 875,
+		"lastRun": 765
 	},
 	"idleInstance": {
 		"samples": [
 			{
 				"minute": 1,
-				"rendererMb": 545,
-				"totalMb": 1261
+				"rendererMb": 558,
+				"totalMb": 1291
 			},
 			{
 				"minute": 2,
-				"rendererMb": 546,
-				"totalMb": 1263
+				"rendererMb": 558,
+				"totalMb": 1293
 			},
 			{
 				"minute": 3,
-				"rendererMb": 546,
-				"totalMb": 1263
+				"rendererMb": 558,
+				"totalMb": 1291
 			},
 			{
 				"minute": 4,
-				"rendererMb": 546,
-				"totalMb": 1262
+				"rendererMb": 559,
+				"totalMb": 1293
 			},
 			{
 				"minute": 5,
-				"rendererMb": 546,
-				"totalMb": 1262
+				"rendererMb": 559,
+				"totalMb": 1293
 			},
 			{
 				"minute": 6,
-				"rendererMb": 546,
-				"totalMb": 1263
+				"rendererMb": 559,
+				"totalMb": 1293
 			},
 			{
 				"minute": 7,
-				"rendererMb": 546,
-				"totalMb": 1264
+				"rendererMb": 559,
+				"totalMb": 1293
 			},
 			{
 				"minute": 8,
-				"rendererMb": 540,
-				"totalMb": 1257
+				"rendererMb": 552,
+				"totalMb": 1288
 			},
 			{
 				"minute": 9,
-				"rendererMb": 541,
-				"totalMb": 1265
+				"rendererMb": 553,
+				"totalMb": 1290
 			},
 			{
 				"minute": 10,
-				"rendererMb": 541,
-				"totalMb": 1265
+				"rendererMb": 407,
+				"totalMb": 1068
 			},
 			{
 				"minute": 11,
-				"rendererMb": 541,
-				"totalMb": 1267
+				"rendererMb": 249,
+				"totalMb": 817
 			},
 			{
 				"minute": 12,
-				"rendererMb": 541,
-				"totalMb": 1267
+				"rendererMb": 249,
+				"totalMb": 819
 			},
 			{
 				"minute": 13,
-				"rendererMb": 541,
-				"totalMb": 1267
+				"rendererMb": 250,
+				"totalMb": 819
 			},
 			{
 				"minute": 14,
-				"rendererMb": 541,
-				"totalMb": 1268
+				"rendererMb": 250,
+				"totalMb": 821
 			},
 			{
 				"minute": 15,
-				"rendererMb": 541,
-				"totalMb": 1268
+				"rendererMb": 250,
+				"totalMb": 821
 			},
 			{
 				"minute": 16,
-				"rendererMb": 541,
-				"totalMb": 1269
+				"rendererMb": 250,
+				"totalMb": 822
 			},
 			{
 				"minute": 17,
-				"rendererMb": 543,
-				"totalMb": 1272
+				"rendererMb": 258,
+				"totalMb": 835
 			},
 			{
 				"minute": 18,
-				"rendererMb": 542,
-				"totalMb": 1273
+				"rendererMb": 258,
+				"totalMb": 836
 			},
 			{
 				"minute": 19,
-				"rendererMb": 277,
-				"totalMb": 867
+				"rendererMb": 257,
+				"totalMb": 833
 			},
 			{
 				"minute": 20,
-				"rendererMb": 277,
-				"totalMb": 866
+				"rendererMb": 258,
+				"totalMb": 835
 			},
 			{
 				"minute": 21,
-				"rendererMb": 278,
-				"totalMb": 867
+				"rendererMb": 258,
+				"totalMb": 836
 			},
 			{
 				"minute": 22,
-				"rendererMb": 278,
-				"totalMb": 867
+				"rendererMb": 259,
+				"totalMb": 840
 			},
 			{
 				"minute": 23,
-				"rendererMb": 278,
-				"totalMb": 870
+				"rendererMb": 259,
+				"totalMb": 840
 			},
 			{
 				"minute": 24,
-				"rendererMb": 278,
-				"totalMb": 870
+				"rendererMb": 259,
+				"totalMb": 840
 			},
 			{
 				"minute": 25,
-				"rendererMb": 281,
-				"totalMb": 878
+				"rendererMb": 260,
+				"totalMb": 840
 			},
 			{
 				"minute": 26,
-				"rendererMb": 281,
-				"totalMb": 878
+				"rendererMb": 282,
+				"totalMb": 868
 			},
 			{
 				"minute": 27,
-				"rendererMb": 281,
-				"totalMb": 878
+				"rendererMb": 239,
+				"totalMb": 800
 			},
 			{
 				"minute": 28,
-				"rendererMb": 281,
-				"totalMb": 878
+				"rendererMb": 239,
+				"totalMb": 802
 			},
 			{
 				"minute": 29,
-				"rendererMb": 282,
-				"totalMb": 880
+				"rendererMb": 240,
+				"totalMb": 802
 			},
 			{
 				"minute": 30,
-				"rendererMb": 282,
-				"totalMb": 881
+				"rendererMb": 240,
+				"totalMb": 803
 			},
 			{
 				"minute": 31,
-				"rendererMb": 283,
-				"totalMb": 882
+				"rendererMb": 240,
+				"totalMb": 803
 			},
 			{
 				"minute": 32,
-				"rendererMb": 282,
-				"totalMb": 881
+				"rendererMb": 240,
+				"totalMb": 803
 			},
 			{
 				"minute": 33,
-				"rendererMb": 283,
-				"totalMb": 888
+				"rendererMb": 240,
+				"totalMb": 803
 			},
 			{
 				"minute": 34,
-				"rendererMb": 287,
-				"totalMb": 885
+				"rendererMb": 223,
+				"totalMb": 761
 			},
 			{
 				"minute": 35,
-				"rendererMb": 286,
-				"totalMb": 882
+				"rendererMb": 224,
+				"totalMb": 764
 			},
 			{
 				"minute": 36,
-				"rendererMb": 286,
-				"totalMb": 881
+				"rendererMb": 223,
+				"totalMb": 760
 			},
 			{
 				"minute": 37,
-				"rendererMb": 286,
-				"totalMb": 879
+				"rendererMb": 224,
+				"totalMb": 763
 			},
 			{
 				"minute": 38,
-				"rendererMb": 286,
-				"totalMb": 881
+				"rendererMb": 223,
+				"totalMb": 763
 			},
 			{
 				"minute": 39,
-				"rendererMb": 286,
-				"totalMb": 881
+				"rendererMb": 223,
+				"totalMb": 764
 			},
 			{
 				"minute": 40,
-				"rendererMb": 286,
-				"totalMb": 882
+				"rendererMb": 225,
+				"totalMb": 766
 			},
 			{
 				"minute": 41,
-				"rendererMb": 286,
-				"totalMb": 882
+				"rendererMb": 225,
+				"totalMb": 765
 			},
 			{
 				"minute": 42,
-				"rendererMb": 288,
-				"totalMb": 887
+				"rendererMb": 226,
+				"totalMb": 772
 			},
 			{
 				"minute": 43,
-				"rendererMb": 288,
-				"totalMb": 888
+				"rendererMb": 227,
+				"totalMb": 773
 			},
 			{
 				"minute": 44,
-				"rendererMb": 288,
-				"totalMb": 888
+				"rendererMb": 235,
+				"totalMb": 781
 			},
 			{
 				"minute": 45,
-				"rendererMb": 288,
-				"totalMb": 888
+				"rendererMb": 233,
+				"totalMb": 773
 			},
 			{
 				"minute": 46,
-				"rendererMb": 288,
-				"totalMb": 888
+				"rendererMb": 232,
+				"totalMb": 773
 			},
 			{
 				"minute": 47,
-				"rendererMb": 288,
-				"totalMb": 889
+				"rendererMb": 232,
+				"totalMb": 776
 			},
 			{
 				"minute": 48,
-				"rendererMb": 288,
-				"totalMb": 889
+				"rendererMb": 233,
+				"totalMb": 775
 			},
 			{
 				"minute": 49,
-				"rendererMb": 282,
-				"totalMb": 873
+				"rendererMb": 233,
+				"totalMb": 775
 			},
 			{
 				"minute": 50,
-				"rendererMb": 187,
-				"totalMb": 695
+				"rendererMb": 233,
+				"totalMb": 774
 			},
 			{
 				"minute": 51,
-				"rendererMb": 222,
-				"totalMb": 731
+				"rendererMb": 233,
+				"totalMb": 781
 			},
 			{
 				"minute": 52,
-				"rendererMb": 222,
-				"totalMb": 733
+				"rendererMb": 233,
+				"totalMb": 780
 			},
 			{
 				"minute": 53,
-				"rendererMb": 225,
-				"totalMb": 738
+				"rendererMb": 232,
+				"totalMb": 779
 			},
 			{
 				"minute": 54,
-				"rendererMb": 223,
-				"totalMb": 723
+				"rendererMb": 232,
+				"totalMb": 779
 			},
 			{
 				"minute": 55,
-				"rendererMb": 223,
-				"totalMb": 724
+				"rendererMb": 229,
+				"totalMb": 774
 			},
 			{
 				"minute": 56,
-				"rendererMb": 223,
-				"totalMb": 724
+				"rendererMb": 237,
+				"totalMb": 780
 			},
 			{
 				"minute": 57,
-				"rendererMb": 223,
-				"totalMb": 724
+				"rendererMb": 235,
+				"totalMb": 779
 			},
 			{
 				"minute": 58,
-				"rendererMb": 164,
-				"totalMb": 667
+				"rendererMb": 235,
+				"totalMb": 779
 			},
 			{
 				"minute": 59,
-				"rendererMb": 168,
-				"totalMb": 669
+				"rendererMb": 229,
+				"totalMb": 770
 			},
 			{
 				"minute": 60,
-				"rendererMb": 167,
-				"totalMb": 671
+				"rendererMb": 230,
+				"totalMb": 771
 			},
 			{
 				"minute": 61,
-				"rendererMb": 165,
-				"totalMb": 671
+				"rendererMb": 227,
+				"totalMb": 764
 			},
 			{
 				"minute": 62,
-				"rendererMb": 166,
-				"totalMb": 668
+				"rendererMb": 226,
+				"totalMb": 761
 			},
 			{
 				"minute": 63,
-				"rendererMb": 167,
-				"totalMb": 673
+				"rendererMb": 226,
+				"totalMb": 762
 			},
 			{
 				"minute": 64,
-				"rendererMb": 160,
-				"totalMb": 657
+				"rendererMb": 226,
+				"totalMb": 764
 			},
 			{
 				"minute": 65,
-				"rendererMb": 157,
-				"totalMb": 651
+				"rendererMb": 227,
+				"totalMb": 764
 			},
 			{
 				"minute": 66,
-				"rendererMb": 159,
-				"totalMb": 655
+				"rendererMb": 227,
+				"totalMb": 765
 			},
 			{
-				"minute": 66.1,
-				"rendererMb": 186,
-				"totalMb": 700
+				"minute": 66.9,
+				"rendererMb": 229,
+				"totalMb": 779
 			}
 		],
-		"rendererMbAfterTwoMinutes": 546,
-		"rendererMbAtEnd": 186,
-		"rendererMbMax": 546
+		"rendererMbAfterTwoMinutes": 558,
+		"rendererMbAtEnd": 229,
+		"rendererMbMax": 559
 	},
 	"leftBehind": [],
 	"crashReports": [],
 	"campaign": {
 		"ran": true,
 		"exitCode": 0,
-		"seconds": 486,
-		"tail": "campaign: 50000 of 50000 episodes with no violation, in 416 s; exit 0 ⏎ mutants: 48 of 48 killed, in 68 s; the test's exit 0 ⏎ H-1: supported; wrote .build/soak-assurance/0000-00-00-soak"
+		"seconds": 472,
+		"tail": "campaign: 50000 of 50000 episodes with no violation, in 404 s; exit 0 ⏎ mutants: 48 of 48 killed, in 67 s; the test's exit 0 ⏎ H-1: supported; wrote .build/soak-assurance/0000-00-00-soak"
 	},
 	"notShown": "one window used for many hours: each suite run is a new process that lives for minutes, and the long-lived instance is idle",
 	"passed": true,
 	"sleepCheck": {
 		"method": "pmset -g log over the window, for Sleep, Wake and DarkWake entries",
-		"from": "2026-11-26T16:57:11Z",
-		"to": "2026-11-26T18:11:36Z",
+		"from": "2026-11-26T23:13:34Z",
+		"to": "2026-11-27T00:28:54Z",
 		"entries": 0,
 		"lid": "open (AppleClamshellState = No at the start)",
 		"power": "AC Power for the whole window, battery 100%, powermode 2 (Low Power Mode off)"

@@ -507,6 +507,14 @@ export class OnyxAgentLoop {
 					}
 				}
 			}
+			// A call in a code fence after prose is also the shape an example has: when the request asks for an example or
+			// for JSON, it is shown as the answer it is and not run (2026-11-26).
+			if (textToolCall?.fenced && toolUses.length === 0 && ASKS_FOR_AN_EXAMPLE.test(request.message)) {
+				const block = rawTurnText.slice(assistantText.length);
+				assistantText += block;
+				showText(block);
+				textToolCall = undefined;
+			}
 			if (textToolCall && toolUses.length === 0) {
 				run.activity({ kind: 'note', label: `Repaired a tool call the model wrote as text`, reason: textToolCall.name });
 				toolUses.push({ type: 'tool_use', name: textToolCall.name, toolCallId: `onyx_text_call_${turn}`, parameters: textToolCall.parameters });
@@ -528,6 +536,7 @@ export class OnyxAgentLoop {
 				}
 				// A reply that holds a tool call the harness did not run is not a finished answer: it ends as what it is.
 				const unexecuted = findUnexecutedToolCall(assistantText, tools.map(tool => tool.name));
+				this._closingNote(run, progress);
 				if (unexecuted) {
 					run.activity({ kind: 'note', label: localize('onyx.agent.unexecutedToolCall.note', "The model wrote a call to {0} as text, and it was not run", unexecuted), ok: false });
 					run.complete('failed');
@@ -577,6 +586,9 @@ export class OnyxAgentLoop {
 
 		// Out of turns is its own ending: the run did not finish, and nobody stopped it (B10).
 		const stopped = token.isCancellationRequested;
+		if (!stopped) {
+			this._closingNote(run, progress);
+		}
 		run.complete(stopped ? 'cancelled' : 'budget-exhausted');
 		return stopped ? {} : { errorDetails: { message: `Stopped after the maximum of ${maxTurns} agent turns.`, responseIsIncomplete: true } };
 	}
@@ -594,6 +606,21 @@ export class OnyxAgentLoop {
 	 * about them. Verification runs when a hunk is accepted, on the content
 	 * that was accepted (`OnyxVerificationService`).
 	 */
+	/**
+	 * The harness's own last word on what a run staged, in the chat: staged for review, not applied. The model's
+	 * answer may say the change "has been added" (2026-11-26); this line says what is so.
+	 */
+	private _closingNote(run: IOnyxRunHandle, progress: (parts: IChatProgress[]) => void): void {
+		const staged = this._changeSetService.files.get().filter(file => file.runId === run.runId).map(file => file.proposal.path);
+		if (staged.length === 0) {
+			return;
+		}
+		const files = staged.map(path => `\`${path}\``).join(', ');
+		progress([{ kind: 'markdownContent', content: new MarkdownString(`\n\n${staged.length === 1
+			? localize('onyx.agent.stagedNotApplied.one', "Staged for review, not applied: {0}. The file does not change until you accept the change in Onyx Changes.", files)
+			: localize('onyx.agent.stagedNotApplied', "Staged for review, not applied: {0}. These files do not change until you accept the changes in Onyx Changes.", files)}`) }]);
+	}
+
 	protected _reportVerification(run: IOnyxRunHandle, anyToolRan: boolean): void {
 		if (!anyToolRan) {
 			return;
@@ -863,6 +890,9 @@ export class OnyxAgentLoop {
 		return DEFAULT_PROFILE;
 	}
 }
+
+/** A request that asks for an example, or for JSON: a call written in a code fence is then shown, not run. */
+const ASKS_FOR_AN_EXAMPLE = /\b(examples?|samples?|json|schema|format)\b/i;
 
 /** The message the prompt builder adds for retrieved workspace context: background, and the first thing to go when room is short. */
 function isWorkspaceContext(message: IChatMessage): boolean {
