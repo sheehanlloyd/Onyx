@@ -67,17 +67,17 @@ ESLint fix, a Prettier format, GitLens blame) was not tested.
 ## Measured budgets (D8)
 
 Measurements on the reference machine (Apple M4 Pro, 24 GB, macOS 26.5.1), on the packaged build of
-`7b44eaa5c38`, 2026-11-26, on mains, with the owner's other applications open. They are what happened
+`5d07499ac2c`, 2026-11-27, on mains (a 13 W adapter), with the owner's other applications open. They are what happened
 there, not promises; on another Mac they will differ. Source and method:
 `docs/progress/production-readiness.md`, raw: `docs/progress/budgets.json`.
 
 | | Measured |
 |---|---|
-| Start to a usable window | median 1,011 ms (5 starts, 1,005 to 1,421) |
-| Idle CPU, all processes | mean 1.4% of one core over two minutes |
-| Idle memory, all processes (resident) | about 1,390 MB (on 2026-11-24 it moved between 650 and 1,370 MB within seconds) |
-| `qwen2.5-coder:7b`: first token cold, tokens a second | 2,741 ms (most of it loading the model), 50.8 |
-| `qwen2.5-coder:1.5b`: first token cold, tokens a second | 1,107 ms, 169.1 |
+| Start to a usable window | median 1,012 ms (5 starts, 1,008 to 1,428) |
+| Idle CPU, all processes | mean 1.5% of one core over two minutes |
+| Idle memory, all processes (resident) | about 1,350 MB (on 2026-11-24 it moved between 650 and 1,370 MB within seconds) |
+| `qwen2.5-coder:7b`: first token cold, tokens a second | 2,749 ms (most of it loading the model), 51.2 |
+| `qwen2.5-coder:1.5b`: first token cold, tokens a second | 1,127 ms, 169.0 |
 | Model memory in the runtime | 7B about 5.4 GB, 1.5B about 1.5 GB |
 
 ## Target alpha contract: tools

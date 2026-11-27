@@ -1,6 +1,6 @@
 # Production readiness (D8)
 
-Candidate: the packaged build of the tip of `followup-open-gaps` (the follow-up of 2026-11-26), built on the reference machine; the module gate ran on it (STATE.md names the revision). The soak, the budgets and the accessibility probe were taken on the build of `7b44eaa5c38`, whose application inputs are the candidate's (the later commits change only tests, records and documents; `candidate-evidence.mts` checks this). The egress audit below is the module gate's, on the candidate.
+Candidate: the packaged build of the tip of `records-after-edit-path` (the records taken again after sheehanlloyd/Onyx#9 and #10 changed the application), built on the reference machine; the module gate ran on it (STATE.md names the revision). The soak, the budgets and the accessibility probe were taken on the build of `5d07499ac2c`, whose application inputs are the candidate's (the later commits change only records and documents; `candidate-evidence.mts` checks this for the soak and the budgets). The egress audit below is the module gate's, on the candidate.
 
 **Summary.** The egress audit passed (R-60). The accessibility probe found no unnamed or unreachable control on any Onyx surface the suite opens. The budgets are measured and published as measurements. The open-source files are in place. Gitleaks found nothing. The one-hour soak passed on the candidate, after five earlier soaks that found the defects listed in its section. **This is not a clean bill of health:** the dependency audit found high-severity advisories in packages the application ships, all inherited from upstream 1.147.0 and none added by Onyx, and the final sweep therefore lists open P1 candidates that need the owner's decision under DEC-05.
 
@@ -39,11 +39,11 @@ Two product defaults were set for this rule (D1): extension update checks, auto-
 
 ## Stability: one-hour soak
 
-`node test/onyx/run-soak.mts --app ../VSCode-darwin-arm64/Onyx.app`, on the build of `7b44eaa5c38`, 2026-11-26, 16:57:11 to 18:11:35 UTC. Result in [soak.json](./soak.json): **passed**.
+`node test/onyx/run-soak.mts --app ../VSCode-darwin-arm64/Onyx.app`, on the build of `5d07499ac2c` (after the edit path and the staged-change note), 2026-11-26 23:14:06 to 2026-11-27 00:28:54 UTC. Result in [soak.json](./soak.json): **passed**.
 
-- **Power:** on mains (94 W) for the whole window, battery 100% at the start and at the end, Low Power Mode off (`powermode 2`, high power). The lid was open; `pmset -g log` has no Sleep, Wake or DarkWake entry in the window. No speed figure is taken from this run.
-- **Suite:** 8 runs of the end-to-end suite on the packaged app, back to back, beside a second, idle instance of the app, in 74.3 minutes: all 73 checks passed in every run. Nothing was left running after any run; no crash report was written.
-- **Memory:** the suite's renderer peaked between 670 and 912 MB a run, with no growth from run to run. The idle instance's renderer went from 546 MB to 186 MB over the hour.
+- **Power:** on mains for the whole window, battery 100% at the start and at the end, Low Power Mode off (`powermode 2`, high power). The lid was open; `pmset -g log` has no Sleep, Wake or DarkWake entry in the window. No speed figure is taken from this run.
+- **Suite:** 8 runs of the end-to-end suite on the packaged app, back to back, beside a second, idle instance of the app, in 74.8 minutes: all 75 checks passed in every run. Nothing was left running after any run; no crash report was written.
+- **Memory:** the suite's renderer peaked between 741 and 906 MB a run, with no growth from run to run (875 MB in the first, 765 MB in the last). The idle instance's renderer went from 558 MB to 229 MB over the hour.
 - **Campaign:** the full simulation campaign afterwards: 50,000 of 50,000 episodes with no violation, and 48 of 48 mutants detected.
 
 **The soaks before this one, and what each found.** None of their results is used here.
@@ -56,36 +56,37 @@ Two product defaults were set for this rule (D1): extension update checks, auto-
 | 2026-11-26 03:46 | `4eb52add73f` | failed | one of eight runs stopped: F1 left no visible Command Palette while a run streamed (the suite now waits for it, `ab948abdeb2`) |
 | 2026-11-26 05:11 | `0a8e3023a19` | failed | the campaign found a dialog that Stop did not close: the memory confirmation, after which a note could still be stored (fixed: `f0f059b0ccd`) |
 | 2026-11-26 06:36 | `f0f059b0ccd` | passed, replaced | the soak of the Module 5 candidate (72.6 minutes, 43 of 43 mutants); replaced because the follow-up changed the application |
+| 2026-11-26 16:57 | `7b44eaa5c38` | passed, replaced | the soak of the follow-up's candidate (74.3 minutes, 8 runs of 73 checks, 48 of 48 mutants); replaced because sheehanlloyd/Onyx#9 and #10 changed the application |
 
 ## Measured budgets
 
-`node test/onyx/run-budgets.mts --app … --runtime http://127.0.0.1:11500`, 2026-11-26, about 18:13 to 18:17 UTC, on the build of `7b44eaa5c38`, on mains (94 W, battery 100%), one-minute load 2.9 at the start and 3.1 at the end, no sleep in the window; a private Ollama 0.33.0 on that port, started for this and stopped after it. [budgets.json](./budgets.json). The owner's other applications were open, and swap use was 9.2 GB of 10.2 GB: this is the reference machine as it is used, not an idle one. Copied into `docs/SUPPORT.md` as measurements. It replaces the measurement on the build of `f0f059b0ccd` (7B 49.7 tokens a second, 1.5B 166.5), because the application changed.
+`node test/onyx/run-budgets.mts --app … --runtime http://127.0.0.1:11500`, 2026-11-27, 00:29:26 to 00:34:03 UTC, on the build of `5d07499ac2c`, on mains, battery 100% at the start and at the end, one-minute load 2.8 at the start and 2.1 at the end, no sleep in the window; a private Ollama 0.33.0 on that port, started for this and stopped after it. [budgets.json](./budgets.json). The adapter reported 13 W, where the run before reported 94 W; the battery stayed at 100% throughout, so the machine did not draw on it, but these figures were not taken on the higher-power adapter. The owner's other applications were open, and swap use was 9.2 GB of 10.2 GB: this is the reference machine as it is used, not an idle one. Copied into `docs/SUPPORT.md` as measurements. It replaces the measurement on the build of `7b44eaa5c38` (7B 50.8 tokens a second, 1.5B 169.1), because the application changed.
 
 | | `qwen2.5-coder:7b` | `qwen2.5-coder:1.5b` |
 |---|---|---|
-| First token, cold (model not loaded) | 2,741 ms (load 2,577 ms) | 1,107 ms (load 1,062 ms) |
-| First token, warm | 24 ms | 9 ms |
-| Tokens a second (median of 3) | 50.8 | 169.1 |
-| Model process resident memory | 5,358 MB | 1,480 MB |
+| First token, cold (model not loaded) | 2,749 ms (load 2,578 ms) | 1,127 ms (load 1,067 ms) |
+| First token, warm | 25 ms | 9 ms |
+| Tokens a second (median of 3) | 51.2 | 169.0 |
+| Model process resident memory | 5,361 MB | 1,481 MB |
 
 The warm first-token figure is for the same prompt sent again, whose prefix the runtime has cached; a new prompt of the same length waits for its evaluation. It is the floor, not the typical case.
 
 | Application | Measured |
 |---|---|
-| Start to a workbench with an editor area (fresh profile, files in the disk cache) | median 1,011 ms over 5 starts (1,005 to 1,421) |
-| Idle, two minutes after the first run, CPU (all processes, % of one core) | mean 1.4, highest sample 4.3 |
-| Idle, resident memory, all processes | median 1,389 MB (renderer 643 MB) |
-| One agent request with the 7B model ("add a multiplyNumbers function") | completed in 8 s with no proposal; application peak 1,082 MB, model process peak 5,424 MB |
+| Start to a workbench with an editor area (fresh profile, files in the disk cache) | median 1,012 ms over 5 starts (1,008 to 1,428) |
+| Idle, two minutes after the first run, CPU (all processes, % of one core) | mean 1.5, highest sample 4.6 |
+| Idle, resident memory, all processes | median 1,347 MB (renderer 609 MB) |
+| One agent request with the 7B model ("add a multiplyNumbers function") | completed in 8 s with no proposal; application peak 1,114 MB, model process peak 5,427 MB |
 
 Resident memory of an Electron application's processes moves a great deal on macOS (compression, the GPU process), so read those figures as a range on this machine, not a bound. An earlier attempt of this measurement had a filter that missed Ollama's runner process and reported 0 MB for it; the filter was fixed and the measurement taken again.
 
 ## Accessibility and keyboard
 
-The end-to-end suite drives every Onyx surface of the supported workflow by keyboard and by accessible names (Command Palette, the inline-edit widget, hunk keep and reject with Cmd+Enter and Cmd+Backspace, F7, the approval dialog, the Changes view, the diff editor). On top of that, an accessibility probe (`ONYX_E2E_A11Y_OUT`, in `test/onyx/run-e2e.mts`) ran during an end-to-end run of all 73 checks on the packaged build of `7b44eaa5c38` (2026-11-26, 16:48 to 16:56 UTC; it was first taken on `4eb52add73f`) and recorded ([accessibility-probe.json](./accessibility-probe.json)):
+The end-to-end suite drives every Onyx surface of the supported workflow by keyboard and by accessible names (Command Palette, the inline-edit widget, hunk keep and reject with Cmd+Enter and Cmd+Backspace, F7, the approval dialog, the Changes view, the diff editor). On top of that, an accessibility probe (`ONYX_E2E_A11Y_OUT`, in `test/onyx/run-e2e.mts`) ran during an end-to-end run of all 75 checks on the packaged build of `5d07499ac2c` (2026-11-27, 00:36 to 00:44 UTC; it was first taken on `4eb52add73f`, then on `7b44eaa5c38`) and recorded ([accessibility-probe.json](./accessibility-probe.json)):
 
-- the surfaces it looked at: the first-run dialog, 60 dialog appearances, the quick input, 15 inline proposals, the Onyx views (6,804 samples), and the title bar;
+- the surfaces it looked at: the first-run dialog, 61 dialog appearances, the quick input, 17 inline proposals, the Onyx views (7,101 samples), and the title bar;
 - **no interactive element without an accessible name, and none unreachable by keyboard**, after two false positives were taught to the probe (a toolbar separator with `role=presentation`; a radio group in upstream's onboarding that keeps one radio in the tab order, the standard pattern);
-- 289 announcements to the screen-reader live region, including the run status, "Staging an edit to src/math.ts", "Onyx staged edits to 1 file, pending your review", "Proposed, not yet in the file: hunk 1 of 1, Cmd+Enter keep, Cmd+Backspace reject", "Proposing command: …", "Command denied by the user", and "All staged edits discarded. No file was changed".
+- 303 announcements to the screen-reader live region, including the run status, "Staging an edit to src/math.ts", "Onyx staged edits to 1 file, pending your review", the closing line "Staged for review, not applied: src/math.ts. …", "Proposed, not yet in the file: hunk 1 of 1, Cmd+Enter keep, Cmd+Backspace reject", "Proposing command: …", "Command denied by the user", and "All staged edits discarded. No file was changed".
 
 What it does not establish: that the announcements are clear to a screen-reader user, that focus order is sensible everywhere, or that colour contrast meets a standard. Nobody has used Onyx with VoiceOver. That needs a person.
 

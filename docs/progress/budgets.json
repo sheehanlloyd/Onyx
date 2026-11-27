@@ -1,8 +1,8 @@
 {
-	"ranAt": "2026-11-26T18:17:18.246Z",
+	"ranAt": "2026-11-27T00:34:03.928Z",
 	"product": {
 		"nameShort": "Onyx",
-		"commit": "7b44eaa5c38721fb5d54f82ea79d3dc065f6129e"
+		"commit": "5d07499ac2c9284bc6bdd5ca28f52480c779c457"
 	},
 	"machine": {
 		"model": "Mac16,8",
@@ -17,25 +17,25 @@
 	"conditions": {
 		"before": {
 			"onMains": true,
-			"adapterWatts": 94,
+			"adapterWatts": 13,
 			"batteryPercent": 100,
 			"loadAverage": [
-				2.89,
-				3.54,
-				3.49
+				2.84,
+				3.36,
+				3.06
 			],
-			"swap": "total = 10240.00M  used = 9182.69M  free = 1057.31M  (encrypted)"
+			"swap": "total = 10240.00M  used = 9234.94M  free = 1005.06M  (encrypted)"
 		},
 		"after": {
 			"onMains": true,
-			"adapterWatts": 94,
+			"adapterWatts": 13,
 			"batteryPercent": 100,
 			"loadAverage": [
-				3.13,
-				3.29,
-				3.38
+				2.09,
+				2.88,
+				2.95
 			],
-			"swap": "total = 10240.00M  used = 9174.69M  free = 1065.31M  (encrypted)"
+			"swap": "total = 10240.00M  used = 9074.94M  free = 1165.06M  (encrypted)"
 		},
 		"busy": false,
 		"otherApplicationsOpen": "yes: the owner's applications were not closed; the load average above is what they cost"
@@ -43,24 +43,24 @@
 	"models": {
 		"qwen2.5-coder:7b": {
 			"digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
-			"coldFirstTokenMs": 2741,
-			"coldLoadMs": 2577,
+			"coldFirstTokenMs": 2749,
+			"coldLoadMs": 2578,
 			"warmFirstTokenMs": {
-				"median": 24,
+				"median": 25,
 				"best": 24,
 				"rounds": [
-					27,
-					24,
+					26,
+					25,
 					24
 				]
 			},
 			"tokensPerSecond": {
-				"median": 50.8,
-				"best": 50.8,
+				"median": 51.2,
+				"best": 51.2,
 				"rounds": [
-					50.7,
-					50.8,
-					50.8
+					51.2,
+					51.2,
+					51
 				]
 			},
 			"tokensGenerated": [
@@ -68,28 +68,28 @@
 				84,
 				84
 			],
-			"runtimeModelProcessMb": 5358
+			"runtimeModelProcessMb": 5361
 		},
 		"qwen2.5-coder:1.5b": {
 			"digest": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668",
-			"coldFirstTokenMs": 1107,
-			"coldLoadMs": 1062,
+			"coldFirstTokenMs": 1127,
+			"coldLoadMs": 1067,
 			"warmFirstTokenMs": {
 				"median": 9,
-				"best": 8,
+				"best": 9,
 				"rounds": [
-					10,
 					9,
-					8
+					9,
+					9
 				]
 			},
 			"tokensPerSecond": {
-				"median": 169.1,
-				"best": 170,
+				"median": 169,
+				"best": 170.1,
 				"rounds": [
-					170,
-					169.1,
-					168.8
+					170.1,
+					169,
+					168.9
 				]
 			},
 			"tokensGenerated": [
@@ -97,48 +97,48 @@
 				133,
 				133
 			],
-			"runtimeModelProcessMb": 1480
+			"runtimeModelProcessMb": 1481
 		}
 	},
 	"coldStartMs": {
 		"runs": [
-			1421,
-			1010,
-			1011,
-			1005,
-			1019
+			1428,
+			1008,
+			1012,
+			1036,
+			1012
 		],
-		"median": 1011,
-		"min": 1005,
-		"max": 1421,
+		"median": 1012,
+		"min": 1008,
+		"max": 1428,
 		"note": "each on a fresh profile; the application's files were already in the disk cache, so this is not a start after a reboot"
 	},
 	"idle": {
 		"seconds": 120,
 		"cpuPercentOfOneCore": {
-			"mean": 1.4,
-			"max": 4.3
+			"mean": 1.5,
+			"max": 4.6
 		},
 		"allProcessesMb": {
-			"median": 1389,
-			"max": 1389
+			"median": 1347,
+			"max": 1348
 		},
 		"rendererMb": {
-			"median": 643,
-			"max": 644
+			"median": 609,
+			"max": 610
 		},
 		"processes": 8
 	},
 	"agentRun": {
 		"prompt": "Read src/math.ts and add a multiplyNumbers function next to addNumbers.",
 		"model": "onyx:127.0.0.1:11500/qwen2.5-coder:7b",
-		"applicationMbBefore": 1082,
+		"applicationMbBefore": 1114,
 		"seconds": 8,
 		"endedAs": "completed",
 		"filesWithAProposal": 0,
-		"applicationPeakMb": 1082,
-		"rendererPeakMb": 445,
-		"runtimeModelProcessPeakMb": 5424
+		"applicationPeakMb": 1114,
+		"rendererPeakMb": 447,
+		"runtimeModelProcessPeakMb": 5427
 	},
 	"passed": true
 }
