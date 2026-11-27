@@ -6,7 +6,7 @@ Candidate: the packaged build of the tip of `records-after-edit-path` (the recor
 
 ## Egress audit (R-60)
 
-The module gate's R-60 on the candidate, `node test/onyx/run-egress-audit.mts --app ../VSCode-darwin-arm64/Onyx.app --json-out .build/gate-5/egress-audit.json`, on the follow-up's candidate `05a3fa30460`, 2026-11-26, 19:01:36 to 19:21:08 UTC, copied to [egress-audit.json](./egress-audit.json): **passed**. The table is from the first audit, on the build of `4eb52add73f` on 2026-11-24; the candidate's differs only in counts: the suite had 73 checks, and in the asked phase Open VSX's file host had 6 connections. Each phase found no direct connection to a non-loopback address.
+The module gate's R-60 on the candidate, `node test/onyx/run-egress-audit.mts --app ../VSCode-darwin-arm64/Onyx.app --json-out .build/gate-5/egress-audit.json`, on the candidate `737726befcb`, 2026-11-27, 01:31:00 to 01:50:34 UTC, copied to [egress-audit.json](./egress-audit.json): **passed**. The table is from the first audit, on the build of `4eb52add73f` on 2026-11-24; the candidate's differs only in counts: the suite had 75 checks, and in the asked phase Open VSX's file host had 5 connections. Each phase found no direct connection to a non-loopback address.
 
 | Phase | What happened | Hosts reached outside this machine |
 |---|---|---|
